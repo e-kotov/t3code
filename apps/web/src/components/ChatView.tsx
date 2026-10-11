@@ -1,3 +1,4 @@
+import { CacheHud } from "./chat/CacheHud";
 import { ThreadFind, ThreadFindCanvas, type ThreadFindControls } from "./chat/ThreadFindProvider";
 import { THREAD_FIND_BAR_RESERVED_HEIGHT } from "./chat/ThreadFindBar";
 import { usageLimitRecoveryBannerItem } from "./chat/UsageLimitRecoveryBanner";
@@ -3623,6 +3624,7 @@ export default function ChatView(props: ChatViewProps) {
     isConnecting ||
     isCompacting ||
     runlessWorkStartedAt !== null;
+  const activeCacheHud = activeThreadShell?.cacheHud;
   const activeContextWindow = useMemo(
     () =>
       deriveLatestContextWindowSnapshot(
@@ -11697,6 +11699,7 @@ export default function ChatView(props: ChatViewProps) {
                               }
                             />
                           ) : null}
+                          {composerMounted ? <CacheHud hud={activeCacheHud} /> : null}
                           {!composerMounted ? null : (
                             <ChatComposer
                               canOperateThread={canOperateThread}

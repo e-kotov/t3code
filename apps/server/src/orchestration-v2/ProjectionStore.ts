@@ -1,3 +1,9 @@
+import {
+  ModelSelection,
+  ProviderDriverKind,
+  OrchestrationV2ProviderTurnTokenUsage,
+} from "@t3tools/contracts";
+import { deriveCacheHud } from "@t3tools/shared/cacheHud";
 import { projectTurnItemForWire } from "./WireProjection.ts";
 import * as Stream from "effect/Stream";
 import { makeThreadFind, findProjectedThreadItems } from "./ThreadFind.ts";
@@ -1483,6 +1489,20 @@ export function threadShellFromProjection(
     lineage: projection.thread.lineage,
     forkedFrom: projection.thread.forkedFrom,
     activeProviderThreadId: projection.thread.activeProviderThreadId,
+    cacheHud: (() => {
+      const provider = projection.providerThreads.find(
+        (entry) => entry.id === projection.thread.activeProviderThreadId,
+      );
+      return provider
+        ? deriveCacheHud(
+            provider.driver,
+            projection.providerTurns
+              .filter((turn) => turn.providerThreadId === provider.id)
+              .flatMap((turn) => (turn.tokenUsage ? [turn.tokenUsage] : [])),
+            projection.thread.modelSelection,
+          )
+        : null;
+    })(),
     ...(projection.thread.historyOrigin === undefined
       ? {}
       : { historyOrigin: projection.thread.historyOrigin }),
@@ -5388,6 +5408,55 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
             WHERE thread_id IN ${sql.in(threadIds)}
           `;
 
+    // Only token metadata from a bounded recent window crosses into the shell.
+    // The active provider thread prevents stale clocks after forks/switches.
+    const cacheHudsForThreads = (threadIds: ReadonlyArray<ThreadId>) =>
+      Effect.gen(function* () {
+        const result = new Map<ThreadId, ReturnType<typeof deriveCacheHud>>();
+        if (threadIds.length === 0) return result;
+        const rows = yield* sql<{
+          thread_id: string;
+          driver: string;
+          model_json: string;
+          usage_json: string;
+        }>`
+          SELECT t.thread_id, p.driver,
+            json_extract(t.payload_json, '$.modelSelection') AS model_json,
+            json_extract(u.payload_json, '$.tokenUsage') AS usage_json
+          FROM orchestration_v2_projection_threads t
+          JOIN orchestration_v2_projection_provider_threads p
+            ON p.provider_thread_id = t.active_provider_thread_id
+          JOIN orchestration_v2_projection_provider_turns u ON u.provider_turn_id IN (
+            SELECT recent.provider_turn_id
+            FROM orchestration_v2_projection_provider_turns recent
+            WHERE recent.provider_thread_id = p.provider_thread_id
+              AND json_extract(recent.payload_json, '$.tokenUsage') IS NOT NULL
+            ORDER BY recent.ordinal DESC LIMIT 64
+          )
+          WHERE t.thread_id IN ${sql.in(threadIds)}
+        `;
+        const groups = new Map<string, (typeof rows)[number][]>();
+        for (const row of rows) {
+          const group = groups.get(row.thread_id) ?? [];
+          group.push(row);
+          groups.set(row.thread_id, group);
+        }
+        for (const [id, group] of groups) {
+          const first = group[0]!;
+          const driver = yield* Schema.decodeUnknownEffect(ProviderDriverKind)(first.driver);
+          const model = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(ModelSelection))(
+            first.model_json,
+          );
+          const reports = yield* Effect.forEach(group, (row) =>
+            Schema.decodeUnknownEffect(
+              Schema.fromJsonString(OrchestrationV2ProviderTurnTokenUsage),
+            )(row.usage_json),
+          );
+          result.set(ThreadId.make(id), deriveCacheHud(driver, reports, model));
+        }
+        return result;
+      });
+
     const selectShellPendingTurnItemRows = (threadIds?: ReadonlyArray<ThreadId>) =>
       threadIds === undefined
         ? sql<PayloadRow & { readonly thread_id: string }>`
@@ -5800,6 +5869,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
             readForThreadIds(selectShellPendingTurnItemRows),
           ]);
         return {
+          cacheHuds: yield* cacheHudsForThreads([...targetThreadIds]),
           targetThreadIds,
           threadRows,
           runRows,
@@ -5811,6 +5881,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
       });
 
     const decodeShellSnapshot = ({
+      cacheHuds,
       targetThreadIds,
       threadRows,
       runRows,
@@ -5839,15 +5910,16 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
 
         const shells = states
           .filter((state) => targetThreadIds.has(state.thread.id))
-          .map((state) =>
-            shellFromState({
+          .map((state) => ({
+            ...shellFromState({
               state,
               visibleItemCount: visibleItemCountForShell({
                 threadId: state.thread.id,
                 statesByThreadId,
               }),
             }),
-          );
+            cacheHud: cacheHuds.get(state.thread.id) ?? null,
+          }));
 
         return {
           schemaVersion: ORCHESTRATION_V2_PROJECTION_SCHEMA_VERSION,
@@ -5930,10 +6002,14 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
             if (state === undefined) {
               return null;
             }
-            return shellFromState({
-              state,
-              visibleItemCount: visibleItemCountForShell({ threadId, statesByThreadId }),
-            });
+            const cacheHuds = yield* cacheHudsForThreads([threadId]);
+            return {
+              ...shellFromState({
+                state,
+                visibleItemCount: visibleItemCountForShell({ threadId, statesByThreadId }),
+              }),
+              cacheHud: cacheHuds.get(threadId) ?? null,
+            };
           }),
         )
         .pipe(Effect.mapError((cause) => new ProjectionStoreReadError({ threadId, cause })));

@@ -148,3 +148,22 @@ Use `Ctrl+Shift+1/2/3/4` (`Cmd+Shift+1/2/3/4` on macOS) for the past
 24 hours, 7 days, 30 days, or 90 days. Period shortcuts do nothing on Limits.
 Press `Escape` to return to the previous page. Customize these shortcuts in
 **Settings → Keybindings**.
+
+## Cache and context HUD in T3 Code EK
+
+Conversations with provider token reports show a Herdr-style summary, for example
+`~11:41 99% ⇣95.4k · Context 102k/200k`. The arrow counts tokens read from cache
+in the last request; the percentage is that request's cached share of input.
+Tap or click the conversation HUD for exact counts and context percentage.
+On Android it is below the conversation header; on web and Mac it is above the
+composer. Conversation lists show a compact copy. No legacy setting is required.
+
+The countdown estimates freshness. Claude uses its reported cache lifetime;
+Codex starts at 30 minutes and may shorten the estimate after repeated comparable
+misses in this conversation. Prefix changes, model switches and eviction can make
+a cache cold earlier. `⏰` marks the final five minutes and `❄` marks a miss or
+elapsed estimate. Other providers show token counts when reported and `?` for
+unknown lifetime. Context is the latest provider report, not a sum of all turns.
+
+Install the fork server as well as the client to receive this HUD on remote
+connections. Upstream servers continue to connect but do not send the summary.
