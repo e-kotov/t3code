@@ -170,6 +170,9 @@ jobs:
       T3CODE_FORK_VERSION: ${{ needs.prepare.outputs.version }}
       T3CODE_FORK_VERSION_CODE: ${{ github.run_number }}
       T3CODE_MOBILE_UPDATES_ENABLED: "0"
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: 3G
     steps:
       - name: Checkout release commit without vendored gitlinks
         env:
@@ -186,6 +189,24 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - name: Cache Gradle dependencies and task outputs
+        uses: gradle/actions/setup-gradle@4c125117fe7c5aed11272ec4213f602f012f89f2 # v5
+        with:
+          cache-read-only: false
+      - name: Install the native compiler cache
+        id: ccache_install
+        run: |
+          sudo apt-get update && sudo apt-get install -y ccache
+          echo "CCACHE_DIR=$RUNNER_TEMP/t3-android-ccache" >> "$GITHUB_ENV"
+      - name: Restore native compiler results
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ runner.temp }}/t3-android-ccache
+          key: android-ccache-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            android-ccache-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            android-ccache-v1-${{ runner.os }}-${{ runner.arch }}-
+      - run: ccache --zero-stats
       - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
         with:
           node-version-file: package.json
@@ -203,7 +224,10 @@ jobs:
       - run: vp exec --filter @t3tools/mobile -- expo prebuild --clean --platform android --no-install
       - name: Build a standalone release APK
         working-directory: apps/mobile/android
-        run: ./gradlew assembleRelease --no-daemon --max-workers=2
+        run: ./gradlew assembleRelease --build-cache --no-daemon --max-workers=2
+      - name: Report native compiler cache hits
+        if: always() && steps.ccache_install.outcome == 'success'
+        run: ccache --show-stats | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Sign APK with the fork key
         env:
           KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}

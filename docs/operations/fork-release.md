@@ -38,3 +38,19 @@ The APK's versionCode is the workflow run number. Do not move release building
 to a new workflow without maintaining a higher versionCode than installed APKs.
 Apple signing/notarization and iOS distribution require separate credentials;
 iOS is outside this Mac/Android/GWDG release workflow.
+
+## Android build caching
+
+Android uses the Gradle action to retain dependency downloads, transformed JARs
+and the local task-output build cache. `--build-cache` enables reuse of cacheable
+task outputs. A separate 3 GB ccache retains C/C++ compiler results; the installed
+React Native CMake files detect ccache automatically. Each build prints ccache
+hit/miss statistics in its job summary. Compiler contents and source inputs are
+validated by ccache, including when a fallback key restores an older entry.
+
+The first cache-enabled run is still cold. For the most reusable cache, dispatch
+release builds from `main`: GitHub exposes default-branch caches to later tag
+builds, while a cache created only on one release tag is not shared with other
+tags. The pipeline still regenerates Android with Expo prebuild; it retains
+compiled results outside that generated directory. Actual warm-run timings must
+be measured after a successful cache-producing build.
