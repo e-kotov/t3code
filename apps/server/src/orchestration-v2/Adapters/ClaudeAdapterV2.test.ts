@@ -894,6 +894,8 @@ describe("ClaudeAdapterV2 context usage", () => {
     );
 
     assert.deepEqual(usage, {
+      cacheScopeKey: `${CLAUDE_TEST_MODEL_SELECTION.instanceId}:${CLAUDE_TEST_MODEL_SELECTION.model}`,
+      cacheCreationTokens: 2_000,
       usedTokens: 50_000,
       maxTokens: 200_000,
       inputTokens: 49_000,
