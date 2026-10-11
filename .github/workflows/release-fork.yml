@@ -289,7 +289,7 @@ jobs:
           # Each architecture emits a latest-mac.yml with the same name. Manual
           # installers are released until a merged fork updater feed is added.
           find . -name '*.yml' -delete
-          sha256sum * > SHA256SUMS
+          sha256sum -- * > SHA256SUMS
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: release-installers
