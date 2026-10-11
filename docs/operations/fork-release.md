@@ -31,6 +31,12 @@ that changes workflow files. Missing or mismatched tags fail before compilation.
 Every platform must build
 successfully before publication. Use a new version for every published release.
 
+If publication fails after installers were collected, dispatch **Publish existing
+fork installers** with the original run ID and version. It verifies the tag's
+commit against the build, downloads `release-installers`, checks every SHA-256,
+and publishes without recompiling. Publication verifies the existing tag rather
+than asking the workflow token to create one with a target commit.
+
 ## Android signing
 
 The repository needs three encrypted Actions secrets: `ANDROID_KEYSTORE_BASE64`,
