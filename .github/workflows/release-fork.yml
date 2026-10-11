@@ -236,7 +236,7 @@ jobs:
       - run: vp exec --filter @t3tools/mobile -- expo prebuild --clean --platform android --no-install
       - name: Build a standalone release APK
         working-directory: apps/mobile/android
-        run: ./gradlew assembleRelease --build-cache --no-daemon --max-workers=2
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --build-cache --no-daemon --max-workers=2
       - name: Report native compiler cache hits
         if: always() && steps.ccache_install.outcome == 'success'
         run: ccache --show-stats | tee -a "$GITHUB_STEP_SUMMARY"
@@ -258,8 +258,8 @@ jobs:
           "$build_tools/zipalign" -f -p 4 "$apk" "$RUNNER_TEMP/aligned.apk"
           "$build_tools/apksigner" sign --ks "$keystore" --ks-key-alias t3code-ek \
             --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD \
-            --out "release-android/T3-Code-EK-$RELEASE_VERSION.apk" "$RUNNER_TEMP/aligned.apk"
-          "$build_tools/apksigner" verify "release-android/T3-Code-EK-$RELEASE_VERSION.apk"
+            --out "release-android/T3-Code-EK-$RELEASE_VERSION-arm64.apk" "$RUNNER_TEMP/aligned.apk"
+          "$build_tools/apksigner" verify "release-android/T3-Code-EK-$RELEASE_VERSION-arm64.apk"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: fork-android

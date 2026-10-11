@@ -8,7 +8,9 @@ publishing account is required.
 
 - Mac Apple Silicon and Intel: DMG and ZIP. Builds are unsigned/not notarized;
   macOS may require approval in Privacy & Security on first launch.
-- Android: standalone signed APK, package `pro.ekotov.t3code`, labelled T3 Code EK.
+- Android: standalone signed ARM64 APK (`-arm64.apk`), package `pro.ekotov.t3code`,
+  labelled T3 Code EK. Targets ARM64 phones including Galaxy S23+; x86 emulators
+  and 32-bit phones are excluded. Only ARM64 native code is compiled.
   It installs alongside upstream. Pair the fork app with your existing server;
   upstream app data is not automatically transferred. Expo OTA updates are disabled.
 - Linux x64: `t3-VERSION-linux-x64.tar.gz`, including the executable, native
@@ -36,6 +38,12 @@ fork installers** with the original run ID and version. It verifies the tag's
 commit against the build, downloads `release-installers`, checks every SHA-256,
 and publishes without recompiling. Publication verifies the existing tag rather
 than asking the workflow token to create one with a target commit.
+
+For an older universal APK, **Slim existing Android APK to ARM64** removes the
+other three native architectures and signs with the same fork key. It checks
+source checksums, matching signing certificates, alignment and ARM64-only
+libraries, then adds `-arm64.apk` and `SHA256SUMS-arm64` to the existing release.
+Version/package/data remain compatible; use `SHA256SUMS-arm64` for this added APK.
 
 ## Android signing
 
