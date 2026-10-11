@@ -64,6 +64,7 @@ import {
   type OrchestrationV2ProviderSession,
   type OrchestrationV2ProviderThread,
   type OrchestrationV2ProviderTurn,
+  type OrchestrationV2ProviderTurnTokenUsage,
   type OrchestrationV2RuntimeRequest,
   type OrchestrationV2UserInputQuestion,
   type OrchestrationV2Subagent,
@@ -199,14 +200,19 @@ export function claudeProviderTurnTokenUsage(
   },
   modelSelection: ModelSelection,
   updatedAt: string,
-) {
+  knownPromptCacheTtlMs?: number,
+): OrchestrationV2ProviderTurnTokenUsage {
   const inputTokens =
     usage.input_tokens +
     (usage.cache_creation_input_tokens ?? 0) +
     (usage.cache_read_input_tokens ?? 0);
   const outputTokens = usage.output_tokens;
-  const promptCacheTtlMs = claudePromptCacheTtlMs(usage.cache_creation);
+  const promptCacheTtlMs =
+    claudePromptCacheTtlMs(usage.cache_creation) ??
+    ((usage.cache_read_input_tokens ?? 0) > 0 ? knownPromptCacheTtlMs : undefined);
   return {
+    cacheScopeKey: `${modelSelection.instanceId}:${modelSelection.model}`,
+    cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
     usedTokens: inputTokens + outputTokens,
     maxTokens: claudeContextWindow(modelSelection),
     inputTokens,
@@ -2991,6 +2997,7 @@ interface ClaudeLiveQueryContext {
   permissionMode: PermissionMode;
   // Stop, rollback or fork is closing this process; its work is ending.
   stopping: boolean;
+  promptCacheTtlMs?: number;
   // Registry entries still running when this process opened. Their process
   // is gone and never reports their end; any later task_started replaces the
   // entry, so an entry still in this set runs nowhere.
@@ -6940,6 +6947,16 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               message.message.usage !== undefined &&
               message.message.model !== "<synthetic>"
             ) {
+              const liveQuery = yield* Ref.get(queryContext);
+              const tokenUsage = claudeProviderTurnTokenUsage(
+                message.message.usage,
+                context.input.modelSelection,
+                DateTime.formatIso(now),
+                liveQuery?.promptCacheTtlMs,
+              );
+              if (liveQuery !== null && tokenUsage.promptCacheTtlMs !== undefined) {
+                liveQuery.promptCacheTtlMs = tokenUsage.promptCacheTtlMs;
+              }
               yield* emitProviderEvent({
                 type: "provider_turn.updated",
                 driver: CLAUDE_PROVIDER,
@@ -6958,11 +6975,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                   status: "running",
                   startedAt: context.startedAt,
                   completedAt: null,
-                  tokenUsage: claudeProviderTurnTokenUsage(
-                    message.message.usage,
-                    context.input.modelSelection,
-                    DateTime.formatIso(now),
-                  ),
+                  tokenUsage,
                 },
               });
             }

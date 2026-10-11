@@ -2,15 +2,15 @@ name: Fork release
 
 on:
   push:
-    tags: ['v*-ek.*']
+    tags: ["v*-ek.*"]
   workflow_dispatch:
     inputs:
       version:
-        description: 'Fork version, for example 0.0.45-ek.1 (without v)'
+        description: "Fork version, for example 0.0.45-ek.1 (without v)"
         required: true
         type: string
       publish:
-        description: 'Publish a GitHub release after every build succeeds'
+        description: "Publish a GitHub release after every build succeeds"
         default: false
         type: boolean
 
@@ -51,7 +51,7 @@ jobs:
       - name: Checkout release commit without vendored gitlinks
         env:
           RELEASE_REF: ${{ github.sha }}
-          GIT_TERMINAL_PROMPT: '0'
+          GIT_TERMINAL_PROMPT: "0"
         run: |
           set -euo pipefail
           git init .
@@ -69,6 +69,7 @@ jobs:
       - run: node scripts/update-release-package-versions.ts "$RELEASE_VERSION"
         env:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      - run: vp run --concurrency-limit 2 --filter @t3tools/contracts --filter @t3tools/shared --filter @t3tools/client-runtime --filter @t3tools/web --filter ./apps/server typecheck
       - run: vp run build:desktop
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
@@ -106,10 +107,10 @@ jobs:
       ref: ${{ github.sha }}
       release_channel: stable
       relay_client_tracing: false
-      clerk_publishable_key: ''
-      clerk_jwt_template: ''
-      clerk_cli_oauth_client_id: ''
-      relay_url: ''
+      clerk_publishable_key: ""
+      clerk_jwt_template: ""
+      clerk_cli_oauth_client_id: ""
+      relay_url: ""
 
   linux_server:
     needs: [prepare, bundle]
@@ -119,7 +120,7 @@ jobs:
       - name: Checkout release commit without vendored gitlinks
         env:
           RELEASE_REF: ${{ github.sha }}
-          GIT_TERMINAL_PROMPT: '0'
+          GIT_TERMINAL_PROMPT: "0"
         run: |
           set -euo pipefail
           git init .
@@ -149,7 +150,7 @@ jobs:
           cp native/resource-monitor/target/release/t3-resource-monitor apps/server/dist/resource-monitor/linux-x64/
       - run: node apps/server/scripts/cli.ts build-exe --verbose
         env:
-          VP_NODE_VERSION: '26.8.2'
+          VP_NODE_VERSION: "26.8.2"
       - run: node scripts/build-cli-archive.ts --platform linux --arch x64 --version "$RELEASE_VERSION" --output-dir release-cli
         env:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
@@ -165,15 +166,15 @@ jobs:
     timeout-minutes: 90
     env:
       APP_VARIANT: production
-      T3CODE_FORK_BUILD: '1'
+      T3CODE_FORK_BUILD: "1"
       T3CODE_FORK_VERSION: ${{ needs.prepare.outputs.version }}
       T3CODE_FORK_VERSION_CODE: ${{ github.run_number }}
-      T3CODE_MOBILE_UPDATES_ENABLED: '0'
+      T3CODE_MOBILE_UPDATES_ENABLED: "0"
     steps:
       - name: Checkout release commit without vendored gitlinks
         env:
           RELEASE_REF: ${{ github.sha }}
-          GIT_TERMINAL_PROMPT: '0'
+          GIT_TERMINAL_PROMPT: "0"
         run: |
           set -euo pipefail
           git init .
@@ -184,7 +185,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
       - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
         with:
           node-version-file: package.json
@@ -198,6 +199,7 @@ jobs:
         run: |
           [[ -n "$KEYSTORE" && -n "$STORE_PASSWORD" && -n "$KEY_PASSWORD" ]] || { echo 'Configure the Android release signing secrets.'; exit 1; }
       - run: vp install --filter=@t3tools/mobile...
+      - run: vp run --filter @t3tools/mobile typecheck
       - run: vp exec --filter @t3tools/mobile -- expo prebuild --clean --platform android --no-install
       - name: Build a standalone release APK
         working-directory: apps/mobile/android
@@ -269,7 +271,8 @@ jobs:
           Fork installers for Mac (Apple Silicon / Intel), Android, and Linux x64 server (with web UI).
           Mac builds are not notarized. Android uses the fork's own signing key and package ID.
           Direct SSH/Tailscale pairing works without upstream cloud configuration. Upstream Expo updates are disabled.
-          Verify downloaded assets against SHA256SUMS. Cache-display integration is not included in this first infrastructure release.
+          Herdr-style cache/context HUD on Mac, web and Android: estimated countdown, last-request cache hit percentage, cached tokens and context used/max. Claude reported lifetime and Codex estimates are distinguished. Install this Linux server too for the HUD on remote connections.
+          Verify downloaded assets against SHA256SUMS.
           NOTES
           gh release create "$RELEASE_TAG" assets/* --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" --title "T3 Code EK $RELEASE_VERSION" \

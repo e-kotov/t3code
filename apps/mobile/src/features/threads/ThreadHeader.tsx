@@ -1,3 +1,5 @@
+import { CacheHud } from "./CacheHud";
+import type { OrchestrationV2CacheHud } from "@t3tools/contracts";
 import { StackActions, useNavigation } from "@react-navigation/native";
 import { useMemo } from "react";
 import { ScreenHeader } from "../../components/ScreenHeader";
@@ -9,6 +11,7 @@ import { useThreadHeaderOptions } from "./useThreadHeaderOptions";
 
 export function ThreadHeader(
   props: Parameters<typeof useThreadHeaderOptions>[0] & {
+    readonly cacheHud?: OrchestrationV2CacheHud | null;
     readonly hasThreadCwd: boolean;
     readonly hasWorkspaceRoot: boolean;
     readonly fileInspectorSupported: boolean;
@@ -109,6 +112,7 @@ export function ThreadHeader(
         actions={androidHeaderActions}
         hideBottomBorder
       />
+      <CacheHud hud={props.cacheHud} />
       {native.fallback}
     </>
   );

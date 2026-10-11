@@ -1059,6 +1059,8 @@ export const OrchestrationV2ProviderTurnTokenUsage = Schema.Struct({
   maxTokens: Schema.optional(Schema.NullOr(NonNegativeInt)),
   inputTokens: Schema.optional(NonNegativeInt),
   cachedInputTokens: Schema.optional(NonNegativeInt),
+  cacheCreationTokens: Schema.optional(NonNegativeInt),
+  cacheScopeKey: Schema.optional(Schema.String),
   outputTokens: Schema.optional(NonNegativeInt),
   reasoningOutputTokens: Schema.optional(NonNegativeInt),
   /** Prompt cache lifetime the provider wrote with this report. Clients treat
@@ -1069,6 +1071,14 @@ export const OrchestrationV2ProviderTurnTokenUsage = Schema.Struct({
 });
 export type OrchestrationV2ProviderTurnTokenUsage =
   typeof OrchestrationV2ProviderTurnTokenUsage.Type;
+
+export const OrchestrationV2CacheHud = Schema.Struct({
+  driver: ProviderDriverKind,
+  usage: OrchestrationV2ProviderTurnTokenUsage,
+  ttlMs: Schema.optional(PositiveInt),
+  basis: Schema.Literals(["reported", "estimated", "unknown"]),
+});
+export type OrchestrationV2CacheHud = typeof OrchestrationV2CacheHud.Type;
 
 export const OrchestrationV2ProviderTurn = Schema.Struct({
   id: ProviderTurnId,
@@ -1925,6 +1935,7 @@ export type OrchestrationV2LatestVisibleMessageSummary =
   typeof OrchestrationV2LatestVisibleMessageSummary.Type;
 
 export const OrchestrationV2ThreadShell = Schema.Struct({
+  cacheHud: Schema.optional(Schema.NullOr(OrchestrationV2CacheHud)),
   ...OrchestrationV2CreationFields,
   id: ThreadId,
   projectId: ProjectId,

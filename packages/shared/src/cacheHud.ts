@@ -1,0 +1,115 @@
+import type {
+  ModelSelection,
+  OrchestrationV2CacheHud,
+  OrchestrationV2ProviderTurnTokenUsage,
+  ProviderDriverKind,
+} from "@t3tools/contracts";
+
+const CODEX_BASELINE_MS = 30 * 60_000;
+
+/** Port of Herdr's conservative Codex policy: only shorten after three
+ * comparable observed misses; neither elapsed time nor a hit proves retention. */
+function estimatedCodexLifetime(reports: ReadonlyArray<OrchestrationV2ProviderTurnTokenUsage>) {
+  const observations: number[] = [];
+  let hit: OrchestrationV2ProviderTurnTokenUsage | undefined;
+  for (const report of reports) {
+    if ((report.cachedInputTokens ?? 0) > 0) {
+      hit = report;
+    } else if (hit && (report.inputTokens ?? 0) >= 1024) {
+      const elapsed = Date.parse(report.updatedAt) - Date.parse(hit.updatedAt);
+      if (
+        elapsed >= 60_000 &&
+        elapsed < CODEX_BASELINE_MS &&
+        report.cacheScopeKey !== undefined &&
+        report.cacheScopeKey === hit.cacheScopeKey &&
+        report.usedTokens >= hit.usedTokens * 0.9
+      )
+        observations.push(elapsed);
+      hit = undefined;
+    }
+  }
+  if (observations.length < 3) return CODEX_BASELINE_MS;
+  const sorted = observations.slice(-25).sort((a, b) => a - b);
+  const trim = sorted.length >= 5 ? Math.floor(sorted.length * 0.1) : 0;
+  const inliers = sorted.slice(trim, sorted.length - trim);
+  return Math.min(
+    CODEX_BASELINE_MS,
+    Math.floor(inliers.reduce((sum, n) => sum + n, 0) / inliers.length),
+  );
+}
+
+/** Derive one compact server-owned summary, not transcript data, for every client. */
+export function deriveCacheHud(
+  driver: ProviderDriverKind,
+  reports: ReadonlyArray<OrchestrationV2ProviderTurnTokenUsage>,
+  modelSelection: ModelSelection,
+): OrchestrationV2CacheHud | null {
+  const scope = `${modelSelection.instanceId}:${modelSelection.model}`;
+  const meaningful = [...reports]
+    .sort((a, b) => Date.parse(a.updatedAt) - Date.parse(b.updatedAt))
+    .slice(-64)
+    .filter(
+      (report) =>
+        Number.isFinite(Date.parse(report.updatedAt)) &&
+        (report.cacheScopeKey === undefined || report.cacheScopeKey === scope) &&
+        ((report.inputTokens ?? 0) > 0 ||
+          (report.cachedInputTokens ?? 0) > 0 ||
+          (report.cacheCreationTokens ?? 0) > 0 ||
+          (report.inputTokens === undefined && report.usedTokens > 0)),
+    );
+  const usage = meaningful.at(-1);
+  if (!usage) return null;
+  if (driver === "claudeAgent") {
+    // A cache-only read refreshes the lifetime previously written by this
+    // provider thread. Persisted reports retain it across process restarts.
+    const reported = meaningful.findLast(
+      (report) => report.promptCacheTtlMs !== undefined,
+    )?.promptCacheTtlMs;
+    return reported === undefined
+      ? { driver, usage, basis: "unknown" }
+      : { driver, usage, ttlMs: reported, basis: "reported" };
+  }
+  if (driver === "codex")
+    return { driver, usage, ttlMs: estimatedCodexLifetime(meaningful), basis: "estimated" };
+  return { driver, usage, basis: "unknown" };
+}
+
+export function formatHudTokens(value: number) {
+  if (value < 1000) return String(Math.round(value));
+  if (value < 1_000_000) return `${(value / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+  return `${(value / 1_000_000).toFixed(1).replace(/\.0$/, "")}m`;
+}
+
+export function presentCacheHud(hud: OrchestrationV2CacheHud, nowMs: number) {
+  const { usage } = hud;
+  const cached = usage.cachedInputTokens;
+  const remainingMs =
+    hud.ttlMs === undefined ? null : Math.max(0, Date.parse(usage.updatedAt) + hud.ttlMs - nowMs);
+  const observedCold = cached === 0 && (usage.cacheCreationTokens ?? 0) === 0;
+  const state =
+    observedCold || remainingMs === 0
+      ? "cold"
+      : remainingMs === null || (cached === undefined && !usage.cacheCreationTokens)
+        ? "unknown"
+        : remainingMs <= 300_000
+          ? "expiring"
+          : "hot";
+  const percentage =
+    usage.inputTokens && cached !== undefined
+      ? Math.min(100, Math.round((cached / usage.inputTokens) * 100))
+      : null;
+  const seconds = remainingMs === null ? 0 : Math.ceil(remainingMs / 1000);
+  const clock = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  const tokens = cached === undefined ? "⇣?" : `⇣${formatHudTokens(cached)}`;
+  const cacheText =
+    state === "cold"
+      ? `❄ ${tokens}`
+      : state === "unknown"
+        ? `? ${percentage === null ? "" : `${percentage}% `}${tokens}`
+        : `${state === "expiring" ? "⏰ " : ""}~${clock} ${percentage === null ? "" : `${percentage}% `}${tokens}`;
+  const max = usage.maxTokens;
+  const contextText = `Context ${formatHudTokens(usage.usedTokens)}/${max ? formatHudTokens(max) : "?"}`;
+  const contextPercentage = max ? Math.min(100, Math.round((usage.usedTokens / max) * 100)) : null;
+  const description = `Context tokens: ${usage.usedTokens}/${max ?? "unknown"}${contextPercentage === null ? "" : ` (${contextPercentage}%)`}. Last-request cached tokens: ${cached ?? "unknown"}${percentage === null ? "" : ` (${percentage}%)`}.${usage.cacheCreationTokens === undefined ? "" : ` Cache-write tokens: ${usage.cacheCreationTokens}.`} Cache countdown is an estimate${hud.basis === "reported" ? " based on Claude's reported lifetime" : hud.basis === "estimated" ? " using Codex's 30-minute baseline and recent observed misses" : "; lifetime is unknown"}. Prefix changes and eviction can make it cold earlier.`;
+  return { state, cacheText, contextText, contextPercentage, description, remainingMs };
+}

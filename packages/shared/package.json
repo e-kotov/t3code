@@ -478,6 +478,10 @@
     "./PtyAdapter": {
       "types": "./src/PtyAdapter.ts",
       "import": "./src/PtyAdapter.ts"
+    },
+    "./cacheHud": {
+      "types": "./src/cacheHud.ts",
+      "import": "./src/cacheHud.ts"
     }
   },
   "scripts": {
