@@ -1,0 +1,264 @@
+name: Fork release
+
+on:
+  push:
+    tags: ['v*-ek.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Fork version, for example 0.0.45-ek.1 (without v)'
+        required: true
+        type: string
+      publish:
+        description: 'Publish a GitHub release after every build succeeds'
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: fork-release-${{ github.event_name == 'push' && github.ref_name || inputs.version }}
+  cancel-in-progress: false
+
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  prepare:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - id: version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          version="${REQUESTED_VERSION:-${GITHUB_REF_NAME#v}}"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-ek\.[0-9]+$ ]] || { echo 'Expected MAJOR.MINOR.PATCH-ek.NUMBER'; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+  bundle:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            /*
+            !/.repos/
+          sparse-checkout-cone-mode: false
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: false
+      - run: vp install --filter=@t3tools/desktop... --filter=t3... --filter=@t3tools/scripts...
+      - run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config
+      - run: node scripts/update-release-package-versions.ts "$RELEASE_VERSION"
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      - run: vp run build:desktop
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: js-bundle
+          path: |
+            apps/server/dist
+            apps/desktop/dist-electron
+          if-no-files-found: error
+          retention-days: 3
+
+  mac:
+    needs: [prepare, bundle]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+            rust_target: aarch64-apple-darwin
+            resource_key: darwin-arm64
+          - arch: x64
+            runner: macos-15-intel
+            rust_target: x86_64-apple-darwin
+            resource_key: darwin-x64
+    uses: ./.github/workflows/release-desktop.yml
+    with:
+      label: Mac ${{ matrix.arch }}
+      runner: ${{ matrix.runner }}
+      platform: mac
+      target: dmg
+      arch: ${{ matrix.arch }}
+      rust_target: ${{ matrix.rust_target }}
+      resource_key: ${{ matrix.resource_key }}
+      version: ${{ needs.prepare.outputs.version }}
+      ref: ${{ github.sha }}
+      release_channel: stable
+      relay_client_tracing: false
+      clerk_publishable_key: ''
+      clerk_jwt_template: ''
+      clerk_cli_oauth_client_id: ''
+      relay_url: ''
+
+  linux_server:
+    needs: [prepare, bundle]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            /*
+            !/.repos/
+          sparse-checkout-cone-mode: false
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: false
+      - run: vp install --filter=t3... --filter=@t3tools/scripts...
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: js-bundle
+          path: apps
+      - run: node scripts/update-release-package-versions.ts "$RELEASE_VERSION"
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      - run: cargo build --locked --release --manifest-path native/resource-monitor/Cargo.toml
+      - run: |
+          mkdir -p apps/server/dist/resource-monitor/linux-x64
+          cp native/resource-monitor/target/release/t3-resource-monitor apps/server/dist/resource-monitor/linux-x64/
+      - run: node apps/server/scripts/cli.ts build-exe --verbose
+        env:
+          VP_NODE_VERSION: '26.8.2'
+      - run: node scripts/build-cli-archive.ts --platform linux --arch x64 --version "$RELEASE_VERSION" --output-dir release-cli
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: fork-linux-server
+          path: release-cli/*.tar.gz
+          if-no-files-found: error
+
+  android:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      APP_VARIANT: production
+      T3CODE_FORK_BUILD: '1'
+      T3CODE_FORK_VERSION: ${{ needs.prepare.outputs.version }}
+      T3CODE_FORK_VERSION_CODE: ${{ github.run_number }}
+      T3CODE_MOBILE_UPDATES_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            /*
+            !/.repos/
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: false
+      - name: Require the persistent fork signing key
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          [[ -n "$KEYSTORE" && -n "$STORE_PASSWORD" && -n "$KEY_PASSWORD" ]] || { echo 'Configure the Android release signing secrets.'; exit 1; }
+      - run: vp install --filter=@t3tools/mobile...
+      - run: vp exec --filter @t3tools/mobile -- expo prebuild --clean --platform android --no-install
+      - name: Build a standalone release APK
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleRelease --no-daemon --max-workers=2
+      - name: Sign APK with the fork key
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          keystore="$RUNNER_TEMP/t3code-ek.p12"
+          trap 'rm -f "$keystore"' EXIT
+          printf '%s' "$KEYSTORE" | base64 --decode > "$keystore"
+          build_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          apk="$(find apps/mobile/android/app/build/outputs/apk/release -name '*.apk' -print -quit)"
+          test -n "$apk"
+          mkdir -p release-android
+          "$build_tools/zipalign" -f -p 4 "$apk" "$RUNNER_TEMP/aligned.apk"
+          "$build_tools/apksigner" sign --ks "$keystore" --ks-key-alias t3code-ek \
+            --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD \
+            --out "release-android/T3-Code-EK-$RELEASE_VERSION.apk" "$RUNNER_TEMP/aligned.apk"
+          "$build_tools/apksigner" verify "release-android/T3-Code-EK-$RELEASE_VERSION.apk"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: fork-android
+          path: release-android/*.apk
+          if-no-files-found: error
+
+  release:
+    needs: [prepare, mac, linux_server, android]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: desktop-*
+          path: assets
+          merge-multiple: true
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: fork-*
+          path: assets
+          merge-multiple: true
+      - name: Collect installers and checksums
+        working-directory: assets
+        run: |
+          set -euo pipefail
+          # Each architecture emits a latest-mac.yml with the same name. Manual
+          # installers are released until a merged fork updater feed is added.
+          find . -name '*.yml' -delete
+          sha256sum * > SHA256SUMS
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: release-installers
+          path: assets/*
+          if-no-files-found: error
+      - name: Publish fork release
+        if: github.event_name == 'push' || inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
+          Fork installers for Mac (Apple Silicon / Intel), Android, and Linux x64 server (with web UI).
+          Mac builds are not notarized. Android uses the fork's own signing key and package ID.
+          Direct SSH/Tailscale pairing works without upstream cloud configuration. Upstream Expo updates are disabled.
+          Verify downloaded assets against SHA256SUMS. Cache-display integration is not included in this first infrastructure release.
+          NOTES
+          gh release create "$RELEASE_TAG" assets/* --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --title "T3 Code EK $RELEASE_VERSION" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" --prerelease --latest=false
