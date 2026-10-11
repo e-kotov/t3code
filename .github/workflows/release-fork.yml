@@ -236,7 +236,7 @@ jobs:
       - run: vp exec --filter @t3tools/mobile -- expo prebuild --clean --platform android --no-install
       - name: Test native notification handling
         working-directory: apps/mobile/android
-        run: ./gradlew :t3-agent-notifications:testReleaseUnitTest --build-cache --no-daemon --max-workers=2
+        run: ./gradlew :t3-agent-notifications:testDebugUnitTest --build-cache --no-daemon --max-workers=2
       - name: Build a standalone release APK
         working-directory: apps/mobile/android
         run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --build-cache --no-daemon --max-workers=2
