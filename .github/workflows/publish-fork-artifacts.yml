@@ -1,0 +1,46 @@
+name: Publish existing fork installers
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Fork release run containing release-installers"
+        required: true
+        type: string
+      version:
+        description: "Built version without v"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Validate tag and download built installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ inputs.run_id }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_RUN" =~ ^[0-9]+$ ]]
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-ek\.[0-9]+$ ]]
+          run_sha="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" --jq .head_sha)"
+          tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/v$VERSION" --jq .sha)"
+          [[ "$run_sha" == "$tag_sha" ]] || { echo 'Tag does not match the installer source commit.'; exit 1; }
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --name release-installers --dir assets
+          (cd assets && sha256sum --check SHA256SUMS)
+      - name: Publish verified installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          gh release create "v$VERSION" assets/* --repo "$GITHUB_REPOSITORY" \
+            --verify-tag --title "T3 Code EK $VERSION" --prerelease --latest=false \
+            --notes 'Mac Apple Silicon/Intel, signed Android APK, and Linux x64 server with web UI. Herdr-style cache/context HUD requires the fork client and server. Mac builds are not notarized. Verify SHA256SUMS before installation.'

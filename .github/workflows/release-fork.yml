@@ -311,5 +311,5 @@ jobs:
           Verify downloaded assets against SHA256SUMS.
           NOTES
           gh release create "$RELEASE_TAG" assets/* --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" --title "T3 Code EK $RELEASE_VERSION" \
+            --verify-tag --title "T3 Code EK $RELEASE_VERSION" \
             --notes-file "$RUNNER_TEMP/release-notes.md" --prerelease --latest=false
