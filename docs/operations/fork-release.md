@@ -21,6 +21,24 @@ Use the existing SSH or private Tailscale endpoint in Add Environment. These bui
 have no upstream cloud account/relay configuration. Manual release installation
 is supported; desktop auto-update manifests are not published yet.
 
+## Replacing a Homebrew Mac installation
+
+Uninstall `t3-code` without `--zap` to retain T3 data, then install `T3 Code EK.app`
+from the matching architecture's ZIP/DMG into `/Applications`. Remove `t3-code`
+from any managed Homebrew package list so it is not reinstalled. The fork's
+embedded updater points to `e-kotov/t3code`; updates currently use manual installs.
+
+The initial unsigned bundle retains Electron's incomplete linker ad-hoc
+signature. After installation, seal the local bundle without a signing identity:
+
+```sh
+codesign --force --deep --sign - --preserve-metadata=entitlements '/Applications/T3 Code EK.app'
+codesign --verify --deep --strict '/Applications/T3 Code EK.app'
+```
+
+This is ad-hoc signing, not Apple notarization. Existing desktop/server data is
+retained; do not run Homebrew's zap or delete the T3 data directories.
+
 ## Release
 
 Push a tag such as `v0.0.45-ek.1`, or dispatch **Fork release** with version
