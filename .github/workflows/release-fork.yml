@@ -255,7 +255,7 @@ jobs:
           apk="$(find apps/mobile/android/app/build/outputs/apk/release -name '*.apk' -print -quit)"
           test -n "$apk"
           mkdir -p release-android
-          "$build_tools/zipalign" -f -p 4 "$apk" "$RUNNER_TEMP/aligned.apk"
+          "$build_tools/zipalign" -P 16 -f 4 "$apk" "$RUNNER_TEMP/aligned.apk"
           "$build_tools/apksigner" sign --ks "$keystore" --ks-key-alias t3code-ek \
             --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD \
             --out "release-android/T3-Code-EK-$RELEASE_VERSION-arm64.apk" "$RUNNER_TEMP/aligned.apk"
