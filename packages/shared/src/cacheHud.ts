@@ -98,8 +98,9 @@ export function presentCacheHud(hud: OrchestrationV2CacheHud, nowMs: number) {
     usage.inputTokens && cached !== undefined
       ? Math.min(100, Math.round((cached / usage.inputTokens) * 100))
       : null;
-  const seconds = remainingMs === null ? 0 : Math.ceil(remainingMs / 1000);
-  const clock = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  // @effect-diagnostics-next-line globalDate:off -- Format the React HUD in the device local timezone.
+  const expiry = new Date(Date.parse(usage.updatedAt) + (hud.ttlMs ?? 0));
+  const clock = `${String(expiry.getHours()).padStart(2, "0")}:${String(expiry.getMinutes()).padStart(2, "0")}`;
   const tokens = cached === undefined ? "⇣?" : `⇣${formatHudTokens(cached)}`;
   const cacheText =
     state === "cold"
@@ -110,6 +111,70 @@ export function presentCacheHud(hud: OrchestrationV2CacheHud, nowMs: number) {
   const max = usage.maxTokens;
   const contextText = `Context ${formatHudTokens(usage.usedTokens)}/${max ? formatHudTokens(max) : "?"}`;
   const contextPercentage = max ? Math.min(100, Math.round((usage.usedTokens / max) * 100)) : null;
-  const description = `Context tokens: ${usage.usedTokens}/${max ?? "unknown"}${contextPercentage === null ? "" : ` (${contextPercentage}%)`}. Last-request cached tokens: ${cached ?? "unknown"}${percentage === null ? "" : ` (${percentage}%)`}.${usage.cacheCreationTokens === undefined ? "" : ` Cache-write tokens: ${usage.cacheCreationTokens}.`} Cache countdown is an estimate${hud.basis === "reported" ? " based on Claude's reported lifetime" : hud.basis === "estimated" ? " using Codex's 30-minute baseline and recent observed misses" : "; lifetime is unknown"}. Prefix changes and eviction can make it cold earlier.`;
+  const description = `Context tokens: ${usage.usedTokens}/${max ?? "unknown"}${contextPercentage === null ? "" : ` (${contextPercentage}%)`}. Last-request cached tokens: ${cached ?? "unknown"}${percentage === null ? "" : ` (${percentage}%)`}.${usage.cacheCreationTokens === undefined ? "" : ` Cache-write tokens: ${usage.cacheCreationTokens}.`} Cache expiry${remainingMs === null ? "" : ` at ${clock} (device local time)`} is an estimate${hud.basis === "reported" ? " based on Claude's reported lifetime" : hud.basis === "estimated" ? " using Codex's 30-minute baseline and recent observed misses" : "; lifetime is unknown"}. Prefix changes and eviction can make it cold earlier.`;
   return { state, cacheText, contextText, contextPercentage, description, remainingMs };
+}
+
+/** One timer per surface, waking only at the warning and expiry boundaries. */
+export function createCacheHudClock(
+  isActive: () => boolean,
+  observeActivity: (refresh: () => void) => () => void,
+) {
+  const listeners = new Map<() => void, number>();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let stopObserving: (() => void) | undefined;
+  const nextWake = (expiry: number, now: number) =>
+    expiry - 300_000 > now ? expiry - 300_000 : expiry > now ? expiry : null;
+  function schedule() {
+    if (timer !== undefined) clearTimeout(timer);
+    timer = undefined;
+    if (!isActive()) return;
+    // @effect-diagnostics-next-line globalDate:off -- React external-store boundaries use wall-clock milliseconds.
+    const now = Date.now();
+    let earliest = Infinity;
+    for (const expiry of listeners.values()) {
+      const wake = nextWake(expiry, now);
+      if (wake !== null) earliest = Math.min(earliest, wake);
+    }
+    if (Number.isFinite(earliest)) {
+      // @effect-diagnostics-next-line globalTimers:off -- One foreground timer feeds synchronous React external-store subscribers.
+      timer = setTimeout(
+        () => {
+          // Snapshots are stable phases; only rows crossing a boundary redraw.
+          for (const listener of listeners.keys()) listener();
+          schedule();
+        },
+        Math.min(earliest - now, 2_147_483_647),
+      );
+    }
+  }
+  function refresh() {
+    for (const listener of listeners.keys()) listener();
+    schedule();
+  }
+  return (expiry: number, listener: () => void) => {
+    listeners.set(listener, expiry);
+    if (listeners.size === 1) stopObserving = observeActivity(refresh);
+    schedule();
+    return () => {
+      listeners.delete(listener);
+      if (listeners.size === 0) {
+        stopObserving?.();
+        stopObserving = undefined;
+      }
+      schedule();
+    };
+  };
+}
+
+/** Cache each phase so React redraws only when the displayed state changes. */
+export function createCacheHudSnapshot(hud: OrchestrationV2CacheHud | null | undefined) {
+  let current: ReturnType<typeof presentCacheHud> | null = null;
+  return () => {
+    if (!hud) return null;
+    // @effect-diagnostics-next-line globalDate:off -- React reads this synchronous external-store snapshot.
+    const next = presentCacheHud(hud, Date.now());
+    if (current?.state !== next.state) current = next;
+    return current;
+  };
 }
