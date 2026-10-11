@@ -42,6 +42,18 @@ jobs:
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-ek\.[0-9]+$ ]] || { echo 'Expected MAJOR.MINOR.PATCH-ek.NUMBER'; exit 1; }
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
+      - name: Require an existing tag for manual publication
+        if: github.event_name == 'workflow_dispatch' && inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq .sha)" || {
+            echo "Create $RELEASE_TAG before publishing, or push the tag to start a release build."
+            exit 1
+          }
+          [[ "$tag_sha" == "$GITHUB_SHA" ]] || { echo 'Release tag must point to the selected build commit.'; exit 1; }
 
   bundle:
     needs: prepare

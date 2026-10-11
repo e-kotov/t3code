@@ -23,7 +23,12 @@ is supported; desktop auto-update manifests are not published yet.
 
 Push a tag such as `v0.0.45-ek.1`, or dispatch **Fork release** with version
 `0.0.45-ek.1`. Manual runs upload Actions artifacts by default; select `publish`
-to attach them to a prerelease in this repository. Every platform must build
+to attach them to a prerelease in this repository. Manual publication requires
+an existing version tag pointing at the selected build commit. Create/push the
+tag with your own Git credentials; pushing it starts the release automatically.
+This avoids relying on the Actions token to create a new release tag at a commit
+that changes workflow files. Missing or mismatched tags fail before compilation.
+Every platform must build
 successfully before publication. Use a new version for every published release.
 
 ## Android signing
