@@ -200,7 +200,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
       - name: Cache Gradle dependencies and task outputs
         uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
         with:
@@ -234,6 +234,9 @@ jobs:
       - run: vp install --filter=@t3tools/mobile...
       - run: vp run --filter @t3tools/mobile typecheck
       - run: vp exec --filter @t3tools/mobile -- expo prebuild --clean --platform android --no-install
+      - name: Test native notification handling
+        working-directory: apps/mobile/android
+        run: ./gradlew :t3-agent-notifications:testReleaseUnitTest --build-cache --no-daemon --max-workers=2
       - name: Build a standalone release APK
         working-directory: apps/mobile/android
         run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --build-cache --no-daemon --max-workers=2

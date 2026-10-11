@@ -1331,6 +1331,16 @@ export const ServerSettings = Schema.Struct({
   cursorKeychainUsageEnabled: Schema.Boolean.pipe(
     Schema.withDecodingDefault(Effect.succeed(false)),
   ),
+  /** Server-wide safety switch for cache warming; each thread must also opt in. */
+  cacheWarmingEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
+  /** Per-thread cache warmer opt-ins. */
+  cacheWarmingSessions: Schema.Record(ThreadId, Schema.Boolean).pipe(
+    Schema.withDecodingDefault(Effect.succeed({})),
+  ),
+  /** Last cache window warmed per thread, retained so restarts cannot repeat it. */
+  cacheWarmingLastWindows: Schema.Record(ThreadId, TrimmedNonEmptyString).pipe(
+    Schema.withDecodingDefault(Effect.succeed({})),
+  ),
   /** Exact model IDs, applied to past and future usage on this environment. */
   usagePriceOverrides: Schema.Record(TrimmedNonEmptyString, UsageModelPriceOverride).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
@@ -1633,6 +1643,13 @@ export const ServerSettingsPatch = Schema.Struct({
     Schema.Record(UsageLimitSourceId, Schema.NullOr(UsageLimitSourceConfig)),
   ),
   cursorKeychainUsageEnabled: Schema.optionalKey(Schema.Boolean),
+  cacheWarmingEnabled: Schema.optionalKey(Schema.Boolean),
+  /** Per-entry updates; `null` removes one thread's saved choice. */
+  cacheWarmingSessions: Schema.optionalKey(Schema.Record(ThreadId, Schema.NullOr(Schema.Boolean))),
+  /** Internal per-entry updates used to persist warm-window idempotency. */
+  cacheWarmingLastWindows: Schema.optionalKey(
+    Schema.Record(ThreadId, Schema.NullOr(TrimmedNonEmptyString)),
+  ),
   /** Each entry replaces one model's rates; `null` restores automatic pricing. */
   usagePriceOverrides: Schema.optionalKey(
     Schema.Record(TrimmedNonEmptyString, Schema.NullOr(UsageModelPriceOverride)),

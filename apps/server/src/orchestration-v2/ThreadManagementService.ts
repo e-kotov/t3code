@@ -27,6 +27,7 @@ import {
   type OrchestrationV2TurnItem,
   ProjectId,
   ProviderInstanceId,
+  ProviderThreadId,
   resolveProjectProviderInstanceEnabled,
   RunId,
   type ScheduledTaskId,
@@ -52,7 +53,7 @@ import { projectTurnItemForDetail } from "./WireProjection.ts";
 import * as LegacyV1ThreadImporter from "./legacy/LegacyV1ThreadImporter.ts";
 import * as ServerSettings from "../serverSettings.ts";
 
-export type ThreadManagementSendMode = "auto" | "queue" | "steer" | "restart";
+export type ThreadManagementSendMode = "auto" | "queue" | "steer" | "restart" | "idle-only";
 
 export interface ThreadManagementProvenance {
   readonly createdBy: OrchestrationV2Actor;
@@ -123,6 +124,7 @@ export interface ThreadManagementSendInput {
   readonly text: string;
   readonly attachments: ReadonlyArray<ChatAttachment>;
   readonly modelSelection?: ModelSelection;
+  readonly expectedActiveProviderThreadId?: ProviderThreadId | null;
   readonly mode: ThreadManagementSendMode;
   readonly createdBy: OrchestrationV2Actor;
   readonly creationSource: OrchestrationV2CreationSource;
@@ -756,6 +758,8 @@ const make = Effect.gen(function* () {
         };
       } else if (input.mode === "auto" && steerableRun !== undefined) {
         dispatchMode = { type: "steer_active", targetRunId: steerableRun.id };
+      } else if (input.mode === "idle-only") {
+        dispatchMode = { type: "start_if_idle" };
       } else {
         dispatchMode = {
           type: input.mode === "queue" ? "queue_after_active" : "start_immediately",
@@ -772,6 +776,9 @@ const make = Effect.gen(function* () {
         text: input.text,
         attachments: input.attachments,
         ...(input.modelSelection === undefined ? {} : { modelSelection: input.modelSelection }),
+        ...(input.expectedActiveProviderThreadId === undefined
+          ? {}
+          : { expectedActiveProviderThreadId: input.expectedActiveProviderThreadId }),
         dispatchMode,
         createdBy: input.createdBy,
         creationSource: input.creationSource,

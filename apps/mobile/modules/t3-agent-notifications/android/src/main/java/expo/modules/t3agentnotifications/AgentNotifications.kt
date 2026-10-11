@@ -161,6 +161,22 @@ object AgentNotifications {
     }
   }
 
+  /** Direct server alerts share navigation and foreground suppression with cloud alerts. */
+  @Synchronized
+  internal fun postDirectAlert(context: Context, scheme: String, environmentId: String, alert: DirectAgentAlert) {
+    if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
+    val path = "/threads/${Uri.encode(environmentId)}/${Uri.encode(alert.threadId)}"
+    val resumed = ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+    if (resumed && threadOnScreen == path) return
+    channels(context)
+    postAlert(context, scheme, mapOf(
+      "alert_title" to alert.title,
+      "alert_body" to alert.body,
+      "alert_path" to path,
+      "alert_group" to "direct:$environmentId/${alert.threadId}"
+    ), "direct:$environmentId:${alert.key}")
+  }
+
   private fun postAlert(
     context: Context,
     scheme: String,

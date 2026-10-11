@@ -53,6 +53,24 @@ describe("fallbackTextGenerationModelSelection", () => {
 });
 
 describe("serverSettings helpers", () => {
+  it("keeps cache warming off by default and merges per-thread opt-ins", () => {
+    expect(DEFAULT_SERVER_SETTINGS.cacheWarmingEnabled).toBe(false);
+    expect(DEFAULT_SERVER_SETTINGS.cacheWarmingSessions).toEqual({});
+    const first = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
+      cacheWarmingEnabled: true,
+      cacheWarmingSessions: { ["thread-a" as never]: true },
+    });
+    const second = applyServerSettingsPatch(first, {
+      cacheWarmingSessions: { ["thread-b" as never]: true },
+    });
+    expect(second.cacheWarmingSessions).toEqual({ "thread-a": true, "thread-b": true });
+    expect(
+      applyServerSettingsPatch(second, {
+        cacheWarmingSessions: { ["thread-a" as never]: false },
+      }).cacheWarmingSessions,
+    ).toEqual({ "thread-a": false, "thread-b": true });
+  });
+
   it("changes a cleanup rule without replacing the machine's other rules", () => {
     const enabled = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
       storageCleanup: { worktreeAfterDays: 8, worktreeOnMerge: true, logsAfterDays: 30 },

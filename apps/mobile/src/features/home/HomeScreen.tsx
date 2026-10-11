@@ -57,6 +57,7 @@ import {
   ThreadListV2SnoozedShelfHeader,
   ThreadListV2WorkingShelfHeader,
 } from "../threads/thread-list-v2-items";
+import { CacheWarmingEnvironmentControl } from "../threads/CacheWarmingControls";
 import { useThreadRowProviderInstanceResolver } from "../threads/thread-provider-instance";
 import {
   buildThreadListV2Items,
@@ -980,8 +981,10 @@ export function HomeScreen(props: HomeScreenProps) {
 
   const listHeader = Platform.OS === "ios" ? undefined : <HomeTopContentSpacer />;
 
+  // Keep the environment-wide switch in the main list, below the narrow
+  // native header so it does not compete with the title and search buttons.
   const v2ListHeader = (
-    <>
+    <View>
       {listHeader}
       {Platform.OS === "ios" && workspace ? (
         <ThreadListFilters
@@ -993,7 +996,14 @@ export function HomeScreen(props: HomeScreenProps) {
           onProjectChange={props.onProjectChange}
         />
       ) : null}
-    </>
+      <View className="px-3 py-1">
+        <CacheWarmingEnvironmentControl
+          environmentId={
+            props.selectedEnvironmentId ?? props.environments[0]?.environmentId ?? null
+          }
+        />
+      </View>
+    </View>
   );
 
   // Use the v2 project scope for its empty state. Snoozed threads need no

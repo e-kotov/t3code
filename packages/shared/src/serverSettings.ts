@@ -402,6 +402,8 @@ export function applyServerSettingsPatch(
     sourceControlHosts: sourceControlHostsPatch,
     usagePriceOverrides: usagePriceOverridesPatch,
     usageModelAliases: usageModelAliasesPatch,
+    cacheWarmingSessions: cacheWarmingSessionsPatch,
+    cacheWarmingLastWindows: cacheWarmingLastWindowsPatch,
     // Entry replacement: deepMerge would keep keys the client meant to clear.
     projectSettingsOverrides: projectSettingsOverridesPatch,
     // Already translated into `projectSettingsOverrides` above; the legacy
@@ -601,6 +603,22 @@ export function applyServerSettingsPatch(
           usageModelAliases: mergeSettingsEntries(
             current.usageModelAliases,
             usageModelAliasesPatch,
+          ),
+        }
+      : {}),
+    ...(cacheWarmingSessionsPatch !== undefined
+      ? {
+          cacheWarmingSessions: mergeSettingsEntries(
+            current.cacheWarmingSessions,
+            cacheWarmingSessionsPatch,
+          ),
+        }
+      : {}),
+    ...(cacheWarmingLastWindowsPatch !== undefined
+      ? {
+          cacheWarmingLastWindows: mergeSettingsEntries(
+            current.cacheWarmingLastWindows,
+            cacheWarmingLastWindowsPatch,
           ),
         }
       : {}),

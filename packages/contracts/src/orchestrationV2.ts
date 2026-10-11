@@ -2952,6 +2952,8 @@ export const OrchestrationV2Command = Schema.Union([
     /** Seed the temporary title and generate a durable replacement for the first message. */
     titleSeed: Schema.optional(TrimmedNonEmptyString),
     modelSelection: Schema.optional(ModelSelection),
+    /** Cache warmer snapshot guards; ordinary message dispatches omit these. */
+    expectedActiveProviderThreadId: Schema.optional(Schema.NullOr(ProviderThreadId)),
     sourcePlanRef: Schema.optional(Schema.Struct({ threadId: ThreadId, planId: PlanId })),
     restartContinuationOfRunId: Schema.optional(RunId),
     usageLimitContinuationOfRunId: Schema.optional(RunId),
@@ -2975,6 +2977,8 @@ export const OrchestrationV2Command = Schema.Union([
       Schema.Struct({ type: Schema.Literal("restart_active"), targetRunId: RunId }),
       Schema.Struct({ type: Schema.Literal("queue_after_active") }),
       Schema.Struct({ type: Schema.Literal("start_immediately") }),
+      /** Start only if the thread is still idle when this serialized command runs. */
+      Schema.Struct({ type: Schema.Literal("start_if_idle") }),
     ]),
   }),
   Schema.Struct({

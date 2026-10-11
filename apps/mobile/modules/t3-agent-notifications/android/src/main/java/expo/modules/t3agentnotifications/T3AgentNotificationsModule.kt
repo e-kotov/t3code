@@ -10,6 +10,13 @@ import expo.modules.kotlin.modules.ModuleDefinition
 class T3AgentNotificationsModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("T3AgentNotifications")
+    Events("onDirectNotificationStatus")
+    OnCreate {
+      DirectNotificationService.onStatusChanged = { sendEvent("onDirectNotificationStatus", emptyMap<String, String>()) }
+    }
+    OnDestroy {
+      DirectNotificationService.onStatusChanged = null
+    }
 
     Function("configure") {
         deviceId: String,
@@ -20,6 +27,28 @@ class T3AgentNotificationsModule : Module() {
       appContext.reactContext?.let {
         AgentNotifications.configure(it, deviceId, userId, scheme, ongoingEnabled)
       }
+    }
+
+    Function("directNotificationsEnabled") {
+      appContext.reactContext?.let { DirectNotificationService.isEnabled(it) } ?: false
+    }
+
+    Function("setDirectNotificationsEnabled") { enabled: Boolean ->
+      appContext.reactContext?.let { DirectNotificationService.setEnabled(it, enabled) }
+    }
+
+    Function("updateDirectNotificationConnections") { connectionsJson: String, scheme: String ->
+      appContext.reactContext?.let { DirectNotificationService.updateConnections(it, connectionsJson, scheme) }
+    }
+
+    Function("directNotificationStatus") {
+      DirectNotificationService.status()
+    }
+
+    Function("openBatteryOptimizationSettings") {
+      appContext.reactContext?.startActivity(
+        Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      )
     }
 
     Function("clear") {

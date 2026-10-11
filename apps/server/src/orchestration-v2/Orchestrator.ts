@@ -4905,10 +4905,42 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         (candidate) => candidate.id === projection.thread.activeProviderThreadId,
       );
       const activeRun = projection.runs.find(isBlockingRun);
+      const latestRun = latestExecutedRun(projection.runs);
+      if (dispatchMode.type === "start_if_idle") {
+        const pendingBackgroundWork = pendingBackgroundTurnItems({
+          turnItems: projection.turnItems,
+          runs: projection.runs,
+        });
+        const unsafeIdleOnlyDispatch =
+          activeRun !== undefined ||
+          projection.runs.some((run) => run.status === "queued") ||
+          projection.thread.archivedAt !== null ||
+          projection.thread.deletedAt !== null ||
+          projection.thread.limitRecovery != null ||
+          projection.runtimeRequests.some((request) => request.status === "pending") ||
+          projection.providerThreads.some(
+            (providerThread) => (providerThread.pendingBackgroundTasks?.length ?? 0) > 0,
+          ) ||
+          pendingBackgroundWork.length > 0 ||
+          latestRootProviderFailure(latestRun ?? null, projection.turnItems) !== null ||
+          latestRun?.status === "failed" ||
+          latestRun?.status === "interrupted" ||
+          (command.expectedActiveProviderThreadId !== undefined &&
+            command.expectedActiveProviderThreadId !== projection.thread.activeProviderThreadId) ||
+          (command.modelSelection !== undefined &&
+            !modelSelectionsEqual(command.modelSelection, projection.thread.modelSelection));
+        if (unsafeIdleOnlyDispatch) {
+          return yield* new OrchestratorDispatchError({
+            commandId: command.commandId,
+            commandType: command.type,
+            cause:
+              "The cache warmer only starts on an unchanged, idle thread without pending work or provider errors.",
+          });
+        }
+      }
       // A message queued during worktree setup can arrive after that setup failed
       // without a worktree. It waits, held, like the messages queued before the
       // failure, instead of starting in the project checkout.
-      const latestRun = latestExecutedRun(projection.runs);
       const worktreeMissingRun =
         activeRun === undefined &&
         dispatchMode.type === "queue_after_active" &&
