@@ -55,4 +55,4 @@ jobs:
           (cd output && sha256sum -- *.apk > SHA256SUMS-arm64)
           printf 'Universal: %s bytes\nARM64: %s bytes\n' "$(stat -c%s "$source")" "$(stat -c%s "$apk")" >> "$GITHUB_STEP_SUMMARY"
       - name: Publish the ARM64 APK and its checksums
-        run: gh release upload "v$VERSION" output/* --repo "$GITHUB_REPOSITORY"
+        run: gh release upload "v$VERSION" output/*.apk output/SHA256SUMS-arm64 --repo "$GITHUB_REPOSITORY"
