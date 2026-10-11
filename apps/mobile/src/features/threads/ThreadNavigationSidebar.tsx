@@ -1,6 +1,7 @@
 import { useAndroidControlSizing } from "../../components/useAndroidControlSizing";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { computeThreadMoveAvailability } from "./threadOrder";
+import { CacheWarmingEnvironmentControl } from "./CacheWarmingControls";
 import type {
   EnvironmentProject,
   EnvironmentThreadShell,
@@ -82,7 +83,7 @@ type SidebarListItem =
   | ThreadListV2ListItem
   | { readonly type: "v2-show-more"; readonly key: string; readonly hiddenCount: number };
 
-const SIDEBAR_STICKY_HEADER_HEIGHT = 106;
+const SIDEBAR_STICKY_HEADER_HEIGHT = 146;
 
 interface ThreadNavigationSidebarProps {
   readonly width: number;
@@ -176,6 +177,8 @@ function ThreadNavigationSidebarPane(
     [environments],
   );
   const { options, setSelectedEnvironmentId } = useHomeListOptions(availableEnvironmentIds);
+  const cacheWarmingEnvironmentId =
+    options.selectedEnvironmentId ?? environments[0]?.environmentId ?? null;
   const searchEnvironmentIds = useMemo(
     () =>
       options.selectedEnvironmentId === null
@@ -1038,6 +1041,7 @@ function ThreadNavigationSidebarPane(
           onOpenSettings={props.onOpenSettings}
           onOpenEnvironments={props.onOpenEnvironmentSettings}
           onRequestVisibility={props.onRequestVisibility}
+          cacheWarmingEnvironmentId={cacheWarmingEnvironmentId}
         />
       ) : (
         <View
@@ -1067,6 +1071,10 @@ function ThreadNavigationSidebarPane(
               </ControlPillMenu>
               <SidebarHeaderActions onOpenSettings={props.onOpenSettings} />
             </View>
+          </View>
+
+          <View className="mx-4 flex-row justify-end pb-1">
+            <CacheWarmingEnvironmentControl environmentId={cacheWarmingEnvironmentId} />
           </View>
 
           <View className="mx-4 mt-[9px] h-[38px] flex-row items-center gap-1.5 rounded-xl bg-sidebar-search pr-2.5 pl-[11px]">

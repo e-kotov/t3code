@@ -56,6 +56,7 @@ import {
   ThreadListV2SnoozedShelfHeader,
   ThreadListV2WorkingShelfHeader,
 } from "../threads/thread-list-v2-items";
+import { CacheWarmingEnvironmentControl } from "../threads/CacheWarmingControls";
 import { useThreadRowProviderInstanceResolver } from "../threads/thread-provider-instance";
 import {
   buildThreadListV2Items,
@@ -951,11 +952,20 @@ export function HomeScreen(props: HomeScreenProps) {
     );
   }
 
-  const listHeader = Platform.OS === "ios" ? undefined : <HomeTopContentSpacer />;
-
-  // Project scoping lives in the header filter menu (no inline chip row on
-  // mobile — the menu is the one filter surface).
-  const v2ListHeader = listHeader;
+  // Keep the environment-wide switch in the main list, below the narrow
+  // native header so it does not compete with the title and search buttons.
+  const v2ListHeader = (
+    <View>
+      {Platform.OS === "android" ? <HomeTopContentSpacer /> : null}
+      <View className="px-3 py-1">
+        <CacheWarmingEnvironmentControl
+          environmentId={
+            props.selectedEnvironmentId ?? props.environments[0]?.environmentId ?? null
+          }
+        />
+      </View>
+    </View>
+  );
 
   // Use the v2 project scope for its empty state. Snoozed threads need no
   // special empty state: their shelf header is a list row even while collapsed.

@@ -1,4 +1,5 @@
 import { CacheHud } from "./CacheHud";
+import { CacheWarmingThreadControl } from "./CacheWarmingControls";
 import type { ThreadRowProviderInstance } from "./thread-provider-instance";
 import {
   THREAD_LIST_V2_MONO_FONT as MONO_FONT,
@@ -1050,6 +1051,11 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         {thread.title}
       </Text>
       <CacheHud hud={thread.cacheHud} compact />
+      <CacheWarmingThreadControl
+        environmentId={thread.environmentId}
+        threadId={thread.id}
+        driver={thread.cacheHud?.driver}
+      />
       {props.searchMatch ? (
         <View className="mt-1">
           <ThreadSearchMatchExcerpt
@@ -1275,6 +1281,11 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
               {thread.title}
             </Text>
             <CacheHud hud={thread.cacheHud} compact />
+            <CacheWarmingThreadControl
+              environmentId={thread.environmentId}
+              threadId={thread.id}
+              driver={thread.cacheHud?.driver}
+            />
             {props.searchMatch ? (
               <ThreadSearchMatchExcerpt
                 sidebar={sidebarPane}

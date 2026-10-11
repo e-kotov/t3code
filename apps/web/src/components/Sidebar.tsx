@@ -1,4 +1,5 @@
 import { CacheHud } from "./chat/CacheHud";
+import { CacheWarmingEnvironmentToggle, CacheWarmingThreadToggle } from "./CacheWarmingToggle";
 import { type EnvironmentId } from "@t3tools/contracts";
 import { ThreadHoverCard, ThreadHoverCardPopup } from "./ThreadHoverCard";
 import { CollapsibleSectionHeader } from "./ui/collapsible-section-header";
@@ -1840,6 +1841,11 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
               {title}
               <CacheHud hud={thread.cacheHud} compact />
             </span>
+            <CacheWarmingThreadToggle
+              environmentId={thread.environmentId}
+              threadId={thread.id}
+              driver={thread.cacheHud?.driver}
+            />
             {pinIndicator}
             {terminalStatusIcon}
             {isRegeneratingTitle ? (
@@ -2164,6 +2170,11 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
               ) : null}
             </div>
             <CacheHud hud={thread.cacheHud} compact />
+            <CacheWarmingThreadToggle
+              environmentId={thread.environmentId}
+              threadId={thread.id}
+              driver={thread.cacheHud?.driver}
+            />
             <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-secondary-label text-xs">
               {/* Always the branch. The plan step used to take this slot while
                   working, but it truncated to a half-sentence and dropped the
@@ -5178,6 +5189,9 @@ export default function Sidebar() {
               searchResultCount={threadSearchResults.length}
               activeSearchResultIndex={activeSearchResultIndex}
               onClearSearch={clearThreadSearch}
+            />
+            <CacheWarmingEnvironmentToggle
+              environmentId={routeThreadRef?.environmentId ?? primaryEnvironmentId}
             />
           </SidebarGroup>
         }

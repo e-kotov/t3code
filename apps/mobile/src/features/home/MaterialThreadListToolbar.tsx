@@ -20,6 +20,8 @@ import { WorkspaceConnectionTitle } from "./WorkspaceConnectionTitle";
 import { useWorkspaceState } from "../../state/workspace";
 import { useAndroidControlSizing } from "../../components/useAndroidControlSizing";
 import { useMaterialToolbarLayout } from "../../components/useMaterialToolbarLayout";
+import { CacheWarmingEnvironmentControl } from "../threads/CacheWarmingControls";
+import type { EnvironmentId } from "@t3tools/contracts";
 
 /** One toolbar height for the compact list and expanded sidebar, including search. */
 export function MaterialThreadListToolbar(props: {
@@ -33,6 +35,7 @@ export function MaterialThreadListToolbar(props: {
   readonly sidebar?: boolean;
   readonly onLayout?: (event: LayoutChangeEvent) => void;
   readonly onRequestVisibility?: () => void;
+  readonly cacheWarmingEnvironmentId?: EnvironmentId | null;
 }) {
   const insets = useSafeAreaInsets();
   const { fabSize } = useAndroidControlSizing();
@@ -121,6 +124,13 @@ export function MaterialThreadListToolbar(props: {
             </>
           )}
         </View>
+        {props.sidebar ? (
+          <View className="flex-row justify-end pb-1 pr-2">
+            <CacheWarmingEnvironmentControl
+              environmentId={props.cacheWarmingEnvironmentId ?? null}
+            />
+          </View>
+        ) : null}
       </View>
       {/* Keep the filter above the New thread FAB at every text size. */}
       {state.hasConnections ? (

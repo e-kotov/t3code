@@ -1,4 +1,5 @@
 import { CacheHud } from "./chat/CacheHud";
+import { CacheWarmingEnvironmentToggle, CacheWarmingThreadToggle } from "./CacheWarmingToggle";
 import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
 import { resolveThreadCurrentPullRequestLink } from "@t3tools/shared/threadPullRequests";
 import { Spinner } from "~/components/ui/spinner";
@@ -813,20 +814,27 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
               onDoubleClick={handleRenameInputClick}
             />
           ) : (
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <span
-                    className="min-w-0 flex-1 truncate text-sm"
-                    data-testid={`thread-title-${thread.id}`}
-                  >
-                    {thread.title}
-                    <CacheHud hud={thread.cacheHud} compact />
-                  </span>
-                }
+            <div className="flex min-w-0 flex-1 items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <span
+                      className="min-w-0 flex-1 truncate text-sm"
+                      data-testid={`thread-title-${thread.id}`}
+                    />
+                  }
+                >
+                  {thread.title}
+                  <CacheHud hud={thread.cacheHud} compact />
+                </TooltipTrigger>
+                <TooltipPopup side="top">{thread.title}</TooltipPopup>
+              </Tooltip>
+              <CacheWarmingThreadToggle
+                environmentId={thread.environmentId}
+                threadId={thread.id}
+                driver={thread.cacheHud?.driver}
               />
-              <TooltipPopup side="top">{thread.title}</TooltipPopup>
-            </Tooltip>
+            </div>
           )}
         </div>
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
@@ -2967,6 +2975,7 @@ function SortableProjectItem({
 }
 
 interface SidebarProjectsContentProps {
+  cacheWarmingEnvironmentId: EnvironmentId | null;
   showArm64IntelBuildWarning: boolean;
   arm64IntelBuildWarningDescription: string | null;
   desktopUpdateButtonAction: "download" | "install" | "none";
@@ -3047,6 +3056,7 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
     suppressProjectClickForContextMenuRef,
     attachProjectListAutoAnimateRef,
     projectsLength,
+    cacheWarmingEnvironmentId,
   } = props;
 
   const handleProjectSortOrderChange = useCallback(
@@ -3085,6 +3095,7 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
               </CommandDialogTrigger>
             </SidebarMenuItem>
           </SidebarMenu>
+          <CacheWarmingEnvironmentToggle environmentId={cacheWarmingEnvironmentId} />
         </SidebarGroup>
       }
     >
@@ -3873,6 +3884,7 @@ export default function LegacySidebar() {
       <SidebarChromeHeader isElectron={isElectron} />
 
       <SidebarProjectsContent
+        cacheWarmingEnvironmentId={routeThreadRef?.environmentId ?? primaryEnvironmentId}
         showArm64IntelBuildWarning={showArm64IntelBuildWarning}
         arm64IntelBuildWarningDescription={arm64IntelBuildWarningDescription}
         desktopUpdateButtonAction={desktopUpdateButtonAction}
