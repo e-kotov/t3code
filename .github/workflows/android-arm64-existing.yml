@@ -1,0 +1,58 @@
+name: Slim existing Android APK to ARM64
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Existing universal fork release version without v"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  slim:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    env:
+      VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Download and verify the universal APK
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-ek\.[0-9]+$ ]]
+          mkdir source
+          gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" \
+            --pattern "T3-Code-EK-$VERSION.apk" --pattern SHA256SUMS --dir source
+          (cd source && awk -v name="T3-Code-EK-$VERSION.apk" '$2 == name' SHA256SUMS > APK-SHA256SUMS && test -s APK-SHA256SUMS && sha256sum --check APK-SHA256SUMS)
+      - name: Keep only ARM64 native libraries and sign with the fork key
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          keystore="$RUNNER_TEMP/t3code-ek.p12"
+          trap 'rm -f "$keystore"' EXIT
+          printf '%s' "$KEYSTORE" | base64 --decode > "$keystore"
+          build_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          source="source/T3-Code-EK-$VERSION.apk"
+          "$build_tools/apksigner" verify --print-certs "$source" > original-cert.txt
+          cp "$source" "$RUNNER_TEMP/slim.apk"
+          zip -d "$RUNNER_TEMP/slim.apk" 'lib/armeabi-v7a/*' 'lib/x86/*' 'lib/x86_64/*'
+          "$build_tools/zipalign" -P 16 -f 4 "$RUNNER_TEMP/slim.apk" "$RUNNER_TEMP/aligned.apk"
+          mkdir output
+          apk="output/T3-Code-EK-$VERSION-arm64.apk"
+          "$build_tools/apksigner" sign --ks "$keystore" --ks-key-alias t3code-ek \
+            --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD \
+            --out "$apk" "$RUNNER_TEMP/aligned.apk"
+          "$build_tools/apksigner" verify --print-certs "$apk" > slim-cert.txt
+          diff <(sed -n '/certificate SHA-256 digest:/p' original-cert.txt) <(sed -n '/certificate SHA-256 digest:/p' slim-cert.txt)
+          "$build_tools/zipalign" -c -P 16 4 "$apk"
+          unzip -Z1 "$apk" | awk '/^lib\// {split($0, parts, "/"); if (parts[2] != "arm64-v8a") exit 1; found=1} END {if (!found) exit 1}'
+          (cd output && sha256sum -- *.apk > SHA256SUMS-arm64)
+          printf 'Universal: %s bytes\nARM64: %s bytes\n' "$(stat -c%s "$source")" "$(stat -c%s "$apk")" >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish the ARM64 APK and its checksums
+        run: gh release upload "v$VERSION" output/* --repo "$GITHUB_REPOSITORY"
