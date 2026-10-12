@@ -1,5 +1,5 @@
 import type { AssistantCitation } from "@t3tools/contracts";
-import { collectAssistantCitations } from "./assistantCitations";
+import { collectAssistantCitations } from "./assistantCitations.ts";
 
 export type ComposerInlineToken =
   | {
