@@ -4889,6 +4889,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         });
         const unsafeIdleOnlyDispatch =
           activeRun !== undefined ||
+          projection.thread.settledOverride === "settled" ||
           projection.runs.some((run) => run.status === "queued") ||
           projection.thread.archivedAt !== null ||
           projection.thread.deletedAt !== null ||

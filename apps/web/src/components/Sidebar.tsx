@@ -66,6 +66,8 @@ import type { TimestampFormat } from "@t3tools/contracts/settings";
 import {
   AlarmClockIcon,
   AlarmClockOffIcon,
+  ArrowDownIcon,
+  ArrowUpIcon,
   ArrowRightLeftIcon,
   CheckIcon,
   CircleAlertIcon,
@@ -2451,6 +2453,7 @@ export default function Sidebar() {
   const sidebarProjectSortOrder = useClientSettings((s) => s.sidebarProjectSortOrder);
   const conversationSortOrder = useClientSettings((s) => s.sidebarConversationSortOrder);
   const conversationGrouping = useClientSettings((s) => s.sidebarConversationGrouping);
+  const conversationMachineOrder = useClientSettings((s) => s.sidebarConversationMachineOrder);
   const updateClientSettings = useUpdateClientSettings();
   const timestampFormat = useClientSettings((s) => s.timestampFormat);
   const workingShelfEnabled = useClientSettings((s) => s.sidebarWorkingShelfEnabled);
@@ -2536,6 +2539,31 @@ export default function Sidebar() {
   const environments = useEnvironmentIdentities();
   const serverConfigs = useAtomValue(environmentServerConfigsAtom);
   const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const moveConversationMachine = useCallback(
+    (environmentId: EnvironmentId, delta: -1 | 1) => {
+      const visibleIds = [...new Set(threads.map((thread) => thread.environmentId))].sort(
+        (left, right) => {
+          const a = conversationMachineOrder.indexOf(left);
+          const b = conversationMachineOrder.indexOf(right);
+          if (a >= 0 || b >= 0) {
+            if (a < 0) return 1;
+            if (b < 0) return -1;
+            if (a !== b) return a - b;
+          } else {
+            if (left === primaryEnvironmentId) return -1;
+            if (right === primaryEnvironmentId) return 1;
+          }
+          return left.localeCompare(right);
+        },
+      );
+      const index = visibleIds.indexOf(environmentId);
+      const target = index + delta;
+      if (index < 0 || target < 0 || target >= visibleIds.length) return;
+      [visibleIds[index], visibleIds[target]] = [visibleIds[target]!, visibleIds[index]!];
+      void updateClientSettings({ sidebarConversationMachineOrder: visibleIds });
+    },
+    [conversationMachineOrder, primaryEnvironmentId, threads, updateClientSettings],
+  );
   const clearSelection = useThreadSelectionStore((s) => s.clearSelection);
   const setSelectionAnchor = useThreadSelectionStore((s) => s.setAnchor);
   const toggleThreadSelection = useThreadSelectionStore((s) => s.toggleThread);
@@ -3866,9 +3894,19 @@ export default function Sidebar() {
         group.push(thread);
         groups.set(thread.environmentId, group);
       }
-      const orderedGroups = [...groups.entries()].sort(([left], [right]) =>
-        left.localeCompare(right),
-      );
+      const orderedGroups = [...groups.entries()].sort(([left], [right]) => {
+        const leftRank = conversationMachineOrder.indexOf(left);
+        const rightRank = conversationMachineOrder.indexOf(right);
+        if (leftRank >= 0 || rightRank >= 0) {
+          if (leftRank < 0) return 1;
+          if (rightRank < 0) return -1;
+          if (leftRank !== rightRank) return leftRank - rightRank;
+        } else {
+          if (left === primaryEnvironmentId) return -1;
+          if (right === primaryEnvironmentId) return 1;
+        }
+        return left.localeCompare(right);
+      });
       const rows: SidebarListItem[] = [];
       for (const [environmentId, group] of orderedGroups) {
         if (conversationGrouping === "machine" && orderedGroups.length > 1) {
@@ -3877,6 +3915,8 @@ export default function Sidebar() {
             marker: "machine-header",
             key: `sidebar-machine:${section}:${environmentId}`,
             environmentId,
+            groupPosition: orderedGroups.findIndex(([id]) => id === environmentId),
+            groupCount: orderedGroups.length,
           });
         }
         rows.push(
@@ -3929,6 +3969,8 @@ export default function Sidebar() {
     visibleWorkingThreads,
     workingThreads.length,
     conversationGrouping,
+    conversationMachineOrder,
+    primaryEnvironmentId,
     environmentLabelById,
   ]);
   useEffect(() => {
@@ -5539,10 +5581,52 @@ export default function Sidebar() {
                                 marker={item.marker}
                                 id={sidebarListItemId(item)}
                               >
-                                <div className="mx-2 mt-2 border-t border-sidebar-border/60 pt-2 text-[10px] font-medium uppercase tracking-wide text-sidebar-muted-foreground/70">
-                                  {item.environmentId
-                                    ? (environmentLabelById.get(item.environmentId) ?? "Machine")
-                                    : "Machine"}
+                                <div className="mx-2 mt-2 flex items-center gap-1 border-t border-sidebar-border/60 pt-2 text-[10px] font-medium uppercase tracking-wide text-sidebar-muted-foreground/70">
+                                  {item.environmentId ? (
+                                    <EnvironmentMachineIcon
+                                      kind={
+                                        environmentMachineById.get(item.environmentId) ?? "server"
+                                      }
+                                      className="size-3 shrink-0"
+                                    />
+                                  ) : null}
+                                  <span className="min-w-0 flex-1 truncate">
+                                    {item.environmentId
+                                      ? (environmentLabelById.get(item.environmentId) ?? "Machine")
+                                      : "Machine"}
+                                  </span>
+                                  {item.environmentId &&
+                                  item.groupPosition !== undefined &&
+                                  item.groupCount !== undefined ? (
+                                    <span className="flex shrink-0">
+                                      <button
+                                        type="button"
+                                        aria-label="Move machine group up"
+                                        title="Move group up"
+                                        disabled={item.groupPosition === 0}
+                                        className="rounded p-1 hover:bg-sidebar-accent disabled:opacity-30"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          moveConversationMachine(item.environmentId!, -1);
+                                        }}
+                                      >
+                                        <ArrowUpIcon className="size-3" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        aria-label="Move machine group down"
+                                        title="Move group down"
+                                        disabled={item.groupPosition === item.groupCount - 1}
+                                        className="rounded p-1 hover:bg-sidebar-accent disabled:opacity-30"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          moveConversationMachine(item.environmentId!, 1);
+                                        }}
+                                      >
+                                        <ArrowDownIcon className="size-3" />
+                                      </button>
+                                    </span>
+                                  ) : null}
                                 </div>
                               </SortableSidebarMarker>,
                             );

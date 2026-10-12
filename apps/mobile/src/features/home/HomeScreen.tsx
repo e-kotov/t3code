@@ -16,7 +16,7 @@ import {
   type SidebarConversationSortOrder,
   type SidebarProjectGroupingMode,
 } from "@t3tools/contracts";
-import { useAtomValue } from "@effect/atom-react";
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { useFocusEffect } from "@react-navigation/native";
 import { use, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import {
@@ -32,6 +32,7 @@ import {
 import { ScrollViewMarker } from "react-native-screens";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 
 import { cn } from "../../lib/cn";
 import { EmptyState } from "../../components/EmptyState";
@@ -278,6 +279,32 @@ function renderHomeScrollView(props: ScrollViewProps) {
 /* ─── Main screen ────────────────────────────────────────────────────── */
 
 export function HomeScreen(props: HomeScreenProps) {
+  const preferencesResult = useAtomValue(mobilePreferencesAtom);
+  const updatePreferences = useAtomSet(updateMobilePreferencesAtom);
+  const machineOrder =
+    preferencesResult._tag === "Success"
+      ? (preferencesResult.value.conversationMachineOrder ?? [])
+      : [];
+  const moveMachine = useCallback(
+    (environmentId: string, delta: -1 | 1) => {
+      const ordered = [
+        ...new Set(props.environments.map((environment) => String(environment.environmentId))),
+      ].sort((left, right) => {
+        const a = machineOrder.indexOf(left);
+        const b = machineOrder.indexOf(right);
+        return (
+          (a < 0 ? Number.MAX_SAFE_INTEGER : a) - (b < 0 ? Number.MAX_SAFE_INTEGER : b) ||
+          left.localeCompare(right)
+        );
+      });
+      const index = ordered.indexOf(environmentId);
+      const target = index + delta;
+      if (index < 0 || target < 0 || target >= ordered.length) return;
+      [ordered[index], ordered[target]] = [ordered[target]!, ordered[index]!];
+      updatePreferences({ conversationMachineOrder: ordered });
+    },
+    [machineOrder, props.environments, updatePreferences],
+  );
   const usesNativeWorkspaceColumns = useNativeWorkspaceColumnsSupported();
   const primaryColumn = use(NativePrimaryColumnContext);
   const contentBackground = primaryColumn ? "bg-drawer" : "bg-screen";
@@ -690,12 +717,15 @@ export function HomeScreen(props: HomeScreenProps) {
               environment.label,
             ]),
           ),
+          machineOrder,
+          machineByEnvironmentId,
         )
       : items;
   }, [
     nowMinute,
     props.conversationGrouping,
     props.environments,
+    machineOrder,
     queuedThreadKeys,
     threadMoveAvailability,
     settledShelfExpanded,
@@ -773,6 +803,11 @@ export function HomeScreen(props: HomeScreenProps) {
           <ThreadListV2MachineHeader
             label={item.label}
             pane={primaryColumn ? "sidebar" : "screen"}
+            environmentId={item.environmentId}
+            position={item.position}
+            count={item.count}
+            onMove={moveMachine}
+            machineKind={item.machineKind}
           />
         );
       }

@@ -155,6 +155,11 @@ function ThreadListV2Section(props: {
     readonly accessibilityLabel: string;
     readonly accessibilityHint: string;
   };
+  readonly machineReorder?: {
+    readonly position: number;
+    readonly count: number;
+    readonly onMove: (delta: -1 | 1) => void;
+  };
 }) {
   const snoozed = props.tone === "snoozed";
   const sidebarPane = props.pane === "sidebar";
@@ -197,6 +202,35 @@ function ThreadListV2Section(props: {
           style={{ transform: [{ rotate: props.disclosure.expanded ? "180deg" : "0deg" }] }}
         />
       ) : null}
+      {props.machineReorder
+        ? ([-1, 1] as const).map((delta) => (
+            <Pressable
+              key={delta}
+              accessibilityRole="button"
+              accessibilityLabel={`${delta < 0 ? "Move" : "Move"} machine group ${delta < 0 ? "up" : "down"}`}
+              accessibilityState={{
+                disabled:
+                  delta < 0
+                    ? props.machineReorder!.position === 0
+                    : props.machineReorder!.position === props.machineReorder!.count - 1,
+              }}
+              disabled={
+                delta < 0
+                  ? props.machineReorder?.position === 0
+                  : props.machineReorder?.position === (props.machineReorder?.count ?? 0) - 1
+              }
+              hitSlop={8}
+              onPress={() => props.machineReorder?.onMove(delta)}
+            >
+              <SymbolView
+                name={delta < 0 ? "chevron.up" : "chevron.down"}
+                size={12}
+                tintColorClassName="accent-foreground-muted"
+                type="monochrome"
+              />
+            </Pressable>
+          ))
+        : null}
     </>
   );
 
@@ -232,8 +266,41 @@ export const ThreadListV2SectionDivider = memo(function ThreadListV2SectionDivid
 export const ThreadListV2MachineHeader = memo(function ThreadListV2MachineHeader(props: {
   readonly label: string;
   readonly pane?: "screen" | "sidebar";
+  readonly environmentId?: string;
+  readonly position?: number;
+  readonly count?: number;
+  readonly onMove?: (environmentId: string, delta: -1 | 1) => void;
+  readonly machineKind?: EnvironmentMachineKind;
 }) {
-  return <ThreadListV2Section label={props.label} pane={props.pane} />;
+  return (
+    <View className={cn("flex-row items-center", props.pane === "sidebar" ? "px-3" : "px-5")}>
+      {props.machineKind ? (
+        <EnvironmentMachineSymbol
+          kind={props.machineKind}
+          size={13}
+          tintColorClassName="accent-foreground-muted"
+        />
+      ) : null}
+      <View className="flex-1">
+        <ThreadListV2Section
+          label={props.label}
+          pane={props.pane}
+          machineReorder={
+            props.environmentId &&
+            props.position !== undefined &&
+            props.count !== undefined &&
+            props.onMove
+              ? {
+                  position: props.position,
+                  count: props.count,
+                  onMove: (delta) => props.onMove?.(props.environmentId!, delta),
+                }
+              : undefined
+          }
+        />
+      </View>
+    </View>
+  );
 });
 
 type ThreadListV2ShelfHeaderProps = {
