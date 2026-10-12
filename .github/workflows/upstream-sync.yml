@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
 
 concurrency:
   group: upstream-sync
@@ -20,25 +19,21 @@ env:
   NODE_OPTIONS: --max-old-space-size=4096
 
 jobs:
-  sync:
+  # Runs upstream code (install scripts, tests), so it never sees the push token.
+  merge:
     if: github.repository == 'e-kotov/t3code'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    outputs:
+      changed: ${{ steps.merge.outputs.changed }}
     steps:
-      - name: Require push token
-        env:
-          SYNC_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
-        run: |
-          # GITHUB_TOKEN cannot push commits that change workflow files, which upstream does often.
-          [ -n "$SYNC_TOKEN" ] || { echo '::error::Set the UPSTREAM_SYNC_TOKEN secret (contents + workflows write).'; exit 1; }
       - name: Checkout fork history without vendored gitlinks
         env:
-          SYNC_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
           GIT_TERMINAL_PROMPT: "0"
         run: |
           set -euo pipefail
           git init .
-          git remote add origin "https://x-access-token:${SYNC_TOKEN}@github.com/$GITHUB_REPOSITORY.git"
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
           git sparse-checkout set --no-cone '/*' '!/.repos/'
           git config user.name "t3code-ek upstream sync"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -58,9 +53,41 @@ jobs:
         env:
           UPSTREAM_SHA: ${{ steps.merge.outputs.upstream }}
         run: scripts/fork-upstream-sync.sh checks
+      - if: steps.merge.outputs.changed == 'true'
+        run: git bundle create "$RUNNER_TEMP/merge.bundle" refs/remotes/origin/main..main
+      - if: steps.merge.outputs.changed == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: upstream-merge
+          path: ${{ runner.temp }}/merge.bundle
+          retention-days: 3
+
+  # Fresh runner that executes no repository code: it only pushes the checked merge.
+  push:
+    needs: merge
+    if: needs.merge.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: upstream-merge
+          path: ${{ runner.temp }}
       - name: Push merged main
-        if: steps.merge.outputs.changed == 'true'
-        run: git push origin HEAD:main
+        env:
+          SYNC_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
+          GIT_TERMINAL_PROMPT: "0"
+        run: |
+          # GITHUB_TOKEN cannot push commits that change workflow files, which upstream does often.
+          set -euo pipefail
+          [ -n "$SYNC_TOKEN" ] || { echo '::error::Set the UPSTREAM_SYNC_TOKEN secret (contents + workflows write).'; exit 1; }
+          git init -q .
+          git fetch -q --no-tags "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" main:refs/remotes/origin/main
+          git fetch -q "$RUNNER_TEMP/merge.bundle" main:refs/heads/merged
+          git push "https://x-access-token:${SYNC_TOKEN}@github.com/$GITHUB_REPOSITORY.git" refs/heads/merged:refs/heads/main
       - name: Disable workflows inherited from upstream
         env:
           GH_TOKEN: ${{ github.token }}
