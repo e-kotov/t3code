@@ -2976,6 +2976,7 @@ function SortableProjectItem({
 
 interface SidebarProjectsContentProps {
   cacheWarmingEnvironmentId: EnvironmentId | null;
+  cacheWarmingThreads: readonly SidebarThreadSummary[];
   showArm64IntelBuildWarning: boolean;
   arm64IntelBuildWarningDescription: string | null;
   desktopUpdateButtonAction: "download" | "install" | "none";
@@ -3057,6 +3058,7 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
     attachProjectListAutoAnimateRef,
     projectsLength,
     cacheWarmingEnvironmentId,
+    cacheWarmingThreads,
   } = props;
 
   const handleProjectSortOrderChange = useCallback(
@@ -3095,7 +3097,12 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
               </CommandDialogTrigger>
             </SidebarMenuItem>
           </SidebarMenu>
-          <CacheWarmingEnvironmentToggle environmentId={cacheWarmingEnvironmentId} />
+          <CacheWarmingEnvironmentToggle
+            environmentId={cacheWarmingEnvironmentId}
+            threads={cacheWarmingThreads.filter(
+              (thread) => thread.environmentId === cacheWarmingEnvironmentId,
+            )}
+          />
         </SidebarGroup>
       }
     >
@@ -3885,6 +3892,7 @@ export default function LegacySidebar() {
 
       <SidebarProjectsContent
         cacheWarmingEnvironmentId={routeThreadRef?.environmentId ?? primaryEnvironmentId}
+        cacheWarmingThreads={sidebarThreads}
         showArm64IntelBuildWarning={showArm64IntelBuildWarning}
         arm64IntelBuildWarningDescription={arm64IntelBuildWarningDescription}
         desktopUpdateButtonAction={desktopUpdateButtonAction}

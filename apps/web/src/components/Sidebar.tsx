@@ -5192,6 +5192,10 @@ export default function Sidebar() {
             />
             <CacheWarmingEnvironmentToggle
               environmentId={routeThreadRef?.environmentId ?? primaryEnvironmentId}
+              threads={threads.filter(
+                (thread) =>
+                  thread.environmentId === (routeThreadRef?.environmentId ?? primaryEnvironmentId),
+              )}
             />
           </SidebarGroup>
         }
