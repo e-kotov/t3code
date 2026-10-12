@@ -15,6 +15,7 @@ const CONTEXT_CHIP_PRESENTATIONS = {
   element: { accent: "#b87501", symbol: "cursorarrow.click" },
   "preview-annotation": { accent: "#b87501", symbol: "cursorarrow.click" },
   "review-comment": { accent: "#8a70dd", symbol: "text.bubble" },
+  assistantCitation: { accent: "#8a70dd", symbol: "text.bubble" },
   "pull-request": { accent: "#7079e4", symbol: "git-pull-request" },
   skill: { accent: "#b261be", symbol: "cube" },
 } as const;

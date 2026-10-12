@@ -18,6 +18,7 @@ import type { SelectableMarkdownTextProps } from "./SelectableMarkdownText.types
 import { useAppearancePreferences } from "../features/settings/appearance/AppearancePreferencesProvider";
 import { AndroidAnchoredMenu } from "../components/AndroidAnchoredMenu";
 import { useEnrichedLinkVariants } from "./useEnrichedLinkVariants";
+import { emitAssistantCitationSelection } from "./assistantCitationSelection";
 import { copyTextWithHaptic } from "../lib/copyTextWithHaptic";
 import {
   ENRICHED_INLINE_FILE_LINK_REGEX,
@@ -141,6 +142,27 @@ function enrichedStyle(
 export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
   const { renderImage, resolveImageSource } = props;
   const markdown = useMemo(() => markdownWithHtml(props.markdown), [props.markdown]);
+  const citationSource = props.assistantCitationSource;
+  // Android's selection menu offers "Cite"; the thread screen turns it into a composer quote.
+  const contextMenuItems = useMemo(
+    () =>
+      Platform.OS === "android" && citationSource
+        ? [
+            {
+              text: "Cite",
+              icon: "text.quote",
+              onPress: ({
+                text,
+                selection,
+              }: {
+                text: string;
+                selection: { start: number; end: number };
+              }) => emitAssistantCitationSelection(citationSource, text, selection),
+            },
+          ]
+        : undefined,
+    [citationSource],
+  );
   const { themeAppearance } = useAppearancePreferences();
   const [documentAssets, setDocumentAssets] = useState<DocumentAssetsEvent["assets"]>([]);
   const onDocumentAssets = useCallback(({ assets }: DocumentAssetsEvent) => {
@@ -330,6 +352,7 @@ export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
           spoilerOverlay="solid"
           onLinkPress={props.onLinkPress ? ({ url }) => props.onLinkPress?.(url) : undefined}
           onLinkLongPress={onLinkLongPress}
+          contextMenuItems={contextMenuItems}
           linkContextMenuItems={linkContextMenuItems}
           linkPillContent={linkPillContent}
         />

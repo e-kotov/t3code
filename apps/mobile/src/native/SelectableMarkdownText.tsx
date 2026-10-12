@@ -7,6 +7,7 @@ import { themeColorWithAlpha } from "../lib/mobileTheme";
 import { useUniwindTheme } from "../lib/useUniwindTheme";
 
 export type {
+  AssistantCitationSource,
   MarkdownFileContextMenu,
   MarkdownFileContextMenuAction,
   MarkdownImageRenderer,
@@ -16,6 +17,10 @@ export type {
   NativeMarkdownTextStyle,
   SelectableMarkdownSkill,
 } from "./SelectableMarkdownText.types";
+export {
+  addAssistantCitationSelectionListener,
+  type AssistantCitationSelectionEvent,
+} from "./assistantCitationSelection";
 
 export function SelectableMarkdownText(props: SelectableMarkdownTextProps) {
   const theme = useUniwindTheme();
