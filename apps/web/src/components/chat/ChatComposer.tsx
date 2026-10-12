@@ -142,6 +142,7 @@ import {
   type ComposerTasksProgress,
 } from "./ComposerTasksBadge";
 import { ComposerActivityRow } from "./ComposerActivityStatus";
+import { CacheHud } from "./CacheHud";
 import {
   reconcileAttachmentContextReferences,
   type RetainedAttachmentContextPayloads,
@@ -1599,6 +1600,8 @@ export interface ChatComposerProps {
   activeTasksProgress: ComposerTasksProgress | null;
   activeTaskSteps: readonly ComposerTaskStep[] | null;
   threadSyncPhase: ThreadSyncPhase | null;
+  cacheHud?: ComponentProps<typeof CacheHud>["hud"];
+  usageWindows?: ComponentProps<typeof CacheHud>["usageWindows"];
 
   // Mode
   runtimeMode: RuntimeMode;
@@ -6932,6 +6935,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
               />
             </ComposerBanner.Attachment>
           ) : null}
+          <CacheHud hud={props.cacheHud} usageWindows={props.usageWindows} />
         </ComposerBanner.Column>
         {!isComposerApprovalState ? (
           <ComposerStashBadge

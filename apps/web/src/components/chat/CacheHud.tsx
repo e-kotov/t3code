@@ -2,6 +2,8 @@ import { useCallback, useMemo, useSyncExternalStore } from "react";
 import type { OrchestrationV2CacheHud, ServerProviderUsageWindow } from "@t3tools/contracts";
 import { formatResetsIn } from "@t3tools/shared/usageLimits";
 import { createCacheHudClock, createCacheHudSnapshot } from "@t3tools/shared/cacheHud";
+import type { ReactNode } from "react";
+import { ComposerBanner } from "./ComposerBanner";
 
 const subscribe = createCacheHudClock(
   () => document.visibilityState === "visible",
@@ -28,10 +30,10 @@ export function CacheHud(props: {
   if (!view && usageWindows.length === 0) return null;
   if (!view) {
     return (
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-t-lg border border-b-0 bg-background px-4 py-1.5 text-xs text-muted-foreground shadow-sm">
+      <HudTab>
         <span className="min-w-0 flex-1" />
         <UsageWindows windows={usageWindows} />
-      </div>
+      </HudTab>
     );
   }
   const color =
@@ -53,12 +55,25 @@ export function CacheHud(props: {
       </span>
     );
   return (
-    <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-t-lg border border-b-0 bg-background px-4 py-1.5 text-xs shadow-sm">
+    <HudTab>
       <span className="min-w-0 flex-1 truncate" aria-label={view.description}>
         {content}
       </span>
       <UsageWindows windows={usageWindows} />
-    </div>
+    </HudTab>
+  );
+}
+
+// Joins the composer's tab stack so tasks and notices share its outline and inset.
+function HudTab({ children }: { children: ReactNode }) {
+  return (
+    <ComposerBanner.Attachment>
+      <ComposerBanner.Root data-composer-cache-hud="true">
+        <div className="flex min-h-7 min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-0.5 px-2.5 text-muted-foreground">
+          {children}
+        </div>
+      </ComposerBanner.Root>
+    </ComposerBanner.Attachment>
   );
 }
 
