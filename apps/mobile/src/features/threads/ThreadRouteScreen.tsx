@@ -1032,6 +1032,11 @@ function ThreadRouteContent(
       {activeInspectorRenderer ? <InspectorPaneRoleActivation /> : null}
       <ThreadHeader
         cacheHud={selectedThread.cacheHud}
+        usageWindows={
+          serverConfig?.providers.find(
+            (provider) => provider.instanceId === selectedThread.modelSelection.instanceId,
+          )?.usageLimits?.windows
+        }
         title={selectedThread.title}
         subtitle={headerSubtitle}
         headerColor={headerColor}
