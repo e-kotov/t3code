@@ -833,6 +833,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                 environmentId={thread.environmentId}
                 threadId={thread.id}
                 driver={thread.cacheHud?.driver}
+                cacheHud={thread.cacheHud}
               />
             </div>
           )}
