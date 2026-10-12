@@ -124,6 +124,8 @@ export function HomeRouteScreen() {
     options: listOptions,
     setSelectedEnvironmentId,
     setSelectedProjectKey,
+    setConversationSortOrder,
+    setConversationGrouping,
   } = useHomeListOptions(availableEnvironmentIds);
   const selectedEnvironmentId = listOptions.selectedEnvironmentId;
   const projectScopeKey = listOptions.selectedProjectKey;
@@ -239,6 +241,10 @@ export function HomeRouteScreen() {
           searchQuery={searchQuery}
           selectedEnvironmentId={selectedEnvironmentId}
           selectedProjectKey={selectedProjectKey}
+          conversationSortOrder={listOptions.conversationSortOrder}
+          conversationGrouping={listOptions.conversationGrouping}
+          onConversationSortOrderChange={setConversationSortOrder}
+          onConversationGroupingChange={setConversationGrouping}
           onEnvironmentChange={setSelectedEnvironmentId}
           onProjectChange={setSelectedProjectKey}
           onOpenEnvironments={() =>
@@ -306,6 +312,8 @@ export function HomeRouteScreen() {
           projectGroupingMode={listOptions.projectGroupingMode}
           projects={projects}
           projectSortOrder={listOptions.projectSortOrder}
+          conversationSortOrder={listOptions.conversationSortOrder}
+          conversationGrouping={listOptions.conversationGrouping}
           savedConnectionsById={savedConnectionsById}
           searchQuery={searchQuery}
           selectedEnvironmentId={selectedEnvironmentId}

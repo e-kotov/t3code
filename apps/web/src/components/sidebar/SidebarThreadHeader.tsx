@@ -31,6 +31,8 @@ export interface SidebarThreadHeaderProps {
   hasProjects: boolean;
   /** The project scope combobox, rendered as the first icon of the group. */
   projectScope: ReactNode;
+  /** Sorting and machine-grouping menus for the thread roster. */
+  listControls?: ReactNode;
   onNewProject: () => void;
   /** Receives the click so Shift+click can skip the project picker. */
   onNewThread: (event: ReactMouseEvent) => void;
@@ -53,6 +55,7 @@ export function SidebarThreadHeader({
   searchFieldRef,
   hasProjects,
   projectScope,
+  listControls,
   onNewProject,
   onNewThread,
   newThreadDisabled,
@@ -127,11 +130,14 @@ export function SidebarThreadHeader({
         {hasProjects ? (
           <>
             {projectScope}
+            {listControls}
             <SidebarHeaderIconButton label="Add project" onClick={onNewProject}>
               <FolderPlusIcon />
             </SidebarHeaderIconButton>
           </>
-        ) : null}
+        ) : (
+          listControls
+        )}
         <SidebarHeaderIconButton
           label="New thread"
           tooltip={

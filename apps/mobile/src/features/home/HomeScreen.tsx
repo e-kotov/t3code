@@ -11,7 +11,12 @@ import {
   threadSearchMatchKey,
   type EnvironmentThreadSearchMatch,
 } from "@t3tools/client-runtime/state/thread-search";
-import { type EnvironmentId, type SidebarProjectGroupingMode } from "@t3tools/contracts";
+import {
+  type EnvironmentId,
+  type SidebarConversationGrouping,
+  type SidebarConversationSortOrder,
+  type SidebarProjectGroupingMode,
+} from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { useFocusEffect } from "@react-navigation/native";
 import { use, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
@@ -52,6 +57,7 @@ import { useQueuedThreadKeys } from "../../state/use-thread-outbox";
 import {
   ThreadListV2PendingRow,
   ThreadListV2Row,
+  ThreadListV2MachineHeader,
   ThreadListV2SettledShelfHeader,
   ThreadListV2ShowMoreRow,
   ThreadListV2SnoozedShelfHeader,
@@ -61,6 +67,7 @@ import { CacheWarmingEnvironmentControl } from "../threads/CacheWarmingControls"
 import { useThreadRowProviderInstanceResolver } from "../threads/thread-provider-instance";
 import {
   buildThreadListV2Items,
+  groupThreadListV2ItemsByMachine,
   getThreadListV2OrderedSection,
   buildThreadListV2ListItems,
   threadListV2ListItemsAreEqual,
@@ -97,6 +104,8 @@ interface HomeScreenProps {
   readonly selectedEnvironmentId: EnvironmentId | null;
   readonly selectedProjectKey: string | null;
   readonly projectSortOrder: HomeProjectSortOrder;
+  readonly conversationSortOrder: SidebarConversationSortOrder;
+  readonly conversationGrouping: SidebarConversationGrouping;
   readonly projectGroupingMode: SidebarProjectGroupingMode;
   readonly onSearchQueryChange: (query: string) => void;
   readonly onEnvironmentChange: (environmentId: EnvironmentId | null) => void;
@@ -615,6 +624,8 @@ export function HomeScreen(props: HomeScreenProps) {
       settledLimit: settledVisibleCount,
       now: new Date().toISOString(),
       workingShelfEnabled,
+      conversationSortOrder: props.conversationSortOrder,
+      conversationGrouping: props.conversationGrouping,
       workingShelfExpanded,
       inboxReturnAt: threadListInboxReturns.returnedAt,
       snoozedShelfExpanded,
@@ -623,6 +634,8 @@ export function HomeScreen(props: HomeScreenProps) {
     });
   }, [
     workingShelfEnabled,
+    props.conversationSortOrder,
+    props.conversationGrouping,
     workingShelfExpanded,
     pendingOrder,
     selectedThreadKey,
@@ -674,39 +687,50 @@ export function HomeScreen(props: HomeScreenProps) {
       ),
     [props.pendingTasks, props.selectedEnvironmentId, v2ScopedProjectKeys, v2SearchQuery],
   );
-  const threadListV2Items = useMemo(
-    () =>
-      buildThreadListV2ListItems({
-        items: threadListV2Layout.items,
-        pendingTasks: v2PendingTasks,
-        workingCount: threadListV2Layout.workingCount,
-        workingShelfExpanded,
-        workingShelfHeaderIndex: threadListV2Layout.workingShelfHeaderIndex,
-        snoozedCount: threadListV2Layout.snoozedCount,
-        snoozedShelfExpanded,
-        snoozedShelfHeaderIndex: threadListV2Layout.snoozedShelfHeaderIndex,
-        settledCount: threadListV2Layout.settledCount,
-        settledShelfExpanded,
-        settledShelfHeaderIndex: threadListV2Layout.settledShelfHeaderIndex,
-        snoozeLabelNow: `${nowMinute}:00.000Z`,
-        snoozeEnvironmentIds,
-        queuedThreadKeys,
-        moveAvailability: threadMoveAvailability,
-        shelfPreferencesLoading: !shelfPreferencesLoaded,
-      }),
-    [
-      nowMinute,
-      queuedThreadKeys,
-      threadMoveAvailability,
-      settledShelfExpanded,
-      shelfPreferencesLoaded,
-      snoozedShelfExpanded,
-      snoozeEnvironmentIds,
-      threadListV2Layout,
-      v2PendingTasks,
+  const threadListV2Items = useMemo(() => {
+    const items = buildThreadListV2ListItems({
+      items: threadListV2Layout.items,
+      pendingTasks: v2PendingTasks,
+      workingCount: threadListV2Layout.workingCount,
       workingShelfExpanded,
-    ],
-  );
+      workingShelfHeaderIndex: threadListV2Layout.workingShelfHeaderIndex,
+      snoozedCount: threadListV2Layout.snoozedCount,
+      snoozedShelfExpanded,
+      snoozedShelfHeaderIndex: threadListV2Layout.snoozedShelfHeaderIndex,
+      settledCount: threadListV2Layout.settledCount,
+      settledShelfExpanded,
+      settledShelfHeaderIndex: threadListV2Layout.settledShelfHeaderIndex,
+      snoozeLabelNow: `${nowMinute}:00.000Z`,
+      snoozeEnvironmentIds,
+      queuedThreadKeys,
+      moveAvailability: threadMoveAvailability,
+      shelfPreferencesLoading: !shelfPreferencesLoaded,
+    });
+    return props.conversationGrouping === "machine"
+      ? groupThreadListV2ItemsByMachine(
+          items,
+          new Map(
+            props.environments.map((environment) => [
+              String(environment.environmentId),
+              environment.label,
+            ]),
+          ),
+        )
+      : items;
+  }, [
+    nowMinute,
+    props.conversationGrouping,
+    props.environments,
+    queuedThreadKeys,
+    threadMoveAvailability,
+    settledShelfExpanded,
+    shelfPreferencesLoaded,
+    snoozedShelfExpanded,
+    snoozeEnvironmentIds,
+    threadListV2Layout,
+    v2PendingTasks,
+    workingShelfExpanded,
+  ]);
 
   useThreadJumpShortcuts(threadListV2Items, props.onSelectThread);
   useEffect(() => {
@@ -766,6 +790,14 @@ export function HomeScreen(props: HomeScreenProps) {
             disabled={item.disabled}
             expanded={item.expanded}
             onToggle={toggleSettledShelf}
+          />
+        );
+      }
+      if (item.type === "v2-machine-header") {
+        return (
+          <ThreadListV2MachineHeader
+            label={item.label}
+            pane={primaryColumn ? "sidebar" : "screen"}
           />
         );
       }

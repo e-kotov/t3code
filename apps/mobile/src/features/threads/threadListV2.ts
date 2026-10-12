@@ -20,10 +20,12 @@ import {
 import {
   sortActiveThreadsByOrderKey,
   resolveSettledThreadTimestamp,
+  sortSidebarConversations,
   sortPinnedThreadsByOrderKey,
   sortSettledThreads,
 } from "@t3tools/client-runtime/state/thread-sort";
 import type { EnvironmentId, ProjectId } from "@t3tools/contracts";
+import type { SidebarConversationSortOrder } from "@t3tools/contracts/settings";
 
 import type { ThreadListProvider } from "../../state/thread-list-environments";
 import type { ThreadMoveAvailability } from "./threadOrder";
@@ -372,12 +374,19 @@ export interface ThreadListV2SettledShelfListItem {
   readonly disabled: boolean;
 }
 
+export interface ThreadListV2MachineHeaderListItem {
+  readonly type: "v2-machine-header";
+  readonly key: string;
+  readonly label: string;
+}
+
 export type ThreadListV2ListItem =
   | ThreadListV2ThreadListItem
   | ThreadListV2PendingListItem
   | ThreadListV2WorkingShelfListItem
   | ThreadListV2SnoozedShelfListItem
-  | ThreadListV2SettledShelfListItem;
+  | ThreadListV2SettledShelfListItem
+  | ThreadListV2MachineHeaderListItem;
 
 /** Narrows a wider list-item union (e.g. the sidebar's legacy + v2 mix) to
     the v2 item kinds the shared equality understands. */
@@ -389,8 +398,40 @@ export function isThreadListV2ListItem(value: {
     value.type === "v2-pending" ||
     value.type === "v2-working-shelf" ||
     value.type === "v2-snoozed-shelf" ||
-    value.type === "v2-settled-shelf"
+    value.type === "v2-settled-shelf" ||
+    value.type === "v2-machine-header"
   );
+}
+
+export function groupThreadListV2ItemsByMachine(
+  items: readonly ThreadListV2ListItem[],
+  labels: ReadonlyMap<string, string>,
+): ThreadListV2ListItem[] {
+  const environmentCount = new Set(
+    items.filter((item) => item.type === "v2-thread").map((item) => item.item.thread.environmentId),
+  ).size;
+  if (environmentCount <= 1) return [...items];
+  const grouped: ThreadListV2ListItem[] = [];
+  let previousEnvironmentId: string | null = null;
+  let index = 0;
+  for (const item of items) {
+    if (item.type !== "v2-thread") {
+      previousEnvironmentId = null;
+      grouped.push(item);
+      continue;
+    }
+    const environmentId = item.item.thread.environmentId;
+    if (previousEnvironmentId !== environmentId) {
+      grouped.push({
+        type: "v2-machine-header",
+        key: `v2-machine:${index++}:${environmentId}`,
+        label: labels.get(environmentId) ?? "Machine",
+      });
+    }
+    previousEnvironmentId = environmentId;
+    grouped.push(item);
+  }
+  return grouped;
 }
 
 /** Recycled-list equality for the flat v2 list (Home + iPad sidebar).
@@ -405,6 +446,10 @@ export function threadListV2ListItemsAreEqual(
   item: ThreadListV2ListItem,
 ): boolean {
   switch (item.type) {
+    case "v2-machine-header":
+      return (
+        previous.type === item.type && previous.key === item.key && previous.label === item.label
+      );
     case "v2-thread":
       return (
         previous.type === "v2-thread" &&
@@ -664,6 +709,9 @@ export function buildThreadListV2Items(input: {
       shelf, and the inbox orders by when each thread came back to the user
       instead of the saved arrangement. */
   readonly workingShelfEnabled?: boolean;
+  /** User-selected sort for the visible Working and Active shelves. */
+  readonly conversationSortOrder?: SidebarConversationSortOrder;
+  readonly conversationGrouping?: "none" | "machine";
   /** Expands the Working shelf into rows. Collapsed is the default. */
   readonly workingShelfExpanded?: boolean;
   /** Returns this device observed but the server does not stamp, such as an
@@ -758,11 +806,24 @@ export function buildThreadListV2Items(input: {
 
   // The beta inbox is time-ordered, so the saved arrangement (and any move in
   // flight) is kept but not applied until the beta is off again.
-  const orderedActive = workingShelfEnabled
-    ? sortInboxThreadsByReturn(active, input.inboxReturnAt)
-    : applyPendingThreadOrder(sortThreadsForListV2(active), "active", pending);
+  // Without a selected sort order, keep upstream's saved and inbox ordering.
+  const sortOrder = input.conversationSortOrder;
+  const applySelectedSort = <T extends (typeof active)[number]>(threads: T[]) =>
+    sortOrder === undefined
+      ? threads
+      : sortSidebarConversations(
+          threads,
+          sortOrder,
+          Date.now(),
+          input.conversationGrouping ?? "none",
+        );
+  const orderedActive = applySelectedSort(
+    workingShelfEnabled
+      ? sortInboxThreadsByReturn(active, input.inboxReturnAt)
+      : applyPendingThreadOrder(sortThreadsForListV2(active), "active", pending),
+  );
   // Newest send first; finishing and waking again do not move a row.
-  const orderedWorking = sortWorkingThreadsBySend(working);
+  const orderedWorking = applySelectedSort(sortWorkingThreadsBySend(working));
   const orderedSnoozed = [...snoozed].sort(
     (left, right) =>
       parseTimestampMs(left.snoozedUntil ?? "") - parseTimestampMs(right.snoozedUntil ?? ""),

@@ -145,7 +145,8 @@ import { useHandleNewThread } from "../hooks/useHandleNewThread";
 import { useTerminalFocus } from "../hooks/useTerminalFocus";
 import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
 import { startNewThreadFromContext } from "../lib/chatThreadActions";
-import { useClientSettings } from "../hooks/useSettings";
+import { useClientSettings, useUpdateClientSettings } from "../hooks/useSettings";
+import { sortSidebarConversations } from "../lib/threadSort";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useNowMinute } from "../hooks/useNowMinute";
@@ -282,6 +283,7 @@ import {
 import { SidebarContent, SidebarGroup, useSidebar } from "./ui/sidebar";
 import { SidebarChromeFooter, SidebarChromeHeader } from "./sidebar/SidebarChrome";
 import { SidebarHeaderIconButton, SidebarThreadHeader } from "./sidebar/SidebarThreadHeader";
+import { SidebarThreadListControls } from "./sidebar/SidebarThreadListControls";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuShortcut, MenuTrigger } from "./ui/menu";
 import { Tooltip, TooltipPopup, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { MiddleTruncate } from "./ui/middle-truncate";
@@ -693,12 +695,13 @@ const draftPenClassName = "size-3 shrink-0 text-warning-foreground";
 // which resolveSidebarDropTarget turns into the section the gap sits in.
 function SortableSidebarMarker(props: {
   marker: SidebarListMarker;
+  id?: string;
   className?: string;
   children?: ReactNode;
   "data-testid"?: string;
 }) {
   const { setNodeRef, transform, transition } = useSortable({
-    id: sidebarMarkerId(props.marker),
+    id: props.id ?? sidebarMarkerId(props.marker),
     disabled: { draggable: true },
     animateLayoutChanges: animateSidebarLayoutChanges,
   });
@@ -2449,6 +2452,9 @@ export default function Sidebar() {
   const confirmThreadDelete = useClientSettings((s) => s.confirmThreadDelete);
   const confirmThreadArchive = useClientSettings((s) => s.confirmThreadArchive);
   const sidebarProjectSortOrder = useClientSettings((s) => s.sidebarProjectSortOrder);
+  const conversationSortOrder = useClientSettings((s) => s.sidebarConversationSortOrder);
+  const conversationGrouping = useClientSettings((s) => s.sidebarConversationGrouping);
+  const updateClientSettings = useUpdateClientSettings();
   const timestampFormat = useClientSettings((s) => s.timestampFormat);
   const workingShelfEnabled = useClientSettings((s) => s.sidebarWorkingShelfEnabled);
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
@@ -2935,9 +2941,12 @@ export default function Sidebar() {
     // sort, or mixed-version fleets would render different pinned orders on
     // web and mobile from the same data.
     const sortedPinned = sortPinnedThreadsForSidebar(pinned);
-    const sortedActive = workingShelfEnabled
-      ? sortInboxThreadsByReturn(active, inboxReturns.returnedAt)
-      : sortThreadsForSidebar(active);
+    const sortedActive = sortSidebarConversations(
+      active,
+      conversationSortOrder,
+      Date.now(),
+      conversationGrouping,
+    );
     return {
       pinnedThreads:
         optimisticDrop?.section !== "pinned" || optimisticDrop.order === null
@@ -2958,7 +2967,12 @@ export default function Sidebar() {
               getId: (thread) => scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
             }),
       // Newest send first; finishing and waking again do not move a row.
-      workingThreads: sortWorkingThreadsBySend(working),
+      workingThreads: sortSidebarConversations(
+        working,
+        conversationSortOrder,
+        Date.now(),
+        conversationGrouping,
+      ),
       // Soonest wake first: "what comes back next" is the shelf's question.
       snoozedThreads: snoozed.toSorted(
         (left, right) =>
@@ -2974,6 +2988,7 @@ export default function Sidebar() {
     scopedProjectKeys,
     serverConfigs,
     snoozeWakeTick,
+    conversationSortOrder,
     threads,
     workingShelfEnabled,
   ]);
@@ -3870,11 +3885,43 @@ export default function Sidebar() {
     const rowsOf = (
       list: readonly EnvironmentThreadShell[],
       section: SidebarSection,
-    ): SidebarListItem[] =>
-      list.map((thread) => {
-        const key = scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id));
-        return { kind: "thread", key, section };
-      });
+    ): SidebarListItem[] => {
+      if (conversationGrouping !== "machine") {
+        return list.map((thread) => ({
+          kind: "thread" as const,
+          key: scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+          section,
+        }));
+      }
+      const groups = new Map<EnvironmentId, EnvironmentThreadShell[]>();
+      for (const thread of list) {
+        const group = groups.get(thread.environmentId) ?? [];
+        group.push(thread);
+        groups.set(thread.environmentId, group);
+      }
+      const orderedGroups = [...groups.entries()].sort(([left], [right]) =>
+        left.localeCompare(right),
+      );
+      const rows: SidebarListItem[] = [];
+      for (const [environmentId, group] of orderedGroups) {
+        if (conversationGrouping === "machine" && orderedGroups.length > 1) {
+          rows.push({
+            kind: "marker",
+            marker: "machine-header",
+            key: `sidebar-machine:${section}:${environmentId}`,
+            environmentId,
+          });
+        }
+        rows.push(
+          ...group.map((thread) => ({
+            kind: "thread" as const,
+            key: scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+            section,
+          })),
+        );
+      }
+      return rows;
+    };
     if (
       pinnedThreads.length +
         activeThreads.length +
@@ -3914,6 +3961,8 @@ export default function Sidebar() {
     visibleSnoozedThreads,
     visibleWorkingThreads,
     workingThreads.length,
+    conversationGrouping,
+    environmentLabelById,
   ]);
   useEffect(() => {
     if (
@@ -5083,6 +5132,18 @@ export default function Sidebar() {
             <SidebarThreadHeader
               searchFieldRef={headerSearchRef}
               hasProjects={projectGroups.length > 0}
+              listControls={
+                <SidebarThreadListControls
+                  sortOrder={conversationSortOrder}
+                  grouping={conversationGrouping}
+                  onSortOrderChange={(sidebarConversationSortOrder) =>
+                    void updateClientSettings({ sidebarConversationSortOrder })
+                  }
+                  onGroupingChange={(sidebarConversationGrouping) =>
+                    void updateClientSettings({ sidebarConversationGrouping })
+                  }
+                />
+              }
               projectScope={
                 <Combobox
                   items={projectScopeItems}
@@ -5512,6 +5573,21 @@ export default function Sidebar() {
                           continue;
                         }
                         switch (item.marker) {
+                          case "machine-header":
+                            items.push(
+                              <SortableSidebarMarker
+                                key={sidebarListItemId(item)}
+                                marker={item.marker}
+                                id={sidebarListItemId(item)}
+                              >
+                                <div className="mx-2 mt-2 border-t border-sidebar-border/60 pt-2 text-[10px] font-medium uppercase tracking-wide text-sidebar-muted-foreground/70">
+                                  {item.environmentId
+                                    ? (environmentLabelById.get(item.environmentId) ?? "Machine")
+                                    : "Machine"}
+                                </div>
+                              </SortableSidebarMarker>,
+                            );
+                            break;
                           case "pinned-header":
                             items.push(
                               <SidebarDragBoundary
