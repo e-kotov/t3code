@@ -97,20 +97,28 @@ function UsageWindows({ windows }: { windows: readonly ServerProviderUsageWindow
   return (
     <span className="flex shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-0.5 text-muted-foreground">
       {windows.map((window) => {
-        const label =
-          window.kind === "weekly"
-            ? "Week"
-            : window.windowDurationMins === 300
-              ? "5h"
-              : window.label;
-        const reset = formatResetsIn(window, now)?.replace(/^resets in /, "↻ ");
+        const label = usageWindowLabel(window);
+        const remaining = Math.max(0, 100 - Math.round(window.usedPercent));
+        const resetsIn = formatResetsIn(window, now);
         return (
-          <span key={window.id} className="whitespace-nowrap tabular-nums">
-            {label} {Math.max(0, 100 - Math.round(window.usedPercent))}% left
-            {reset ? ` · ${reset}` : ""}
+          <span
+            key={window.id}
+            className="whitespace-nowrap tabular-nums"
+            aria-label={`${window.label}: ${remaining}% left${resetsIn ? `, ${resetsIn}` : ""}`}
+          >
+            {label} {remaining}%{resetsIn ? ` ↻ ${resetsIn.replace(/^resets in /, "")}` : ""}
           </span>
         );
       })}
     </span>
   );
+}
+
+// "Session" -> "5h", "Weekly" -> "Week", "Weekly · Fable" -> "Fable week", so a
+// model-scoped weekly stays distinguishable from the account-wide one.
+function usageWindowLabel(window: ServerProviderUsageWindow): string {
+  if (window.kind === "session" && window.windowDurationMins === 300) return "5h";
+  if (window.kind !== "weekly") return window.label;
+  const scope = window.label.match(/^Weekly · (.+)$/)?.[1];
+  return scope ? `${scope} week` : "Week";
 }
