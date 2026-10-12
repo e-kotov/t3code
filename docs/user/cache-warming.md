@@ -4,7 +4,10 @@ The **Warm all** button is visible in the main conversation interface. It turns
 warming on or off for every conversation with a current Codex or Claude cache
 window, and each conversation button updates to match. You can then change any
 conversation independently. Everything starts off. The global button applies to
-the selected server.
+the selected server. Individual buttons appear only while a supported
+conversation's cache is hot. When some hot conversations are on and others off,
+the global button shows **Warm all: Mixed**; clicking it turns warming on for all
+currently hot conversations.
 
 Warming sends a short, visible **billable** agent turn: it asks for exactly
 `cache warm` and asks the agent to avoid tools and changes. It uses the current
