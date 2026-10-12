@@ -28,13 +28,21 @@ vi.mock("@react-navigation/native", () => {
   };
   return {
     StackActions: { replace: () => ({}) },
+    useIsFocused: () => true,
     useNavigation: () => navigation,
   };
 });
 vi.mock("../../native/useOpenPullRequest", () => ({ useOpenPullRequest: () => () => {} }));
 
 vi.mock("../../state/session", () => ({ useEnvironmentScope: () => true }));
-vi.mock("react-native", () => ({ Alert: { alert: () => {} }, Linking: {}, Platform: {} }));
+vi.mock("react-native", () => ({
+  Alert: { alert: () => {} },
+  AppState: { currentState: "active" },
+  Linking: {},
+  Platform: {},
+  Pressable: "button",
+  View: "div",
+}));
 vi.mock("../layout/AdaptiveWorkspaceLayout", () => ({
   useAdaptiveWorkspaceLayout: () => ({
     layout: { usesSplitView: false },

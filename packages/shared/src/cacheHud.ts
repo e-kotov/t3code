@@ -76,8 +76,8 @@ export function deriveCacheHud(
 
 export function formatHudTokens(value: number) {
   if (value < 1000) return String(Math.round(value));
-  if (value < 1_000_000) return `${(value / 1000).toFixed(1).replace(/\.0$/, "")}k`;
-  return `${(value / 1_000_000).toFixed(1).replace(/\.0$/, "")}m`;
+  if (value < 1_000_000) return `${Math.round(value / 1000)}k`;
+  return `${Math.round(value / 1_000_000)}m`;
 }
 
 export function presentCacheHud(hud: OrchestrationV2CacheHud, nowMs: number) {
@@ -109,7 +109,7 @@ export function presentCacheHud(hud: OrchestrationV2CacheHud, nowMs: number) {
         ? `? ${percentage === null ? "" : `${percentage}% `}${tokens}`
         : `${state === "expiring" ? "⏰ " : ""}~${clock} ${percentage === null ? "" : `${percentage}% `}${tokens}`;
   const max = usage.maxTokens;
-  const contextText = `Context ${formatHudTokens(usage.usedTokens)}/${max ? formatHudTokens(max) : "?"}`;
+  const contextText = `${formatHudTokens(usage.usedTokens)}/${max ? formatHudTokens(max) : "?"}`;
   const contextPercentage = max ? Math.min(100, Math.round((usage.usedTokens / max) * 100)) : null;
   const description = `Context tokens: ${usage.usedTokens}/${max ?? "unknown"}${contextPercentage === null ? "" : ` (${contextPercentage}%)`}. Last-request cached tokens: ${cached ?? "unknown"}${percentage === null ? "" : ` (${percentage}%)`}.${usage.cacheCreationTokens === undefined ? "" : ` Cache-write tokens: ${usage.cacheCreationTokens}.`} Cache expiry${remainingMs === null ? "" : ` at ${clock} (device local time)`} is an estimate${hud.basis === "reported" ? " based on Claude's reported lifetime" : hud.basis === "estimated" ? " using Codex's 30-minute baseline and recent observed misses" : "; lifetime is unknown"}. Prefix changes and eviction can make it cold earlier.`;
   return { state, cacheText, contextText, contextPercentage, description, remainingMs };
