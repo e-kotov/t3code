@@ -174,6 +174,8 @@ export type SidebarListItem =
       readonly marker: SidebarListMarker;
       readonly key?: string;
       readonly environmentId?: EnvironmentId;
+      readonly groupPosition?: number;
+      readonly groupCount?: number;
     };
 
 export function sidebarListItemId(item: SidebarListItem): string {

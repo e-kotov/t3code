@@ -12,6 +12,7 @@ import * as SchemaTransformation from "effect/SchemaTransformation";
 import {
   ForwardCompatibleNullable,
   ForwardCompatibleOptional,
+  EnvironmentId,
   OmittedWhenNull,
   ProjectId,
   ThreadId,
@@ -501,6 +502,9 @@ export const ClientSettingsSchema = Schema.Struct({
   ),
   sidebarConversationGrouping: SidebarConversationGrouping.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_SIDEBAR_CONVERSATION_GROUPING)),
+  ),
+  sidebarConversationMachineOrder: Schema.Array(EnvironmentId).pipe(
+    Schema.withDecodingDefault(Effect.succeed([])),
   ),
   sidebarThreadPreviewCount: SidebarThreadPreviewCount.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_SIDEBAR_THREAD_PREVIEW_COUNT)),
@@ -1780,6 +1784,7 @@ export const ClientSettingsPatch = Schema.Struct({
   sidebarThreadSortOrder: Schema.optionalKey(SidebarThreadSortOrder),
   sidebarConversationSortOrder: Schema.optionalKey(SidebarConversationSortOrder),
   sidebarConversationGrouping: Schema.optionalKey(SidebarConversationGrouping),
+  sidebarConversationMachineOrder: Schema.optionalKey(Schema.Array(EnvironmentId)),
   sidebarThreadPreviewCount: Schema.optionalKey(SidebarThreadPreviewCount),
   timestampFormat: Schema.optionalKey(TimestampFormat),
   snapShotEnabled: Schema.optionalKey(Schema.Boolean),

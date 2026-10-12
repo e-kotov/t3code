@@ -53,6 +53,12 @@ describe("cacheWarmingWindow", () => {
     });
   });
 
+  it("does not warm a thread explicitly settled by the user", () => {
+    expect(
+      cacheWarmingWindow({ ...enabled, thread: thread({ settledOverride: "settled" }) }),
+    ).toBeNull();
+  });
+
   it("rearms after fresh cache telemetry reports a new hot window", () => {
     const previous = cacheWarmingWindow({ ...enabled, thread: thread() });
     expect(previous).not.toBeNull();

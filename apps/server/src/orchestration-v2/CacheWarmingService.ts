@@ -21,6 +21,7 @@ export interface CacheWarmingCandidate {
     OrchestrationV2ThreadShell,
     | "lineage"
     | "archivedAt"
+    | "settledOverride"
     | "activeRunId"
     | "pendingRuntimeRequest"
     | "pendingBackgroundTasks"
@@ -50,6 +51,7 @@ export function cacheWarmingWindow(input: CacheWarmingCandidate): CacheWarmingWi
   if (!input.enabled || thread.lineage.relationshipToParent === "subagent") return null;
   if (
     thread.archivedAt !== null ||
+    thread.settledOverride === "settled" ||
     thread.activeRunId !== null ||
     thread.pendingRuntimeRequest !== null ||
     (thread.pendingBackgroundTasks?.length ?? 0) > 0 ||

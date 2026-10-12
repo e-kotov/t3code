@@ -9,6 +9,7 @@ import {
 } from "@t3tools/client-runtime/state/thread-settled";
 import type { SnoozePreset } from "@t3tools/client-runtime/state/thread-settled";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
+import type { EnvironmentMachineKind } from "@t3tools/contracts";
 import { resolveThreadProviderStack } from "@t3tools/client-runtime/state/models";
 import { threadSearchMatchKey } from "@t3tools/client-runtime/state/thread-search";
 import {
@@ -378,6 +379,10 @@ export interface ThreadListV2MachineHeaderListItem {
   readonly type: "v2-machine-header";
   readonly key: string;
   readonly label: string;
+  readonly environmentId: string;
+  readonly position: number;
+  readonly count: number;
+  readonly machineKind?: EnvironmentMachineKind;
 }
 
 export type ThreadListV2ListItem =
@@ -406,30 +411,59 @@ export function isThreadListV2ListItem(value: {
 export function groupThreadListV2ItemsByMachine(
   items: readonly ThreadListV2ListItem[],
   labels: ReadonlyMap<string, string>,
+  preferredOrder: readonly string[] = [],
+  machineKinds: ReadonlyMap<string, EnvironmentMachineKind> = new Map(),
 ): ThreadListV2ListItem[] {
-  const environmentCount = new Set(
-    items.filter((item) => item.type === "v2-thread").map((item) => item.item.thread.environmentId),
-  ).size;
+  const environmentIds = [
+    ...new Set(
+      items
+        .filter((item) => item.type === "v2-thread")
+        .map((item) => item.item.thread.environmentId),
+    ),
+  ].sort((left, right) => {
+    const leftPosition = preferredOrder.indexOf(left);
+    const rightPosition = preferredOrder.indexOf(right);
+    if (leftPosition >= 0 || rightPosition >= 0) {
+      if (leftPosition < 0) return 1;
+      if (rightPosition < 0) return -1;
+      if (leftPosition !== rightPosition) return leftPosition - rightPosition;
+    }
+    return left.localeCompare(right);
+  });
+  const environmentCount = environmentIds.length;
   if (environmentCount <= 1) return [...items];
   const grouped: ThreadListV2ListItem[] = [];
-  let previousEnvironmentId: string | null = null;
   let index = 0;
-  for (const item of items) {
-    if (item.type !== "v2-thread") {
-      previousEnvironmentId = null;
-      grouped.push(item);
+  let cursor = 0;
+  while (cursor < items.length) {
+    if (items[cursor]?.type !== "v2-thread") {
+      grouped.push(items[cursor]!);
+      cursor += 1;
       continue;
     }
-    const environmentId = item.item.thread.environmentId;
-    if (previousEnvironmentId !== environmentId) {
+    const segment: Extract<ThreadListV2ListItem, { type: "v2-thread" }>[] = [];
+    while (cursor < items.length && items[cursor]?.type === "v2-thread") {
+      segment.push(items[cursor] as Extract<ThreadListV2ListItem, { type: "v2-thread" }>);
+      cursor += 1;
+    }
+    const groupedRows = new Map<string, typeof segment>();
+    for (const row of segment) {
+      const id = row.item.thread.environmentId;
+      groupedRows.set(id, [...(groupedRows.get(id) ?? []), row]);
+    }
+    const segmentEnvironmentIds = environmentIds.filter((id) => groupedRows.has(id));
+    for (const [position, environmentId] of segmentEnvironmentIds.entries()) {
       grouped.push({
         type: "v2-machine-header",
         key: `v2-machine:${index++}:${environmentId}`,
         label: labels.get(environmentId) ?? "Machine",
+        environmentId,
+        position,
+        count: segmentEnvironmentIds.length,
+        machineKind: machineKinds.get(environmentId),
       });
+      grouped.push(...(groupedRows.get(environmentId) ?? []));
     }
-    previousEnvironmentId = environmentId;
-    grouped.push(item);
   }
   return grouped;
 }
@@ -448,7 +482,13 @@ export function threadListV2ListItemsAreEqual(
   switch (item.type) {
     case "v2-machine-header":
       return (
-        previous.type === item.type && previous.key === item.key && previous.label === item.label
+        previous.type === item.type &&
+        previous.key === item.key &&
+        previous.label === item.label &&
+        previous.environmentId === item.environmentId &&
+        previous.position === item.position &&
+        previous.count === item.count &&
+        previous.machineKind === item.machineKind
       );
     case "v2-thread":
       return (

@@ -13,13 +13,14 @@ import {
 } from "@t3tools/client-runtime/state/thread-search";
 import { LegendList } from "@legendapp/list/react-native";
 import type { MenuAction } from "@react-native-menu/menu";
-import { useAtomValue } from "@effect/atom-react";
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { LayoutChangeEvent, TextInputInstance } from "react-native";
 import { Platform, StyleSheet, TextInput, View } from "react-native";
 import { GestureDetector, useNativeGesture } from "react-native-gesture-handler";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import type { SearchBarCommands } from "react-native-screens";
 
 import { AppText as Text } from "../../components/AppText";
@@ -135,6 +136,12 @@ function NativeSidebarContainer(props: ThreadNavigationSidebarProps) {
 function ThreadNavigationSidebarPane(
   props: ThreadNavigationSidebarProps & { readonly nativeChrome: boolean },
 ) {
+  const preferencesResult = useAtomValue(mobilePreferencesAtom);
+  const updatePreferences = useAtomSet(updateMobilePreferencesAtom);
+  const machineOrder =
+    preferencesResult._tag === "Success"
+      ? (preferencesResult.value.conversationMachineOrder ?? [])
+      : [];
   const { themeVariables: materialTheme } = useAppearancePreferences();
   const drawerColor = materialTheme["--color-drawer"];
 
@@ -174,6 +181,26 @@ function ThreadNavigationSidebarPane(
         }))
         .sort((left, right) => left.label.localeCompare(right.label)),
     [savedConnectionsById],
+  );
+  const moveMachine = useCallback(
+    (environmentId: string, delta: -1 | 1) => {
+      const ordered = [
+        ...new Set(environments.map((environment) => String(environment.environmentId))),
+      ].sort((left, right) => {
+        const a = machineOrder.indexOf(left);
+        const b = machineOrder.indexOf(right);
+        return (
+          (a < 0 ? Number.MAX_SAFE_INTEGER : a) - (b < 0 ? Number.MAX_SAFE_INTEGER : b) ||
+          left.localeCompare(right)
+        );
+      });
+      const index = ordered.indexOf(environmentId);
+      const target = index + delta;
+      if (index < 0 || target < 0 || target >= ordered.length) return;
+      [ordered[index], ordered[target]] = [ordered[target]!, ordered[index]!];
+      updatePreferences({ conversationMachineOrder: ordered });
+    },
+    [environments, machineOrder, updatePreferences],
   );
   const availableEnvironmentIds = useMemo(
     () => new Set(environments.map((environment) => environment.environmentId)),
@@ -480,6 +507,8 @@ function ThreadNavigationSidebarPane(
                 environment.label,
               ]),
             ),
+            machineOrder,
+            machineByEnvironmentId,
           )
         : baseItems;
     if (settledShelfExpanded && threadListV2Layout.hiddenSettledCount > 0) {
@@ -506,6 +535,8 @@ function ThreadNavigationSidebarPane(
     workingShelfExpanded,
     options.conversationGrouping,
     environments,
+    machineOrder,
+    moveMachine,
   ]);
   const listMenuActions = useMemo<MenuAction[]>(
     () => [
@@ -730,7 +761,17 @@ function ThreadNavigationSidebarPane(
     ({ item }: { readonly item: SidebarListItem }) => {
       switch (item.type) {
         case "v2-machine-header":
-          return <ThreadListV2MachineHeader label={item.label} pane="sidebar" />;
+          return (
+            <ThreadListV2MachineHeader
+              label={item.label}
+              pane="sidebar"
+              environmentId={item.environmentId}
+              position={item.position}
+              count={item.count}
+              onMove={moveMachine}
+              machineKind={item.machineKind}
+            />
+          );
         case "v2-pending": {
           const pendingScopeKey = scopedProjectKey(
             item.pendingTask.environmentId,
