@@ -13,6 +13,7 @@ export function ThreadHeader(
   props: Parameters<typeof useThreadHeaderOptions>[0] & {
     readonly cacheHud?: OrchestrationV2CacheHud | null;
     readonly usageWindows?: readonly ServerProviderUsageWindow[];
+    readonly modelLabel?: string;
     readonly hasThreadCwd: boolean;
     readonly hasWorkspaceRoot: boolean;
     readonly fileInspectorSupported: boolean;
@@ -104,7 +105,11 @@ export function ThreadHeader(
         actions={androidHeaderActions}
         hideBottomBorder
       />
-      <CacheHud hud={props.cacheHud} usageWindows={props.usageWindows} />
+      <CacheHud
+        hud={props.cacheHud}
+        usageWindows={props.usageWindows}
+        modelLabel={props.modelLabel}
+      />
       {native.fallback}
     </>
   );

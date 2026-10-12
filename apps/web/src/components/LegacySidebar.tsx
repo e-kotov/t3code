@@ -1,5 +1,9 @@
 import { CacheHud } from "./chat/CacheHud";
-import { CacheWarmingEnvironmentToggle, CacheWarmingThreadToggle } from "./CacheWarmingToggle";
+import {
+  CACHE_WARMING_EXPLANATION,
+  CacheWarmingEnvironmentToggle,
+  CacheWarmingThreadToggle,
+} from "./CacheWarmingToggle";
 import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
 import { resolveThreadCurrentPullRequestLink } from "@t3tools/shared/threadPullRequests";
 import { Spinner } from "~/components/ui/spinner";
@@ -827,7 +831,15 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                   {thread.title}
                   <CacheHud hud={thread.cacheHud} compact />
                 </TooltipTrigger>
-                <TooltipPopup side="top">{thread.title}</TooltipPopup>
+                <TooltipPopup side="top">
+                  <span>{thread.title}</span>
+                  {thread.cacheHud?.driver === "codex" ||
+                  thread.cacheHud?.driver === "claudeAgent" ? (
+                    <span className="mt-1 block max-w-xs text-2xs text-muted-foreground">
+                      {CACHE_WARMING_EXPLANATION}
+                    </span>
+                  ) : null}
+                </TooltipPopup>
               </Tooltip>
               <CacheWarmingThreadToggle
                 environmentId={thread.environmentId}

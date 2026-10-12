@@ -2,8 +2,6 @@ import { useCallback, useMemo, useSyncExternalStore } from "react";
 import type { OrchestrationV2CacheHud, ServerProviderUsageWindow } from "@t3tools/contracts";
 import { formatResetsIn } from "@t3tools/shared/usageLimits";
 import { createCacheHudClock, createCacheHudSnapshot } from "@t3tools/shared/cacheHud";
-import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
-import { Tooltip, TooltipTrigger, TooltipPopup } from "../ui/tooltip";
 
 const subscribe = createCacheHudClock(
   () => document.visibilityState === "visible",
@@ -50,35 +48,15 @@ export function CacheHud(props: {
   );
   if (props.compact)
     return (
-      <Tooltip>
-        <TooltipTrigger
-          render={<span className="block min-w-0 truncate" aria-label={view.description} />}
-        >
-          {content}
-        </TooltipTrigger>
-        <TooltipPopup>
-          <p className="max-w-sm">{view.description}</p>
-        </TooltipPopup>
-      </Tooltip>
+      <span className="block min-w-0 truncate" aria-label={view.description}>
+        {content}
+      </span>
     );
   return (
     <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-t-lg border border-b-0 bg-background px-4 py-1.5 text-xs shadow-sm">
-      <Popover>
-        <PopoverTrigger
-          render={
-            <button
-              type="button"
-              className="min-w-0 flex-1 truncate text-left"
-              aria-label="Cache and context details"
-            />
-          }
-        >
-          {content}
-        </PopoverTrigger>
-        <PopoverPopup>
-          <p className="max-w-sm text-sm">{view.description}</p>
-        </PopoverPopup>
-      </Popover>
+      <span className="min-w-0 flex-1 truncate" aria-label={view.description}>
+        {content}
+      </span>
       <UsageWindows windows={usageWindows} />
     </div>
   );

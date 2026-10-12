@@ -1085,6 +1085,7 @@ function ThreadRouteContent(
       {activeInspectorRenderer ? <InspectorPaneRoleActivation /> : null}
       <ThreadHeader
         cacheHud={selectedThread.cacheHud}
+        modelLabel={selectedThread.modelSelection.model}
         usageWindows={
           serverConfig?.providers.find(
             (provider) => provider.instanceId === selectedThread.modelSelection.instanceId,

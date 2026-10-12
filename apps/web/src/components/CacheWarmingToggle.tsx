@@ -10,9 +10,8 @@ import { useEnvironmentSettings, useUpdateEnvironmentSettings } from "~/hooks/us
 import { useCacheHudView } from "./chat/CacheHud";
 import { useEnvironmentScope } from "../state/session";
 import { Button } from "./ui/button";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 
-const EXPLANATION =
+export const CACHE_WARMING_EXPLANATION =
   "When enabled for this environment and conversation, T3 may send a short visible, billable cache-warm turn near cache expiry.";
 
 type CacheThread = Pick<EnvironmentThreadShell, "id" | "cacheHud" | "archivedAt">;
@@ -134,29 +133,20 @@ export function CacheWarmingThreadToggle(props: {
   if (unsupportedProvider || (cacheView?.state !== "hot" && cacheView?.state !== "expiring"))
     return null;
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={<span className="inline-flex shrink-0 items-center" role="presentation" />}
-      >
-        <Button
-          size="xs"
-          variant={enabled ? "default" : "outline"}
-          className="h-6 px-2 text-[10px]"
-          disabled={!canWrite}
-          aria-label={`${enabled ? "Disable" : "Enable"} cache warming for ${props.threadId}`}
-          aria-pressed={enabled}
-          title={EXPLANATION}
-          onPointerDown={(event) => event.stopPropagation()}
-          onKeyDown={(event) => event.stopPropagation()}
-          onClick={(event) => {
-            event.stopPropagation();
-            void update({ cacheWarmingSessions: { [props.threadId]: !enabled } });
-          }}
-        >
-          {enabled ? "Warm on" : "Warm off"}
-        </Button>
-      </TooltipTrigger>
-      <TooltipPopup side="top">{EXPLANATION}</TooltipPopup>
-    </Tooltip>
+    <Button
+      size="micro"
+      variant={enabled ? "default" : "outline"}
+      disabled={!canWrite}
+      aria-label={`${enabled ? "Disable" : "Enable"} cache warming for ${props.threadId}`}
+      aria-pressed={enabled}
+      onPointerDown={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation();
+        void update({ cacheWarmingSessions: { [props.threadId]: !enabled } });
+      }}
+    >
+      {enabled ? "Warm on" : "Warm off"}
+    </Button>
   );
 }

@@ -1,6 +1,6 @@
 import { ASSISTANT_CITATION_MAX_COMMENT_LENGTH, type AssistantCitation } from "@t3tools/contracts";
 import { useState } from "react";
-import { KeyboardAvoidingView, Modal, Platform, Pressable, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Pressable, ScrollView, View } from "react-native";
 import { AppText, AppTextInput } from "../../components/AppText";
 
 export function AssistantCitationSheet(props: {
@@ -12,16 +12,17 @@ export function AssistantCitationSheet(props: {
   const tooLong = comment.length > ASSISTANT_CITATION_MAX_COMMENT_LENGTH;
   return (
     <Modal visible transparent animationType="slide" onRequestClose={props.onCancel}>
-      <KeyboardAvoidingView
-        className="flex-1 justify-end bg-backdrop"
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+      <KeyboardAvoidingView className="flex-1 justify-end bg-backdrop" behavior="padding">
         <Pressable
           accessibilityLabel="Close quote"
           className="absolute inset-0"
           onPress={props.onCancel}
         />
-        <View className="gap-4 rounded-t-3xl bg-screen px-5 pb-8 pt-5">
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerClassName="gap-4 rounded-t-3xl bg-screen px-5 pb-8 pt-5"
+          style={{ flexGrow: 0, maxHeight: "90%" }}
+        >
           <View className="h-1 w-10 self-center rounded-full bg-border" />
           <AppText accessibilityRole="header" className="text-lg font-t3-semibold">
             Add quote to message
@@ -65,7 +66,7 @@ export function AssistantCitationSheet(props: {
               <AppText className="font-t3-semibold text-primary-foreground">Add to prompt</AppText>
             </Pressable>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
   );
