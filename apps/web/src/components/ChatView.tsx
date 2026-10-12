@@ -11640,7 +11640,12 @@ export default function ChatView(props: ChatViewProps) {
                               }
                             />
                           ) : null}
-                          {composerMounted ? <CacheHud hud={activeCacheHud} /> : null}
+                          {composerMounted ? (
+                            <CacheHud
+                              hud={activeCacheHud}
+                              usageWindows={activeProviderStatus?.usageLimits?.windows}
+                            />
+                          ) : null}
                           {!composerMounted ? null : (
                             <ChatComposer
                               canOperateThread={canOperateThread}

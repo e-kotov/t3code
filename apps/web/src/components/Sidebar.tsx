@@ -1845,6 +1845,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
               environmentId={thread.environmentId}
               threadId={thread.id}
               driver={thread.cacheHud?.driver}
+              cacheHud={thread.cacheHud}
             />
             {pinIndicator}
             {terminalStatusIcon}
@@ -2167,6 +2168,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
                 environmentId={thread.environmentId}
                 threadId={thread.id}
                 driver={thread.cacheHud?.driver}
+                cacheHud={thread.cacheHud}
               />
               {isRegeneratingTitle ? (
                 <span role="status" className="sr-only">
