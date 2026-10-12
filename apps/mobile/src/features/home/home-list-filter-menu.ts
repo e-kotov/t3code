@@ -1,4 +1,8 @@
-import type { EnvironmentId } from "@t3tools/contracts";
+import type {
+  EnvironmentId,
+  SidebarConversationGrouping,
+  SidebarConversationSortOrder,
+} from "@t3tools/contracts";
 
 export interface HomeListFilterMenuEnvironment {
   readonly environmentId: EnvironmentId;
@@ -36,6 +40,10 @@ export function buildHomeListFilterMenu(props: {
   readonly selectedProjectKey: string | null;
   readonly onEnvironmentChange: (environmentId: EnvironmentId | null) => void;
   readonly onProjectChange: (projectKey: string | null) => void;
+  readonly conversationSortOrder?: SidebarConversationSortOrder;
+  readonly conversationGrouping?: SidebarConversationGrouping;
+  readonly onConversationSortOrderChange?: (value: SidebarConversationSortOrder) => void;
+  readonly onConversationGroupingChange?: (value: SidebarConversationGrouping) => void;
 }): HomeListFilterMenu {
   const items: Array<HomeListFilterMenuAction | HomeListFilterMenuSubmenu> = [];
 
@@ -81,6 +89,44 @@ export function buildHomeListFilterMenu(props: {
           onPress: () => props.onProjectChange(project.key),
         })),
       ],
+    });
+  }
+
+  if (props.onConversationSortOrderChange) {
+    items.push({
+      type: "submenu",
+      title: "Sort conversations",
+      items: [
+        ...(
+          [
+            ["updated_at", "Recent activity"],
+            ["created_at", "Created"],
+            ["cache_expiry", "Cache expiry"],
+          ] as const
+        ).map(([value, title]) => ({
+          type: "action" as const,
+          title,
+          state: props.conversationSortOrder === value ? ("on" as const) : ("off" as const),
+          onPress: () => props.onConversationSortOrderChange?.(value),
+        })),
+      ],
+    });
+  }
+  if (props.onConversationGroupingChange) {
+    items.push({
+      type: "submenu",
+      title: "Group conversations",
+      items: (
+        [
+          ["none", "No grouping"],
+          ["machine", "By machine"],
+        ] as const
+      ).map(([value, title]) => ({
+        type: "action" as const,
+        title,
+        state: props.conversationGrouping === value ? ("on" as const) : ("off" as const),
+        onPress: () => props.onConversationGroupingChange?.(value),
+      })),
     });
   }
 

@@ -107,8 +107,12 @@ export function HomeRouteScreen() {
     () => new Set(environments.map((environment) => environment.environmentId)),
     [environments],
   );
-  const { options: listOptions, setSelectedEnvironmentId } =
-    useHomeListOptions(availableEnvironmentIds);
+  const {
+    options: listOptions,
+    setSelectedEnvironmentId,
+    setConversationSortOrder,
+    setConversationGrouping,
+  } = useHomeListOptions(availableEnvironmentIds);
   const selectedEnvironmentId = listOptions.selectedEnvironmentId;
   const [selectedProjectKey, setSelectedProjectKey] = useState<string | null>(null);
   const projectFilterOptions = useMemo(
@@ -204,6 +208,10 @@ export function HomeRouteScreen() {
           searchQuery={searchQuery}
           selectedEnvironmentId={selectedEnvironmentId}
           selectedProjectKey={selectedProjectKey}
+          conversationSortOrder={listOptions.conversationSortOrder}
+          conversationGrouping={listOptions.conversationGrouping}
+          onConversationSortOrderChange={setConversationSortOrder}
+          onConversationGroupingChange={setConversationGrouping}
           onEnvironmentChange={setSelectedEnvironmentId}
           onProjectChange={setSelectedProjectKey}
           onOpenEnvironments={() =>
@@ -271,6 +279,8 @@ export function HomeRouteScreen() {
           projectGroupingMode={listOptions.projectGroupingMode}
           projects={projects}
           projectSortOrder={listOptions.projectSortOrder}
+          conversationSortOrder={listOptions.conversationSortOrder}
+          conversationGrouping={listOptions.conversationGrouping}
           savedConnectionsById={savedConnectionsById}
           searchQuery={searchQuery}
           selectedEnvironmentId={selectedEnvironmentId}

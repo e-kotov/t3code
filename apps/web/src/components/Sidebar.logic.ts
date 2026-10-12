@@ -160,7 +160,8 @@ export type SidebarListMarker =
   | "pinned-divider"
   | "working-header"
   | "snoozed-header"
-  | "settled-header";
+  | "settled-header"
+  | "machine-header";
 
 export function sidebarMarkerId(marker: SidebarListMarker): string {
   return `${SIDEBAR_MARKER_PREFIX}${marker}`;
@@ -168,10 +169,15 @@ export function sidebarMarkerId(marker: SidebarListMarker): string {
 
 export type SidebarListItem =
   | { readonly kind: "thread"; readonly key: string; readonly section: SidebarSection }
-  | { readonly kind: "marker"; readonly marker: SidebarListMarker };
+  | {
+      readonly kind: "marker";
+      readonly marker: SidebarListMarker;
+      readonly key?: string;
+      readonly environmentId?: EnvironmentId;
+    };
 
 export function sidebarListItemId(item: SidebarListItem): string {
-  return item.kind === "thread" ? item.key : sidebarMarkerId(item.marker);
+  return item.kind === "thread" ? item.key : (item.key ?? sidebarMarkerId(item.marker));
 }
 
 /** The section a slot belongs to, read off the markers around it: from
@@ -223,8 +229,10 @@ export function resolveSidebarDropTarget(
         item.marker === "settled-header"
       )
         break;
-    } else if (currentSection === "pinned") pinnedOrder.push(item.key);
-    else activeOrder.push(item.key);
+    } else if (item.kind === "thread") {
+      if (currentSection === "pinned") pinnedOrder.push(item.key);
+      else activeOrder.push(item.key);
+    }
   }
   return { section, pinnedOrder, activeOrder };
 }

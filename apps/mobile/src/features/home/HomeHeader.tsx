@@ -39,11 +39,11 @@ export function HomeHeader(props: HomeHeaderProps) {
     [navigation],
   );
   const iconColor = useUniwindTheme()["--color-icon"];
-  // The list uses a fixed creation order and ignores sort/group options, so
-  // the filter menu only carries the filters and the "customized" icon state
-  // keys off those alone.
   const hasCustomListOptions =
-    props.selectedEnvironmentId !== null || props.selectedProjectKey !== null;
+    props.selectedEnvironmentId !== null ||
+    props.selectedProjectKey !== null ||
+    props.conversationSortOrder !== "updated_at" ||
+    props.conversationGrouping !== "none";
   const focusSearch = useCallback(() => {
     if (primaryColumn && !panes.primarySidebarVisible) {
       focusAfterReveal.current = true;
@@ -197,6 +197,42 @@ export function HomeHeader(props: HomeHeaderProps) {
                 ))}
               </NativeHeaderToolbar.Menu>
             ) : null}
+            <NativeHeaderToolbar.Menu title="Sort conversations">
+              <NativeHeaderToolbar.Label>Sort conversations</NativeHeaderToolbar.Label>
+              <NativeHeaderToolbar.MenuAction
+                isOn={props.conversationSortOrder === "updated_at"}
+                onPress={() => props.onConversationSortOrderChange("updated_at")}
+              >
+                <NativeHeaderToolbar.Label>Recent activity</NativeHeaderToolbar.Label>
+              </NativeHeaderToolbar.MenuAction>
+              <NativeHeaderToolbar.MenuAction
+                isOn={props.conversationSortOrder === "created_at"}
+                onPress={() => props.onConversationSortOrderChange("created_at")}
+              >
+                <NativeHeaderToolbar.Label>Created</NativeHeaderToolbar.Label>
+              </NativeHeaderToolbar.MenuAction>
+              <NativeHeaderToolbar.MenuAction
+                isOn={props.conversationSortOrder === "cache_expiry"}
+                onPress={() => props.onConversationSortOrderChange("cache_expiry")}
+              >
+                <NativeHeaderToolbar.Label>Cache expiry</NativeHeaderToolbar.Label>
+              </NativeHeaderToolbar.MenuAction>
+            </NativeHeaderToolbar.Menu>
+            <NativeHeaderToolbar.Menu title="Group conversations">
+              <NativeHeaderToolbar.Label>Group conversations</NativeHeaderToolbar.Label>
+              <NativeHeaderToolbar.MenuAction
+                isOn={props.conversationGrouping === "none"}
+                onPress={() => props.onConversationGroupingChange("none")}
+              >
+                <NativeHeaderToolbar.Label>No grouping</NativeHeaderToolbar.Label>
+              </NativeHeaderToolbar.MenuAction>
+              <NativeHeaderToolbar.MenuAction
+                isOn={props.conversationGrouping === "machine"}
+                onPress={() => props.onConversationGroupingChange("machine")}
+              >
+                <NativeHeaderToolbar.Label>By machine</NativeHeaderToolbar.Label>
+              </NativeHeaderToolbar.MenuAction>
+            </NativeHeaderToolbar.Menu>
           </NativeHeaderToolbar.Menu>
           <NativeHeaderToolbar.Spacer flexible />
           <NativeHeaderToolbar.Button

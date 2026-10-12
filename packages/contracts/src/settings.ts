@@ -66,6 +66,17 @@ export type SidebarThreadSortOrder = typeof SidebarThreadSortOrder.Type;
 // wire field keeps its decoding default below.
 const DEFAULT_SIDEBAR_THREAD_SORT_ORDER: SidebarThreadSortOrder = "updated_at";
 
+export const SidebarConversationSortOrder = Schema.Literals([
+  "updated_at",
+  "created_at",
+  "cache_expiry",
+]);
+export type SidebarConversationSortOrder = typeof SidebarConversationSortOrder.Type;
+const DEFAULT_SIDEBAR_CONVERSATION_SORT_ORDER: SidebarConversationSortOrder = "updated_at";
+export const SidebarConversationGrouping = Schema.Literals(["none", "machine"]);
+export type SidebarConversationGrouping = typeof SidebarConversationGrouping.Type;
+const DEFAULT_SIDEBAR_CONVERSATION_GROUPING: SidebarConversationGrouping = "none";
+
 export const SidebarProjectGroupingMode = Schema.Literals([
   "repository",
   "repository_path",
@@ -484,6 +495,12 @@ export const ClientSettingsSchema = Schema.Struct({
   ),
   sidebarThreadSortOrder: SidebarThreadSortOrder.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_SIDEBAR_THREAD_SORT_ORDER)),
+  ),
+  sidebarConversationSortOrder: SidebarConversationSortOrder.pipe(
+    Schema.withDecodingDefault(Effect.succeed(DEFAULT_SIDEBAR_CONVERSATION_SORT_ORDER)),
+  ),
+  sidebarConversationGrouping: SidebarConversationGrouping.pipe(
+    Schema.withDecodingDefault(Effect.succeed(DEFAULT_SIDEBAR_CONVERSATION_GROUPING)),
   ),
   sidebarThreadPreviewCount: SidebarThreadPreviewCount.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_SIDEBAR_THREAD_PREVIEW_COUNT)),
@@ -1696,6 +1713,8 @@ export const ClientSettingsPatch = Schema.Struct({
   ),
   sidebarProjectSortOrder: Schema.optionalKey(SidebarProjectSortOrder),
   sidebarThreadSortOrder: Schema.optionalKey(SidebarThreadSortOrder),
+  sidebarConversationSortOrder: Schema.optionalKey(SidebarConversationSortOrder),
+  sidebarConversationGrouping: Schema.optionalKey(SidebarConversationGrouping),
   sidebarThreadPreviewCount: Schema.optionalKey(SidebarThreadPreviewCount),
   timestampFormat: Schema.optionalKey(TimestampFormat),
   snapShotEnabled: Schema.optionalKey(Schema.Boolean),

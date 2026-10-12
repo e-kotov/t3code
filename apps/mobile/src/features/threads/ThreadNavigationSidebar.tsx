@@ -59,6 +59,7 @@ import { SidebarNavigationShell } from "./sidebar-navigation-shell";
 import {
   ThreadListV2PendingRow,
   ThreadListV2Row,
+  ThreadListV2MachineHeader,
   ThreadListV2SettledShelfHeader,
   ThreadListV2ShowMoreRow,
   ThreadListV2SnoozedShelfHeader,
@@ -67,6 +68,7 @@ import {
 import { useThreadRowProviderInstanceResolver } from "./thread-provider-instance";
 import {
   buildThreadListV2Items,
+  groupThreadListV2ItemsByMachine,
   getThreadListV2OrderedSection,
   buildThreadListV2ListItems,
   isThreadListV2ListItem,
@@ -176,7 +178,8 @@ function ThreadNavigationSidebarPane(
     () => new Set(environments.map((environment) => environment.environmentId)),
     [environments],
   );
-  const { options, setSelectedEnvironmentId } = useHomeListOptions(availableEnvironmentIds);
+  const { options, setSelectedEnvironmentId, setConversationSortOrder, setConversationGrouping } =
+    useHomeListOptions(availableEnvironmentIds);
   const cacheWarmingEnvironmentId =
     options.selectedEnvironmentId ?? environments[0]?.environmentId ?? null;
   const searchEnvironmentIds = useMemo(
@@ -383,6 +386,8 @@ function ThreadNavigationSidebarPane(
       settledLimit: settledVisibleCount,
       now: new Date().toISOString(),
       workingShelfEnabled,
+      conversationSortOrder: options.conversationSortOrder,
+      conversationGrouping: options.conversationGrouping,
       workingShelfExpanded,
       inboxReturnAt: threadListInboxReturns.returnedAt,
       snoozedShelfExpanded,
@@ -407,6 +412,7 @@ function ThreadNavigationSidebarPane(
     snoozeEnvironmentIds,
     threads,
     selectedProjectScope,
+    options.conversationSortOrder,
   ]);
   // Re-partition the moment the earliest snooze expires (clamped to the
   // signed-32-bit setTimeout range; far-future wakes re-arm at the clamp).
@@ -440,7 +446,7 @@ function ThreadNavigationSidebarPane(
         (v2SearchQuery.length === 0 ||
           pendingTask.title.toLocaleLowerCase().includes(v2SearchQuery)),
     );
-    const items: SidebarListItem[] = buildThreadListV2ListItems({
+    const baseItems: SidebarListItem[] = buildThreadListV2ListItems({
       items: threadListV2Layout.items,
       pendingTasks: v2PendingTasks,
       workingCount: threadListV2Layout.workingCount,
@@ -458,6 +464,18 @@ function ThreadNavigationSidebarPane(
       moveAvailability: threadMoveAvailability,
       shelfPreferencesLoading: !shelfPreferencesLoaded,
     });
+    const items =
+      options.conversationGrouping === "machine"
+        ? groupThreadListV2ItemsByMachine(
+            baseItems.filter(isThreadListV2ListItem),
+            new Map(
+              environments.map((environment) => [
+                String(environment.environmentId),
+                environment.label,
+              ]),
+            ),
+          )
+        : baseItems;
     if (settledShelfExpanded && threadListV2Layout.hiddenSettledCount > 0) {
       items.push({
         type: "v2-show-more",
@@ -480,6 +498,8 @@ function ThreadNavigationSidebarPane(
     snoozeEnvironmentIds,
     threadListV2Layout,
     workingShelfExpanded,
+    options.conversationGrouping,
+    environments,
   ]);
   const listMenuActions = useMemo<MenuAction[]>(
     () => [
@@ -524,6 +544,35 @@ function ThreadNavigationSidebarPane(
               ],
             },
           ] satisfies MenuAction[])),
+      {
+        id: "sort",
+        title: "Sort conversations",
+        subactions: (
+          [
+            ["updated_at", "Recent activity"],
+            ["created_at", "Created"],
+            ["cache_expiry", "Cache expiry"],
+          ] as const
+        ).map(([value, title]) => ({
+          id: `sort:${value}`,
+          title,
+          state: options.conversationSortOrder === value ? ("on" as const) : ("off" as const),
+        })),
+      },
+      {
+        id: "grouping",
+        title: "Group conversations",
+        subactions: (
+          [
+            ["none", "No grouping"],
+            ["machine", "By machine"],
+          ] as const
+        ).map(([value, title]) => ({
+          id: `grouping:${value}`,
+          title,
+          state: options.conversationGrouping === value ? ("on" as const) : ("off" as const),
+        })),
+      },
     ],
     [environments, options, projectFilterOptions, selectedProjectKey],
   );
@@ -552,8 +601,24 @@ function ThreadNavigationSidebarPane(
         }
         return;
       }
+      if (event.startsWith("sort:")) {
+        const value = event.slice("sort:".length);
+        if (value === "updated_at" || value === "created_at" || value === "cache_expiry")
+          setConversationSortOrder(value);
+        return;
+      }
+      if (event.startsWith("grouping:")) {
+        const value = event.slice("grouping:".length);
+        if (value === "none" || value === "machine") setConversationGrouping(value);
+      }
     },
-    [environments, projectFilterOptions, setSelectedEnvironmentId],
+    [
+      environments,
+      projectFilterOptions,
+      setSelectedEnvironmentId,
+      setConversationSortOrder,
+      setConversationGrouping,
+    ],
   );
 
   const [measuredHeaderHeight, setMeasuredHeaderHeight] = useState<number | null>(null);
@@ -657,6 +722,8 @@ function ThreadNavigationSidebarPane(
   const renderListItem = useCallback(
     ({ item }: { readonly item: SidebarListItem }) => {
       switch (item.type) {
+        case "v2-machine-header":
+          return <ThreadListV2MachineHeader label={item.label} pane="sidebar" />;
         case "v2-pending": {
           const pendingScopeKey = scopedProjectKey(
             item.pendingTask.environmentId,
@@ -840,9 +907,11 @@ function ThreadNavigationSidebarPane(
       workingShelfEnabled,
     ],
   );
-  // The list ignores sort/group options, so only the environment and project
-  // filters can light the "customized" state.
-  const filterCustomized = options.selectedEnvironmentId !== null || selectedProjectKey !== null;
+  const filterCustomized =
+    options.selectedEnvironmentId !== null ||
+    selectedProjectKey !== null ||
+    options.conversationSortOrder !== "updated_at" ||
+    options.conversationGrouping !== "none";
   const filterIcon = filterCustomized
     ? "line.3.horizontal.decrease.circle.fill"
     : "line.3.horizontal.decrease.circle";
@@ -855,8 +924,20 @@ function ThreadNavigationSidebarPane(
         selectedProjectKey,
         onEnvironmentChange: setSelectedEnvironmentId,
         onProjectChange: setSelectedProjectKey,
+        conversationSortOrder: options.conversationSortOrder,
+        conversationGrouping: options.conversationGrouping,
+        onConversationSortOrderChange: setConversationSortOrder,
+        onConversationGroupingChange: setConversationGrouping,
       }),
-    [environments, options, projectFilterOptions, selectedProjectKey, setSelectedEnvironmentId],
+    [
+      environments,
+      options,
+      projectFilterOptions,
+      selectedProjectKey,
+      setSelectedEnvironmentId,
+      setConversationSortOrder,
+      setConversationGrouping,
+    ],
   );
   const nativeHeaderItems = useMemo(
     () =>

@@ -1,4 +1,9 @@
-import type { EnvironmentId, SidebarProjectGroupingMode } from "@t3tools/contracts";
+import type {
+  EnvironmentId,
+  SidebarConversationGrouping,
+  SidebarConversationSortOrder,
+  SidebarProjectGroupingMode,
+} from "@t3tools/contracts";
 import { DEFAULT_SIDEBAR_PROJECT_SORT_ORDER } from "@t3tools/contracts";
 import {
   createContext,
@@ -17,6 +22,8 @@ import type { HomeProjectSortOrder } from "./homeThreadList";
 export interface HomeListOptions {
   readonly selectedEnvironmentId: EnvironmentId | null;
   readonly projectSortOrder: HomeProjectSortOrder;
+  readonly conversationSortOrder: SidebarConversationSortOrder;
+  readonly conversationGrouping: SidebarConversationGrouping;
 }
 
 export interface ResolvedHomeListOptions extends HomeListOptions {
@@ -30,6 +37,8 @@ function defaultHomeListOptions(): HomeListOptions {
       DEFAULT_SIDEBAR_PROJECT_SORT_ORDER === "manual"
         ? "updated_at"
         : DEFAULT_SIDEBAR_PROJECT_SORT_ORDER,
+    conversationSortOrder: "updated_at",
+    conversationGrouping: "none",
   };
 }
 
@@ -81,9 +90,17 @@ export function useHomeListOptions(availableEnvironmentIds: ReadonlySet<Environm
   const setProjectSortOrder = useCallback((value: HomeProjectSortOrder) => {
     setOptions((current) => ({ ...current, projectSortOrder: value }));
   }, []);
+  const setConversationSortOrder = useCallback((value: SidebarConversationSortOrder) => {
+    setOptions((current) => ({ ...current, conversationSortOrder: value }));
+  }, []);
+  const setConversationGrouping = useCallback((value: SidebarConversationGrouping) => {
+    setOptions((current) => ({ ...current, conversationGrouping: value }));
+  }, []);
   return {
     options: resolvedOptions,
     setSelectedEnvironmentId,
     setProjectSortOrder,
+    setConversationSortOrder,
+    setConversationGrouping,
   } as const;
 }

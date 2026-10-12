@@ -229,6 +229,13 @@ export const ThreadListV2SectionDivider = memo(function ThreadListV2SectionDivid
   return <ThreadListV2Section {...props} />;
 });
 
+export const ThreadListV2MachineHeader = memo(function ThreadListV2MachineHeader(props: {
+  readonly label: string;
+  readonly pane?: "screen" | "sidebar";
+}) {
+  return <ThreadListV2Section label={props.label} pane={props.pane} />;
+});
+
 type ThreadListV2ShelfHeaderProps = {
   readonly count: number;
   readonly disabled?: boolean;
