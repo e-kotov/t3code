@@ -1037,25 +1037,26 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
           </Text>
         )}
       </View>
-      <Text
-        className={cn(
-          "mt-1 text-base",
-          // Background work recedes to regular weight, matching web.
-          !recede && "font-t3-medium",
-          selected
-            ? selectedThreadRowColors.foregroundClassName
-            : rowAppearance.foregroundClassName,
-        )}
-        numberOfLines={2}
-      >
-        {thread.title}
-      </Text>
+      <View className="mt-1 flex-row items-center">
+        <Text
+          className={cn(
+            "min-w-0 flex-1 text-base",
+            !recede && "font-t3-medium",
+            selected
+              ? selectedThreadRowColors.foregroundClassName
+              : rowAppearance.foregroundClassName,
+          )}
+          numberOfLines={2}
+        >
+          {thread.title}
+        </Text>
+        <CacheWarmingThreadControl
+          environmentId={thread.environmentId}
+          threadId={thread.id}
+          driver={thread.cacheHud?.driver}
+        />
+      </View>
       <CacheHud hud={thread.cacheHud} compact />
-      <CacheWarmingThreadControl
-        environmentId={thread.environmentId}
-        threadId={thread.id}
-        driver={thread.cacheHud?.driver}
-      />
       {props.searchMatch ? (
         <View className="mt-1">
           <ThreadSearchMatchExcerpt
@@ -1269,23 +1270,25 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
             </View>
           ) : null}
           <View className="min-w-0 flex-1">
-            <Text
-              className={cn(
-                "text-base",
-                selected
-                  ? selectedThreadRowColors.foregroundClassName
-                  : rowAppearance.mutedForegroundClassName,
-              )}
-              numberOfLines={1}
-            >
-              {thread.title}
-            </Text>
+            <View className="flex-row items-center">
+              <Text
+                className={cn(
+                  "min-w-0 flex-1 text-base",
+                  selected
+                    ? selectedThreadRowColors.foregroundClassName
+                    : rowAppearance.mutedForegroundClassName,
+                )}
+                numberOfLines={1}
+              >
+                {thread.title}
+              </Text>
+              <CacheWarmingThreadControl
+                environmentId={thread.environmentId}
+                threadId={thread.id}
+                driver={thread.cacheHud?.driver}
+              />
+            </View>
             <CacheHud hud={thread.cacheHud} compact />
-            <CacheWarmingThreadControl
-              environmentId={thread.environmentId}
-              threadId={thread.id}
-              driver={thread.cacheHud?.driver}
-            />
             {props.searchMatch ? (
               <ThreadSearchMatchExcerpt
                 sidebar={sidebarPane}

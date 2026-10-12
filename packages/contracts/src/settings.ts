@@ -1331,8 +1331,10 @@ export const ServerSettings = Schema.Struct({
   cursorKeychainUsageEnabled: Schema.Boolean.pipe(
     Schema.withDecodingDefault(Effect.succeed(false)),
   ),
-  /** Server-wide safety switch for cache warming; each thread must also opt in. */
+  /** Legacy master switch read only while migrating previous warming preferences. */
   cacheWarmingEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
+  /** One-time conversion of the former environment master switch to per-thread choices. */
+  cacheWarmingInitialized: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   /** Per-thread cache warmer opt-ins. */
   cacheWarmingSessions: Schema.Record(ThreadId, Schema.Boolean).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
@@ -1644,6 +1646,7 @@ export const ServerSettingsPatch = Schema.Struct({
   ),
   cursorKeychainUsageEnabled: Schema.optionalKey(Schema.Boolean),
   cacheWarmingEnabled: Schema.optionalKey(Schema.Boolean),
+  cacheWarmingInitialized: Schema.optionalKey(Schema.Boolean),
   /** Per-entry updates; `null` removes one thread's saved choice. */
   cacheWarmingSessions: Schema.optionalKey(Schema.Record(ThreadId, Schema.NullOr(Schema.Boolean))),
   /** Internal per-entry updates used to persist warm-window idempotency. */

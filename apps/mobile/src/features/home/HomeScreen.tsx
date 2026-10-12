@@ -1001,6 +1001,7 @@ export function HomeScreen(props: HomeScreenProps) {
           environmentId={
             props.selectedEnvironmentId ?? props.environments[0]?.environmentId ?? null
           }
+          threads={props.threads}
         />
       </View>
     </View>

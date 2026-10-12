@@ -1083,7 +1083,10 @@ function ThreadNavigationSidebarPane(
           </View>
 
           <View className="mx-4 flex-row justify-end pb-1">
-            <CacheWarmingEnvironmentControl environmentId={cacheWarmingEnvironmentId} />
+            <CacheWarmingEnvironmentControl
+              environmentId={cacheWarmingEnvironmentId}
+              threads={threads}
+            />
           </View>
 
           <View className="mx-4 mt-[9px] h-[38px] flex-row items-center gap-1.5 rounded-xl bg-sidebar-search pr-2.5 pl-[11px]">

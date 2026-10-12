@@ -310,6 +310,8 @@ jobs:
           Fork installers for Mac (Apple Silicon / Intel), Android, and Linux x64 server (with web UI).
           Mac builds are not notarized. Android uses the fork's own signing key and package ID.
           Direct SSH/Tailscale pairing works without upstream cloud configuration. Upstream Expo updates are disabled.
+          Android direct notifications use the paired SSH/Tailscale server connection and do not require T3 Connect; Android keeps an ongoing connection notification while listening.
+          Cache warming is off by default. The global Warm all control updates each eligible conversation toggle on the selected server; warm turns are visible and billable.
           Herdr-style cache/context HUD on Mac, web and Android: estimated countdown, last-request cache hit percentage, cached tokens and context used/max. Claude reported lifetime and Codex estimates are distinguished. Install this Linux server too for the HUD on remote connections.
           Verify downloaded assets against SHA256SUMS.
           NOTES

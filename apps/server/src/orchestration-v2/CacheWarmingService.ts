@@ -98,15 +98,31 @@ export const make = Effect.gen(function* () {
   const settingsService = yield* ServerSettings.ServerSettingsService;
   const threads = yield* ThreadManagement.ThreadManagementService;
 
-  const sweep = Effect.gen(function* () {
-    const settings = yield* settingsService.getSettings;
-    if (!settings.cacheWarmingEnabled) return;
+  // The previous UI had a master pause that preserved per-thread opt-ins.
+  // Convert a paused legacy configuration to explicit off choices once before
+  // the new all-conversations control starts using those choices directly.
+  const initialSettings = yield* settingsService.getSettings;
+  if (!initialSettings.cacheWarmingInitialized) {
+    yield* settingsService.updateSettings({
+      cacheWarmingInitialized: true,
+      ...(!initialSettings.cacheWarmingEnabled
+        ? {
+            cacheWarmingSessions: Object.fromEntries(
+              Object.keys(initialSettings.cacheWarmingSessions).map((threadId) => [
+                threadId,
+                false,
+              ]),
+            ),
+          }
+        : {}),
+    });
+  }
 
+  const sweep = Effect.gen(function* () {
     const snapshot = yield* threads.getShellSnapshot();
     const now = DateTime.toEpochMillis(yield* DateTime.now);
     for (const thread of snapshot.threads) {
       const latestSettings = yield* settingsService.getSettings;
-      if (!latestSettings.cacheWarmingEnabled) return;
       const enabled = latestSettings.cacheWarmingSessions[thread.id] === true;
       if (!enabled) continue;
       const window = cacheWarmingWindow({
@@ -120,7 +136,6 @@ export const make = Effect.gen(function* () {
       if (window === null) continue;
 
       const submissionSettings = yield* settingsService.getSettings;
-      if (!submissionSettings.cacheWarmingEnabled) return;
       if (submissionSettings.cacheWarmingSessions[thread.id] !== true) continue;
       if (submissionSettings.cacheWarmingLastWindows[thread.id] === window.fingerprint) continue;
 
