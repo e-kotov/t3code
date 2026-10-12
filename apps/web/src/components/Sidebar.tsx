@@ -5622,7 +5622,7 @@ export default function Sidebar() {
                                 marker={item.marker}
                                 id={sidebarListItemId(item)}
                               >
-                                <div className="mx-2 mt-2 flex items-center gap-1 border-t border-sidebar-border/60 pt-2 text-[10px] font-medium uppercase tracking-wide text-sidebar-muted-foreground/70">
+                                <div className="mx-2 mt-2 flex items-center gap-1 border-t border-sidebar-border/60 pt-2 text-3xs font-medium uppercase tracking-wide text-sidebar-muted-foreground/70">
                                   {item.environmentId ? (
                                     <EnvironmentMachineIcon
                                       kind={
@@ -5643,9 +5643,8 @@ export default function Sidebar() {
                                       <button
                                         type="button"
                                         aria-label="Move machine group up"
-                                        title="Move group up"
                                         disabled={item.groupPosition === 0}
-                                        className="rounded p-1 hover:bg-sidebar-accent disabled:opacity-30"
+                                        className="rounded p-1 hover:bg-accent disabled:opacity-30"
                                         onClick={(event) => {
                                           event.stopPropagation();
                                           moveConversationMachine(item.environmentId!, -1);
@@ -5656,9 +5655,8 @@ export default function Sidebar() {
                                       <button
                                         type="button"
                                         aria-label="Move machine group down"
-                                        title="Move group down"
                                         disabled={item.groupPosition === item.groupCount - 1}
-                                        className="rounded p-1 hover:bg-sidebar-accent disabled:opacity-30"
+                                        className="rounded p-1 hover:bg-accent disabled:opacity-30"
                                         onClick={(event) => {
                                           event.stopPropagation();
                                           moveConversationMachine(item.environmentId!, 1);
