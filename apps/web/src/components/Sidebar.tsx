@@ -2161,8 +2161,13 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
                   release click still fires and is consumed. */}
               {props.sweepAction !== null ? dragDestination : null}
             </div>
-            <div className="mt-1 flex min-w-0">
+            <div className="mt-1 flex min-w-0 items-center gap-2">
               {title}
+              <CacheWarmingThreadToggle
+                environmentId={thread.environmentId}
+                threadId={thread.id}
+                driver={thread.cacheHud?.driver}
+              />
               {isRegeneratingTitle ? (
                 <span role="status" className="sr-only">
                   Regenerating title
@@ -2170,11 +2175,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
               ) : null}
             </div>
             <CacheHud hud={thread.cacheHud} compact />
-            <CacheWarmingThreadToggle
-              environmentId={thread.environmentId}
-              threadId={thread.id}
-              driver={thread.cacheHud?.driver}
-            />
             <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-secondary-label text-xs">
               {/* Always the branch. The plan step used to take this slot while
                   working, but it truncated to a half-sentence and dropped the
