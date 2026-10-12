@@ -114,11 +114,11 @@ function UsageWindows({ windows }: { windows: readonly ServerProviderUsageWindow
   );
 }
 
-// "Session" -> "5h", "Weekly" -> "Week", "Weekly · Fable" -> "Fable week", so a
-// model-scoped weekly stays distinguishable from the account-wide one.
+// "Session" -> "5h", "Weekly" -> "W", "Weekly · Fable" -> "F": the account-wide
+// weekly and each model-scoped weekly get their own letter.
 function usageWindowLabel(window: ServerProviderUsageWindow): string {
   if (window.kind === "session" && window.windowDurationMins === 300) return "5h";
   if (window.kind !== "weekly") return window.label;
   const scope = window.label.match(/^Weekly · (.+)$/)?.[1];
-  return scope ? `${scope} week` : "Week";
+  return scope ? scope.charAt(0).toUpperCase() : "W";
 }
