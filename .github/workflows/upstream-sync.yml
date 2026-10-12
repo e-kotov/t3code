@@ -1,0 +1,75 @@
+name: Upstream sync
+
+# Merges pingdotgg/t3code main into this fork every day. A clean merge that passes the
+# fork checks is pushed to main; a conflict or failed check leaves main untouched and fails
+# the run, which GitHub reports by email. See docs/operations/upstream-sync.md.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  sync:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Require push token
+        env:
+          SYNC_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
+        run: |
+          # GITHUB_TOKEN cannot push commits that change workflow files, which upstream does often.
+          [ -n "$SYNC_TOKEN" ] || { echo '::error::Set the UPSTREAM_SYNC_TOKEN secret (contents + workflows write).'; exit 1; }
+      - name: Checkout fork history without vendored gitlinks
+        env:
+          SYNC_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
+          GIT_TERMINAL_PROMPT: "0"
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "https://x-access-token:${SYNC_TOKEN}@github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git config user.name "t3code-ek upstream sync"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch --no-tags origin main
+          git checkout --detach FETCH_HEAD
+      - id: merge
+        run: scripts/fork-upstream-sync.sh merge
+      - if: steps.merge.outputs.changed == 'true'
+        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: false
+      - if: steps.merge.outputs.changed == 'true'
+        run: vp install
+      - if: steps.merge.outputs.changed == 'true'
+        env:
+          UPSTREAM_SHA: ${{ steps.merge.outputs.upstream }}
+        run: scripts/fork-upstream-sync.sh checks
+      - name: Push merged main
+        if: steps.merge.outputs.changed == 'true'
+        run: git push origin HEAD:main
+      - name: Disable workflows inherited from upstream
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Upstream deploy/release workflows must not run in the fork; keep only fork-owned ones.
+          set -euo pipefail
+          keep=' android-arm64-existing.yml publish-fork-artifacts.yml release-desktop.yml release-fork.yml upstream-sync.yml '
+          gh workflow list -R "$GITHUB_REPOSITORY" --json path,state --jq '.[] | select(.state == "active") | .path' |
+            while read -r path; do
+              name=${path##*/}
+              case "$keep" in *" $name "*) ;; *) gh workflow disable "$name" -R "$GITHUB_REPOSITORY" && echo "Disabled $name" ;; esac
+            done
