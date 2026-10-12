@@ -21,6 +21,7 @@ import IconArrowUpCircle from "@tabler/icons-react-native/IconArrowUpCircle";
 import IconArrowUpRight from "@tabler/icons-react-native/IconArrowUpRight";
 import IconArrowUpRightCircle from "@tabler/icons-react-native/IconArrowUpRightCircle";
 import IconArrowsLeftRight from "@tabler/icons-react-native/IconArrowsLeftRight";
+import IconArrowsUpDown from "@tabler/icons-react-native/IconArrowsUpDown";
 import IconArrowsDiagonal2 from "@tabler/icons-react-native/IconArrowsDiagonal2";
 import IconArrowsMinimize from "@tabler/icons-react-native/IconArrowsMinimize";
 import IconBellRinging from "@tabler/icons-react-native/IconBellRinging";
@@ -127,6 +128,7 @@ const ANDROID_ICON_BY_SF_SYMBOL = {
   "arrow.left": IconArrowLeft,
   "arrow.right": IconArrowRight,
   "arrow.left.arrow.right": IconArrowsLeftRight,
+  "arrow.up.arrow.down": IconArrowsUpDown,
   "arrow.clockwise": IconRefresh,
   "arrow.down": IconArrowDown,
   "arrow.down.circle": IconArrowDownCircle,
