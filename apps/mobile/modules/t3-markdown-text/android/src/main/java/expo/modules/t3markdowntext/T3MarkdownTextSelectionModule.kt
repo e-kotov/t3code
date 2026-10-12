@@ -34,6 +34,9 @@ import java.io.ByteArrayOutputStream
 import kotlin.math.ceil
 
 private const val OBJECT_REPLACEMENT_CHARACTER = "\uFFFC"
+private const val CITE_SELECTION_ACTION_ID = 0x7433
+private const val MAX_CITATION_TEXT_LENGTH = 8_000
+private const val CITATION_CONTEXT_LENGTH = 32
 
 // Match React Native's measurement buffer. Android orders tied line-height
 // spans differently in SpannableString, shifting inline images once RN's
@@ -122,20 +125,68 @@ private fun contextClipData(selectedText: String, fragment: String): ClipData {
 private class SanitizingSelectionActionModeCallback(
   private val textView: TextView,
   private val delegate: ActionMode.Callback?,
-  var contextClipboardConfig: String
+  var contextClipboardConfig: String,
+  var citationSourceConfig: String,
+  private val emitCitation: (Map<String, Any>) -> Unit
 ) : ActionMode.Callback {
   override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean =
     delegate?.onCreateActionMode(mode, menu) ?: true
 
-  override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean =
-    delegate?.onPrepareActionMode(mode, menu) ?: false
+  override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean {
+    val delegated = delegate?.onPrepareActionMode(mode, menu) ?: false
+    val source = runCatching { JSONObject(citationSourceConfig) }.getOrNull()
+    val start = min(textView.selectionStart, textView.selectionEnd)
+    val end = max(textView.selectionStart, textView.selectionEnd)
+    val selected = if (start >= 0 && end > start) {
+      copyTextWithoutInlineImages(textView.text, start, end)
+    } else ""
+    if (source != null && selected.isNotBlank() && selected.length <= MAX_CITATION_TEXT_LENGTH) {
+      if (menu.findItem(CITE_SELECTION_ACTION_ID) == null) {
+        menu.add(Menu.NONE, CITE_SELECTION_ACTION_ID, menu.size(), "Cite")
+          .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+      }
+      return true
+    }
+    val removed = menu.findItem(CITE_SELECTION_ACTION_ID) != null
+    if (removed) menu.removeItem(CITE_SELECTION_ACTION_ID)
+    return delegated || removed
+  }
 
   override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
+    if (item.itemId == CITE_SELECTION_ACTION_ID && citeSelection()) {
+      mode.finish()
+      return true
+    }
     if (item.itemId == android.R.id.copy && copySelection()) {
       mode.finish()
       return true
     }
     return delegate?.onActionItemClicked(mode, item) ?: false
+  }
+
+  private fun citeSelection(): Boolean {
+    val source = runCatching { JSONObject(citationSourceConfig) }.getOrNull() ?: return false
+    val start = min(textView.selectionStart, textView.selectionEnd)
+    val end = max(textView.selectionStart, textView.selectionEnd)
+    if (start < 0 || end <= start) return false
+    val selected = copyTextWithoutInlineImages(textView.text, start, end)
+    if (selected.isBlank() || selected.length > MAX_CITATION_TEXT_LENGTH) return false
+    val block = copyTextWithoutInlineImages(textView.text, 0, textView.text.length)
+    val plainStart = copyTextWithoutInlineImages(textView.text, 0, start).length
+    val plainEnd = plainStart + selected.length
+    emitCitation(
+      mapOf(
+        "text" to selected,
+        "start" to plainStart,
+        "end" to plainEnd,
+        "prefix" to block.substring(max(0, plainStart - CITATION_CONTEXT_LENGTH), plainStart),
+        "suffix" to block.substring(plainEnd, min(block.length, plainEnd + CITATION_CONTEXT_LENGTH)),
+        "environmentId" to source.optString("environmentId"),
+        "threadId" to source.optString("threadId"),
+        "messageId" to source.optString("messageId"),
+      )
+    )
+    return true
   }
 
   private fun copySelection(): Boolean {
@@ -207,6 +258,7 @@ class T3MarkdownTextSelectionModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("T3MarkdownTextSelection")
+    Events("onCiteSelection")
 
     Function("setSelectionHandleColor") { reactTag: Int, color: Int ->
       setSelectionHandleColor(reactTag, color)
@@ -280,7 +332,10 @@ class T3MarkdownTextSelectionModule : Module() {
       result
     }
 
-    Function("installCopySanitizer") { reactTag: Int, contextClipboardConfig: String ->
+    Function("installCopySanitizer") {
+      reactTag: Int,
+      contextClipboardConfig: String,
+      citationSourceConfig: String ->
       val reactContext = appContext.reactContext as? ReactContext ?: return@Function
       reactContext.runOnUiQueueThread {
         val textView =
@@ -291,11 +346,19 @@ class T3MarkdownTextSelectionModule : Module() {
         val currentCallback = textView.customSelectionActionModeCallback
         if (currentCallback is SanitizingSelectionActionModeCallback) {
           currentCallback.contextClipboardConfig = contextClipboardConfig
+          currentCallback.citationSourceConfig = citationSourceConfig
           return@runOnUiQueueThread
         }
         textView.setSpannableFactory(MarkdownSpannableFactory)
         textView.customSelectionActionModeCallback =
-          SanitizingSelectionActionModeCallback(textView, currentCallback, contextClipboardConfig)
+          SanitizingSelectionActionModeCallback(
+            textView,
+            currentCallback,
+            contextClipboardConfig,
+            citationSourceConfig,
+          ) { selection ->
+            this@T3MarkdownTextSelectionModule.sendEvent("onCiteSelection", selection)
+          }
       }
     }
   }

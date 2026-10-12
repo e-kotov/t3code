@@ -1,3 +1,6 @@
+import type { AssistantCitation } from "@t3tools/contracts";
+import { collectAssistantCitations } from "./assistantCitations";
+
 export type ComposerInlineToken =
   | {
       readonly type: "mention";
@@ -12,6 +15,14 @@ export type ComposerInlineToken =
       readonly source: string;
       readonly start: number;
       readonly end: number;
+    }
+  | {
+      readonly type: "assistantCitation";
+      readonly value: string;
+      readonly source: string;
+      readonly start: number;
+      readonly end: number;
+      readonly citation: AssistantCitation;
     };
 
 export interface CollectComposerInlineTokensOptions {
@@ -117,6 +128,17 @@ export function collectComposerInlineTokens(
   options: CollectComposerInlineTokensOptions = {},
 ): ReadonlyArray<ComposerInlineToken> {
   const matches = collectMentionTokens(text);
+
+  for (const quote of collectAssistantCitations(text)) {
+    matches.push({
+      type: "assistantCitation",
+      value: quote.citation.text,
+      source: quote.source,
+      start: quote.start,
+      end: quote.end,
+      citation: quote.citation,
+    });
+  }
 
   for (const match of text.matchAll(SKILL_TOKEN_REGEX)) {
     const fullMatch = match[0];

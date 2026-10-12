@@ -24,6 +24,7 @@ import type {
 const EMPTY_SKILLS: ReadonlyArray<SelectableMarkdownSkill> = [];
 
 export type {
+  AssistantCitationSource,
   MarkdownCodeHighlighter,
   MarkdownHighlightedToken,
   MarkdownImageRenderer,
@@ -32,6 +33,10 @@ export type {
   SelectableMarkdownSkill,
   SelectableMarkdownTextProps,
 } from "./SelectableMarkdownText.types";
+export {
+  addAssistantCitationSelectionListener,
+  type AssistantCitationSelectionEvent,
+} from "./T3MarkdownTextSelectionModule";
 
 export function hasNativeSelectableMarkdownText(): boolean {
   return true;
@@ -40,6 +45,7 @@ export function hasNativeSelectableMarkdownText(): boolean {
 export function SelectableMarkdownText({
   markdown,
   contextClipboardFragment,
+  assistantCitationSource,
   skills = EMPTY_SKILLS,
   textStyle,
   highlightCode,
@@ -101,6 +107,7 @@ export function SelectableMarkdownText({
                     runs={chunk.runs}
                     textStyle={textStyle}
                     onLinkPress={onLinkPress}
+                    assistantCitationSource={assistantCitationSource}
                   />
                 );
 

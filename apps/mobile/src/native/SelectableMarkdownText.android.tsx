@@ -11,10 +11,15 @@ import { useUniwindTheme } from "../lib/useUniwindTheme";
 type MobileSelectableMarkdownTextProps = Omit<SelectableMarkdownTextProps, "highlightCode">;
 
 export type {
+  AssistantCitationSource,
   MarkdownImageRequest,
   NativeMarkdownTextStyle,
   SelectableMarkdownSkill,
 } from "@t3tools/mobile-markdown-text/types";
+export {
+  addAssistantCitationSelectionListener,
+  type AssistantCitationSelectionEvent,
+} from "@t3tools/mobile-markdown-text/renderer";
 
 // The renderer falls back to React Native Text outside iOS, so Android can use
 // the same Markdown chunking while retaining native text selection.

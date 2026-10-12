@@ -112,6 +112,7 @@ import { faviconUrlForOrigin } from "@t3tools/shared/favicon";
 import {
   hasNativeSelectableMarkdownText,
   SelectableMarkdownText,
+  type AssistantCitationSource,
   type MarkdownFileContextMenu,
   type MarkdownImageRenderer,
   type NativeMarkdownTextStyle,
@@ -912,6 +913,7 @@ const AssistantMarkdownContent = memo(function AssistantMarkdownContent(props: {
   readonly environmentId: EnvironmentId;
   readonly markdownStyles: MarkdownStyleSet;
   readonly linkHandlers: MarkdownLinkHandlers;
+  readonly assistantCitationSource?: AssistantCitationSource;
   readonly onUseArtifactTemplate?: ((template: CodexArtifactTemplate) => void) | undefined;
   readonly renderImage: MarkdownImageRenderer;
   readonly skills?: ReadonlyArray<SelectableMarkdownSkill> | undefined;
@@ -936,6 +938,7 @@ const AssistantMarkdownContent = memo(function AssistantMarkdownContent(props: {
       <SelectableMarkdownText
         key={`markdown:${segment.sourceOffset}`}
         markdown={markdown}
+        assistantCitationSource={props.assistantCitationSource}
         skills={props.skills}
         textStyle={props.markdownStyles.nativeTextStyle}
         {...props.linkHandlers}
@@ -1921,6 +1924,11 @@ function renderFeedEntry(
             <AssistantMarkdownContent
               markdown={renderedText}
               environmentId={props.environmentId}
+              assistantCitationSource={{
+                environmentId: props.environmentId,
+                threadId: props.threadId,
+                messageId: message.id,
+              }}
               markdownStyles={styles}
               linkHandlers={props.markdownLinkHandlers}
               onUseArtifactTemplate={props.onUseArtifactTemplate}

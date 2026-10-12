@@ -56,6 +56,13 @@ export interface MarkdownImageRequest {
   readonly title: string | null;
 }
 
+/** Source identity needed when Android's native selection menu creates a quote. */
+export interface AssistantCitationSource {
+  readonly environmentId: string;
+  readonly threadId: string;
+  readonly messageId: string;
+}
+
 /**
  * App-supplied renderer for markdown images. The module cannot load
  * workspace-relative image paths itself — the host app resolves them (for
@@ -79,6 +86,7 @@ export interface SelectableMarkdownTextProps {
   readonly markdown: string;
   /** Opaque context payload supplied by the host for native selection copy. */
   readonly contextClipboardFragment?: string;
+  readonly assistantCitationSource?: AssistantCitationSource;
   readonly textStyle: NativeMarkdownTextStyle;
   readonly highlightCode: MarkdownCodeHighlighter;
   readonly skills?: ReadonlyArray<SelectableMarkdownSkill>;

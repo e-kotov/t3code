@@ -180,10 +180,17 @@ export function ComposerEditor({
           label:
             token.type === "skill"
               ? (skillLabels.get(token.value) ?? token.value)
-              : token.type === "context"
-                ? `${token.label}${props.context?.records.some((record) => record.contextId === token.contextId) ? "" : " · unavailable"}`
-                : basename(token.value),
-          detail: token.type === "context" ? composerChipSizeSuffix(record) : "",
+              : token.type === "assistantCitation"
+                ? `“${token.value.replace(/\s+/g, " ").slice(0, 30)}${token.value.length > 30 ? "…" : ""}”`
+                : token.type === "context"
+                  ? `${token.label}${props.context?.records.some((record) => record.contextId === token.contextId) ? "" : " · unavailable"}`
+                  : basename(token.value),
+          detail:
+            token.type === "context"
+              ? composerChipSizeSuffix(record)
+              : token.type === "assistantCitation" && token.citation.comment
+                ? "comment"
+                : "",
           // Only a mention wears per-filetype artwork. An attachment chip keeps the tinted
           // monochrome glyph web draws for it: coloured artwork ignores the chip's accent and
           // makes the composer chip read differently from the same chip in a sent message.

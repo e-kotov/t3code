@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef } from "react";
 import { decodeComposerContextFragment } from "@t3tools/shared/composerContextClipboard";
 import {
   findNodeHandle,
@@ -19,6 +19,7 @@ import { resolveMarkdownFileIcon, resolveMarkdownLinkIcon } from "./markdownLink
 import type { NativeMarkdownTextRun } from "./nativeMarkdownText";
 import { nativeMarkdownContextCopyRanges } from "./nativeMarkdownText";
 import type {
+  AssistantCitationSource,
   MarkdownFileContextMenu,
   NativeMarkdownTextStyle,
 } from "./SelectableMarkdownText.types";
@@ -196,6 +197,7 @@ export function NativeMarkdownSelectableText(props: {
   readonly runs: ReadonlyArray<NativeMarkdownTextRun>;
   readonly textStyle: NativeMarkdownTextStyle;
   readonly onLinkPress?: (href: string) => void;
+  readonly assistantCitationSource?: AssistantCitationSource;
 }) {
   const colorScheme = useColorScheme();
   const menu = useContext(MarkdownFileContextMenuContext);
@@ -296,15 +298,34 @@ export function NativeMarkdownSelectableText(props: {
   const contextClipboardConfig = ranges.length
     ? JSON.stringify({ fragment: contextClipboardFragment, ranges })
     : "";
+  const assistantCitationSourceConfig = props.assistantCitationSource
+    ? JSON.stringify(props.assistantCitationSource)
+    : "";
+  const installedTextTag = useRef<number | null>(null);
   const attachAndroidText = useCallback(
     (textView: TextInstance | null) => {
-      if (Platform.OS !== "android" || !containsInlineIcon || !textView) return;
+      if (Platform.OS !== "android") return;
+      if (!textView) {
+        if (installedTextTag.current !== null) {
+          installMarkdownCopySanitizer(installedTextTag.current, "", "");
+          installedTextTag.current = null;
+        }
+        return;
+      }
       const reactTag = findNodeHandle(textView);
       if (typeof reactTag === "number") {
-        installMarkdownCopySanitizer(reactTag, contextClipboardConfig);
+        const shouldInstall = containsInlineIcon || assistantCitationSourceConfig.length > 0;
+        if (shouldInstall || installedTextTag.current === reactTag) {
+          installMarkdownCopySanitizer(
+            reactTag,
+            shouldInstall ? contextClipboardConfig : "",
+            shouldInstall ? assistantCitationSourceConfig : "",
+          );
+          installedTextTag.current = shouldInstall ? reactTag : null;
+        }
       }
     },
-    [containsInlineIcon, contextClipboardConfig],
+    [assistantCitationSourceConfig, containsInlineIcon, contextClipboardConfig],
   );
   // T3MarkdownText only rebuilds its attributed string during native layout. A
   // color-only child update can otherwise leave the previous appearance cached.

@@ -8,6 +8,7 @@ import { highlightCodeSnippet } from "../features/review/shikiReviewHighlighter"
 type MobileSelectableMarkdownTextProps = Omit<SelectableMarkdownTextProps, "highlightCode">;
 
 export type {
+  AssistantCitationSource,
   MarkdownFileContextMenu,
   MarkdownFileContextMenuAction,
   MarkdownImageRenderer,
@@ -15,6 +16,10 @@ export type {
   NativeMarkdownTextStyle,
   SelectableMarkdownSkill,
 } from "@t3tools/mobile-markdown-text/types";
+export {
+  addAssistantCitationSelectionListener,
+  type AssistantCitationSelectionEvent,
+} from "@t3tools/mobile-markdown-text/renderer";
 
 export function hasNativeSelectableMarkdownText(): boolean {
   return true;
