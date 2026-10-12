@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # Daily fork maintenance for .github/workflows/upstream-sync.yml.
-#   merge   merge pingdotgg/t3code main into the fork's main (fails on conflict)
-#   checks  typecheck the packages the fork changes and run every test file it touched
+#   merge      merge pingdotgg/t3code main into the fork's main (fails on conflict)
+#   checks     typecheck the packages the fork changes and run every test file it touched
+#   footprint  list upstream-owned files the fork edits, with changed line counts
 set -euo pipefail
 
 UPSTREAM_URL=${UPSTREAM_URL:-https://github.com/pingdotgg/t3code.git}
 out() { echo "$1" >> "${GITHUB_OUTPUT:-/dev/null}"; }
 summary() { echo "$1" >> "${GITHUB_STEP_SUMMARY:-/dev/stderr}"; }
 
-case "${1:?usage: fork-upstream-sync.sh merge|checks}" in
+case "${1:?usage: fork-upstream-sync.sh merge|checks|footprint}" in
   merge)
     git fetch --no-tags origin main:refs/remotes/origin/main
     git fetch --no-tags "$UPSTREAM_URL" main:refs/remotes/upstream/main
@@ -37,6 +38,8 @@ case "${1:?usage: fork-upstream-sync.sh merge|checks}" in
   checks)
     upstream=${UPSTREAM_SHA:-$(git rev-parse upstream/main)}
     RUNNER_TEMP=${RUNNER_TEMP:-$(mktemp -d)}
+    # Git hooks put a relative node_modules/.bin on PATH, which breaks after cd into a package.
+    PATH="$(git rev-parse --show-toplevel)/node_modules/.bin:$PATH"
     vp run --concurrency-limit 2 \
       --filter @t3tools/contracts --filter @t3tools/shared --filter @t3tools/client-runtime \
       --filter t3 --filter @t3tools/web --filter @t3tools/mobile typecheck
@@ -54,6 +57,13 @@ case "${1:?usage: fork-upstream-sync.sh merge|checks}" in
     done
     [ "$status" -eq 0 ] || summary "Fork tests failed after merging upstream; main was not changed."
     exit "$status"
+    ;;
+  footprint)
+    # Fork edits inside upstream files are where merge conflicts come from; keep this list short.
+    upstream=${UPSTREAM_SHA:-$(git rev-parse upstream/main)}
+    git diff --numstat --diff-filter=M "$upstream" HEAD |
+      awk '{ printf "%6d  %s\n", $1 + $2, $3; total += $1 + $2 } END { printf "%6d  total lines in %d upstream files\n", total, NR }' |
+      sort -rn
     ;;
   *) echo "unknown command: $1" >&2; exit 2 ;;
 esac

@@ -36,3 +36,12 @@ git push origin main
 Keep fork logic in fork-owned files with small mount points in upstream files; this keeps
 future conflicts small. When the fork history needs tidying (to drop or upstream a feature),
 rebase it onto `upstream/main` with a backup branch `ek/pre-sync-<date>` and force-push once.
+
+## Guards for fork development
+
+- GitHub ruleset **Protect fork main** blocks force-pushes and deletion of `main`.
+- `.vite-hooks/pre-push` runs `scripts/fork-upstream-sync.sh checks` before a push to `main`,
+  refuses a push that would drop remote commits, and warns about untested code and edits to
+  upstream-owned files. `FORK_SKIP_CHECKS=1` skips the checks.
+- `scripts/fork-upstream-sync.sh footprint` lists upstream files the fork edits.
+- Agent rules: `.agents/skills/fork-development/SKILL.md`, linked from `AGENTS.md`.

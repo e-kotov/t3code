@@ -1,0 +1,44 @@
+# Fork guard for pushes to e-kotov/t3code main (see docs/operations/upstream-sync.md).
+# FORK_ALLOW_MAIN_REWRITE=1 permits a deliberate history rewrite; FORK_SKIP_CHECKS=1 skips checks.
+case "$2" in *e-kotov/t3code*) ;; *) exit 0 ;; esac
+zero=0000000000000000000000000000000000000000
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$remote_ref" = refs/heads/main ] || continue
+  if [ "$local_sha" = "$zero" ]; then
+    echo "fork guard: refusing to delete main." >&2
+    exit 1
+  fi
+  if [ "$remote_sha" != "$zero" ] && [ "${FORK_ALLOW_MAIN_REWRITE:-}" != 1 ]; then
+    if ! git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
+      echo "fork guard: origin/main has commits you do not have (likely the upstream-sync bot). Run 'git pull' first." >&2
+      exit 1
+    fi
+    if ! git merge-base --is-ancestor "$remote_sha" "$local_sha"; then
+      echo "fork guard: this push would rewrite main and drop commits (bot merges). Run 'git pull' and push again." >&2
+      exit 1
+    fi
+  fi
+  base=$remote_sha
+  [ "$base" = "$zero" ] && base=$(git rev-parse upstream/main)
+  changed=$(git diff --name-only "$base" "$local_sha")
+  # Upstream merges arrive through the bot; only the fork's own commits are judged here.
+  own=$(git log --no-merges --format=%H "$base..$local_sha" | while read -r c; do git diff-tree --no-commit-id --name-only -r "$c"; done | sort -u)
+  if printf '%s\n' "$own" | grep -qE '\.(ts|tsx|kt|swift)$' && ! printf '%s\n' "$own" | grep -qE '\.test\.tsx?$'; then
+    echo "fork guard: warning: this push changes code but no test files. Add tests so the daily sync protects the feature." >&2
+  fi
+  touched=$(printf '%s\n' "$own" | while read -r f; do
+    if [ -n "$f" ] && git cat-file -e "upstream/main:$f" 2>/dev/null; then echo "  $f"; fi
+  done)
+  if [ -n "$touched" ]; then
+    echo "fork guard: note: this push edits upstream-owned files (keep these edits to small hooks):" >&2
+    echo "$touched" >&2
+  fi
+  [ -n "$changed" ] || continue
+  if [ "${FORK_SKIP_CHECKS:-}" = 1 ]; then
+    echo "fork guard: FORK_SKIP_CHECKS=1, skipping fork checks." >&2
+  else
+    echo "fork guard: running fork checks before pushing main (FORK_SKIP_CHECKS=1 skips)..." >&2
+    scripts/fork-upstream-sync.sh checks >&2
+  fi
+done
+exit 0
