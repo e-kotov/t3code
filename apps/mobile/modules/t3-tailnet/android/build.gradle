@@ -1,0 +1,23 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.t3tools.tailnet'
+version = '0.0.0'
+
+// libt3tailnet.so is built from ../go by scripts/build-tailnet-android.sh into
+// src/main/jniLibs, which is not committed. Without it the module reports
+// that built-in Tailscale is not part of this build.
+android {
+  namespace 'expo.modules.t3tailnet'
+  defaultConfig {
+    versionCode 1
+    versionName '0.0.0'
+    consumerProguardFiles 'proguard-rules.pro'
+  }
+}
+
+dependencies {
+  implementation 'androidx.lifecycle:lifecycle-process:2.9.3'
+}
