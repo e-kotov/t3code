@@ -59,6 +59,20 @@ Egor chooses when to release; do not tag one on your own. Procedure:
   chezmoi on GWDG. Say whether a release changed server code; client-only changes do not
   need the server upgraded, except for browser access served by GWDG.
 
+## Checking UI locally
+
+Egor's Mac runs the real T3 app, often with this session inside it. A check must not touch it.
+
+- Use an isolated dev copy: `node scripts/dev-runner.ts dev --home-dir /tmp/<name>` with
+  `node_modules/.bin` on `PATH`, driven by headless Playwright. Never use Egor's T3 data.
+- Never start anything that opens a window or browser tab on the Mac. An extra server must
+  be headless (`t3 serve`, never `start`). Do not build multi-machine setups for a visual
+  check: verify such layouts with tests and say they were not seen.
+- Real provider turns spend Egor's subscription: send at most one short prompt and report it.
+- When done, stop everything: the dev runner, the server it restarts on file changes (its
+  environment has `T3CODE_HOME=/tmp/<name>`) and the web server; confirm ports 5733 and
+  13773 are free.
+
 ## Resolving a blocked upstream sync
 
 When the daily run fails with conflicts, merge locally (`git fetch upstream && git merge
