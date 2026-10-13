@@ -6,7 +6,7 @@ publishing account is required.
 
 ## Artifacts
 
-- Mac Apple Silicon and Intel: DMG and ZIP. Builds are unsigned/not notarized;
+- Mac Apple Silicon only (no Intel builds): DMG and ZIP. Builds are unsigned/not notarized;
   macOS may require approval in Privacy & Security on first launch.
 - Android: standalone signed ARM64 APK (`-arm64.apk`), package `pro.ekotov.t3code`,
   labelled T3 Code EK. Targets ARM64 phones including Galaxy S23+; x86 emulators
@@ -57,7 +57,7 @@ successfully before publication. Use a new version for every published release.
 tag, including one whose build failed.
 
 After publication, the `homebrew_tap` job points `e-kotov/tap`'s `t3-code-ek`
-cask at the new release, taking the Mac DMG checksums from `SHA256SUMS`. It
+cask at the new release, taking the Apple Silicon DMG checksum from `SHA256SUMS`. It
 only moves the cask forward, never to an older version, and never installs
 anything. It pushes with the `HOMEBREW_TAP_DEPLOY_KEY` secret, the private half
 of a write deploy key on `e-kotov/homebrew-tap`; without that secret the job

@@ -98,14 +98,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Apple Silicon only; Intel Macs are not a target of this fork.
           - arch: arm64
             runner: macos-15
             rust_target: aarch64-apple-darwin
             resource_key: darwin-arm64
-          - arch: x64
-            runner: macos-15-intel
-            rust_target: x86_64-apple-darwin
-            resource_key: darwin-x64
     uses: ./.github/workflows/release-desktop.yml
     with:
       label: Mac ${{ matrix.arch }}
@@ -307,7 +304,7 @@ jobs:
         run: |
           set -euo pipefail
           cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
-          Fork installers for Mac (Apple Silicon / Intel), Android, and Linux x64 server (with web UI).
+          Fork installers for Mac (Apple Silicon), Android, and Linux x64 server (with web UI).
           Mac builds are not notarized. Android uses the fork's own signing key and package ID.
           Direct SSH/Tailscale pairing works without upstream cloud configuration. Upstream Expo updates are disabled.
           Android direct notifications use the paired SSH/Tailscale server connection and do not require T3 Connect; Android keeps an ongoing connection notification while listening.
@@ -348,9 +345,8 @@ jobs:
             awk -v name="$1" '$2 == name { print $1 }' "$RUNNER_TEMP/SHA256SUMS"
           }
           arm="$(checksum "T3-Code-$RELEASE_VERSION-arm64.dmg")"
-          intel="$(checksum "T3-Code-$RELEASE_VERSION-x64.dmg")"
-          [[ "$arm" =~ ^[0-9a-f]{64}$ && "$intel" =~ ^[0-9a-f]{64}$ ]] || {
-            echo 'Both Mac DMG checksums must be present in SHA256SUMS.'
+          [[ "$arm" =~ ^[0-9a-f]{64}$ ]] || {
+            echo 'The Apple Silicon DMG checksum must be present in SHA256SUMS.'
             exit 1
           }
 
@@ -373,17 +369,14 @@ jobs:
             exit 0
           fi
 
-          awk -v version="$RELEASE_VERSION" -v arm="$arm" -v intel="$intel" '
+          awk -v version="$RELEASE_VERSION" -v arm="$arm" '
             /^  version "/ { sub(/"[^"]*"/, "\"" version "\"") }
-            /^  on_arm do/ { block = "arm" }
-            /^  on_intel do/ { block = "intel" }
-            /^    sha256 "/ && block == "arm" { sub(/"[^"]*"/, "\"" arm "\""); block = "" }
-            /^    sha256 "/ && block == "intel" { sub(/"[^"]*"/, "\"" intel "\""); block = "" }
+            /^  sha256 "/ { sub(/"[^"]*"/, "\"" arm "\"") }
             { print }
           ' "$cask" > "$RUNNER_TEMP/cask.rb"
           mv "$RUNNER_TEMP/cask.rb" "$cask"
-          if ! grep -qF "\"$arm\"" "$cask" || ! grep -qF "\"$intel\"" "$cask"; then
-            echo 'Cask checksum lines were not found.'
+          if ! grep -qF "\"$arm\"" "$cask"; then
+            echo 'Cask checksum line was not found.'
             exit 1
           fi
 
