@@ -318,3 +318,77 @@ jobs:
           gh release create "$RELEASE_TAG" assets/* --repo "$GITHUB_REPOSITORY" \
             --verify-tag --title "T3 Code EK $RELEASE_VERSION" \
             --notes-file "$RUNNER_TEMP/release-notes.md" --prerelease --latest=false
+
+  homebrew_tap:
+    # Points e-kotov/tap's t3-code-ek cask at the release just published, so
+    # `brew upgrade --cask t3-code-ek` finds it. Installing stays manual.
+    needs: [prepare, release]
+    if: github.event_name == 'push' || inputs.publish
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: homebrew-tap-t3-code-ek
+      cancel-in-progress: false
+    steps:
+      - name: Update t3-code-ek cask
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAP_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$TAP_DEPLOY_KEY" ]]; then
+            echo '::warning::HOMEBREW_TAP_DEPLOY_KEY is not set; the cask was not updated.'
+            exit 0
+          fi
+
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern SHA256SUMS --dir "$RUNNER_TEMP"
+          checksum() {
+            awk -v name="$1" '$2 == name { print $1 }' "$RUNNER_TEMP/SHA256SUMS"
+          }
+          arm="$(checksum "T3-Code-$RELEASE_VERSION-arm64.dmg")"
+          intel="$(checksum "T3-Code-$RELEASE_VERSION-x64.dmg")"
+          [[ "$arm" =~ ^[0-9a-f]{64}$ && "$intel" =~ ^[0-9a-f]{64}$ ]] || {
+            echo 'Both Mac DMG checksums must be present in SHA256SUMS.'
+            exit 1
+          }
+
+          # Trust only the host keys GitHub publishes over authenticated HTTPS.
+          ssh_dir="$RUNNER_TEMP/tap-ssh"
+          install -d -m 700 "$ssh_dir"
+          printf '%s\n' "$TAP_DEPLOY_KEY" > "$ssh_dir/key"
+          chmod 600 "$ssh_dir/key"
+          gh api meta --jq '.ssh_keys[] | "github.com " + .' > "$ssh_dir/known_hosts"
+          export GIT_SSH_COMMAND="ssh -i $ssh_dir/key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$ssh_dir/known_hosts"
+
+          git clone --depth 1 git@github.com:e-kotov/homebrew-tap.git "$RUNNER_TEMP/tap"
+          cd "$RUNNER_TEMP/tap"
+          cask=Casks/t3-code-ek.rb
+          current="$(sed -n 's/^  version "\(.*\)"$/\1/p' "$cask")"
+          [[ -n "$current" ]] || { echo "No version line in $cask."; exit 1; }
+          newest="$(printf '%s\n%s\n' "$current" "$RELEASE_VERSION" | sort -V | tail -n 1)"
+          if [[ "$current" == "$RELEASE_VERSION" || "$newest" != "$RELEASE_VERSION" ]]; then
+            echo "Cask is at $current; not moving it to $RELEASE_VERSION."
+            exit 0
+          fi
+
+          awk -v version="$RELEASE_VERSION" -v arm="$arm" -v intel="$intel" '
+            /^  version "/ { sub(/"[^"]*"/, "\"" version "\"") }
+            /^  on_arm do/ { block = "arm" }
+            /^  on_intel do/ { block = "intel" }
+            /^    sha256 "/ && block == "arm" { sub(/"[^"]*"/, "\"" arm "\""); block = "" }
+            /^    sha256 "/ && block == "intel" { sub(/"[^"]*"/, "\"" intel "\""); block = "" }
+            { print }
+          ' "$cask" > "$RUNNER_TEMP/cask.rb"
+          mv "$RUNNER_TEMP/cask.rb" "$cask"
+          if ! grep -qF "\"$arm\"" "$cask" || ! grep -qF "\"$intel\"" "$cask"; then
+            echo 'Cask checksum lines were not found.'
+            exit 1
+          fi
+
+          git -c user.name='github-actions[bot]' \
+            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -qam "Update T3 Code EK cask to $RELEASE_VERSION"
+          git push origin HEAD
+          git diff HEAD~1 --stat

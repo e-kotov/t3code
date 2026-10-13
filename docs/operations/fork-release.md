@@ -21,23 +21,19 @@ Use the existing SSH or private Tailscale endpoint in Add Environment. These bui
 have no upstream cloud account/relay configuration. Manual release installation
 is supported; desktop auto-update manifests are not published yet.
 
-## Replacing a Homebrew Mac installation
+## Installing on a Mac with Homebrew
 
-Uninstall `t3-code` without `--zap` to retain T3 data, then install `T3 Code EK.app`
-from the matching architecture's ZIP/DMG into `/Applications`. Remove `t3-code`
-from any managed Homebrew package list so it is not reinstalled. The fork's
-embedded updater points to `e-kotov/t3code`; updates currently use manual installs.
-
-The initial unsigned bundle retains Electron's incomplete linker ad-hoc
-signature. After installation, seal the local bundle without a signing identity:
+Install and upgrade the Mac app from the `e-kotov/tap` cask:
 
 ```sh
-codesign --force --deep --sign - --preserve-metadata=entitlements '/Applications/T3 Code EK.app'
-codesign --verify --deep --strict '/Applications/T3 Code EK.app'
+brew install --cask e-kotov/tap/t3-code-ek
+brew upgrade --cask t3-code-ek
 ```
 
-This is ad-hoc signing, not Apple notarization. Existing desktop/server data is
-retained; do not run Homebrew's zap or delete the T3 data directories.
+The cask pins each DMG's SHA-256, re-signs `T3 Code EK.app` ad hoc after
+install and clears its quarantine flag. This is not Apple notarization. When
+replacing upstream's `t3-code` cask, uninstall it without `--zap` so T3 data is
+retained, and remove it from any managed Homebrew package list.
 
 ## Release
 
@@ -50,6 +46,14 @@ This avoids relying on the Actions token to create a new release tag at a commit
 that changes workflow files. Missing or mismatched tags fail before compilation.
 Every platform must build
 successfully before publication. Use a new version for every published release.
+
+After publication, the `homebrew_tap` job points `e-kotov/tap`'s `t3-code-ek`
+cask at the new release, taking the Mac DMG checksums from `SHA256SUMS`. It
+only moves the cask forward, never to an older version, and never installs
+anything. It pushes with the `HOMEBREW_TAP_DEPLOY_KEY` secret, the private half
+of a write deploy key on `e-kotov/homebrew-tap`; without that secret the job
+warns and skips. To rotate it, add a new deploy key, replace the secret, then
+delete the old key.
 
 If publication fails after installers were collected, dispatch **Publish existing
 fork installers** with the original run ID and version. It verifies the tag's
