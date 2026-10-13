@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -75,7 +76,7 @@ func New(logs *Ring) *Engine {
 
 // Start starts the node if it is stopped. On a running engine it only
 // updates the idle timeout.
-func (e *Engine) Start(cfg Config) error {
+func (e *Engine) Start(cfg Config) (err error) {
 	e.idleTimeout.Store(int64(cfg.IdleTimeout))
 	e.touch()
 	e.mu.Lock()
@@ -86,10 +87,14 @@ func (e *Engine) Start(cfg Config) error {
 	if cfg.StateDir == "" {
 		return errors.New("state directory is required")
 	}
-	if err := os.MkdirAll(cfg.StateDir, 0o700); err != nil {
+	// An Android app process has no $HOME, temp directory or working
+	// directory that tailscale could fall back to, and it panics without one.
+	logsDir := filepath.Join(cfg.StateDir, "logs")
+	if err := os.MkdirAll(logsDir, 0o700); err != nil {
 		e.lastErr = err.Error()
 		return err
 	}
+	os.Setenv("TS_LOGS_DIR", logsDir)
 	srv := &tsnet.Server{
 		Dir:       cfg.StateDir,
 		Hostname:  cfg.Hostname,
@@ -97,6 +102,15 @@ func (e *Engine) Start(cfg Config) error {
 		UserLogf:  e.logs.Logf,
 		Logf:      e.logs.Logf,
 	}
+	// A panic in tailscale would otherwise take the whole app down.
+	defer func() {
+		if r := recover(); r != nil {
+			_ = srv.Close()
+			err = fmt.Errorf("tailscale failed to start: %v", r)
+			e.lastErr = err.Error()
+			e.logs.Logf("engine: %v", err)
+		}
+	}()
 	if err := srv.Start(); err != nil {
 		e.lastErr = err.Error()
 		_ = srv.Close()
