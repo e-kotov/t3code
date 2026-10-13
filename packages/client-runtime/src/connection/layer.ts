@@ -7,6 +7,7 @@ import * as SubscriptionRef from "effect/SubscriptionRef";
 import { orchestrationProtocolCompatibilityError } from "./compatibility.ts";
 
 import * as ConnectionResolver from "./resolver.ts";
+import * as BuiltInTailnet from "./builtInTailnet.ts";
 import * as ConnectionDriver from "./driver.ts";
 import * as EnvironmentRegistry from "./registry.ts";
 import * as ConnectionOnboarding from "./onboarding.ts";
@@ -72,10 +73,16 @@ export const watchDiscoveredCompatibility = Effect.fn("connection.watchDiscovere
   },
 );
 
-export function layerWithOptions(options: RpcSession.RpcSessionOptions) {
-  const layerDriver = ConnectionDriver.layer.pipe(
-    Layer.provide(Layer.mergeAll(ConnectionResolver.layer, RpcSession.layer(options))),
-  );
+export function layerWithOptions(
+  options: RpcSession.RpcSessionOptions,
+  // Fork: an app-embedded Tailscale node the driver may route through.
+  builtInTailnet?: BuiltInTailnet.BuiltInTailnet,
+) {
+  const layerDriver = (
+    builtInTailnet === undefined
+      ? ConnectionDriver.layer
+      : BuiltInTailnet.layerDriver(builtInTailnet)
+  ).pipe(Layer.provide(Layer.mergeAll(ConnectionResolver.layer, RpcSession.layer(options))));
   const layerRegistry = EnvironmentRegistry.layer.pipe(Layer.provide(layerDriver));
   const layerOnboarding = ConnectionOnboarding.layer.pipe(Layer.provide(layerRegistry));
   const layerConnectionServices = Layer.mergeAll(

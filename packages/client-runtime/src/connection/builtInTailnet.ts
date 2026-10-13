@@ -1,0 +1,200 @@
+/**
+ * Fork: routes through an app-embedded Tailscale node.
+ *
+ * A platform that embeds a Tailscale node (the Android app) forwards a
+ * loopback port to each tailnet route's address. This wraps the connection
+ * driver so a tailnet route can also be tried through that forward, before or
+ * after the saved routes. The forwarded routes are never saved: they keep the
+ * original route's id and credential and only swap its address for the
+ * attempt.
+ */
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+
+import {
+  BearerConnectionProfile,
+  type ConnectionCatalogEntry,
+  type ConnectionRoute,
+} from "./catalog.ts";
+import * as ConnectionDriver from "./driver.ts";
+import { connectionRouteKind, connectionRoutes, entryWithRoutes } from "./routes.ts";
+
+/**
+ * "fallback" tries the saved routes first and the embedded node only when
+ * none of them connects. "preferred" tries the embedded node first.
+ */
+export type BuiltInTailnetMode = "off" | "fallback" | "preferred";
+
+export interface BuiltInTailnet {
+  /** Read on every attempt, so a settings change applies to the next one. */
+  readonly mode: () => BuiltInTailnetMode;
+  /**
+   * Starts the embedded node if needed and returns the loopback port for each
+   * target ("host:port"). Targets it cannot serve now, for example before
+   * sign-in, are missing from the map.
+   */
+  readonly forward: (targets: ReadonlyArray<string>) => Effect.Effect<ReadonlyMap<string, number>>;
+}
+
+/**
+ * The tailnet "host:port" a route reaches, or null when the embedded node
+ * cannot carry it. Only plain http routes qualify: a forward ends at
+ * 127.0.0.1, which an https certificate for the tailnet name would reject.
+ */
+export function builtInTailnetTarget(route: ConnectionRoute): string | null {
+  if (route.target._tag !== "BearerConnectionTarget") return null;
+  const profile = Option.getOrNull(route.profile);
+  if (profile?._tag !== "BearerConnectionProfile" || profile.authorization !== undefined) {
+    return null;
+  }
+  // A bare 100.64.0.0/10 address counts as "vpn" unless the server reported it
+  // as Tailscale; if it belongs to another VPN, the embedded dial just fails.
+  const kind = connectionRouteKind(route);
+  if (kind !== "tailnet" && kind !== "vpn") return null;
+  let url: URL;
+  try {
+    url = new URL(profile.httpBaseUrl);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "http:") return null;
+  return `${url.hostname}:${url.port === "" ? "80" : url.port}`;
+}
+
+/** `baseUrl` with its host replaced by 127.0.0.1:`port`, keeping scheme and path. */
+function loopbackUrl(baseUrl: string, port: number): string {
+  const url = new URL(baseUrl);
+  const rest = baseUrl.slice(baseUrl.indexOf(url.host) + url.host.length);
+  return `${url.protocol}//127.0.0.1:${port}${rest}`;
+}
+
+/** The same route, addressed through a loopback forward. */
+export function forwardedRoute(route: ConnectionRoute, port: number): ConnectionRoute {
+  const profile = Option.getOrNull(route.profile);
+  if (profile?._tag !== "BearerConnectionProfile") return route;
+  return {
+    target: route.target,
+    profile: Option.some(
+      new BearerConnectionProfile({
+        connectionId: profile.connectionId,
+        environmentId: profile.environmentId,
+        label: profile.label,
+        httpBaseUrl: loopbackUrl(profile.httpBaseUrl, port),
+        wsBaseUrl: loopbackUrl(profile.wsBaseUrl, port),
+        ...(profile.learned === undefined ? {} : { learned: profile.learned }),
+        ...(profile.network === undefined ? {} : { network: profile.network }),
+      }),
+    ),
+  };
+}
+
+/** The entry's tailnet routes addressed through `ports`, or none if no route has a port. */
+export function forwardedEntry(
+  entry: ConnectionCatalogEntry,
+  ports: ReadonlyMap<string, number>,
+): Option.Option<ConnectionCatalogEntry> {
+  const routes = connectionRoutes(entry).flatMap((route) => {
+    const target = builtInTailnetTarget(route);
+    const port = target === null ? undefined : ports.get(target);
+    return port === undefined ? [] : [forwardedRoute(route, port)];
+  });
+  return routes.length === 0 ? Option.none() : Option.some(entryWithRoutes(entry, routes));
+}
+
+function builtInTargets(entry: ConnectionCatalogEntry): ReadonlyArray<string> {
+  const targets = new Set<string>();
+  for (const route of connectionRoutes(entry)) {
+    const target = builtInTailnetTarget(route);
+    if (target !== null) targets.add(target);
+  }
+  return [...targets];
+}
+
+export function withBuiltInTailnet(
+  driver: ConnectionDriver.ConnectionDriver["Service"],
+  tailnet: BuiltInTailnet,
+): ConnectionDriver.ConnectionDriver["Service"] {
+  type Connect = ConnectionDriver.ConnectionDriver["Service"]["connect"];
+
+  /** Connects through the embedded node; none when it cannot serve this entry now. */
+  const connectBuiltIn = Effect.fnUntraced(function* (
+    entry: ConnectionCatalogEntry,
+    reportProgress: Parameters<Connect>[1],
+    targets: ReadonlyArray<string>,
+  ) {
+    const ports = yield* tailnet.forward(targets);
+    const forwarded = forwardedEntry(entry, ports);
+    if (Option.isNone(forwarded)) return Option.none();
+    const result = yield* driver.connect(forwarded.value, reportProgress).pipe(Effect.result);
+    if (result._tag === "Success") return Option.some(result.success);
+    // An incompatible server is the same server on every route.
+    if (result.failure.reason === "unsupported") return yield* result.failure;
+    yield* Effect.logInfo("Built-in Tailscale route did not connect.", {
+      detail: result.failure.detail,
+    });
+    return Option.none();
+  });
+
+  /** Whether any saved route answered its reachability check, or has none. */
+  const anySavedRouteAnswers = (entry: ConnectionCatalogEntry) =>
+    Effect.forEach(connectionRoutes(entry), (route) => driver.checkRoute(entry, route), {
+      concurrency: "unbounded",
+    }).pipe(Effect.map((checks) => checks.some((check) => check !== "silent")));
+
+  const connect: Connect = (entry, reportProgress) =>
+    Effect.gen(function* () {
+      const mode = tailnet.mode();
+      const targets = builtInTargets(entry);
+      if (mode === "off" || targets.length === 0) {
+        return yield* driver.connect(entry, reportProgress);
+      }
+      // Fallback with a saved route that answers: use the saved routes, and
+      // the embedded node only if they all fail to connect.
+      if (mode === "fallback" && (yield* anySavedRouteAnswers(entry))) {
+        const saved = yield* driver.connect(entry, reportProgress).pipe(Effect.result);
+        if (saved._tag === "Success") return saved.success;
+        if (saved.failure.reason === "unsupported") return yield* saved.failure;
+        const builtIn = yield* connectBuiltIn(entry, reportProgress, targets);
+        if (Option.isSome(builtIn)) return builtIn.value;
+        return yield* saved.failure;
+      }
+      // Preferred, or fallback with no saved route answering: trying the
+      // silent saved routes first would only wait out their timeouts.
+      const builtIn = yield* connectBuiltIn(entry, reportProgress, targets);
+      if (Option.isSome(builtIn)) return builtIn.value;
+      return yield* driver.connect(entry, reportProgress);
+    });
+
+  /**
+   * In preferred mode only the embedded node counts as a better route, so a
+   * saved route that answers does not pull the connection off it.
+   */
+  const preflight: ConnectionDriver.ConnectionDriver["Service"]["preflight"] = (entry, route) => {
+    if (tailnet.mode() !== "preferred") return driver.preflight(entry, route);
+    const target = builtInTailnetTarget(route);
+    if (target === null) return Effect.succeed(false);
+    return tailnet.forward([target]).pipe(
+      Effect.flatMap((ports) => {
+        const port = ports.get(target);
+        return port === undefined
+          ? Effect.succeed(false)
+          : driver.preflight(entry, forwardedRoute(route, port));
+      }),
+    );
+  };
+
+  return ConnectionDriver.ConnectionDriver.of({
+    connect,
+    checkRoute: driver.checkRoute,
+    preflight,
+  });
+}
+
+/** The connection driver, wrapped to route through an embedded Tailscale node. */
+export function layerDriver(tailnet: BuiltInTailnet) {
+  return Layer.effect(
+    ConnectionDriver.ConnectionDriver,
+    ConnectionDriver.make.pipe(Effect.map((driver) => withBuiltInTailnet(driver, tailnet))),
+  );
+}
