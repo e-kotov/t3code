@@ -3,10 +3,10 @@
  *
  * A platform that embeds a Tailscale node (the Android app) forwards a
  * loopback port to each tailnet route's address. This wraps the connection
- * driver so a tailnet route can also be tried through that forward, before or
- * after the saved routes. The forwarded routes are never saved: they keep the
- * original route's id and credential and only swap its address for the
- * attempt.
+ * driver so the tailnet routes can also be tried through that forward, at a
+ * user-chosen position among the saved routes. The forwarded routes are never
+ * saved: they keep the original route's id and credential and only swap its
+ * address for the attempt.
  */
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -18,13 +18,22 @@ import {
   type ConnectionRoute,
 } from "./catalog.ts";
 import * as ConnectionDriver from "./driver.ts";
-import { connectionRouteKind, connectionRoutes, entryWithRoutes } from "./routes.ts";
+import { type ConnectionAttemptError, ConnectionTransientError } from "./model.ts";
+import {
+  connectionRouteId,
+  connectionRouteKind,
+  connectionRoutes,
+  entryWithRoutes,
+} from "./routes.ts";
 
 /**
- * "fallback" tries the saved routes first and the embedded node only when
- * none of them connects. "preferred" tries the embedded node first.
+ * Where the embedded node goes among an environment's saved routes, which
+ * keep their own order. The "Tailscale app route" is the saved tailnet
+ * address the node forwards to, reachable directly while the Tailscale app's
+ * VPN is on.
  */
-export type BuiltInTailnetMode = "off" | "fallback" | "preferred";
+export type BuiltInTailnetPosition = "first" | "before-tailscale" | "after-tailscale" | "last";
+export type BuiltInTailnetMode = "off" | BuiltInTailnetPosition;
 
 export interface BuiltInTailnet {
   /** Read on every attempt, so a settings change applies to the next one. */
@@ -111,11 +120,33 @@ function builtInTargets(entry: ConnectionCatalogEntry): ReadonlyArray<string> {
   return [...targets];
 }
 
+/** The saved routes tried before the embedded node, and those tried after it. */
+export function splitAtBuiltIn(
+  routes: ReadonlyArray<ConnectionRoute>,
+  position: BuiltInTailnetPosition,
+): {
+  readonly before: ReadonlyArray<ConnectionRoute>;
+  readonly after: ReadonlyArray<ConnectionRoute>;
+} {
+  const carried = routes.map((route) => builtInTailnetTarget(route) !== null);
+  const at =
+    position === "first"
+      ? 0
+      : position === "last"
+        ? routes.length
+        : position === "before-tailscale"
+          ? Math.max(carried.indexOf(true), 0)
+          : carried.lastIndexOf(true) + 1;
+  return { before: routes.slice(0, at), after: routes.slice(at) };
+}
+
 export function withBuiltInTailnet(
   driver: ConnectionDriver.ConnectionDriver["Service"],
   tailnet: BuiltInTailnet,
 ): ConnectionDriver.ConnectionDriver["Service"] {
   type Connect = ConnectionDriver.ConnectionDriver["Service"]["connect"];
+  // Environments whose current connection runs through the embedded node.
+  const onBuiltIn = new Set<string>();
 
   /** Connects through the embedded node; none when it cannot serve this entry now. */
   const connectBuiltIn = Effect.fnUntraced(function* (
@@ -126,18 +157,11 @@ export function withBuiltInTailnet(
     const ports = yield* tailnet.forward(targets);
     const forwarded = forwardedEntry(entry, ports);
     if (Option.isNone(forwarded)) return Option.none();
-    const result = yield* driver.connect(forwarded.value, reportProgress).pipe(Effect.result);
-    if (result._tag === "Success") return Option.some(result.success);
-    // An incompatible server is the same server on every route.
-    if (result.failure.reason === "unsupported") return yield* result.failure;
-    yield* Effect.logInfo("Built-in Tailscale route did not connect.", {
-      detail: result.failure.detail,
-    });
-    return Option.none();
+    return Option.some(yield* driver.connect(forwarded.value, reportProgress).pipe(Effect.result));
   });
 
-  /** Whether any saved route answered its reachability check, or has none. */
-  const anySavedRouteAnswers = (entry: ConnectionCatalogEntry) =>
+  /** Whether any of the routes answers its reachability check, or has none. */
+  const anyAnswers = (entry: ConnectionCatalogEntry) =>
     Effect.forEach(connectionRoutes(entry), (route) => driver.checkRoute(entry, route), {
       concurrency: "unbounded",
     }).pipe(Effect.map((checks) => checks.some((check) => check !== "silent")));
@@ -145,42 +169,84 @@ export function withBuiltInTailnet(
   const connect: Connect = (entry, reportProgress) =>
     Effect.gen(function* () {
       const mode = tailnet.mode();
+      const environmentId = entry.target.environmentId;
       const targets = builtInTargets(entry);
+      onBuiltIn.delete(environmentId);
       if (mode === "off" || targets.length === 0) {
         return yield* driver.connect(entry, reportProgress);
       }
-      // Fallback with a saved route that answers: use the saved routes, and
-      // the embedded node only if they all fail to connect.
-      if (mode === "fallback" && (yield* anySavedRouteAnswers(entry))) {
-        const saved = yield* driver.connect(entry, reportProgress).pipe(Effect.result);
-        if (saved._tag === "Success") return saved.success;
-        if (saved.failure.reason === "unsupported") return yield* saved.failure;
-        const builtIn = yield* connectBuiltIn(entry, reportProgress, targets);
-        if (Option.isSome(builtIn)) return builtIn.value;
-        return yield* saved.failure;
+      const { before, after } = splitAtBuiltIn(connectionRoutes(entry), mode);
+      let failure: ConnectionAttemptError | undefined;
+      // Saved routes ahead of the node are tried only if one answers: waiting
+      // out silent ones would delay the node. They get a last chance below.
+      let deferred: ReadonlyArray<ConnectionRoute> = [];
+      if (before.length > 0) {
+        const ahead = entryWithRoutes(entry, before);
+        if (yield* anyAnswers(ahead)) {
+          const result = yield* driver.connect(ahead, reportProgress).pipe(Effect.result);
+          if (result._tag === "Success") return result.success;
+          // An incompatible server is the same server on every route.
+          if (result.failure.reason === "unsupported") return yield* result.failure;
+          failure = result.failure;
+        } else {
+          deferred = before;
+        }
       }
-      // Preferred, or fallback with no saved route answering: trying the
-      // silent saved routes first would only wait out their timeouts.
       const builtIn = yield* connectBuiltIn(entry, reportProgress, targets);
-      if (Option.isSome(builtIn)) return builtIn.value;
-      return yield* driver.connect(entry, reportProgress);
+      if (Option.isSome(builtIn)) {
+        const result = builtIn.value;
+        if (result._tag === "Success") {
+          onBuiltIn.add(environmentId);
+          return result.success;
+        }
+        if (result.failure.reason === "unsupported") return yield* result.failure;
+        yield* Effect.logInfo("Built-in Tailscale route did not connect.", {
+          detail: result.failure.detail,
+        });
+        failure ??= result.failure;
+      }
+      const rest = [...after, ...deferred];
+      if (rest.length > 0)
+        return yield* driver.connect(entryWithRoutes(entry, rest), reportProgress);
+      return yield* (
+        failure ??
+          new ConnectionTransientError({
+            reason: "endpoint-unavailable",
+            detail: `${entry.target.label} did not answer on any route.`,
+          })
+      );
     });
 
   /**
-   * In preferred mode only the embedded node counts as a better route, so a
-   * saved route that answers does not pull the connection off it.
+   * Whether `route`, ranked above the route in use, should replace it. While
+   * on the embedded node, only saved routes placed ahead of it count. While on
+   * a saved route, a tailnet route below the node's position also counts when
+   * the node can reach it, so the connection returns to the node.
    */
   const preflight: ConnectionDriver.ConnectionDriver["Service"]["preflight"] = (entry, route) => {
-    if (tailnet.mode() !== "preferred") return driver.preflight(entry, route);
+    const mode = tailnet.mode();
+    if (mode === "off") return driver.preflight(entry, route);
+    const { before } = splitAtBuiltIn(connectionRoutes(entry), mode);
+    const id = connectionRouteId(route.target);
+    const aheadOfBuiltIn = before.some((saved) => connectionRouteId(saved.target) === id);
+    if (onBuiltIn.has(entry.target.environmentId)) {
+      return aheadOfBuiltIn ? driver.preflight(entry, route) : Effect.succeed(false);
+    }
     const target = builtInTailnetTarget(route);
-    if (target === null) return Effect.succeed(false);
-    return tailnet.forward([target]).pipe(
-      Effect.flatMap((ports) => {
-        const port = ports.get(target);
-        return port === undefined
-          ? Effect.succeed(false)
-          : driver.preflight(entry, forwardedRoute(route, port));
-      }),
+    if (aheadOfBuiltIn || target === null) return driver.preflight(entry, route);
+    return driver.preflight(entry, route).pipe(
+      Effect.flatMap((direct) =>
+        direct
+          ? Effect.succeed(true)
+          : tailnet.forward([target]).pipe(
+              Effect.flatMap((ports) => {
+                const port = ports.get(target);
+                return port === undefined
+                  ? Effect.succeed(false)
+                  : driver.preflight(entry, forwardedRoute(route, port));
+              }),
+            ),
+      ),
     );
   };
 

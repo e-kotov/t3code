@@ -50,6 +50,7 @@ internal object TailnetEngine {
    */
   fun watchLifecycle(context: Context) {
     val app = context.applicationContext
+    appContext = app
     main.post {
       if (lifecycleObserver != null) return@post
       val stopLater = Runnable {
@@ -87,13 +88,35 @@ internal object TailnetEngine {
 
   fun isEnabled(context: Context) = prefs(context).getBoolean("enabled", false)
 
-  fun mode(context: Context) = prefs(context).getString("mode", "fallback") ?: "fallback"
+  private val POSITIONS = setOf("first", "before-tailscale", "after-tailscale", "last")
 
-  fun setConfig(context: Context, enabled: Boolean, mode: String) {
+  /** Where built-in Tailscale goes among the saved routes; see BuiltInTailnetPosition. */
+  fun position(context: Context) =
+    prefs(context).getString("position", "first")?.takeIf { it in POSITIONS } ?: "first"
+
+  /** Last known sign-in state, so connection attempts skip a node that needs a login. */
+  fun isSignedIn(context: Context) = prefs(context).getBoolean("signedIn", false)
+
+  fun setConfig(context: Context, enabled: Boolean, position: String) {
     prefs(context).edit()
       .putBoolean("enabled", enabled)
-      .putString("mode", if (mode == "preferred") "preferred" else "fallback")
+      .putString("position", if (position in POSITIONS) position else "first")
       .apply()
+  }
+
+  @Volatile private var appContext: Context? = null
+
+  private fun rememberSignIn(reply: String) {
+    val context = appContext ?: return
+    val state = try {
+      JSONObject(reply).optJSONObject("result")?.optString("state")
+    } catch (error: Exception) {
+      null
+    }
+    when (state) {
+      "running" -> prefs(context).edit().putBoolean("signedIn", true).apply()
+      "needs-login" -> prefs(context).edit().putBoolean("signedIn", false).apply()
+    }
   }
 
   fun async(work: () -> String, done: (String) -> Unit) = executor.execute { done(work()) }
@@ -102,10 +125,11 @@ internal object TailnetEngine {
     if (!TailnetNative.available) {
       return JSONObject().put("ok", false).put("error", "Built-in Tailscale is not part of this build.").toString()
     }
-    return TailnetNative.call(method, args.toString())
+    return TailnetNative.call(method, args.toString()).also(::rememberSignIn)
   }
 
   fun start(context: Context, idleTimeoutSeconds: Int): String {
+    appContext = context.applicationContext
     val args = JSONObject()
       .put("stateDir", context.filesDir.resolve("tailnet").absolutePath)
       .put("hostname", hostname())
@@ -124,6 +148,7 @@ internal object TailnetEngine {
 
   fun logout(context: Context): String {
     unwatchNetworks(context)
+    prefs(context).edit().putBoolean("signedIn", false).apply()
     return call("logout")
   }
 

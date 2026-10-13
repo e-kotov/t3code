@@ -1,10 +1,10 @@
 /**
  * Fork: built-in Tailscale on Android. The T3Tailnet native module embeds a
  * Tailscale node in the app process and forwards loopback ports to tailnet
- * servers; the connection driver uses those forwards before or after the
- * saved routes (see client-runtime connection/builtInTailnet.ts). The node
- * runs while T3 is on screen, and in the background only while direct
- * notifications are on.
+ * servers; the connection driver tries those forwards at a chosen position
+ * among the saved routes (see client-runtime connection/builtInTailnet.ts),
+ * once the node is enabled and signed in. The node runs while T3 is on
+ * screen, and in the background only while direct notifications are on.
  */
 import type { BuiltInTailnet } from "@t3tools/client-runtime/connection";
 import { requireOptionalNativeModule } from "expo";
@@ -12,7 +12,7 @@ import * as Effect from "effect/Effect";
 import { useEffect, useSyncExternalStore } from "react";
 import { AppState, Platform } from "react-native";
 
-export type BuiltInTailnetPriority = "fallback" | "preferred";
+export type BuiltInTailnetPosition = BuiltInTailnet.BuiltInTailnetPosition;
 
 export interface BuiltInTailnetStatus {
   readonly state: "stopped" | "starting" | "needs-login" | "needs-approval" | "running";
@@ -29,8 +29,8 @@ type Reply<T> =
 
 interface TailnetNative {
   isAvailable(): boolean;
-  getConfig(): { enabled: boolean; mode: string };
-  setConfig(enabled: boolean, mode: string): void;
+  getConfig(): { enabled: boolean; position: string; signedIn: boolean };
+  setConfig(enabled: boolean, position: string): void;
   start(idleTimeoutSeconds: number): Promise<string>;
   stop(): Promise<string>;
   logout(): Promise<string>;
@@ -51,8 +51,8 @@ const notifications =
     ? requireOptionalNativeModule<DirectNotificationsNative>("T3AgentNotifications")
     : null;
 
-/** Fallback stops an unused node after this long; preferred keeps it while allowed. */
-const FALLBACK_IDLE_SECONDS = 300;
+/** A node no connection uses, for example while SSH carries it, stops after this long. */
+const IDLE_SECONDS = 300;
 // Well inside the 15 s per route the connection supervisor allows an attempt.
 const READY_TIMEOUT_MS = 10_000;
 
@@ -70,18 +70,27 @@ export function builtInTailnetAvailable(): boolean {
 
 // --- Settings and status store ---------------------------------------------
 
+const POSITIONS: ReadonlyArray<BuiltInTailnetPosition> = [
+  "first",
+  "before-tailscale",
+  "after-tailscale",
+  "last",
+];
+
 interface Snapshot {
   readonly enabled: boolean;
-  readonly priority: BuiltInTailnetPriority;
+  readonly position: BuiltInTailnetPosition;
+  readonly signedIn: boolean;
   readonly status: BuiltInTailnetStatus | null;
   readonly error: string | null;
 }
 
-function readConfig(): Pick<Snapshot, "enabled" | "priority"> {
+function readConfig(): Pick<Snapshot, "enabled" | "position" | "signedIn"> {
   const config = builtInTailnetAvailable() ? native!.getConfig() : null;
   return {
     enabled: config?.enabled === true,
-    priority: config?.mode === "preferred" ? "preferred" : "fallback",
+    position: POSITIONS.find((position) => position === config?.position) ?? "first",
+    signedIn: config?.signedIn === true,
   };
 }
 
@@ -102,19 +111,20 @@ export function useBuiltInTailnet(): Snapshot {
   return useSyncExternalStore(subscribe, () => snapshot);
 }
 
-export function setBuiltInTailnetConfig(enabled: boolean, priority: BuiltInTailnetPriority) {
+export function setBuiltInTailnetConfig(enabled: boolean, position: BuiltInTailnetPosition) {
   if (!builtInTailnetAvailable()) return;
-  native!.setConfig(enabled, priority);
+  native!.setConfig(enabled, position);
   publish(readConfig());
   if (!enabled) void stopBuiltInTailnet();
 }
 
-function idleTimeoutSeconds(): number {
-  return readConfig().priority === "preferred" ? 0 : FALLBACK_IDLE_SECONDS;
-}
-
 function publishReply(reply: Reply<BuiltInTailnetStatus>) {
-  publish(reply.ok ? { status: reply.result, error: null } : { error: reply.error });
+  // Native code records the sign-in state from every reply.
+  publish(
+    reply.ok
+      ? { status: reply.result, error: null, signedIn: readConfig().signedIn }
+      : { error: reply.error },
+  );
   return reply.ok ? reply.result : null;
 }
 
@@ -145,9 +155,7 @@ let signingIn = false;
 
 /** Starts the node and waits until it runs or needs the user. */
 async function startAndWait(): Promise<BuiltInTailnetStatus | null> {
-  const started = publishReply(
-    parse<BuiltInTailnetStatus>(await native!.start(idleTimeoutSeconds())),
-  );
+  const started = publishReply(parse<BuiltInTailnetStatus>(await native!.start(IDLE_SECONDS)));
   if (started === null || started.state === "running") return started;
   return publishReply(parse<BuiltInTailnetStatus>(await native!.waitReady(READY_TIMEOUT_MS)));
 }
@@ -173,7 +181,9 @@ export function endBuiltInTailnetSignIn() {
 
 async function forwardTargets(targets: ReadonlyArray<string>): Promise<Map<string, number>> {
   const ports = new Map<string, number>();
-  if (!builtInTailnetAvailable() || !readConfig().enabled) return ports;
+  const config = builtInTailnetAvailable() ? readConfig() : null;
+  // Only a signed-in node takes part; signing in happens in Settings.
+  if (config === null || !config.enabled || !config.signedIn) return ports;
   // In the background the node runs only for direct notifications.
   if (
     AppState.currentState !== "active" &&
@@ -204,7 +214,7 @@ export const builtInTailnet: BuiltInTailnet.BuiltInTailnet | undefined =
     : {
         mode: () => {
           const config = readConfig();
-          return config.enabled ? config.priority : "off";
+          return config.enabled && config.signedIn ? config.position : "off";
         },
         forward: (targets) =>
           Effect.promise(() =>

@@ -21,12 +21,16 @@ class T3TailnetModule : Module() {
 
     Function("getConfig") {
       val context = appContext.reactContext
-        ?: return@Function mapOf<String, Any>("enabled" to false, "mode" to "fallback")
-      mapOf<String, Any>("enabled" to TailnetEngine.isEnabled(context), "mode" to TailnetEngine.mode(context))
+        ?: return@Function mapOf<String, Any>("enabled" to false, "position" to "first", "signedIn" to false)
+      mapOf<String, Any>(
+        "enabled" to TailnetEngine.isEnabled(context),
+        "position" to TailnetEngine.position(context),
+        "signedIn" to TailnetEngine.isSignedIn(context),
+      )
     }
 
-    Function("setConfig") { enabled: Boolean, mode: String ->
-      appContext.reactContext?.let { TailnetEngine.setConfig(it, enabled, mode) }
+    Function("setConfig") { enabled: Boolean, position: String ->
+      appContext.reactContext?.let { TailnetEngine.setConfig(it, enabled, position) }
     }
 
     AsyncFunction("start") { idleTimeoutSeconds: Int, promise: Promise ->

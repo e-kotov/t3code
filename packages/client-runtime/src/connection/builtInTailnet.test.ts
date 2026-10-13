@@ -7,6 +7,7 @@ import {
   type BuiltInTailnetMode,
   builtInTailnetTarget,
   forwardedRoute,
+  splitAtBuiltIn,
   withBuiltInTailnet,
 } from "./builtInTailnet.ts";
 import { BearerConnectionProfile, type ConnectionRoute } from "./catalog.ts";
@@ -144,13 +145,13 @@ describe("built-in Tailscale routes", () => {
     );
   });
 
-  it.effect("fallback uses a working saved route without starting the engine", () =>
+  it.effect("last uses a working saved route without starting the engine", () =>
     Effect.gen(function* () {
       const { driver, attempts } = fakeDriver({
         answers: new Set([SSH_TUNNEL_URL]),
         connects: new Set([SSH_TUNNEL_URL]),
       });
-      const { tailnet, forwards } = fakeTailnet("fallback");
+      const { tailnet, forwards } = fakeTailnet("last");
       const result = yield* connect(withBuiltInTailnet(driver, tailnet));
       expect(result._tag).toBe("Success");
       expect(forwards).toEqual([]);
@@ -158,39 +159,39 @@ describe("built-in Tailscale routes", () => {
     }),
   );
 
-  it.effect("fallback tries the engine after the saved routes fail", () =>
+  it.effect("last tries the engine after the saved routes fail", () =>
     Effect.gen(function* () {
       const { driver, attempts } = fakeDriver({
         answers: new Set([SSH_TUNNEL_URL]),
         connects: new Set([FORWARDED_URL]),
       });
-      const { tailnet } = fakeTailnet("fallback");
+      const { tailnet } = fakeTailnet("last");
       const result = yield* connect(withBuiltInTailnet(driver, tailnet));
       expect(result._tag).toBe("Success");
       expect(attempts).toEqual([[SSH_TUNNEL_URL, TAILNET_URL], [FORWARDED_URL]]);
     }),
   );
 
-  it.effect("fallback goes to the engine first when no saved route answers", () =>
+  it.effect("last goes to the engine first when no saved route answers", () =>
     Effect.gen(function* () {
       const { driver, attempts } = fakeDriver({
         answers: new Set(),
         connects: new Set([FORWARDED_URL]),
       });
-      const { tailnet } = fakeTailnet("fallback");
+      const { tailnet } = fakeTailnet("last");
       const result = yield* connect(withBuiltInTailnet(driver, tailnet));
       expect(result._tag).toBe("Success");
       expect(attempts).toEqual([[FORWARDED_URL]]);
     }),
   );
 
-  it.effect("preferred falls back to the saved routes when the engine cannot serve", () =>
+  it.effect("first falls back to the saved routes when the engine cannot serve", () =>
     Effect.gen(function* () {
       const { driver, attempts } = fakeDriver({
         answers: new Set([SSH_TUNNEL_URL]),
         connects: new Set([SSH_TUNNEL_URL]),
       });
-      const { tailnet, forwards } = fakeTailnet("preferred", false);
+      const { tailnet, forwards } = fakeTailnet("first", false);
       const result = yield* connect(withBuiltInTailnet(driver, tailnet));
       expect(result._tag).toBe("Success");
       expect(forwards).toEqual([["100.124.207.131:3773"]]);
@@ -216,7 +217,7 @@ describe("built-in Tailscale routes", () => {
         connects: new Set(),
         unsupported: true,
       });
-      const { tailnet, forwards } = fakeTailnet("fallback");
+      const { tailnet, forwards } = fakeTailnet("last");
       const result = yield* connect(withBuiltInTailnet(driver, tailnet));
       expect(result._tag === "Failure" && result.failure.reason).toBe("unsupported");
       expect(forwards).toEqual([]);
@@ -224,17 +225,58 @@ describe("built-in Tailscale routes", () => {
     }),
   );
 
-  it.effect("preferred does not count a saved route as better than the engine", () =>
+  it("places the engine among the saved routes", () => {
+    const LAN = direct("lan", "http://192.168.1.10:3773");
+    const ids = (routes: ReadonlyArray<ConnectionRoute>) =>
+      routes.map((route) =>
+        route.target._tag === "BearerConnectionTarget" ? route.target.connectionId : "",
+      );
+    const routes = [SSH_TUNNEL, TAILNET, LAN];
+    const split = (position: Parameters<typeof splitAtBuiltIn>[1]) => {
+      const { before, after } = splitAtBuiltIn(routes, position);
+      return [ids(before), ids(after)];
+    };
+    expect(split("first")).toEqual([[], ["ssh-tunnel", "tailnet", "lan"]]);
+    expect(split("before-tailscale")).toEqual([["ssh-tunnel"], ["tailnet", "lan"]]);
+    expect(split("after-tailscale")).toEqual([["ssh-tunnel", "tailnet"], ["lan"]]);
+    expect(split("last")).toEqual([["ssh-tunnel", "tailnet", "lan"], []]);
+  });
+
+  it.effect("before the Tailscale app route: SSH, then the engine, then the app route", () =>
+    Effect.gen(function* () {
+      const { driver, attempts } = fakeDriver({
+        answers: new Set([SSH_TUNNEL_URL]),
+        connects: new Set([TAILNET_URL]),
+      });
+      const { tailnet } = fakeTailnet("before-tailscale", false);
+      const result = yield* connect(withBuiltInTailnet(driver, tailnet));
+      expect(result._tag).toBe("Success");
+      expect(attempts).toEqual([[SSH_TUNNEL_URL], [TAILNET_URL]]);
+    }),
+  );
+
+  it.effect("on the engine, only saved routes placed ahead of it count as better", () =>
     Effect.gen(function* () {
       const { driver } = fakeDriver({
         answers: new Set([SSH_TUNNEL_URL, FORWARDED_URL]),
-        connects: new Set(),
+        connects: new Set([FORWARDED_URL]),
       });
-      const preferred = withBuiltInTailnet(driver, fakeTailnet("preferred").tailnet);
-      expect(yield* preferred.preflight(ENTRY, SSH_TUNNEL)).toBe(false);
-      expect(yield* preferred.preflight(ENTRY, TAILNET)).toBe(true);
-      const fallback = withBuiltInTailnet(driver, fakeTailnet("fallback").tailnet);
-      expect(yield* fallback.preflight(ENTRY, SSH_TUNNEL)).toBe(true);
+      const first = withBuiltInTailnet(driver, fakeTailnet("first").tailnet);
+      expect((yield* connect(first))._tag).toBe("Success");
+      expect(yield* first.preflight(ENTRY, SSH_TUNNEL)).toBe(false);
+      const before = withBuiltInTailnet(driver, fakeTailnet("before-tailscale").tailnet);
+      expect((yield* connect(before))._tag).toBe("Success");
+      expect(yield* before.preflight(ENTRY, SSH_TUNNEL)).toBe(true);
+    }),
+  );
+
+  it.effect("on a saved route, the engine counts as better when placed ahead", () =>
+    Effect.gen(function* () {
+      const { driver } = fakeDriver({ answers: new Set([FORWARDED_URL]), connects: new Set() });
+      const first = withBuiltInTailnet(driver, fakeTailnet("first").tailnet);
+      expect(yield* first.preflight(ENTRY, TAILNET)).toBe(true);
+      const last = withBuiltInTailnet(driver, fakeTailnet("last").tailnet);
+      expect(yield* last.preflight(ENTRY, TAILNET)).toBe(false);
     }),
   );
 });

@@ -13,7 +13,7 @@ import {
   beginBuiltInTailnetSignIn,
   builtInTailnetAvailable,
   builtInTailnetLogs,
-  type BuiltInTailnetPriority,
+  type BuiltInTailnetPosition,
   type BuiltInTailnetStatus,
   endBuiltInTailnetSignIn,
   setBuiltInTailnetConfig,
@@ -23,29 +23,40 @@ import {
   useBuiltInTailnetStatusPolling,
 } from "./builtInTailnet";
 
-const PRIORITIES: ReadonlyArray<{
-  readonly value: BuiltInTailnetPriority;
+const POSITIONS: ReadonlyArray<{
+  readonly value: BuiltInTailnetPosition;
   readonly label: string;
   readonly description: string;
 }> = [
   {
-    value: "fallback",
-    label: "Existing connections first",
-    description:
-      "Use saved routes such as your SSH tunnel or the Tailscale app. Built-in Tailscale starts only when none of them connects.",
+    value: "first",
+    label: "First",
+    description: "Try built-in Tailscale before every saved route.",
   },
   {
-    value: "preferred",
-    label: "Built-in Tailscale first",
-    description: "Connect through built-in Tailscale, and use saved routes when it cannot.",
+    value: "before-tailscale",
+    label: "Before the Tailscale app route",
+    description: "For example: SSH tunnel, then built-in Tailscale, then the Tailscale app.",
+  },
+  {
+    value: "after-tailscale",
+    label: "After the Tailscale app route",
+    description: "For example: Tailscale app, then built-in Tailscale, then SSH tunnel.",
+  },
+  {
+    value: "last",
+    label: "Last",
+    description: "Only when no saved route connects.",
   },
 ];
 
-function describeStatus(status: BuiltInTailnetStatus | null): string {
+function describeStatus(status: BuiltInTailnetStatus | null, signedIn: boolean): string {
   switch (status?.state) {
     case undefined:
     case "stopped":
-      return "Not running. It starts when a connection needs it.";
+      return signedIn
+        ? "Signed in, not running. It starts when a connection needs it."
+        : "Not signed in. Built-in Tailscale is used only after you sign in.";
     case "starting":
       return "Connecting to Tailscale…";
     case "needs-login":
@@ -64,7 +75,7 @@ function describeStatus(status: BuiltInTailnetStatus | null): string {
 
 export function SettingsBuiltInTailscaleRouteScreen() {
   const focused = useIsFocused();
-  const { enabled, priority, status, error } = useBuiltInTailnet();
+  const { enabled, position, signedIn, status, error } = useBuiltInTailnet();
   const [busy, setBusy] = useState(false);
   const [logs, setLogs] = useState<ReadonlyArray<string> | null>(null);
   useBuiltInTailnetStatusPolling(focused);
@@ -117,17 +128,20 @@ export function SettingsBuiltInTailscaleRouteScreen() {
             label="Built-in Tailscale"
             value={enabled}
             subtitle="Reach servers on your tailnet without the Tailscale app. Other apps and VPNs are not affected."
-            onValueChange={(value) => setBuiltInTailnetConfig(value, priority)}
+            onValueChange={(value) => setBuiltInTailnetConfig(value, position)}
           />
         </SettingsSection>
 
-        <SettingsSection title="Priority">
-          {PRIORITIES.map((option, index) => (
+        <SettingsSection
+          title="Position among saved routes"
+          footer="Order the saved routes, such as your SSH tunnel and the Tailscale app address, under Environments."
+        >
+          {POSITIONS.map((option, index) => (
             <SettingsChoiceRow
               key={option.value}
               label={option.label}
               description={option.description}
-              selected={priority === option.value}
+              selected={position === option.value}
               separated={index > 0}
               disabled={!enabled}
               onPress={() => setBuiltInTailnetConfig(enabled, option.value)}
@@ -172,11 +186,12 @@ export function SettingsBuiltInTailscaleRouteScreen() {
           />
         </SettingsSection>
 
-        <Text className="text-sm text-foreground-muted">{describeStatus(status)}</Text>
+        <Text className="text-sm text-foreground-muted">{describeStatus(status, signedIn)}</Text>
         <Text className="text-sm text-foreground-muted">
           Built-in Tailscale signs in as its own device and runs only while T3 is open. With Direct
-          notifications on, it keeps running in the background so alerts keep arriving. It carries
-          plain http tailnet addresses, such as http://100.x.y.z:3773.
+          notifications on, it keeps running in the background so alerts keep arriving. When no
+          connection uses it for five minutes, it stops until one needs it. It carries plain http
+          tailnet addresses, such as http://100.x.y.z:3773.
         </Text>
         {logs === null ? null : (
           <Text selectable className="font-mono text-xs text-foreground-muted">
