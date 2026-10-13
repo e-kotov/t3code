@@ -2049,3 +2049,30 @@ describe("EnvironmentSupervisor routes", () => {
     }),
   );
 });
+
+// Fork: saved environments take the name their server reports (serverLabel.ts).
+describe("EnvironmentSupervisor learnLabel (fork)", () => {
+  it.effect("passes the server's name on, even when it reports no direct endpoints", () =>
+    Effect.gen(function* () {
+      const relayEntry: ConnectionCatalogEntry = {
+        target: RELAY_TARGET,
+        profile: Option.none(),
+        enabled: true,
+      };
+      const reported = yield* Deferred.make<string>();
+      const harness = yield* makeHarness({
+        prepare: (_attempt, target) => Effect.succeed(preparedFor(target)),
+        initialConfig: () =>
+          Effect.succeed({
+            environment: { label: "GWDG" },
+          } as unknown as ServerConfig),
+      });
+      yield* EnvironmentSupervisor.make(relayEntry, {
+        initiallyDesired: true,
+        learnLabel: (label) => Deferred.succeed(reported, label).pipe(Effect.as(Option.none())),
+      }).pipe(Effect.provide(harness.dependencies));
+
+      expect(yield* Deferred.await(reported)).toBe("GWDG");
+    }),
+  );
+});

@@ -30,6 +30,7 @@ import * as RpcSession from "../rpc/session.ts";
 import { safeErrorLogAttributes } from "../errors/safeLog.ts";
 import { NETWORK_BLOCKING_HINT } from "../errors/network.ts";
 import * as ConnectionWakeups from "./wakeups.ts";
+import { relabelCatalogEntry } from "./serverLabel.ts";
 import {
   connectionRouteId,
   connectionRoutes,
@@ -127,6 +128,8 @@ export interface EnvironmentSupervisorOptions {
     readonly activeRoute: ConnectionRoute;
     readonly reported: ReadonlyArray<ReportedEndpoint>;
   }) => Effect.Effect<Option.Option<ConnectionCatalogEntry>>;
+  /** Fork: saves the name the server reports for itself (see `serverLabel.ts`). */
+  readonly learnLabel?: (label: string) => Effect.Effect<Option.Option<ConnectionCatalogEntry>>;
 }
 
 /**
@@ -333,6 +336,21 @@ export const make = Effect.fn("EnvironmentSupervisor.make")(function* (
       yield* Ref.set(currentEntry, updated.value);
       // A learned route may rank above the one in use.
       yield* requestBetterRouteCheck(lease);
+    }
+  });
+
+  // Fork: runs for every route, including servers that report no direct endpoints.
+  const learnLabelFrom = Effect.fnUntraced(function* (
+    learn: NonNullable<EnvironmentSupervisorOptions["learnLabel"]>,
+    lease: ConnectionDriver.EnvironmentConnectionLease,
+  ) {
+    const config = yield* lease.session.initialConfig.pipe(Effect.option);
+    if (Option.isNone(config)) return;
+    const label = config.value.environment.label;
+    const updated = yield* learn(label);
+    if (Option.isSome(updated)) {
+      // Relabel in place: a concurrent route update may have replaced the entry.
+      yield* Ref.update(currentEntry, (current) => relabelCatalogEntry(current, label) ?? current);
     }
   });
 
@@ -772,6 +790,9 @@ export const make = Effect.fn("EnvironmentSupervisor.make")(function* (
     yield* SubscriptionRef.set(session, Option.some(active.lease.session));
     if (options?.learnRoutes !== undefined) {
       yield* learnRoutesFrom(options.learnRoutes, active.lease).pipe(Effect.forkScoped);
+    }
+    if (options?.learnLabel !== undefined) {
+      yield* learnLabelFrom(options.learnLabel, active.lease).pipe(Effect.forkScoped);
     }
     yield* setState({
       desired: true,

@@ -17,6 +17,11 @@ publishing account is required.
   dependencies, resource monitor and web client; suitable for the GWDG workstation.
 - `SHA256SUMS` for downloaded assets.
 
+Set `T3CODE_ENVIRONMENT_LABEL` in a server's environment to give it a fixed name, for
+example `GWDG` for a server whose Slurm job lands on different nodes. Without it the
+server is named after its host. Clients rename a saved environment to the name its server
+reports on every connect, so a name typed into a client does not stick.
+
 Use the existing SSH or private Tailscale endpoint in Add Environment. These builds
 have no upstream cloud account/relay configuration. Manual release installation
 is supported; desktop auto-update manifests are not published yet.

@@ -39,6 +39,7 @@ import * as Persistence from "../platform/persistence.ts";
 import * as EnvironmentSupervisor from "./supervisor.ts";
 import * as ConnectionDriver from "./driver.ts";
 import * as ConnectionWakeups from "./wakeups.ts";
+import { relabelCatalogEntry } from "./serverLabel.ts";
 import {
   GitHubRoutingPermissions,
   gitHubRoutingConnectionKey,
@@ -366,6 +367,7 @@ export const make = Effect.gen(function* () {
           const supervisor = yield* EnvironmentSupervisor.make(entry, {
             initiallyDesired: false,
             learnRoutes: (input) => learnRoutes({ environmentId, ...input }),
+            learnLabel: (label) => learnLabel({ environmentId, label }),
           }).pipe(
             Effect.provideService(Connectivity.Connectivity, connectivity),
             Effect.provideService(ConnectionDriver.ConnectionDriver, driver),
@@ -945,6 +947,45 @@ export const make = Effect.gen(function* () {
     ).pipe(
       Effect.catch((error) =>
         Effect.logWarning("Could not save routes learned from the environment.", {
+          environmentId: input.environmentId,
+          error,
+        }).pipe(Effect.as(Option.none<ConnectionCatalogEntry>())),
+      ),
+    );
+  });
+
+  /** Fork: names a saved environment after its server (see `serverLabel.ts`). */
+  const learnLabel = Effect.fn("EnvironmentRegistry.learnLabel")(function* (input: {
+    readonly environmentId: EnvironmentId;
+    readonly label: string;
+  }) {
+    return yield* withLeaseLock(
+      input.environmentId,
+      Effect.gen(function* () {
+        if ((yield* Ref.get(platformEnvironmentIds)).has(input.environmentId)) {
+          return Option.none<ConnectionCatalogEntry>();
+        }
+        const entry = (yield* SubscriptionRef.get(entries)).get(input.environmentId);
+        const next = entry === undefined ? null : relabelCatalogEntry(entry, input.label);
+        if (next === null) return Option.none<ConnectionCatalogEntry>();
+        for (const route of connectionRoutes(next)) {
+          if (Option.isSome(route.profile)) yield* profiles.put(route.profile.value);
+        }
+        yield* registrations.setRoutes(input.environmentId, persistedRoutes(next));
+        const lease = (yield* SubscriptionRef.get(serviceScopes)).get(input.environmentId);
+        if (lease !== undefined) {
+          yield* SubscriptionRef.update(serviceScopes, (current) =>
+            new Map(current).set(input.environmentId, { ...lease, entry: next }),
+          );
+        }
+        yield* SubscriptionRef.update(entries, (current) =>
+          new Map(current).set(input.environmentId, next),
+        );
+        return Option.some(next);
+      }),
+    ).pipe(
+      Effect.catch((error) =>
+        Effect.logWarning("Could not save the name the environment reported.", {
           environmentId: input.environmentId,
           error,
         }).pipe(Effect.as(Option.none<ConnectionCatalogEntry>())),

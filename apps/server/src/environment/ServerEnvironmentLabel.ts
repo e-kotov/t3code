@@ -1,4 +1,5 @@
 import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -182,6 +183,13 @@ const resolveFriendlyHostLabel = Effect.fn("resolveFriendlyHostLabel")(function*
 export const resolveServerEnvironmentLabel = Effect.fn("resolveServerEnvironmentLabel")(function* (
   input: ResolveServerEnvironmentLabelInput,
 ) {
+  // Fork: a fixed name for servers whose host changes, e.g. a GWDG Slurm job on any node.
+  const configured = yield* Config.String("T3CODE_ENVIRONMENT_LABEL").pipe(Config.option);
+  const configuredLabel = Option.isSome(configured) ? normalizeLabel(configured.value) : null;
+  if (configuredLabel) {
+    return configuredLabel;
+  }
+
   const friendlyHostLabel = yield* resolveFriendlyHostLabel();
   if (friendlyHostLabel) {
     return friendlyHostLabel;
