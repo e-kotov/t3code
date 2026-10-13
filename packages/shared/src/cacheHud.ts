@@ -3,7 +3,10 @@ import type {
   OrchestrationV2CacheHud,
   OrchestrationV2ProviderTurnTokenUsage,
   ProviderDriverKind,
+  ServerProviderUsageWindow,
 } from "@t3tools/contracts";
+
+import { formatResetsIn } from "./usageLimits.ts";
 
 const CODEX_BASELINE_MS = 30 * 60_000;
 
@@ -156,6 +159,28 @@ export function describeCacheHud(hud: OrchestrationV2CacheHud, nowMs: number) {
     ? `Context ${formatHudTokens(usage.usedTokens)} of ${formatHudTokens(usage.maxTokens)} · ${view.contextPercentage}%`
     : `Context ${formatHudTokens(usage.usedTokens)}`;
   return { state: view.state, cache, lastRequest, context };
+}
+
+/** Spelled-out subscription limits for hover cards, e.g.
+ * `5-hour limit: 98% left · resets in 2h 21m` and `Weekly · Fable: 93% left`. */
+export function describeUsageWindows(
+  windows: ReadonlyArray<ServerProviderUsageWindow> | undefined,
+  nowMs: number,
+) {
+  return (windows ?? [])
+    .filter((window) => window.kind === "session" || window.kind === "weekly")
+    .map((window) => {
+      const label =
+        window.kind === "session" && window.windowDurationMins === 300
+          ? "5-hour limit"
+          : window.label;
+      const remaining = Math.max(0, 100 - Math.round(window.usedPercent));
+      const resets = formatResetsIn(window, nowMs);
+      return {
+        id: window.id,
+        text: `${label}: ${remaining}% left${resets ? ` · ${resets.toLowerCase()}` : ""}`,
+      };
+    });
 }
 
 /** One timer per surface, waking only at the warning and expiry boundaries. */

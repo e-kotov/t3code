@@ -579,6 +579,7 @@ function SidebarThreadTooltip({
           environmentId={thread.environmentId}
           threadId={thread.id}
           hud={thread.cacheHud}
+          usageWindows={providerEntry?.snapshot.usageLimits?.windows}
         />
       </ThreadHoverCard>
     </ThreadHoverCardPopup>

@@ -1,17 +1,31 @@
 import { useState } from "react";
-import type { EnvironmentId, OrchestrationV2CacheHud, ThreadId } from "@t3tools/contracts";
-import { describeCacheHud } from "@t3tools/shared/cacheHud";
-import { DatabaseIcon, FlameIcon, GaugeIcon, TimerIcon, type LucideIcon } from "lucide-react";
+import type {
+  EnvironmentId,
+  OrchestrationV2CacheHud,
+  ServerProviderUsageWindow,
+  ThreadId,
+} from "@t3tools/contracts";
+import { describeCacheHud, describeUsageWindows } from "@t3tools/shared/cacheHud";
+import {
+  ChartPieIcon,
+  DatabaseIcon,
+  FlameIcon,
+  GaugeIcon,
+  TimerIcon,
+  type LucideIcon,
+} from "lucide-react";
 
 import { useEnvironmentSettings } from "~/hooks/useSettings";
 import { cn } from "~/lib/utils";
 import { CACHE_WARMING_EXPLANATION } from "./CacheWarmingToggle";
 
-/** Cache, context and warming rows for a conversation's sidebar hover card. */
+/** Cache, context, warming and subscription-limit rows for a conversation's
+ * sidebar hover card. Limits belong to the provider account on that machine. */
 export function ThreadCacheHoverDetails(props: {
   environmentId: EnvironmentId;
   threadId: ThreadId;
   hud: OrchestrationV2CacheHud | null | undefined;
+  usageWindows?: ReadonlyArray<ServerProviderUsageWindow> | undefined;
 }) {
   const warming = useEnvironmentSettings(
     props.environmentId,
@@ -19,14 +33,22 @@ export function ThreadCacheHoverDetails(props: {
   );
   // The card mounts when it opens, so its times are as of opening.
   const [openedAt] = useState(() => Date.now());
-  if (!props.hud) return null;
-  const details = describeCacheHud(props.hud, openedAt);
-  const supportsWarming = props.hud.driver === "codex" || props.hud.driver === "claudeAgent";
+  const limits = describeUsageWindows(props.usageWindows, openedAt);
+  if (!props.hud && limits.length === 0) return null;
+  const details = props.hud ? describeCacheHud(props.hud, openedAt) : null;
+  const supportsWarming = props.hud?.driver === "codex" || props.hud?.driver === "claudeAgent";
   return (
     <div className="grid gap-1.5 border-t border-border/60 pt-1.5" data-thread-cache-details="true">
-      <Row icon={TimerIcon} warning={details.state === "expiring"} label={details.cache} />
-      {details.lastRequest ? <Row icon={DatabaseIcon} label={details.lastRequest} /> : null}
-      <Row icon={GaugeIcon} label={details.context} />
+      {details ? (
+        <>
+          <Row icon={TimerIcon} warning={details.state === "expiring"} label={details.cache} />
+          {details.lastRequest ? <Row icon={DatabaseIcon} label={details.lastRequest} /> : null}
+          <Row icon={GaugeIcon} label={details.context} />
+        </>
+      ) : null}
+      {limits.map((limit) => (
+        <Row key={limit.id} icon={ChartPieIcon} label={limit.text} />
+      ))}
       {supportsWarming ? (
         <div className="flex min-w-0 items-start gap-2">
           <FlameIcon className="mt-0.5 size-3 shrink-0 stroke-muted-foreground" />

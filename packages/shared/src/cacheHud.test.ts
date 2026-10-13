@@ -1,7 +1,7 @@
 import { ProviderDriverKind, type OrchestrationV2CacheHud } from "@t3tools/contracts";
 import { describe, expect, it } from "@effect/vitest";
 
-import { describeCacheHud } from "./cacheHud.ts";
+import { describeCacheHud, describeUsageWindows } from "./cacheHud.ts";
 
 const updatedAt = "2026-10-13T08:00:00.000Z";
 const start = Date.parse(updatedAt);
@@ -78,5 +78,35 @@ describe("describeCacheHud", () => {
     expect(describeCacheHud(hud({ ttlMs: 90 * 60_000 }), start).cache).toContain(
       "· 1 h 30 min left",
     );
+  });
+});
+
+describe("describeUsageWindows", () => {
+  it("spells out session and weekly limits with their resets", () => {
+    const rows = describeUsageWindows(
+      [
+        {
+          id: "five_hour",
+          kind: "session",
+          label: "Session",
+          usedPercent: 2.4,
+          windowDurationMins: 300,
+          resetsAt: "2026-10-13T10:21:00.000Z",
+        },
+        { id: "seven_day", kind: "weekly", label: "Weekly", usedPercent: 35 },
+        { id: "seven_day_fable", kind: "weekly", label: "Weekly · Fable", usedPercent: 7 },
+        { id: "monthly", kind: "monthly", label: "Monthly", usedPercent: 50 },
+      ],
+      start,
+    );
+    expect(rows.map((row) => row.text)).toEqual([
+      "5-hour limit: 98% left · resets in 2h 21m",
+      "Weekly: 65% left",
+      "Weekly · Fable: 93% left",
+    ]);
+  });
+
+  it("returns nothing when the provider reports no limits", () => {
+    expect(describeUsageWindows(undefined, start)).toEqual([]);
   });
 });
