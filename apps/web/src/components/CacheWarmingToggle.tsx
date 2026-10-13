@@ -7,6 +7,7 @@ import {
 } from "@t3tools/contracts";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import { useEnvironmentSettings, useUpdateEnvironmentSettings } from "~/hooks/useSettings";
+import { cacheWarmingState, hotCacheThreadIds } from "@t3tools/shared/cacheHud";
 import { useCacheHudView } from "./chat/CacheHud";
 import { useEnvironmentScope } from "../state/session";
 import { Button } from "./ui/button";
@@ -15,32 +16,6 @@ export const CACHE_WARMING_EXPLANATION =
   "When enabled for this environment and conversation, T3 may send a short visible, billable cache-warm turn near cache expiry.";
 
 type CacheThread = Pick<EnvironmentThreadShell, "id" | "cacheHud" | "archivedAt">;
-
-/** Conversations whose prompt cache is still warm, so warming them can help. */
-export function hotThreadIds(threads: readonly CacheThread[], now: number): ThreadId[] {
-  return threads
-    .filter((thread) => {
-      const hud = thread.cacheHud;
-      return (
-        thread.archivedAt === null &&
-        hud &&
-        (hud.driver === "codex" || hud.driver === "claudeAgent") &&
-        (hud.usage.cachedInputTokens ?? 0) + (hud.usage.cacheCreationTokens ?? 0) > 0 &&
-        hud.ttlMs !== undefined &&
-        now - Date.parse(hud.usage.updatedAt) < hud.ttlMs
-      );
-    })
-    .map((thread) => thread.id);
-}
-
-export function warmingState(
-  activeIds: readonly ThreadId[],
-  sessions: Readonly<Record<string, boolean>>,
-): "on" | "off" | "mixed" {
-  const enabledCount = activeIds.filter((id) => sessions[id] === true).length;
-  if (enabledCount === 0) return "off";
-  return enabledCount === activeIds.length ? "on" : "mixed";
-}
 
 /** Shared state for switching every warm conversation on one environment. */
 function useEnvironmentWarming(environmentId: EnvironmentId, threads: readonly CacheThread[]) {
@@ -71,9 +46,9 @@ function useEnvironmentWarming(environmentId: EnvironmentId, threads: readonly C
     );
     return () => window.clearTimeout(timer);
   }, [now, threads]);
-  const activeIds = hotThreadIds(threads, now);
+  const activeIds = hotCacheThreadIds(threads, now);
   const enabled = useEnvironmentSettings(environmentId, (settings) =>
-    warmingState(activeIds, settings.cacheWarmingSessions),
+    cacheWarmingState(activeIds, settings.cacheWarmingSessions),
   );
   const update = useUpdateEnvironmentSettings(environmentId);
   const canWrite = useEnvironmentScope(environmentId, AuthSettingsWriteScope);

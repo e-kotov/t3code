@@ -7,6 +7,8 @@ import { useAtomValue } from "@effect/atom-react";
 import { AuthSettingsWriteScope } from "@t3tools/contracts";
 import { useEnvironmentScope } from "../../state/session";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
+import { cacheWarmingState, hotCacheThreadIds } from "@t3tools/shared/cacheHud";
+import { environmentThreadShells } from "../../state/threads";
 
 const EXPLANATION =
   "May send a short visible, billable cache-warm turn near cache expiry when enabled for this conversation.";
@@ -77,6 +79,58 @@ function EnvironmentControl(props: {
         </Text>
       </Pressable>
     </View>
+  );
+}
+
+/** Machine-group header switch: warms or cools every warm conversation on that
+ * machine. Hidden while the machine has none, like the per-conversation control. */
+export function CacheWarmingMachineControl(props: { readonly environmentId: EnvironmentId }) {
+  const threads = useAtomValue(environmentThreadShells.threadShellsAtom);
+  const settings = useAtomValue(serverEnvironment.settingsValueAtom(props.environmentId));
+  const updateSettings = useAtomCommand(serverEnvironment.updateSettings, {
+    label: "machine prompt cache warming setting",
+  });
+  const canWrite = useEnvironmentScope(props.environmentId, AuthSettingsWriteScope);
+  const hotThreadIds = hotCacheThreadIds(
+    threads.filter((thread) => thread.environmentId === props.environmentId),
+    Date.now(),
+  );
+  if (hotThreadIds.length === 0) return null;
+  const state = cacheWarmingState(hotThreadIds, settings?.cacheWarmingSessions);
+  return (
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityLabel={
+        state === "mixed"
+          ? "Warming is on for some warm conversations on this machine; enable it for all"
+          : `${state === "on" ? "Disable" : "Enable"} warming for all warm conversations on this machine`
+      }
+      accessibilityHint={EXPLANATION}
+      accessibilityState={{
+        checked: state === "mixed" ? "mixed" : state === "on",
+        disabled: !canWrite,
+      }}
+      disabled={!canWrite}
+      hitSlop={6}
+      onPress={() => {
+        const value = state !== "on";
+        void updateSettings({
+          environmentId: props.environmentId,
+          input: {
+            patch: {
+              cacheWarmingSessions: Object.fromEntries(hotThreadIds.map((id) => [id, value])),
+            },
+          },
+        });
+      }}
+      className={`min-h-6 items-center justify-center rounded-full border px-2 ${state === "on" ? "border-primary bg-primary" : "border-border bg-transparent"} ${canWrite ? "" : "opacity-40"}`}
+    >
+      <Text
+        className={`text-[11px] font-t3-medium ${state === "on" ? "text-primary-foreground" : "text-foreground-muted"}`}
+      >
+        {state === "mixed" ? "Warm: Mixed" : state === "on" ? "Warm: On" : "Warm: Off"}
+      </Text>
+    </Pressable>
   );
 }
 

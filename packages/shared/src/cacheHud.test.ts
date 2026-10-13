@@ -1,7 +1,12 @@
-import { ProviderDriverKind, type OrchestrationV2CacheHud } from "@t3tools/contracts";
+import { ProviderDriverKind, ThreadId, type OrchestrationV2CacheHud } from "@t3tools/contracts";
 import { describe, expect, it } from "@effect/vitest";
 
-import { describeCacheHud, describeUsageWindows } from "./cacheHud.ts";
+import {
+  cacheWarmingState,
+  describeCacheHud,
+  describeUsageWindows,
+  hotCacheThreadIds,
+} from "./cacheHud.ts";
 
 const updatedAt = "2026-10-13T08:00:00.000Z";
 const start = Date.parse(updatedAt);
@@ -108,5 +113,47 @@ describe("describeUsageWindows", () => {
 
   it("returns nothing when the provider reports no limits", () => {
     expect(describeUsageWindows(undefined, start)).toEqual([]);
+  });
+});
+
+describe("hotCacheThreadIds", () => {
+  it("keeps only unarchived Claude/Codex conversations with a warm cache", () => {
+    const now = start + 10 * 60_000;
+    const thread = (
+      id: string,
+      cacheHud: OrchestrationV2CacheHud | null,
+      archivedAt: string | null = null,
+    ) => ({
+      id: ThreadId.make(id),
+      cacheHud,
+      archivedAt,
+    });
+    const ids = hotCacheThreadIds(
+      [
+        thread("claude", hud()),
+        thread("codex", hud({ driver: ProviderDriverKind.make("codex"), basis: "estimated" })),
+        thread("expired", hud({ ttlMs: 5 * 60_000 })),
+        thread("archived", hud(), "2026-10-13T08:05:00.000Z"),
+        thread("other-provider", hud({ driver: ProviderDriverKind.make("cursor") })),
+        thread(
+          "nothing-cached",
+          hud({ usage: { updatedAt, usedTokens: 1, cachedInputTokens: 0 } }),
+        ),
+        thread("no-hud", null),
+      ],
+      now,
+    );
+    expect(ids).toEqual(["claude", "codex"]);
+  });
+});
+
+describe("cacheWarmingState", () => {
+  const ids = [ThreadId.make("a"), ThreadId.make("b")];
+  it("reports on, off or mixed across the given conversations", () => {
+    expect(cacheWarmingState(ids, { a: true, b: true })).toBe("on");
+    expect(cacheWarmingState(ids, { a: true })).toBe("mixed");
+    expect(cacheWarmingState(ids, { c: true })).toBe("off");
+    expect(cacheWarmingState(ids, undefined)).toBe("off");
+    expect(cacheWarmingState([], {})).toBe("off");
   });
 });

@@ -1,5 +1,5 @@
 import { CacheHud } from "./CacheHud";
-import { CacheWarmingThreadControl } from "./CacheWarmingControls";
+import { CacheWarmingMachineControl, CacheWarmingThreadControl } from "./CacheWarmingControls";
 import type { ThreadRowProviderInstance } from "./thread-provider-instance";
 import {
   THREAD_LIST_V2_MONO_FONT as MONO_FONT,
@@ -19,10 +19,22 @@ import type {
   EnvironmentThreadShell,
 } from "@t3tools/client-runtime/state/shell";
 import type { EnvironmentThreadSearchMatch } from "@t3tools/client-runtime/state/thread-search";
-import { AuthOrchestrationOperateScope, type EnvironmentMachineKind } from "@t3tools/contracts";
+import {
+  AuthOrchestrationOperateScope,
+  EnvironmentId,
+  type EnvironmentMachineKind,
+} from "@t3tools/contracts";
 import { canSnooze, resolveSnoozePresets } from "@t3tools/client-runtime/state/thread-settled";
 import type { MenuAction } from "@react-native-menu/menu";
-import { memo, useCallback, useEffect, useMemo, useState, type ComponentProps } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 import { Alert, Pressable, useWindowDimensions, View } from "react-native";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 
@@ -160,6 +172,8 @@ function ThreadListV2Section(props: {
     readonly count: number;
     readonly onMove: (delta: -1 | 1) => void;
   };
+  /** Drawn between the rule and the reorder arrows (machine warming switch). */
+  readonly accessory?: ReactNode;
 }) {
   const snoozed = props.tone === "snoozed";
   const sidebarPane = props.pane === "sidebar";
@@ -202,6 +216,7 @@ function ThreadListV2Section(props: {
           style={{ transform: [{ rotate: props.disclosure.expanded ? "180deg" : "0deg" }] }}
         />
       ) : null}
+      {props.accessory}
       {props.machineReorder
         ? ([-1, 1] as const).map((delta) => (
             <Pressable
@@ -285,6 +300,11 @@ export const ThreadListV2MachineHeader = memo(function ThreadListV2MachineHeader
         <ThreadListV2Section
           label={props.label}
           pane={props.pane}
+          accessory={
+            props.environmentId ? (
+              <CacheWarmingMachineControl environmentId={EnvironmentId.make(props.environmentId)} />
+            ) : undefined
+          }
           machineReorder={
             props.environmentId &&
             props.position !== undefined &&

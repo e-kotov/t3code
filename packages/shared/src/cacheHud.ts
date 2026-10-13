@@ -4,6 +4,7 @@ import type {
   OrchestrationV2ProviderTurnTokenUsage,
   ProviderDriverKind,
   ServerProviderUsageWindow,
+  ThreadId,
 } from "@t3tools/contracts";
 
 import { formatResetsIn } from "./usageLimits.ts";
@@ -181,6 +182,40 @@ export function describeUsageWindows(
         text: `${label}: ${remaining}% left${resets ? ` · ${resets.toLowerCase()}` : ""}`,
       };
     });
+}
+
+/** Conversations whose Claude/Codex prompt cache is still warm, so warming them can help. */
+export function hotCacheThreadIds(
+  threads: ReadonlyArray<{
+    readonly id: ThreadId;
+    readonly cacheHud?: OrchestrationV2CacheHud | null | undefined;
+    readonly archivedAt: string | null;
+  }>,
+  nowMs: number,
+): ThreadId[] {
+  return threads
+    .filter((thread) => {
+      const hud = thread.cacheHud;
+      return (
+        thread.archivedAt === null &&
+        hud &&
+        (hud.driver === "codex" || hud.driver === "claudeAgent") &&
+        (hud.usage.cachedInputTokens ?? 0) + (hud.usage.cacheCreationTokens ?? 0) > 0 &&
+        hud.ttlMs !== undefined &&
+        nowMs - Date.parse(hud.usage.updatedAt) < hud.ttlMs
+      );
+    })
+    .map((thread) => thread.id);
+}
+
+/** Whether warming is on for all, none or some of the given conversations. */
+export function cacheWarmingState(
+  threadIds: ReadonlyArray<ThreadId>,
+  sessions: Readonly<Record<string, boolean>> | undefined,
+): "on" | "off" | "mixed" {
+  const enabledCount = threadIds.filter((id) => sessions?.[id] === true).length;
+  if (enabledCount === 0) return "off";
+  return enabledCount === threadIds.length ? "on" : "mixed";
 }
 
 /** One timer per surface, waking only at the warning and expiry boundaries. */
