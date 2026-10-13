@@ -1852,16 +1852,24 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
               {props.project ? <ProjectFavicon project={props.project} className="size-4" /> : null}
             </span>
             {draftIndicator}
-            <span className="min-w-0 flex-1">
+            {/* One line inside the fixed h-9 row: the title truncates and the
+              cache readout trails it. */}
+            <span className="flex min-w-0 flex-1 items-center gap-1.5">
               {title}
-              <CacheHud hud={thread.cacheHud} compact />
+              <span className="flex shrink-0">
+                <CacheHud hud={thread.cacheHud} compact />
+              </span>
             </span>
-            <CacheWarmingThreadToggle
-              environmentId={thread.environmentId}
-              threadId={thread.id}
-              driver={thread.cacheHud?.driver}
-              cacheHud={thread.cacheHud}
-            />
+            {/* The server never warms settled threads, so a toggle there would
+              be inert; un-settling brings the card and its toggle back. */}
+            {variantAction === "unsettle" ? null : (
+              <CacheWarmingThreadToggle
+                environmentId={thread.environmentId}
+                threadId={thread.id}
+                driver={thread.cacheHud?.driver}
+                cacheHud={thread.cacheHud}
+              />
+            )}
             {pinIndicator}
             {terminalStatusIcon}
             {isRegeneratingTitle ? (
@@ -2032,6 +2040,11 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
               ) : (
                 <span className="flex-1" />
               )}
+              {/* The fixed-height card has no spare line, so the cache readout
+                  rides the header beside the project label it may truncate. */}
+              <span className="flex shrink-0">
+                <CacheHud hud={thread.cacheHud} compact />
+              </span>
               {pinIndicator}
               {/* The visible state owns this slot's width: status at rest,
                   actions on hover/keyboard focus or while the popover is open. Keeping
@@ -2191,7 +2204,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
                 </span>
               ) : null}
             </div>
-            <CacheHud hud={thread.cacheHud} compact />
             <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-secondary-label text-xs">
               {/* Always the branch. The plan step used to take this slot while
                   working, but it truncated to a half-sentence and dropped the

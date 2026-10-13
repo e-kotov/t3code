@@ -1376,11 +1376,15 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
               >
                 {thread.title}
               </Text>
-              <CacheWarmingThreadControl
-                environmentId={thread.environmentId}
-                threadId={thread.id}
-                driver={thread.cacheHud?.driver}
-              />
+              {/* The server never warms settled threads, so the toggle would
+                  be inert here; snoozed rows keep it. */}
+              {snoozedRow ? (
+                <CacheWarmingThreadControl
+                  environmentId={thread.environmentId}
+                  threadId={thread.id}
+                  driver={thread.cacheHud?.driver}
+                />
+              ) : null}
             </View>
             <CacheHud hud={thread.cacheHud} compact />
             {props.searchMatch ? (

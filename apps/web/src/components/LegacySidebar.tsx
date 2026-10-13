@@ -826,7 +826,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                   }
                 >
                   {thread.title}
-                  <CacheHud hud={thread.cacheHud} compact />
                 </TooltipTrigger>
                 <TooltipPopup side="top">
                   <span>{thread.title}</span>
@@ -838,6 +837,10 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                   ) : null}
                 </TooltipPopup>
               </Tooltip>
+              {/* Outside the truncating title so the readout stays on its line. */}
+              <span className="flex shrink-0">
+                <CacheHud hud={thread.cacheHud} compact />
+              </span>
               <CacheWarmingThreadToggle
                 environmentId={thread.environmentId}
                 threadId={thread.id}
