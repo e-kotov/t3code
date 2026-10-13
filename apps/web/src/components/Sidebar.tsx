@@ -1860,16 +1860,8 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
                 <CacheHud hud={thread.cacheHud} compact />
               </span>
             </span>
-            {/* The server never warms settled threads, so a toggle there would
-              be inert; un-settling brings the card and its toggle back. */}
-            {variantAction === "unsettle" ? null : (
-              <CacheWarmingThreadToggle
-                environmentId={thread.environmentId}
-                threadId={thread.id}
-                driver={thread.cacheHud?.driver}
-                cacheHud={thread.cacheHud}
-              />
-            )}
+            {/* Settling or snoozing retires warming on the server, so slim rows
+              (the settled and snoozed shelves) carry no warm toggle. */}
             {pinIndicator}
             {terminalStatusIcon}
             {isRegeneratingTitle ? (

@@ -22,6 +22,7 @@ export interface CacheWarmingCandidate {
     | "lineage"
     | "archivedAt"
     | "settledOverride"
+    | "snoozedUntil"
     | "activeRunId"
     | "pendingRuntimeRequest"
     | "pendingBackgroundTasks"
@@ -40,6 +41,20 @@ export interface CacheWarmingCandidate {
   readonly alreadyWarmedWindow?: string;
 }
 
+/**
+ * Settling or snoozing a thread retires its warming opt-in: the sweep turns it
+ * off, so un-settling or waking later does not resume warming on its own.
+ */
+export function cacheWarmingRetired(
+  thread: Pick<OrchestrationV2ThreadShell, "settledOverride" | "snoozedUntil">,
+  nowMs: number,
+): boolean {
+  return (
+    thread.settledOverride === "settled" ||
+    (thread.snoozedUntil != null && DateTime.toEpochMillis(thread.snoozedUntil) > nowMs)
+  );
+}
+
 export interface CacheWarmingWindow {
   readonly fingerprint: string;
   readonly marginMs: number;
@@ -51,7 +66,7 @@ export function cacheWarmingWindow(input: CacheWarmingCandidate): CacheWarmingWi
   if (!input.enabled || thread.lineage.relationshipToParent === "subagent") return null;
   if (
     thread.archivedAt !== null ||
-    thread.settledOverride === "settled" ||
+    cacheWarmingRetired(thread, input.nowMs) ||
     thread.activeRunId !== null ||
     thread.pendingRuntimeRequest !== null ||
     (thread.pendingBackgroundTasks?.length ?? 0) > 0 ||
@@ -127,6 +142,16 @@ export const make = Effect.gen(function* () {
       const latestSettings = yield* settingsService.getSettings;
       const enabled = latestSettings.cacheWarmingSessions[thread.id] === true;
       if (!enabled) continue;
+      if (cacheWarmingRetired(thread, now)) {
+        yield* settingsService
+          .updateSettings({ cacheWarmingSessions: { [thread.id]: false } })
+          .pipe(
+            Effect.catch((cause) =>
+              Effect.logWarning("Retiring cache warming failed", { threadId: thread.id, cause }),
+            ),
+          );
+        continue;
+      }
       const window = cacheWarmingWindow({
         thread,
         nowMs: now,

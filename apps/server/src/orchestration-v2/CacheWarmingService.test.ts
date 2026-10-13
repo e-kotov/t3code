@@ -1,7 +1,7 @@
 import { ProviderDriverKind, ThreadId } from "@t3tools/contracts";
 import * as DateTime from "effect/DateTime";
 import { describe, expect, it } from "vite-plus/test";
-import { cacheWarmingWindow } from "./CacheWarmingService.ts";
+import { cacheWarmingRetired, cacheWarmingWindow } from "./CacheWarmingService.ts";
 
 const NOW = Date.parse("2026-10-11T10:00:00.000Z");
 const userMessageAt = DateTime.makeUnsafe(NOW - 60 * 60_000);
@@ -57,6 +57,24 @@ describe("cacheWarmingWindow", () => {
     expect(
       cacheWarmingWindow({ ...enabled, thread: thread({ settledOverride: "settled" }) }),
     ).toBeNull();
+  });
+
+  it("does not warm a thread snoozed until later", () => {
+    expect(
+      cacheWarmingWindow({
+        ...enabled,
+        thread: thread({ snoozedUntil: DateTime.makeUnsafe(NOW + 60 * 60_000) }),
+      }),
+    ).toBeNull();
+  });
+
+  it("retires warming for settled or still-snoozed threads only", () => {
+    const later = DateTime.makeUnsafe(NOW + 60_000);
+    const earlier = DateTime.makeUnsafe(NOW - 60_000);
+    expect(cacheWarmingRetired({ settledOverride: "settled", snoozedUntil: null }, NOW)).toBe(true);
+    expect(cacheWarmingRetired({ settledOverride: null, snoozedUntil: later }, NOW)).toBe(true);
+    expect(cacheWarmingRetired({ settledOverride: null, snoozedUntil: earlier }, NOW)).toBe(false);
+    expect(cacheWarmingRetired({ settledOverride: "active", snoozedUntil: null }, NOW)).toBe(false);
   });
 
   it("rearms after fresh cache telemetry reports a new hot window", () => {

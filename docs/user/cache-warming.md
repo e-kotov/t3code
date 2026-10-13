@@ -22,6 +22,10 @@ work, pending approvals or background work, failures and usage-limit recovery
 are skipped. An unchanged cache window is warmed at most once, including across
 server restarts.
 
+Settling or snoozing a conversation turns its warming off. Un-settling it or
+waking it does not turn warming back on; use the conversation button again if
+you want it. Settled and snoozed rows do not show the button.
+
 Selections are saved on the server, so warming can run while clients are closed.
 The server must remain running. Normal completion notifications may also report
 these warming turns.
