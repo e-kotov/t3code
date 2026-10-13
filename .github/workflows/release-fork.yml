@@ -198,6 +198,14 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/mobile/modules/t3-tailnet/go/go.mod
+          cache-dependency-path: apps/mobile/modules/t3-tailnet/go/go.sum
+      - name: Test and build the built-in Tailscale engine
+        run: |
+          (cd apps/mobile/modules/t3-tailnet/go && go test ./...)
+          scripts/build-tailnet-android.sh
       - name: Cache Gradle dependencies and task outputs
         uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
         with:

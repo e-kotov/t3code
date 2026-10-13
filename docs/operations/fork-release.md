@@ -89,6 +89,14 @@ to a new workflow without maintaining a higher versionCode than installed APKs.
 Apple signing/notarization and iOS distribution require separate credentials;
 iOS is outside this Mac/Android/GWDG release workflow.
 
+## Android built-in Tailscale
+
+The APK embeds a Tailscale node (`apps/mobile/modules/t3-tailnet`). Before Gradle,
+the Android job runs its Go tests and `scripts/build-tailnet-android.sh`, which
+cross-compiles `libt3tailnet.so` for arm64 with Go and the runner's NDK into the
+module's uncommitted `jniLibs`. A local build without that library still works; its
+Settings report that built-in Tailscale is not part of the build.
+
 ## Android build caching
 
 Android uses the Gradle action to retain dependency downloads, transformed JARs

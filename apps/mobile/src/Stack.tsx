@@ -125,6 +125,7 @@ import { UsageLimitAccountScreen } from "./features/usage/UsageLimitsPooled";
 import { UsageRouteScreen } from "./features/usage/UsageRouteScreen";
 import { SettingsAboutRouteScreen } from "./features/settings/SettingsAboutRouteScreen";
 import { SettingsNotificationsRouteScreen } from "./features/settings/SettingsNotificationsRouteScreen";
+import { SettingsBuiltInTailscaleRouteScreen } from "./features/built-in-tailnet/SettingsBuiltInTailscaleRouteScreen";
 import { SettingsRouteScreen } from "./features/settings/SettingsRouteScreen";
 import { SettingsThreadsRouteScreen } from "./features/settings/SettingsThreadsRouteScreen";
 import { SettingsEnvironmentFilterProvider } from "./features/settings/settings-environment-filter";
@@ -271,6 +272,11 @@ const SettingsContentStack = createV5SheetStackNavigator({
       screen: SettingsNotificationsRouteScreen,
       linking: "notifications",
       options: { title: "Notifications" },
+    }),
+    SettingsBuiltInTailscale: createNativeStackScreen({
+      screen: SettingsBuiltInTailscaleRouteScreen,
+      linking: "built-in-tailscale",
+      options: { title: "Built-in Tailscale" },
     }),
     SettingsThreads: createNativeStackScreen({
       screen: SettingsThreadsRouteScreen,
