@@ -13,6 +13,7 @@ import { hotSwappableAtomRuntime } from "../lib/hot-swappable-atom-runtime";
 import * as Runtime from "../lib/runtime";
 import { appAtomRegistry } from "../state/atom-registry";
 import * as BackgroundActivity from "./background-activity";
+import { builtInTailnet } from "../features/built-in-tailnet/builtInTailnet";
 import * as ConnectionPlatform from "./platform";
 
 declare const module: { readonly hot?: FoundationHotModule } | undefined;
@@ -36,7 +37,10 @@ type ConnectionLayerSource =
 
 const layerProvidedClientConnection = layerSnapshotLoader.pipe(
   Layer.provideMerge(
-    Connection.layerWithOptions({ usageLimitSources: true, usageLimitsCommand: true }),
+    Connection.layerWithOptions(
+      { usageLimitSources: true, usageLimitsCommand: true },
+      builtInTailnet,
+    ),
   ),
   Layer.provideMerge(
     Layer.mergeAll(

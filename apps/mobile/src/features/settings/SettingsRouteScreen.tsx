@@ -6,6 +6,7 @@ import { deriveProjectGroupLabel } from "@t3tools/client-runtime/state/project-g
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { hasCloudPublicConfig } from "../cloud/publicConfig";
+import { BuiltInTailscaleSettingsRow } from "../built-in-tailnet/BuiltInTailscaleSettingsRow";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
 import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
@@ -92,6 +93,7 @@ function ConfiguredSettingsRouteScreen() {
             target="SettingsEnvironments"
           />
           <SettingsRow icon="bell.badge" label="Notifications" target="SettingsNotifications" />
+          <BuiltInTailscaleSettingsRow />
         </SettingsSection>
 
         <SettingsIndexSections />
@@ -127,6 +129,7 @@ function LocalSettingsRouteScreen() {
           {Platform.OS === "android" ? (
             <SettingsRow icon="bell.badge" label="Notifications" target="SettingsNotifications" />
           ) : null}
+          <BuiltInTailscaleSettingsRow />
         </SettingsSection>
 
         <SettingsIndexSections />
