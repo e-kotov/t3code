@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AuthSettingsWriteScope,
   type EnvironmentId,
@@ -16,7 +16,8 @@ export const CACHE_WARMING_EXPLANATION =
 
 type CacheThread = Pick<EnvironmentThreadShell, "id" | "cacheHud" | "archivedAt">;
 
-function hotThreadIds(threads: readonly CacheThread[], now: number): ThreadId[] {
+/** Conversations whose prompt cache is still warm, so warming them can help. */
+export function hotThreadIds(threads: readonly CacheThread[], now: number): ThreadId[] {
   return threads
     .filter((thread) => {
       const hud = thread.cacheHud;
@@ -32,21 +33,20 @@ function hotThreadIds(threads: readonly CacheThread[], now: number): ThreadId[] 
     .map((thread) => thread.id);
 }
 
-export function CacheWarmingEnvironmentToggle(props: {
-  environmentId: EnvironmentId | null;
-  threads?: readonly CacheThread[];
-}) {
-  if (props.environmentId === null) return null;
-  return <EnvironmentToggle environmentId={props.environmentId} threads={props.threads ?? []} />;
+export function warmingState(
+  activeIds: readonly ThreadId[],
+  sessions: Readonly<Record<string, boolean>>,
+): "on" | "off" | "mixed" {
+  const enabledCount = activeIds.filter((id) => sessions[id] === true).length;
+  if (enabledCount === 0) return "off";
+  return enabledCount === activeIds.length ? "on" : "mixed";
 }
 
-function EnvironmentToggle(props: {
-  environmentId: EnvironmentId;
-  threads: readonly CacheThread[];
-}) {
+/** Shared state for switching every warm conversation on one environment. */
+function useEnvironmentWarming(environmentId: EnvironmentId, threads: readonly CacheThread[]) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const nextExpiry = props.threads
+    const nextExpiry = threads
       .flatMap((thread) => {
         const hud = thread.cacheHud;
         if (
@@ -70,23 +70,80 @@ function EnvironmentToggle(props: {
       Math.min(nextExpiry - now + 1, 2_147_483_647),
     );
     return () => window.clearTimeout(timer);
-  }, [now, props.threads]);
-  const activeIds = hotThreadIds(props.threads, now);
-  const enabled = useEnvironmentSettings(props.environmentId, (settings) => {
-    const enabledCount = activeIds.filter(
-      (id) => settings.cacheWarmingSessions[id] === true,
-    ).length;
-    if (enabledCount === 0) return "off" as const;
-    return enabledCount === activeIds.length ? ("on" as const) : ("mixed" as const);
-  });
-  const update = useUpdateEnvironmentSettings(props.environmentId);
-  const canWrite = useEnvironmentScope(props.environmentId, AuthSettingsWriteScope);
+  }, [now, threads]);
+  const activeIds = hotThreadIds(threads, now);
+  const enabled = useEnvironmentSettings(environmentId, (settings) =>
+    warmingState(activeIds, settings.cacheWarmingSessions),
+  );
+  const update = useUpdateEnvironmentSettings(environmentId);
+  const canWrite = useEnvironmentScope(environmentId, AuthSettingsWriteScope);
   const toggleAll = () => {
     const value = enabled !== "on";
     void update({
       cacheWarmingSessions: Object.fromEntries(activeIds.map((id) => [id, value])),
     });
   };
+  return { activeIds, enabled, canWrite, toggleAll };
+}
+
+export function CacheWarmingEnvironmentToggle(props: {
+  environmentId: EnvironmentId | null;
+  threads?: readonly CacheThread[];
+}) {
+  if (props.environmentId === null) return null;
+  return <EnvironmentToggle environmentId={props.environmentId} threads={props.threads ?? []} />;
+}
+
+/** Machine-group header button: warms or cools every warm conversation on that machine.
+ * Hidden while the machine has none, like the per-conversation button. */
+export function CacheWarmingMachineToggle(props: {
+  environmentId: EnvironmentId;
+  /** All sidebar threads; only this machine's are considered. */
+  threads: readonly (CacheThread & Pick<EnvironmentThreadShell, "environmentId">)[];
+}) {
+  const machineThreads = useMemo(
+    () => props.threads.filter((thread) => thread.environmentId === props.environmentId),
+    [props.threads, props.environmentId],
+  );
+  const { activeIds, enabled, canWrite, toggleAll } = useEnvironmentWarming(
+    props.environmentId,
+    machineThreads,
+  );
+  if (activeIds.length === 0) return null;
+  return (
+    // The header is uppercase and tracked; keep the button's own lettering.
+    <span className="flex shrink-0 normal-case tracking-normal">
+      <Button
+        size="micro"
+        variant={enabled === "on" ? "default" : enabled === "mixed" ? "secondary" : "outline"}
+        disabled={!canWrite}
+        aria-label={
+          enabled === "mixed"
+            ? "Warming is enabled for some warm conversations on this machine; enable it for all"
+            : `${enabled === "on" ? "Disable" : "Enable"} warming for all warm conversations on this machine`
+        }
+        aria-pressed={enabled === "mixed" ? "mixed" : enabled === "on"}
+        onPointerDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+          toggleAll();
+        }}
+      >
+        {enabled === "mixed" ? "Warm: Mixed" : enabled === "on" ? "Warm: On" : "Warm: Off"}
+      </Button>
+    </span>
+  );
+}
+
+function EnvironmentToggle(props: {
+  environmentId: EnvironmentId;
+  threads: readonly CacheThread[];
+}) {
+  const { activeIds, enabled, canWrite, toggleAll } = useEnvironmentWarming(
+    props.environmentId,
+    props.threads,
+  );
   const isOn = enabled === "on";
   const isMixed = enabled === "mixed";
   return (

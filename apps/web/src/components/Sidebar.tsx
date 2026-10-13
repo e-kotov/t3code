@@ -1,5 +1,9 @@
 import { CacheHud } from "./chat/CacheHud";
-import { CacheWarmingEnvironmentToggle, CacheWarmingThreadToggle } from "./CacheWarmingToggle";
+import {
+  CacheWarmingEnvironmentToggle,
+  CacheWarmingMachineToggle,
+  CacheWarmingThreadToggle,
+} from "./CacheWarmingToggle";
 import { ThreadCacheHoverDetails } from "./ThreadCacheHoverDetails";
 import { type EnvironmentId, type ScopedProjectRef } from "@t3tools/contracts";
 import { ThreadHoverCard, ThreadHoverCardPopup } from "./ThreadHoverCard";
@@ -5639,6 +5643,12 @@ export default function Sidebar() {
                                       ? (environmentLabelById.get(item.environmentId) ?? "Machine")
                                       : "Machine"}
                                   </span>
+                                  {item.environmentId ? (
+                                    <CacheWarmingMachineToggle
+                                      environmentId={item.environmentId}
+                                      threads={threads}
+                                    />
+                                  ) : null}
                                   {item.environmentId &&
                                   item.groupPosition !== undefined &&
                                   item.groupCount !== undefined ? (
