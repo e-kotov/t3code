@@ -39,8 +39,25 @@ This checkout is Egor Kotov's fork. Upstream will not merge fork features, and
 - The pre-push guard runs `scripts/fork-upstream-sync.sh checks` (about 20 s warm) and warns
   about untested code or edits to upstream files. Fix failures; do not bypass with
   `FORK_SKIP_CHECKS=1` unless Egor asks.
-- Releases are tags `vX.Y.Z-ek.N` (`docs/operations/fork-release.md`). A release needs the GWDG
-  server, Mac app and Android APK upgraded together.
+
+## Releases
+
+Egor chooses when to release; do not tag one on your own. Procedure:
+`docs/operations/fork-release.md`.
+
+- Tag `vX.Y.Z-ek.N`, annotated, on a commit already on `main`, pushed with
+  `git push origin <tag>`. `X.Y.Z` is the version of upstream's newest nightly merged into
+  `main` (`git tag --merged origin/main --sort=-v:refname --list 'v*-nightly.*' | head -1`).
+  `N` starts at 1 for each new `X.Y.Z` and only goes up. Never reuse or move a tag, even for
+  a release that failed to build; take the next `N`.
+- Pushing the tag builds and publishes a GitHub prerelease, then the `homebrew_tap` job moves
+  the `e-kotov/tap` cask `t3-code-ek` to it. Edit the cask by hand only if that job failed;
+  copy the DMG checksums from the release's `SHA256SUMS`.
+- Never install or upgrade T3 Code on Egor's Mac (`brew upgrade`, replacing the app): agent
+  sessions often run inside it. Egor installs the Mac app and the Android APK.
+- The GWDG server is upgraded only when Egor says so, by changing its version pin in GWDG
+  chezmoi on GWDG. Say whether a release changed server code; client-only changes do not
+  need the server upgraded, except for browser access served by GWDG.
 
 ## Resolving a blocked upstream sync
 

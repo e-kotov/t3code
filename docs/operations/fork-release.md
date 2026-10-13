@@ -47,6 +47,10 @@ that changes workflow files. Missing or mismatched tags fail before compilation.
 Every platform must build
 successfully before publication. Use a new version for every published release.
 
+`X.Y.Z` is the version of upstream's newest `vX.Y.Z-nightly.*` tag merged into
+`main`; `N` starts at 1 for each new `X.Y.Z` and only increases. Never reuse a
+tag, including one whose build failed.
+
 After publication, the `homebrew_tap` job points `e-kotov/tap`'s `t3-code-ek`
 cask at the new release, taking the Mac DMG checksums from `SHA256SUMS`. It
 only moves the cask forward, never to an older version, and never installs
