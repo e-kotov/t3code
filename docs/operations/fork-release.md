@@ -42,14 +42,23 @@ retained, and remove it from any managed Homebrew package list.
 
 ## Release
 
-Push a tag such as `v0.0.45-ek.1`, or dispatch **Fork release** with version
-`0.0.45-ek.1`. Manual runs upload Actions artifacts by default; select `publish`
-to attach them to a prerelease in this repository. Manual publication requires
-an existing version tag pointing at the selected build commit. Create/push the
-tag with your own Git credentials; pushing it starts the release automatically.
-This avoids relying on the Actions token to create a new release tag at a commit
-that changes workflow files. Missing or mismatched tags fail before compilation.
-Every platform must build
+Push a tag such as `v0.0.45-ek.1` at the head of `main` with your own Git
+credentials, then dispatch **Fork release** on `main` with version `0.0.45-ek.1`
+and `publish` selected:
+
+```sh
+git tag v0.0.45-ek.1 && git push origin v0.0.45-ek.1
+gh workflow run release-fork.yml --ref main -f version=0.0.45-ek.1 -f publish=true
+```
+
+Pushing the tag does not start a build. Releases run on `main` because Actions
+caches saved under a tag are invisible to the next tag, so tag-triggered runs
+rebuilt Android from a cold Gradle cache every time; runs on `main` save caches
+that the next release reads. Without `publish` a run only uploads Actions
+artifacts (a test build; it needs no tag). Publication requires the version tag
+to point at the build commit, which avoids relying on the Actions token to
+create a release tag at a commit that changes workflow files. Missing or
+mismatched tags fail before compilation. Every platform must build
 successfully before publication. Use a new version for every published release.
 
 `X.Y.Z` is the version of upstream's newest `vX.Y.Z-nightly.*` tag merged into
