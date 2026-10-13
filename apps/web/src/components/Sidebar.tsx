@@ -1,5 +1,6 @@
 import { CacheHud } from "./chat/CacheHud";
 import { CacheWarmingEnvironmentToggle, CacheWarmingThreadToggle } from "./CacheWarmingToggle";
+import { ThreadCacheHoverDetails } from "./ThreadCacheHoverDetails";
 import { type EnvironmentId, type ScopedProjectRef } from "@t3tools/contracts";
 import { ThreadHoverCard, ThreadHoverCardPopup } from "./ThreadHoverCard";
 import { CollapsibleSectionHeader } from "./ui/collapsible-section-header";
@@ -574,6 +575,11 @@ function SidebarThreadTooltip({
             </div>
           </div>
         ) : null}
+        <ThreadCacheHoverDetails
+          environmentId={thread.environmentId}
+          threadId={thread.id}
+          hud={thread.cacheHud}
+        />
       </ThreadHoverCard>
     </ThreadHoverCardPopup>
   );

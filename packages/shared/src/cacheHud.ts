@@ -115,6 +115,49 @@ export function presentCacheHud(hud: OrchestrationV2CacheHud, nowMs: number) {
   return { state, cacheText, contextText, contextPercentage, description, remainingMs };
 }
 
+function formatRemaining(ms: number) {
+  const minutes = Math.ceil(ms / 60_000);
+  if (minutes < 60) return `${minutes} min`;
+  const rest = minutes % 60;
+  return rest === 0 ? `${minutes / 60} h` : `${Math.floor(minutes / 60)} h ${rest} min`;
+}
+
+/** Spelled-out cache, last-request and context lines for hover cards; the
+ * compact HUD shows the same facts as `~09:36 100% ⇣123k`. */
+export function describeCacheHud(hud: OrchestrationV2CacheHud, nowMs: number) {
+  const view = presentCacheHud(hud, nowMs);
+  const { usage } = hud;
+  // @effect-diagnostics-next-line globalDate:off -- Format the hover card in the device local timezone.
+  const expiry = new Date(Date.parse(usage.updatedAt) + (hud.ttlMs ?? 0));
+  const clock = `${String(expiry.getHours()).padStart(2, "0")}:${String(expiry.getMinutes()).padStart(2, "0")}`;
+  const cache =
+    view.state === "unknown"
+      ? "Cache lifetime unknown"
+      : view.state === "cold"
+        ? view.remainingMs === 0
+          ? `Cache expired at ~${clock}`
+          : "Cache missed on the last request"
+        : `Cache until ~${clock} · ${formatRemaining(view.remainingMs ?? 0)} left${hud.basis === "estimated" ? " (estimate)" : ""}`;
+  const cached = usage.cachedInputTokens;
+  const hitPercentage =
+    usage.inputTokens && cached !== undefined
+      ? Math.min(100, Math.round((cached / usage.inputTokens) * 100))
+      : null;
+  const written = usage.cacheCreationTokens
+    ? ` · ${formatHudTokens(usage.cacheCreationTokens)} written`
+    : "";
+  const lastRequest =
+    cached === undefined
+      ? null
+      : hitPercentage === null
+        ? `Last request: ${formatHudTokens(cached)} from cache${written}`
+        : `Last request: ${hitPercentage}% from cache (${formatHudTokens(cached)})${written}`;
+  const context = usage.maxTokens
+    ? `Context ${formatHudTokens(usage.usedTokens)} of ${formatHudTokens(usage.maxTokens)} · ${view.contextPercentage}%`
+    : `Context ${formatHudTokens(usage.usedTokens)}`;
+  return { state: view.state, cache, lastRequest, context };
+}
+
 /** One timer per surface, waking only at the warning and expiry boundaries. */
 export function createCacheHudClock(
   isActive: () => boolean,

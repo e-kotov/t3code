@@ -1,0 +1,58 @@
+import { useState } from "react";
+import type { EnvironmentId, OrchestrationV2CacheHud, ThreadId } from "@t3tools/contracts";
+import { describeCacheHud } from "@t3tools/shared/cacheHud";
+import { DatabaseIcon, FlameIcon, GaugeIcon, TimerIcon, type LucideIcon } from "lucide-react";
+
+import { useEnvironmentSettings } from "~/hooks/useSettings";
+import { cn } from "~/lib/utils";
+import { CACHE_WARMING_EXPLANATION } from "./CacheWarmingToggle";
+
+/** Cache, context and warming rows for a conversation's sidebar hover card. */
+export function ThreadCacheHoverDetails(props: {
+  environmentId: EnvironmentId;
+  threadId: ThreadId;
+  hud: OrchestrationV2CacheHud | null | undefined;
+}) {
+  const warming = useEnvironmentSettings(
+    props.environmentId,
+    (settings) => settings.cacheWarmingSessions[props.threadId] === true,
+  );
+  // The card mounts when it opens, so its times are as of opening.
+  const [openedAt] = useState(() => Date.now());
+  if (!props.hud) return null;
+  const details = describeCacheHud(props.hud, openedAt);
+  const supportsWarming = props.hud.driver === "codex" || props.hud.driver === "claudeAgent";
+  return (
+    <div className="grid gap-1.5 border-t border-border/60 pt-1.5" data-thread-cache-details="true">
+      <Row icon={TimerIcon} warning={details.state === "expiring"} label={details.cache} />
+      {details.lastRequest ? <Row icon={DatabaseIcon} label={details.lastRequest} /> : null}
+      <Row icon={GaugeIcon} label={details.context} />
+      {supportsWarming ? (
+        <div className="flex min-w-0 items-start gap-2">
+          <FlameIcon className="mt-0.5 size-3 shrink-0 stroke-muted-foreground" />
+          <div className="min-w-0 flex-1 leading-4">
+            <div className="text-foreground/75">{warming ? "Warming on" : "Warming off"}</div>
+            <div className="text-2xs">{CACHE_WARMING_EXPLANATION}</div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function Row(props: { icon: LucideIcon; label: string; warning?: boolean }) {
+  const Icon = props.icon;
+  return (
+    <div className={cn("flex min-w-0 items-center gap-2", props.warning && "text-warning")}>
+      <Icon
+        className={cn(
+          "size-3 shrink-0",
+          props.warning ? "stroke-current" : "stroke-muted-foreground",
+        )}
+      />
+      <div className={cn("min-w-0 truncate", !props.warning && "text-foreground/75")}>
+        {props.label}
+      </div>
+    </div>
+  );
+}
