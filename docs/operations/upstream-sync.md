@@ -25,13 +25,23 @@ that change files under `.github/workflows/`.
 
 ## Resolving a blocked sync
 
+Egor's Mac keeps no `node_modules` (10–20 GB). Resolve the conflict with git alone and let the
+workflow check it: dispatched with `branch`, it starts from that branch instead of `main`,
+merges any newer upstream on top, runs the checks, fast-forwards `main` to the result and
+deletes the branch. The branch must contain fork `main`.
+
 ```sh
-git fetch upstream origin
+git fetch upstream && git fetch origin
 git switch main && git merge --ff-only origin/main
 git merge upstream/main          # resolve conflicts; rerere replays earlier resolutions
-scripts/fork-upstream-sync.sh checks
-git push origin main
+VP_GIT_HOOKS=0 git commit --no-edit   # the upstream pre-commit hook needs vp
+git push origin HEAD:refs/heads/sync/upstream-$(date +%F)
+gh workflow run upstream-sync.yml -R e-kotov/t3code -f branch=sync/upstream-$(date +%F)
 ```
+
+When the run is green, `git pull` on `main`. The same path checks any other fork commit made
+without local dependencies. `VP_GIT_HOOKS=0` also skips `vp fmt`, and the checks do not run
+the formatter, so keep resolutions in the surrounding style.
 
 Keep fork logic in fork-owned files with small mount points in upstream files; this keeps
 future conflicts small. When the fork history needs tidying (to drop or upstream a feature),
@@ -42,6 +52,7 @@ rebase it onto `upstream/main` with a backup branch `ek/pre-sync-<date>` and for
 - GitHub ruleset **Protect fork main** blocks force-pushes and deletion of `main`.
 - `.vite-hooks/pre-push` runs `scripts/fork-upstream-sync.sh checks` before a push to `main`,
   refuses a push that would drop remote commits, and warns about untested code and edits to
-  upstream-owned files. `FORK_SKIP_CHECKS=1` skips the checks.
+  upstream-owned files. `FORK_SKIP_CHECKS=1` skips the checks. Without local dependencies it
+  refuses the push and points to the branch path above.
 - `scripts/fork-upstream-sync.sh footprint` lists upstream files the fork edits.
 - Agent rules: `.agents/skills/fork-development/SKILL.md`, linked from `AGENTS.md`.

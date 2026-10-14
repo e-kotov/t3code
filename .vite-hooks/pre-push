@@ -36,6 +36,11 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   [ -n "$changed" ] || continue
   if [ "${FORK_SKIP_CHECKS:-}" = 1 ]; then
     echo "fork guard: FORK_SKIP_CHECKS=1, skipping fork checks." >&2
+  elif [ ! -x node_modules/.bin/vp ]; then
+    echo "fork guard: no local dependencies, so the checks cannot run here. Let GitHub check it instead:" >&2
+    echo "  git push origin HEAD:refs/heads/sync/<name> && gh workflow run upstream-sync.yml -f branch=sync/<name>" >&2
+    echo "  (docs/operations/upstream-sync.md); the workflow moves main to the branch if it passes." >&2
+    exit 1
   else
     echo "fork guard: running fork checks before pushing main (FORK_SKIP_CHECKS=1 skips)..." >&2
     scripts/fork-upstream-sync.sh checks >&2

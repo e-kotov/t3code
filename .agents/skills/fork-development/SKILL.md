@@ -38,7 +38,10 @@ This checkout is Egor Kotov's fork. Upstream will not merge fork features, and
   bot's merges. A GitHub ruleset and the `.vite-hooks/pre-push` guard both block it.
 - The pre-push guard runs `scripts/fork-upstream-sync.sh checks` (about 20 s warm) and warns
   about untested code or edits to upstream files. Fix failures; do not bypass with
-  `FORK_SKIP_CHECKS=1` unless Egor asks.
+  `FORK_SKIP_CHECKS=1` unless Egor asks. Without `node_modules` it refuses; push a
+  `sync/<name>` branch and dispatch `upstream-sync.yml` with `branch` instead, as below.
+- Installing dependencies (`vp install`) costs 10–20 GB and about 20 minutes. Do it only when
+  a local run is needed (e.g. a UI check), and delete `node_modules` afterwards.
 
 ## Releases
 
@@ -76,7 +79,10 @@ Egor's Mac runs the real T3 app, often with this session inside it. A check must
 ## Resolving a blocked upstream sync
 
 When the daily run fails with conflicts, merge locally (`git fetch upstream && git merge
-upstream/main`), keep both sides' intent, run `checks`, and push. `rerere` is enabled, so
-resolutions are reused. A history-tidying rebase is a deliberate exception: make a backup
+upstream/main`) and keep both sides' intent; `rerere` is enabled, so resolutions are reused.
+Do not install dependencies for this: Egor keeps no `node_modules` on the Mac. Commit with
+`VP_GIT_HOOKS=0`, push the merge to a `sync/<name>` branch and run
+`gh workflow run upstream-sync.yml -f branch=sync/<name>`; it checks the branch on GitHub and
+moves `main` to it (runbook: `docs/operations/upstream-sync.md`). A history-tidying rebase is a deliberate exception: make a backup
 branch `ek/pre-sync-<date>`, disable the `main` ruleset, push with
 `FORK_ALLOW_MAIN_REWRITE=1`, then re-enable the ruleset.

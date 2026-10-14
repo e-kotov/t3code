@@ -7,6 +7,12 @@ on:
   schedule:
     - cron: "17 3 * * *"
   workflow_dispatch:
+    inputs:
+      branch:
+        description: "Fork branch to check and fast-forward main to (e.g. a resolved conflict); empty = main"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -40,6 +46,8 @@ jobs:
           git fetch --no-tags origin main
           git checkout --detach FETCH_HEAD
       - id: merge
+        env:
+          SYNC_BRANCH: ${{ inputs.branch }}
         run: scripts/fork-upstream-sync.sh merge
       - if: steps.merge.outputs.changed == 'true'
         uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
@@ -88,6 +96,13 @@ jobs:
           git fetch -q --no-tags "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" main:refs/remotes/origin/main
           git fetch -q "$RUNNER_TEMP/merge.bundle" main:refs/heads/merged
           git push "https://x-access-token:${SYNC_TOKEN}@github.com/$GITHUB_REPOSITORY.git" refs/heads/merged:refs/heads/main
+      - name: Delete the checked branch
+        if: inputs.branch != '' && inputs.branch != 'main'
+        env:
+          SYNC_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
+          SYNC_BRANCH: ${{ inputs.branch }}
+          GIT_TERMINAL_PROMPT: "0"
+        run: git push "https://x-access-token:${SYNC_TOKEN}@github.com/$GITHUB_REPOSITORY.git" ":refs/heads/$SYNC_BRANCH"
       - name: Disable workflows inherited from upstream
         env:
           GH_TOKEN: ${{ github.token }}

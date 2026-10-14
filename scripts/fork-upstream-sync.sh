@@ -13,12 +13,23 @@ case "${1:?usage: fork-upstream-sync.sh merge|checks|footprint}" in
   merge)
     git fetch --no-tags origin main:refs/remotes/origin/main
     git fetch --no-tags "$UPSTREAM_URL" main:refs/remotes/upstream/main
-    git checkout -B main refs/remotes/origin/main
+    start=refs/remotes/origin/main
+    if [ -n "${SYNC_BRANCH:-}" ]; then
+      # A branch pushed without local checks (e.g. a hand-resolved conflict); main moves to it if it passes.
+      git fetch --no-tags origin "refs/heads/$SYNC_BRANCH:refs/remotes/origin/sync"
+      if ! git merge-base --is-ancestor refs/remotes/origin/main refs/remotes/origin/sync; then
+        summary "Branch \`$SYNC_BRANCH\` does not contain fork main; merge origin/main into it first."
+        exit 1
+      fi
+      start=refs/remotes/origin/sync
+      summary "Checking branch \`$SYNC_BRANCH\` ($(git rev-parse --short "$start"))."
+    fi
+    git checkout -B main "$start"
     upstream=$(git rev-parse refs/remotes/upstream/main)
     out "upstream=$upstream"
     if git merge-base --is-ancestor "$upstream" HEAD; then
       summary "Fork main already contains upstream ${upstream:0:10}."
-      out "changed=false"
+      [ "$(git rev-parse HEAD)" = "$(git rev-parse refs/remotes/origin/main)" ] && out "changed=false" || out "changed=true"
       exit 0
     fi
     behind=$(git rev-list --count HEAD.."$upstream")
@@ -26,7 +37,7 @@ case "${1:?usage: fork-upstream-sync.sh merge|checks|footprint}" in
       summary "## Upstream sync blocked by conflicts"
       summary ""
       summary "Upstream ${upstream:0:10} ($behind new commits) does not merge cleanly. Fork main was not changed."
-      summary "Resolve locally: \`git fetch upstream && git merge upstream/main\`, then push main."
+      summary "Resolve it on a branch and let this workflow check it: see docs/operations/upstream-sync.md."
       summary ""
       git diff --name-only --diff-filter=U | sed 's/^/- `/; s/$/`/' >> "${GITHUB_STEP_SUMMARY:-/dev/stderr}"
       git merge --abort
