@@ -38,7 +38,7 @@ type ConnectionLayerSource =
 const layerProvidedClientConnection = layerSnapshotLoader.pipe(
   Layer.provideMerge(
     Connection.layerWithOptions(
-      { usageLimitSources: true, usageLimitsCommand: true },
+      { usageLimitSources: true, usageLimitsCommand: true, slurmJobStatus: true },
       builtInTailnet,
     ),
   ),

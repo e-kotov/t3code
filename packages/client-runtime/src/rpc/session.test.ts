@@ -433,6 +433,7 @@ describe("RpcSessionFactory", () => {
     { environmentThemes: true },
     { usageLimitSources: true },
     { environmentThemes: true, usageLimitSources: true },
+    { slurmJobStatus: true },
   ])("shares only a config subscription with the same opt-ins: %j", (options) =>
     Effect.scoped(
       Effect.gen(function* () {
