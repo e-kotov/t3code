@@ -23,8 +23,11 @@ server is named after its host. Clients rename a saved environment to the name i
 reports on every connect, so a name typed into a client does not stick.
 
 Use the existing SSH or private Tailscale endpoint in Add Environment. These builds
-have no upstream cloud account/relay configuration. Manual release installation
-is supported; desktop auto-update manifests are not published yet.
+have no upstream cloud account/relay configuration. Desktop native update checking
+is disabled; use the Homebrew tap below.
+Product analytics are off by default, including in local development.
+`T3CODE_TELEMETRY_ENABLED=true` explicitly opts a server into PostHog analytics.
+For an older installed build, set `T3CODE_TELEMETRY_ENABLED=false` and restart it.
 
 ## Installing on a Mac with Homebrew
 
@@ -39,6 +42,14 @@ The cask pins each DMG's SHA-256, re-signs `T3 Code EK.app` ad hoc after
 install and clears its quarantine flag. This is not Apple notarization. When
 replacing upstream's `t3-code` cask, uninstall it without `--zap` so T3 data is
 retained, and remove it from any managed Homebrew package list.
+
+## Updating the server/CLI
+
+`t3 update` checks `e-kotov/t3code` and defaults to the `ek` channel, which
+selects the highest published `vX.Y.Z-ek.N` prerelease. Drafts and upstream
+nightly/preview tags are excluded. Downloads and `SHA256SUMS` come from the same
+fork release. `--version X.Y.Z-ek.N` pins a release; `T3CODE_RELEASE_BASE_URL`
+can still override the download origin for a mirror.
 
 ## Release
 

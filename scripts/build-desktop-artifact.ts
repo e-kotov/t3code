@@ -6,6 +6,7 @@ import * as NodeCrypto from "node:crypto";
 import * as NodeModule from "node:module";
 // plist is CommonJS; Node cannot load its named exports from an ES module.
 import Plist from "plist";
+import { usesHomebrewUpdates } from "./forkDesktopUpdatePolicy.ts";
 
 import {
   createPackageWithOptions,
@@ -2677,7 +2678,7 @@ export const resolveGitHubPublishConfig = Effect.fn("resolveGitHubPublishConfig"
     Option.getOrUndefined(env.githubRepository)?.trim() ||
     ""
   ).trim();
-  if (!rawRepo) return undefined;
+  if (!rawRepo || usesHomebrewUpdates(rawRepo)) return undefined;
 
   const [owner, repo, ...rest] = rawRepo.split("/");
   if (!owner || !repo || rest.length > 0) return undefined;

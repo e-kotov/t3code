@@ -45,7 +45,7 @@ case "${1:?usage: fork-upstream-sync.sh merge|checks|footprint}" in
       --filter t3 --filter @t3tools/web --filter @t3tools/mobile typecheck
     # Tests the fork added or changed, run from each package so its own Vitest config applies.
     git diff --name-only --diff-filter=AM "$upstream" HEAD -- '*.test.ts' '*.test.tsx' |
-      awk -F/ '($1 == "apps" || $1 == "packages") && NF > 2 { print $1 "/" $2 " " substr($0, length($1 "/" $2) + 2) }' |
+      awk -F/ '($1 == "apps" || $1 == "packages") && NF > 2 { print $1 "/" $2 " " substr($0, length($1 "/" $2) + 2) } $1 == "scripts" { print "scripts " substr($0, 9) }' |
       sort > "$RUNNER_TEMP/fork-tests.txt"
     status=0
     for package in $(cut -d' ' -f1 "$RUNNER_TEMP/fork-tests.txt" | uniq); do
