@@ -16,12 +16,12 @@ case "${1:?usage: fork-upstream-sync.sh merge|checks|footprint}" in
     start=refs/remotes/origin/main
     if [ -n "${SYNC_BRANCH:-}" ]; then
       # A branch pushed without local checks (e.g. a hand-resolved conflict); main moves to it if it passes.
-      git fetch --no-tags origin "refs/heads/$SYNC_BRANCH:refs/remotes/origin/sync"
-      if ! git merge-base --is-ancestor refs/remotes/origin/main refs/remotes/origin/sync; then
+      git fetch --no-tags origin "refs/heads/$SYNC_BRANCH:refs/fork-sync/branch"
+      if ! git merge-base --is-ancestor refs/remotes/origin/main refs/fork-sync/branch; then
         summary "Branch \`$SYNC_BRANCH\` does not contain fork main; merge origin/main into it first."
         exit 1
       fi
-      start=refs/remotes/origin/sync
+      start=refs/fork-sync/branch
       summary "Checking branch \`$SYNC_BRANCH\` ($(git rev-parse --short "$start"))."
     fi
     git checkout -B main "$start"
