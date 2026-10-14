@@ -9,6 +9,7 @@ export * as Connection from "./layer.ts";
 export * from "./model.ts";
 export * as ConnectionOnboarding from "./onboarding.ts";
 export * from "./presentation.ts";
+export { machineGroupConnectionStatus } from "./machineGroupStatus.ts";
 export * as ProfileStore from "./profileStore.ts";
 export * from "./routes.ts";
 export { type RouteCheck } from "./driver.ts";
