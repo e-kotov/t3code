@@ -3294,4 +3294,4 @@ export const layer = Layer.unwrap(
       ),
     );
   }),
-).pipe(Layer.provide(SlurmJob.layer));
+);

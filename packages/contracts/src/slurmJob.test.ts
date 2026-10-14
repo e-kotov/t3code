@@ -13,10 +13,12 @@ const status = {
 
 describe("Slurm wire contract", () => {
   it("allows old servers and absent allocations, and decodes the opt-in event", () => {
-    const field = Schema.decodeUnknownSync(ServerConfig.fields.slurmJobStatus);
-    expect(field(undefined)).toBeUndefined();
-    expect(field(null)).toBeNull();
-    expect(field(status)).toEqual(status);
+    const config = Schema.decodeUnknownSync(
+      Schema.Struct({ slurmJobStatus: ServerConfig.fields.slurmJobStatus }),
+    );
+    expect(config({})).toEqual({});
+    expect(config({ slurmJobStatus: null })).toEqual({ slurmJobStatus: null });
+    expect(config({ slurmJobStatus: status })).toEqual({ slurmJobStatus: status });
     const decode = Schema.decodeUnknownSync(ServerConfigStreamEvent);
     expect(decode({ version: 1, type: "slurmJobStatusUpdated", payload: status })).toMatchObject({
       payload: status,

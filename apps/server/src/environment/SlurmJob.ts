@@ -140,7 +140,7 @@ export const make = Effect.gen(function* () {
     Clock.currentTimeMillis.pipe(Effect.map((serverNow) => ({ ...value, serverNow })));
   return SlurmJob.of({
     current: SubscriptionRef.get(status).pipe(Effect.flatMap(stamp)),
-    streamChanges: status.changes.pipe(Stream.mapEffect(stamp)),
+    streamChanges: SubscriptionRef.changes(status).pipe(Stream.mapEffect(stamp)),
   });
 });
 
