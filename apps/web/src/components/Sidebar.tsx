@@ -1,4 +1,5 @@
 import { CacheHud } from "./chat/CacheHud";
+import { MachineGroupConnectionStatus } from "./MachineGroupConnectionStatus";
 import {
   CacheWarmingEnvironmentToggle,
   CacheWarmingMachineToggle,
@@ -5634,6 +5635,11 @@ export default function Sidebar() {
                                 id={sidebarListItemId(item)}
                               >
                                 <div className="mx-2 mt-2 flex items-center gap-1 border-t border-sidebar-border/60 pt-2 text-3xs font-medium uppercase tracking-wide text-sidebar-muted-foreground/70">
+                                  {item.environmentId ? (
+                                    <MachineGroupConnectionStatus
+                                      environmentId={item.environmentId}
+                                    />
+                                  ) : null}
                                   {item.environmentId ? (
                                     <EnvironmentMachineIcon
                                       kind={

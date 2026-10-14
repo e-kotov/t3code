@@ -1,4 +1,5 @@
 import { CacheHud } from "./CacheHud";
+import { MachineGroupConnectionStatus } from "./MachineGroupConnectionStatus";
 import { CacheWarmingMachineControl, CacheWarmingThreadControl } from "./CacheWarmingControls";
 import type { ThreadRowProviderInstance } from "./thread-provider-instance";
 import {
@@ -289,6 +290,7 @@ export const ThreadListV2MachineHeader = memo(function ThreadListV2MachineHeader
 }) {
   return (
     <View className={cn("flex-row items-center", props.pane === "sidebar" ? "px-3" : "px-5")}>
+      <MachineGroupConnectionStatus environmentId={props.environmentId} />
       {props.machineKind ? (
         <EnvironmentMachineSymbol
           kind={props.machineKind}
