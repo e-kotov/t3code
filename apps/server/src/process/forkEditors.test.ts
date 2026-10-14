@@ -101,7 +101,8 @@ for (const { platform, editor, installPath, onPath } of [
           );
 
           assert.lengthOf(spawned, 1);
-          assert.equal(spawned[0]?.command, executable);
+          // POSIX spawns preserve the PATH command; Windows resolves its extension first.
+          assert.equal(spawned[0]?.command, platform === "linux" && onPath ? editor : executable);
           assert.deepEqual(
             spawned[0]?.args,
             editor === "positron" && target.endsWith(":12:4") ? ["--goto", target] : [target],
