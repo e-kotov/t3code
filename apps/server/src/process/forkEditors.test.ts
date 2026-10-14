@@ -64,7 +64,7 @@ for (const { platform, editor, installPath, onPath } of [
                   exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(0)),
                   isRunning: Effect.succeed(true),
                   kill: () => Effect.void,
-                  unref: Effect.void,
+                  unref: Effect.succeed(Effect.void),
                   stdin: Sink.drain,
                   stdout: Stream.empty,
                   stderr: Stream.empty,
