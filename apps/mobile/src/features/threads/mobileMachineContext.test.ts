@@ -70,7 +70,9 @@ describe("mobile machine context", () => {
 
   it("keeps empty and shelf-only lists empty of machine summaries", () => {
     const empty: ThreadListV2ListItem[] = [];
-    const shelf = [{ type: "v2-settled-shelf", key: "settled" }] as ThreadListV2ListItem[];
+    const shelf: ThreadListV2ListItem[] = [
+      { type: "v2-settled-shelf", key: "v2-settled-shelf", count: 2, expanded: false, disabled: false },
+    ];
     expect(withMobileMachineContext(empty, environments, machineKinds, [])).toBe(empty);
     expect(withMobileMachineContext(shelf, environments, machineKinds, [])).toBe(shelf);
   });
