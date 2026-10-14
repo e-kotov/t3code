@@ -1,4 +1,5 @@
 import { ThreadDetailsControl } from "./ThreadDetailsControl";
+import { FORK_OPEN_IN_OPTIONS } from "./forkOpenInOptions";
 import {
   AuthOrchestrationOperateScope,
   buildRemoteOpenUrl,
@@ -183,6 +184,7 @@ export const resolveOpenInOptions = (
       value: "webstorm",
       kind: "brand",
     },
+    ...FORK_OPEN_IN_OPTIONS,
     {
       Icon: isMacPlatform(platform)
         ? FinderIcon

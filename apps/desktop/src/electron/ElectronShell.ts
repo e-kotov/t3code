@@ -29,7 +29,7 @@ const isRemoteEditorUrl = (url: URL) =>
   REMOTE_EDITOR_PROTOCOLS.has(url.protocol) &&
   url.username.length === 0 &&
   url.password.length === 0 &&
-  (url.protocol === "zed:"
+  (url.protocol === "zed:" || url.protocol === "gram:"
     ? url.host === "ssh" && ZED_SSH_PATHNAME.test(url.pathname)
     : url.protocol === "jetbrains:"
       ? url.host === "gateway" &&

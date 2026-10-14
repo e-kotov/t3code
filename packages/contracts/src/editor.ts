@@ -1,5 +1,6 @@
 import * as Schema from "effect/Schema";
 import { TrimmedNonEmptyString } from "./baseSchemas.ts";
+import { buildGramRemoteOpenUrl, FORK_EDITORS } from "./forkEditors.ts";
 
 export const EditorLaunchStyle = Schema.Literals(["direct-path", "goto", "line-column"]);
 export type EditorLaunchStyle = typeof EditorLaunchStyle.Type;
@@ -157,6 +158,7 @@ export const EDITORS = [
     launchStyle: "line-column",
     jetbrainsProductCode: "WS",
   },
+  ...FORK_EDITORS,
   { id: "file-manager", label: "File Manager", commands: null, launchStyle: "direct-path" },
 ] as const satisfies ReadonlyArray<EditorDefinition>;
 
@@ -205,6 +207,7 @@ export const buildRemoteOpenUrl = (input: {
   if (scheme === undefined) {
     return undefined;
   }
+  if (input.editor === "gram") return buildGramRemoteOpenUrl(input.host, input.absolutePath);
   const editor = EDITORS.find((candidate) => candidate.id === input.editor);
   if (editor !== undefined && "jetbrainsProductCode" in editor) {
     // Like the VS Code link, no user or port: the SSH config entry for `host`
