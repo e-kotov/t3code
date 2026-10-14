@@ -40,8 +40,10 @@ This checkout is Egor Kotov's fork. Upstream will not merge fork features, and
   about untested code or edits to upstream files. Fix failures; do not bypass with
   `FORK_SKIP_CHECKS=1` unless Egor asks. Without `node_modules` it refuses; push a
   `sync/<name>` branch and dispatch `upstream-sync.yml` with `branch` instead, as below.
-- Installing dependencies (`vp install`) costs 10–20 GB and about 20 minutes. Do it only when
-  a local run is needed (e.g. a UI check), and delete `node_modules` afterwards.
+- Egor's Mac keeps no dependencies: do not run `vp install`/`pnpm install` there (10–20 GB).
+  Commit with `VP_GIT_HOOKS=0`, since the upstream pre-commit hook needs `vp`. Never build
+  Android on the Mac (no Gradle, `expo prebuild` or `expo run:android`); APKs come from the
+  release workflow.
 
 ## Releases
 
@@ -65,6 +67,9 @@ Egor chooses when to release; do not tag one on your own. Procedure:
 ## Checking UI locally
 
 Egor's Mac runs the real T3 app, often with this session inside it. A check must not touch it.
+
+A local UI check needs dependencies, so ask Egor first; delete `node_modules` and the pnpm
+store afterwards.
 
 - Use an isolated dev copy: `node scripts/dev-runner.ts dev --home-dir /tmp/<name>` with
   `node_modules/.bin` on `PATH`, driven by headless Playwright. Never use Egor's T3 data.
