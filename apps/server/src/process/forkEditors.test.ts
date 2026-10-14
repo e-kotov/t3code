@@ -33,8 +33,8 @@ for (const { platform, editor, installPath, onPath } of [
   {
     platform: "win32",
     editor: "positron",
-    installPath: "Programs/Positron/bin/positron.exe",
-    onPath: false,
+    installPath: "bin/positron.exe",
+    onPath: true,
   },
   { platform: "win32", editor: "gram", installPath: "bin/gram.exe", onPath: true },
 ] as const) {
