@@ -1,0 +1,44 @@
+import {
+  createSlurmCountdownClock,
+  slurmJobCountdownLabel,
+} from "@t3tools/client-runtime/connection";
+import type { EnvironmentId } from "@t3tools/contracts";
+import { useCallback, useSyncExternalStore } from "react";
+
+import { useEnvironmentPresentation } from "../state/presentation";
+
+const subscribe = createSlurmCountdownClock(
+  () => document.visibilityState === "visible",
+  (refresh) => {
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  },
+);
+
+export function MachineGroupSlurmTime(props: { environmentId: EnvironmentId }) {
+  const { presentation } = useEnvironmentPresentation(props.environmentId);
+  const status = presentation?.serverConfig?.slurmJobStatus;
+  const connected = presentation?.connection.phase === "connected";
+  const snapshot = useCallback(
+    () => slurmJobCountdownLabel(status, connected),
+    [status, connected],
+  );
+  const clockSubscribe = useCallback(
+    (listener: () => void) => (status ? subscribe(listener) : () => {}),
+    [status],
+  );
+  const label = useSyncExternalStore(clockSubscribe, snapshot, snapshot);
+  if (!label) return null;
+  return (
+    <span
+      className="ml-1 whitespace-nowrap normal-case tabular-nums"
+      title={`Slurm job ${status!.jobId}: ${label}. Scheduled walltime remaining.`}
+    >
+      {label}
+    </span>
+  );
+}

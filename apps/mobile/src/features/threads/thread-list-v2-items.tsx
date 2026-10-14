@@ -1,5 +1,6 @@
 import { CacheHud } from "./CacheHud";
 import { MachineGroupConnectionStatus } from "./MachineGroupConnectionStatus";
+import { MachineGroupSlurmTime } from "./MachineGroupSlurmTime";
 import { CacheWarmingMachineControl, CacheWarmingThreadControl } from "./CacheWarmingControls";
 import type { ThreadRowProviderInstance } from "./thread-provider-instance";
 import {
@@ -158,7 +159,7 @@ const LEGACY_MENU_ACTIONS: MenuAction[] = [
 const SIDEBAR_V2_ROW_RADIUS = 12;
 
 function ThreadListV2Section(props: {
-  readonly label: string;
+  readonly label: ReactNode;
   readonly pane?: "screen" | "sidebar";
   readonly tone?: "default" | "snoozed";
   readonly disclosure?: {
@@ -300,7 +301,12 @@ export const ThreadListV2MachineHeader = memo(function ThreadListV2MachineHeader
       ) : null}
       <View className="flex-1">
         <ThreadListV2Section
-          label={props.label}
+          label={
+            <>
+              {props.label}
+              <MachineGroupSlurmTime environmentId={props.environmentId} />
+            </>
+          }
           pane={props.pane}
           accessory={
             props.environmentId ? (

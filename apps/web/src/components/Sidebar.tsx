@@ -1,5 +1,6 @@
 import { CacheHud } from "./chat/CacheHud";
 import { MachineGroupConnectionStatus } from "./MachineGroupConnectionStatus";
+import { MachineGroupSlurmTime } from "./MachineGroupSlurmTime";
 import {
   CacheWarmingEnvironmentToggle,
   CacheWarmingMachineToggle,
@@ -5618,6 +5619,9 @@ export default function Sidebar() {
                                     {item.environmentId
                                       ? (environmentLabelById.get(item.environmentId) ?? "Machine")
                                       : "Machine"}
+                                    {item.environmentId ? (
+                                      <MachineGroupSlurmTime environmentId={item.environmentId} />
+                                    ) : null}
                                   </span>
                                   {item.environmentId ? (
                                     <CacheWarmingMachineToggle

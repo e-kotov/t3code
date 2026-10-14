@@ -252,6 +252,7 @@ import {
 import * as AgentSessionScanner from "./project/AgentSessionScanner.ts";
 import * as AgentSessionImporter from "./project/AgentSessionImporter.ts";
 import * as UsageLimitSources from "./usage/UsageLimitSources.ts";
+import * as SlurmJob from "./environment/SlurmJob.ts";
 
 const CONFIG_DISCOVERY_TIMEOUT = Duration.seconds(5);
 const isProviderUploadFeedbackError = Schema.is(ProviderUploadFeedbackError);
@@ -351,6 +352,8 @@ export const withLateEditorConfig = <E, R>(
             return [{ ...current, providers: event.payload.providers }, [event]];
           case "settingsUpdated":
             return [{ ...current, settings: event.payload.settings }, [event]];
+          case "slurmJobStatusUpdated":
+            return [{ ...current, slurmJobStatus: event.payload }, [event]];
           // Themes and usage-limit sources never ride in a snapshot; clients
           // carry their projected values across one.
           default:
@@ -1265,6 +1268,7 @@ const layerWsRpc = (
             );
       const usage = yield* UsageService.UsageService;
       const usageLimitSources = yield* UsageLimitSources.UsageLimitSources;
+      const slurmJob = yield* SlurmJob.SlurmJob;
       const projectSetupScriptRunner = yield* ProjectSetupScriptRunner.ProjectSetupScriptRunner;
       const worktreeSetupTracker = yield* WorktreeSetupTracker.WorktreeSetupTracker;
       const projectCloneTracker = yield* ProjectCloneTracker.ProjectCloneTracker;
@@ -1716,6 +1720,7 @@ const layerWsRpc = (
           return {
             environment,
             auth,
+            slurmJobStatus: yield* slurmJob.current,
             cwd: config.cwd,
             keybindingsConfigPath: config.keybindingsConfigPath,
             keybindings: keybindingsConfig.keybindings,
@@ -3080,7 +3085,15 @@ const layerWsRpc = (
 
               return Stream.concat(
                 rpcInitialItems([{ version: 1 as const, type: "snapshot" as const, config }]),
-                withLateEditorConfig(config, liveUpdates, externalLauncher),
+                withLateEditorConfig(
+                  config,
+                  SlurmJob.withStatusUpdates(
+                    liveUpdates,
+                    slurmJob.streamChanges,
+                    input.slurmJobStatus === true,
+                  ),
+                  externalLauncher,
+                ),
               );
             }),
           ),
@@ -3281,4 +3294,4 @@ export const layer = Layer.unwrap(
       ),
     );
   }),
-);
+).pipe(Layer.provide(SlurmJob.layer));

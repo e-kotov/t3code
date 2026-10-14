@@ -1,5 +1,6 @@
 import type { ServerConfig, ServerConfigStreamEvent } from "@t3tools/contracts";
 import * as Option from "effect/Option";
+import { receiveSlurmJobStatus } from "../connection/slurmJobCountdown.ts";
 
 export interface ServerConfigProjection {
   readonly config: ServerConfig;
@@ -14,10 +15,19 @@ export interface ServerConfigProjection {
  * as separate events.
  */
 export function withoutEnvironmentThemes(config: ServerConfig): ServerConfig {
-  if (config.environmentThemes === undefined && config.usageLimitSources === undefined) {
+  if (
+    config.environmentThemes === undefined &&
+    config.usageLimitSources === undefined &&
+    config.slurmJobStatus === undefined
+  ) {
     return config;
   }
-  const { environmentThemes: _themes, usageLimitSources: _sources, ...rest } = config;
+  const {
+    environmentThemes: _themes,
+    usageLimitSources: _sources,
+    slurmJobStatus: _slurm,
+    ...rest
+  } = config;
   return rest;
 }
 
@@ -26,7 +36,14 @@ export function applyServerConfigProjection(
   event: ServerConfigStreamEvent,
 ): Option.Option<ServerConfigProjection> {
   switch (event.type) {
+    case "slurmJobStatusUpdated":
+      return Option.map(current, (projection) => ({
+        config: { ...projection.config, slurmJobStatus: receiveSlurmJobStatus(event.payload) },
+        latestEvent: event,
+        source: "live",
+      }));
     case "snapshot": {
+      receiveSlurmJobStatus(event.config.slurmJobStatus);
       // Wire snapshots never contain published themes. Keep the previous set
       // until a capable server sends its authoritative theme event. A legacy
       // server cannot send a later removal, so a downgrade must clear the set.

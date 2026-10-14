@@ -113,7 +113,12 @@ function serverConfigReplayEvents(
   const snapshot = {
     version: 1 as const,
     type: "snapshot" as const,
-    config: withoutEnvironmentThemes(state.projection.config),
+    config: {
+      ...withoutEnvironmentThemes(state.projection.config),
+      ...(state.projection.config.slurmJobStatus === undefined
+        ? {}
+        : { slurmJobStatus: state.projection.config.slurmJobStatus }),
+    },
   };
   return [
     snapshot,
@@ -154,6 +159,7 @@ export const make = Effect.fn("RpcSessionFactory.make")(function* (
 ) {
   const webSocketConstructor = yield* Socket.WebSocketConstructor;
   const serverConfigInput: ServerConfigSubscriptionInput = {
+    slurmJobStatus: true,
     ...(options.environmentThemes === true ? { environmentThemes: true } : {}),
     ...(options.usageLimitSources === true ? { usageLimitSources: true } : {}),
     ...(options.usageLimitsCommand === true ? { usageLimitsCommand: true } : {}),
