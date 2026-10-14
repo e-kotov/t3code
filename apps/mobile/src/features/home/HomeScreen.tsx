@@ -1,4 +1,5 @@
 import { AppActivityIndicator } from "../../components/AppActivityIndicator";
+import { withMobileMachineContext } from "../threads/mobileMachineContext";
 import { useAndroidControlSizing } from "../../components/useAndroidControlSizing";
 import type { ThreadMoveDestination } from "../threads/threadOrder";
 import { computeThreadMoveAvailability } from "../threads/threadOrder";
@@ -733,24 +734,32 @@ export function HomeScreen(props: HomeScreenProps) {
       moveAvailability: threadMoveAvailability,
       shelfPreferencesLoading: !shelfPreferencesLoaded,
     });
-    return props.conversationGrouping === "machine"
-      ? groupThreadListV2ItemsByMachine(
-          items,
-          new Map(
-            props.environments.map((environment) => [
-              String(environment.environmentId),
-              environment.label,
-            ]),
-          ),
-          machineOrder,
-          machineByEnvironmentId,
-        )
-      : items;
+    const groupedItems =
+      props.conversationGrouping === "machine"
+        ? groupThreadListV2ItemsByMachine(
+            items,
+            new Map(
+              props.environments.map((environment) => [
+                String(environment.environmentId),
+                environment.label,
+              ]),
+            ),
+            machineOrder,
+            machineByEnvironmentId,
+          )
+        : items;
+    return withMobileMachineContext(
+      groupedItems,
+      props.environments,
+      machineByEnvironmentId,
+      machineOrder,
+    );
   }, [
     nowMinute,
     props.conversationGrouping,
     props.environments,
     machineOrder,
+    machineByEnvironmentId,
     queuedThreadKeys,
     threadMoveAvailability,
     settledShelfExpanded,

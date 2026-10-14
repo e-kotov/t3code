@@ -1,4 +1,5 @@
 import { useAndroidControlSizing } from "../../components/useAndroidControlSizing";
+import { withMobileMachineContext } from "./mobileMachineContext";
 import { resolveScratchProjectScopeKey } from "@t3tools/client-runtime/state/project-grouping";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { computeThreadMoveAvailability } from "./threadOrder";
@@ -518,7 +519,7 @@ function ThreadNavigationSidebarPane(
         hiddenCount: threadListV2Layout.hiddenSettledCount,
       });
     }
-    return items;
+    return withMobileMachineContext(items, environments, machineByEnvironmentId, machineOrder);
   }, [
     nowMinute,
     options.selectedEnvironmentId,
@@ -536,6 +537,7 @@ function ThreadNavigationSidebarPane(
     options.conversationGrouping,
     environments,
     machineOrder,
+    machineByEnvironmentId,
     moveMachine,
   ]);
   const listMenuActions = useMemo<MenuAction[]>(
