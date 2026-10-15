@@ -1,3 +1,4 @@
+import { DeviceCommandsScreen } from "../device-commands/DeviceCommandsScreen";
 import { useMemo, type ReactNode } from "react";
 import { View } from "react-native";
 import { MaterialScreenContent } from "../../components/MaterialScreenContent";
@@ -12,6 +13,7 @@ export function AndroidWorkspaceSidebar(props: {
 }) {
   const workspace = useWorkspaceTabs()!;
   const context = useMemo(() => ({ ...workspace, bottomClearance: 16 }), [workspace]);
+  if (workspace.state.selectedTab === "commands") return <DeviceCommandsScreen />;
   return workspace.state.selectedTab === "threads" ? (
     props.children
   ) : (

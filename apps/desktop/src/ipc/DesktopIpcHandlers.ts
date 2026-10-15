@@ -82,6 +82,8 @@ import {
   uninstallCliCommand,
 } from "./methods/cliCommand.ts";
 
+import * as DeviceCommandsIpc from "../deviceCommands/deviceCommandsIpc.ts";
+
 export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers")(function* () {
   const ipc = yield* DesktopIpc.DesktopIpc;
   yield* installNotificationBadge();
@@ -159,6 +161,7 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
   yield* ipc.handle(getCliCommandState);
   yield* ipc.handle(installCliCommand);
   yield* ipc.handle(uninstallCliCommand);
+  yield* DeviceCommandsIpc.installDeviceCommands();
   for (const previewMethod of PreviewIpc.methods) {
     yield* ipc.handle(previewMethod);
   }

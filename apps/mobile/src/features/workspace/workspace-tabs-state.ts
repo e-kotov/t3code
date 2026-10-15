@@ -1,4 +1,4 @@
-export type WorkspaceTab = "threads" | "pullRequests";
+export type WorkspaceTab = "threads" | "pullRequests" | "commands";
 export type WorkspaceSearchMode = "resting" | "active" | "expanded";
 
 export interface WorkspaceTabState {
@@ -22,7 +22,7 @@ export function initialWorkspaceTabsState(): WorkspaceTabsState {
   return {
     selectedTab: "threads",
     selectionRevision: 0,
-    tabs: { threads: emptyTab(), pullRequests: emptyTab() },
+    tabs: { threads: emptyTab(), pullRequests: emptyTab(), commands: emptyTab() },
   };
 }
 

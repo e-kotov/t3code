@@ -1,0 +1,66 @@
+name: Fork device commands
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, feat/device-commands]
+    paths:
+      - '.github/workflows/fork-device-commands.yml'
+      - 'apps/desktop/src/deviceCommands/**'
+      - 'apps/web/src/deviceCommands/**'
+      - 'apps/mobile/src/features/device-commands/**'
+      - 'apps/mobile/modules/t3-termux-command/**'
+      - 'apps/mobile/modules/t3-native-controls/android/src/main/java/expo/modules/t3nativecontrols/T3WorkspaceNavigationModule.kt'
+      - 'apps/mobile/src/features/workspace/**'
+      - 'packages/contracts/src/deviceCommands*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: device-commands-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+      APP_VARIANT: development
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.sha }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch --no-tags --depth=1 origin "$CHECKOUT_REF"
+          git checkout --detach FETCH_HEAD
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          node-version-file: package.json
+          run-install: false
+          cache: true
+      - run: vp install
+      - name: Typecheck changed packages
+        run: vp run --concurrency-limit 2 --filter @t3tools/contracts --filter @t3tools/desktop --filter @t3tools/web --filter @t3tools/mobile typecheck
+      - name: Focused tests
+        run: |
+          vp test run packages/contracts/src/deviceCommands.test.ts apps/mobile/src/features/device-commands/termuxCommands.logic.test.ts apps/mobile/src/features/workspace/workspace-tabs-state.test.ts
+          (cd apps/desktop && vp test run src/deviceCommands/DeviceCommandsRunner.test.ts src/deviceCommands/deviceCommandsFile.test.ts)
+          (cd apps/web && vp test run --project unit src/deviceCommands/deviceCommands.logic.test.ts)
+      - name: Lint feature code
+        run: vp lint apps/desktop/src/deviceCommands apps/web/src/deviceCommands apps/web/src/routes/settings.commands.tsx apps/mobile/src/features/device-commands packages/contracts/src/deviceCommands.ts packages/contracts/src/deviceCommands.test.ts
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Generate isolated Android project
+        working-directory: apps/mobile
+        run: vp exec expo prebuild --platform android --no-install
+      - name: Test Termux result handling
+        working-directory: apps/mobile/android
+        run: ./gradlew :t3-termux-command:testDebugUnitTest --no-daemon --max-workers=2

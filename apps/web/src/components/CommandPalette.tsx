@@ -1,3 +1,4 @@
+import { useDeviceCommandPaletteItems } from "../deviceCommands/useDeviceCommandPaletteItems";
 "use client";
 
 import { threadPullRequestLinkMode } from "@t3tools/client-runtime/thread-pull-request-compatibility";
@@ -1803,7 +1804,7 @@ function OpenCommandPaletteDialog(props: {
     });
   }, [clearOpenIntent, browseNavigation, openIntent, projectThreadItems, pushPaletteView]);
 
-  const actionItems: Array<CommandPaletteActionItem | CommandPaletteSubmenuItem> = [];
+  const actionItems: Array<CommandPaletteActionItem | CommandPaletteSubmenuItem> = [...useDeviceCommandPaletteItems()];
 
   if (projects.length > 0) {
     const activeProjectTitle =

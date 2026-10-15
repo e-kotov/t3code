@@ -19,6 +19,7 @@ export type SettingsPath =
   | "/settings/diagnostics"
   | "/settings/appearance"
   | "/settings/keybindings"
+  | "/settings/commands"
   | "/settings/snap-shot"
   | "/settings/providers"
   | "/settings/integrations"
@@ -98,6 +99,7 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/general": "General",
   "/settings/appearance": "Appearance",
   "/settings/keybindings": "Keybindings",
+  "/settings/commands": "Commands",
   "/settings/snap-shot": "SnapShots",
   "/settings/providers": "Providers",
   "/settings/integrations": "Integrations",
@@ -164,6 +166,7 @@ const SOURCE_CONTROL_HOST_SEARCH_ITEMS = sourceControlClients.definitions.flatMa
  * that may not be mounted point at their nearest stable section instead.
  */
 export const SETTINGS_SEARCH_ITEMS = [
+  { id: "device-commands", title: "Device commands", to: "/settings/commands", desktopOnly: true, searchTerms: ["shell", "local", "Termux", "command palette"] },
   {
     id: "storage-worktree-keep-when",
     targetId: "storage-worktrees",

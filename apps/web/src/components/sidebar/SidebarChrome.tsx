@@ -1,3 +1,4 @@
+import { SidebarDeviceCommandsMenu } from "../../deviceCommands/SidebarDeviceCommandsMenu";
 import { ArrowLeftIcon, ChartNoAxesColumnIcon, SettingsIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { memo, useCallback } from "react";
@@ -235,6 +236,7 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
           />
         </>
       )}
+      <SidebarDeviceCommandsMenu />
       <SidebarUpdatePill />
     </SidebarMenu>
   );

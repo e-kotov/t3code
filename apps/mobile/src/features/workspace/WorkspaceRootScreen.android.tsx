@@ -1,3 +1,4 @@
+import { DeviceCommandsScreen } from "../device-commands/DeviceCommandsScreen";
 import { useMemo } from "react";
 import { View } from "react-native";
 import { SafeAreaInsetsContext, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -26,6 +27,10 @@ export function WorkspaceRootScreen() {
     [workspace, fabClearance],
   );
 
+  if (workspace.state.selectedTab === "commands" && layout.usesSplitView) {
+    return <><NativeStackScreenOptions options={{ headerShown: false }} /><AndroidScreenHeader title="Commands" /><View className="flex-1 items-center justify-center px-10"><EmptyState title="Device commands" detail="Run or edit commands in the sidebar." variant="plain" /></View></>;
+  }
+
   // Split lists live beside the navigator; Home remains an empty detail pane.
   if (layout.usesSplitView) {
     return workspace.state.selectedTab === "threads" ? (
@@ -51,7 +56,7 @@ export function WorkspaceRootScreen() {
         <NativeStackScreenOptions options={{ headerShown: false }} />
         <SafeAreaInsetsContext value={{ ...insets, bottom: 0 }}>
           <View className="flex-1">
-            {workspace.state.selectedTab === "threads" ? (
+            {workspace.state.selectedTab === "commands" ? <DeviceCommandsScreen /> : workspace.state.selectedTab === "threads" ? (
               <HomeRouteScreen />
             ) : (
               <>
