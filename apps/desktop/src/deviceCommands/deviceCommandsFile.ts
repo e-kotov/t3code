@@ -1,3 +1,4 @@
+// @effect-diagnostics nodeBuiltinImport:off -- This desktop file adapter implements atomic replacement while preserving existing filesystem symlinks.
 import { randomUUID } from "node:crypto";
 import { DeviceCommandsDocument, type DeviceCommand } from "@t3tools/contracts";
 import * as Schema from "effect/Schema";

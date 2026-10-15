@@ -1,3 +1,4 @@
+// @effect-diagnostics nodeBuiltinImport:off -- Real temporary filesystem fixtures verify atomic writes and symlink preservation.
 import * as NodeFs from "node:fs/promises";
 import * as NodeOs from "node:os";
 import * as NodePath from "node:path";

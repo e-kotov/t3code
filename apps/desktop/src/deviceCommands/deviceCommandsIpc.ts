@@ -7,7 +7,6 @@ import {
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import * as NodePath from "node:path";
 
 import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
 import * as ElectronWindow from "../electron/ElectronWindow.ts";
@@ -40,7 +39,7 @@ const runner = new DeviceCommandsRunner();
 
 const storagePath = Effect.gen(function* () {
   const environment = yield* DesktopEnvironment.DesktopEnvironment;
-  return NodePath.join(environment.stateDir, DEVICE_COMMANDS_FILE_NAME);
+  return environment.path.join(environment.stateDir, DEVICE_COMMANDS_FILE_NAME);
 });
 
 const readState = Effect.fn("desktop.deviceCommands.read")(function* () {

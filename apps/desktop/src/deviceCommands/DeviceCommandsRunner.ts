@@ -1,3 +1,5 @@
+// @effect-diagnostics nodeBuiltinImport:off -- This desktop process adapter owns native POSIX process groups and child-process streams.
+// @effect-diagnostics globalTimers:off -- Child-process callbacks coalesce output and enforce a native shutdown deadline outside Effect fibers.
 import {
   appendDeviceCommandOutput,
   finishedDeviceCommandStatus,
@@ -16,7 +18,7 @@ const PUBLISH_INTERVAL_MS = 150;
 const MAX_FINISHED_RUNS = 20;
 
 export interface DeviceCommandProcess {
-  readonly pid: number | undefined;
+  readonly pid?: number | undefined;
   readonly stdout: NodeJS.ReadableStream | null;
   readonly stderr: NodeJS.ReadableStream | null;
   on(event: "error", listener: (error: Error) => void): this;
