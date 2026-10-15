@@ -1,8 +1,4 @@
-import {
-  configuredEditorEntries,
-  preferredConfiguredEditor,
-  useEditorPreferences,
-} from "./forkEditorPreferences";
+import { useConfiguredPreferredEditor } from "./forkEditorPreferences";
 import { openSavedConfiguredEditor } from "./forkLocalEditorActions";
 import {
   AuthOrchestrationOperateScope,
@@ -55,7 +51,6 @@ export function usePreferredEditor(
   availableEditors: ReadonlyArray<EditorId>,
   environmentId: EnvironmentId | null = null,
 ) {
-  const [preferences, setPreferences] = useEditorPreferences(environmentId, false);
   const [lastEditor, setLastEditor] = useLocalStorage(LAST_EDITOR_KEY, null, EditorId);
 
   const effectiveEditor = useMemo(() => {
@@ -63,31 +58,7 @@ export function usePreferredEditor(
     return EDITORS.find((editor) => availableEditors.includes(editor.id))?.id ?? null;
   }, [lastEditor, availableEditors]);
 
-  const menuLabel = (id: EditorId | null) =>
-    id === null || id === "file-manager"
-      ? "Open in editor"
-      : `Open in ${EDITORS.find((editor) => editor.id === id)?.label ?? "Editor"}`;
-  if (environmentId === null)
-    return [
-      effectiveEditor,
-      (id: string) => {
-        const editor = EDITORS.find((candidate) => candidate.id === id);
-        if (editor) setLastEditor(editor.id);
-      },
-      menuLabel(effectiveEditor),
-    ] as const;
-  const entries = configuredEditorEntries(preferences, availableEditors, false);
-  const configured = preferredConfiguredEditor(entries, preferences.preferred, effectiveEditor);
-  const label = configured?.builtIn
-    ? menuLabel(configured.builtIn)
-    : configured
-      ? `Open in ${configured.name}`
-      : "Open in editor";
-  return [
-    configured?.id ?? null,
-    (id: string) => setPreferences((value) => ({ ...value, preferred: id })),
-    label,
-  ] as const;
+  return useConfiguredPreferredEditor(availableEditors, environmentId, effectiveEditor, setLastEditor);
 }
 
 function resolveAndPersistPreferredEditor(availableEditors: readonly EditorId[]): EditorId | null {
