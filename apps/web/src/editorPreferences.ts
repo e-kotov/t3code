@@ -1,3 +1,5 @@
+import { useConfiguredPreferredEditor } from "./forkEditorPreferences";
+import { openSavedConfiguredEditor } from "./forkLocalEditorActions";
 import {
   AuthOrchestrationOperateScope,
   EDITORS,
@@ -45,7 +47,10 @@ export class PreferredEditorUnavailableError extends Schema.TaggedError<Preferre
   }
 }
 
-export function usePreferredEditor(availableEditors: ReadonlyArray<EditorId>) {
+export function usePreferredEditor(
+  availableEditors: ReadonlyArray<EditorId>,
+  environmentId: EnvironmentId | null = null,
+) {
   const [lastEditor, setLastEditor] = useLocalStorage(LAST_EDITOR_KEY, null, EditorId);
 
   const effectiveEditor = useMemo(() => {
@@ -53,7 +58,12 @@ export function usePreferredEditor(availableEditors: ReadonlyArray<EditorId>) {
     return EDITORS.find((editor) => availableEditors.includes(editor.id))?.id ?? null;
   }, [lastEditor, availableEditors]);
 
-  return [effectiveEditor, setLastEditor] as const;
+  return useConfiguredPreferredEditor(
+    availableEditors,
+    environmentId,
+    effectiveEditor,
+    setLastEditor,
+  );
 }
 
 function resolveAndPersistPreferredEditor(availableEditors: readonly EditorId[]): EditorId | null {
@@ -79,7 +89,8 @@ export function useOpenInPreferredEditor(
       targetPath: string,
     ): Promise<
       AtomCommandResult<
-        EditorId,
+        string,
+        | Error
         | OpenInEditorError
         | PreferredEditorEnvironmentRequiredError
         | PreferredEditorUnavailableError
@@ -105,6 +116,13 @@ export function useOpenInPreferredEditor(
           ),
         );
       }
+      const configured = await openSavedConfiguredEditor(
+        environmentId,
+        availableEditors,
+        targetPath,
+        openInEditor,
+      );
+      if (configured !== null) return configured;
       const editor = resolveAndPersistPreferredEditor(availableEditors);
       if (!editor) {
         return AsyncResult.failure(

@@ -19,6 +19,7 @@ import {
   type FileManagerRevealKind,
   type LaunchEditorInput,
 } from "@t3tools/contracts";
+import { customEditorLaunch } from "./customEditorLaunch.ts";
 import { resolveEditorCommand } from "@t3tools/shared/editor";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import {
@@ -58,7 +59,7 @@ export {
 } from "@t3tools/contracts";
 export type { LaunchEditorInput };
 interface EditorLaunch {
-  readonly editor: EditorId;
+  readonly editor: EditorId | "custom";
   readonly target: string;
   readonly command: string;
   readonly args: ReadonlyArray<string>;
@@ -552,6 +553,7 @@ const resolveEditorLaunch = Effect.fn("resolveEditorLaunch")(function* (
     "externalLauncher.cwd": input.cwd,
     "externalLauncher.platform": platform,
   });
+  if (input.editor === "custom") return customEditorLaunch(input)!;
   const editorDef = EDITORS.find((editor) => editor.id === input.editor);
   if (!editorDef) {
     return yield* new ExternalLauncherUnknownEditorError({ editor: input.editor });

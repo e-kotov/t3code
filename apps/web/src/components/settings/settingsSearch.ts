@@ -174,6 +174,15 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["shell", "local", "Termux", "command palette"],
   },
   {
+    id: "editors",
+    title: "Editors",
+    to: "/settings/integrations",
+    targetId: "editors",
+    searchTerms: [
+      "open in default preferred custom command executable arguments remote ssh URL template Positron Gram VS Code Zed show hide detect",
+    ],
+  },
+  {
     id: "storage-worktree-keep-when",
     targetId: "storage-worktrees",
     title: "Keep worktrees with local changes",
@@ -786,6 +795,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "Open links in",
     to: "/settings/integrations",
     searchTerms: ["links default browser in-app browser external open"],
+  },
+  {
+    id: "pull-request-links-open-in-app",
+    title: "Open pull requests in T3 Code",
+    to: "/settings/integrations",
+    searchTerms: ["pr links github browser external click default pull request view panel"],
   },
   {
     id: "browser-auto-show-floating-preview",
