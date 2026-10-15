@@ -3,7 +3,9 @@ import * as Effect from "effect/Effect";
 const { openExternal } = vi.hoisted(() => ({ openExternal: vi.fn() }));
 vi.mock("electron", () => ({ shell: { openExternal } }));
 import { openCustomEditor } from "./customEditors.ts";
-beforeEach(() => openExternal.mockReset().mockResolvedValue(undefined));
+beforeEach(() => {
+  openExternal.mockReset().mockResolvedValue(undefined);
+});
 it("opens validated custom editor links through the OS", async () => {
   expect(
     await Effect.runPromise(

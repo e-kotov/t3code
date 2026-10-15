@@ -1,3 +1,4 @@
+import * as Cause from "effect/Cause";
 import { useConfiguredEditors } from "../../useConfiguredEditors";
 import { configuredOpenInOptions } from "./configuredOpenInOptions";
 import { toastManager } from "../ui/toast";
@@ -239,8 +240,10 @@ export const OpenInPicker = memo(function OpenInPicker({
     async (id: string | null) => {
       if (!openInCwd) return;
       const result = await open(openInCwd, id);
-      if (result._tag === "Failure")
-        toastManager.add({ type: "error", title: "Could not open editor" });
+      if (result._tag === "Failure") {
+        const error = Cause.squash(result.cause);
+        toastManager.add({ type: "error", title: "Could not open editor", description: error instanceof Error ? error.message : undefined });
+      }
     },
     [open, openInCwd],
   );

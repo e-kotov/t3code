@@ -148,9 +148,3 @@ export function useConfiguredEditors(
   };
 }
 
-export function useOpenInConfiguredEditor(
-  environmentId: EnvironmentId | null,
-  availableEditors: readonly EditorId[],
-) {
-  return useConfiguredEditors(environmentId, availableEditors).open;
-}

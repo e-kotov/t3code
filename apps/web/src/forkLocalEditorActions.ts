@@ -45,7 +45,9 @@ export async function openSavedConfiguredEditor<E>(
     legacy,
   );
   if (!entry)
-    return AsyncResult.failure<string, Error>(Cause.fail(new Error("No editor is enabled for this environment.")));
+    return AsyncResult.failure<string, Error>(
+      Cause.fail(new Error("No editor is enabled for this environment.")),
+    );
   const input: LaunchEditorInput = entry.custom
     ? {
         cwd: target,
