@@ -63,11 +63,19 @@ export function usePreferredEditor(
     return EDITORS.find((editor) => availableEditors.includes(editor.id))?.id ?? null;
   }, [lastEditor, availableEditors]);
 
-  const menuLabel = (id: EditorId | null) => id === null || id === "file-manager" ? "Open in editor" : `Open in ${EDITORS.find((editor) => editor.id === id)?.label ?? "Editor"}`;
-  if (environmentId === null) return [effectiveEditor, (id: string) => {
-    const editor = EDITORS.find((candidate) => candidate.id === id);
-    if (editor) setLastEditor(editor.id);
-  }, menuLabel(effectiveEditor)] as const;
+  const menuLabel = (id: EditorId | null) =>
+    id === null || id === "file-manager"
+      ? "Open in editor"
+      : `Open in ${EDITORS.find((editor) => editor.id === id)?.label ?? "Editor"}`;
+  if (environmentId === null)
+    return [
+      effectiveEditor,
+      (id: string) => {
+        const editor = EDITORS.find((candidate) => candidate.id === id);
+        if (editor) setLastEditor(editor.id);
+      },
+      menuLabel(effectiveEditor),
+    ] as const;
   const entries = configuredEditorEntries(preferences, availableEditors, false);
   const configured = preferredConfiguredEditor(entries, preferences.preferred, effectiveEditor);
   const label = configured?.builtIn

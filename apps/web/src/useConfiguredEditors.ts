@@ -39,7 +39,9 @@ export function useConfiguredEditors(
     isRemote ? probed : availableEditors,
     isRemote,
   );
-  const [legacy, setLegacy] = usePreferredEditor(entries.flatMap((entry) => entry.builtIn ? [entry.builtIn] : []));
+  const [legacy, setLegacy] = usePreferredEditor(
+    entries.flatMap((entry) => (entry.builtIn ? [entry.builtIn] : [])),
+  );
   const preferred = preferredConfiguredEditor(entries, preferences.preferred, legacy);
   const invoke = useAtomCommand(shellEnvironment.openInEditor, { reportFailure: false });
   const [remoteHintSeen, markRemoteHintSeen] = useRemoteOpenHint();
@@ -53,11 +55,7 @@ export function useConfiguredEditors(
   const open = useCallback(
     async (target: string, id?: string | null) => {
       const entry = id == null ? preferred : entries.find((value) => value.id === id);
-      if (
-        environmentId === null ||
-        !entry ||
-        remote.mode === "remote-unavailable"
-      ) {
+      if (environmentId === null || !entry || remote.mode === "remote-unavailable") {
         return AsyncResult.failure(
           Cause.fail(new Error("No configured editor or SSH route is available.")),
         );
@@ -122,15 +120,7 @@ export function useConfiguredEditors(
       if (result._tag === "Success") setPreferredEditor(entry.id);
       return mapAtomCommandResult(result, () => entry.id);
     },
-    [
-      entries,
-      environmentId,
-      invoke,
-      markRemoteHintSeen,
-      preferred,
-      remote,
-      setPreferredEditor,
-    ],
+    [entries, environmentId, invoke, markRemoteHintSeen, preferred, remote, setPreferredEditor],
   );
   return {
     entries,

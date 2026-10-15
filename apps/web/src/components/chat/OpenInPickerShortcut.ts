@@ -30,5 +30,5 @@ export function useOpenFavoriteEditorShortcut({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [enabled, environmentId, keybindings, openInCwd, open, preferredEditor]);
+  }, [enabled, keybindings, openInCwd, open, preferredEditor]);
 }

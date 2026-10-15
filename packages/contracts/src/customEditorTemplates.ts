@@ -37,8 +37,10 @@ export function buildCustomEditorUrl(
 ): string | undefined {
   if (!template.includes("{host}") || !/\{path(?:Query)?\}/.test(template)) return undefined;
   const scheme = /^([a-z][a-z0-9+.-]*):\/\//i.exec(template)?.[1]?.toLowerCase();
+  // oxlint-disable-next-line no-control-regex -- App links reject raw controls and whitespace.
   if (!scheme || forbiddenSchemes.has(scheme) || /[\u0000-\u0020\u007f]/.test(template))
     return undefined;
+  // oxlint-disable-next-line no-control-regex -- The host must stay a single SSH alias or hostname.
   if (!host || /[\u0000-\u0020\u007f/@:?#\\]/.test(host)) return undefined;
   const values = editorTarget(target);
   const path = values.path.replaceAll("\\", "/");

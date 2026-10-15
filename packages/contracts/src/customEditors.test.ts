@@ -1,6 +1,7 @@
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vite-plus/test";
 import { LaunchEditorInput } from "./editor.ts";
+const decodeLaunchEditorInput = Schema.decodeUnknownSync(LaunchEditorInput);
 import { buildCustomEditorUrl, customEditorArguments } from "./customEditorTemplates.ts";
 
 it("accepts a custom executable without widening the detected-editor catalog", () => {
@@ -13,12 +14,12 @@ it("accepts a custom executable without widening the detected-editor catalog", (
       args: ["--goto", "{path}:{line}"],
     },
   };
-  expect(Schema.decodeUnknownSync(LaunchEditorInput)(input)).toEqual(input);
+  expect(decodeLaunchEditorInput(input)).toEqual(input);
   expect(() =>
-    Schema.decodeUnknownSync(LaunchEditorInput)({ cwd: "/repo", editor: "custom" }),
+    decodeLaunchEditorInput({ cwd: "/repo", editor: "custom" }),
   ).toThrow();
   expect(() =>
-    Schema.decodeUnknownSync(LaunchEditorInput)({ ...input, editor: "anything" }),
+    decodeLaunchEditorInput({ ...input, editor: "anything" }),
   ).toThrow();
 });
 
@@ -26,9 +27,9 @@ it("preserves spaces, quotes, Unicode and shell metacharacters as literal argv v
   expect(
     customEditorArguments(
       ["--goto", "{path}:{line}:{column}", "$(do-not-run)"],
-      '/my project/é \"$file.ts:12:4',
+      '/my project/é "$file.ts:12:4',
     ),
-  ).toEqual(["--goto", '/my project/é \"$file.ts:12:4', "$(do-not-run)"]);
+  ).toEqual(["--goto", '/my project/é "$file.ts:12:4', "$(do-not-run)"]);
   expect(customEditorArguments(["--new-window"], "C:\\my project\\file.ts:8")).toEqual([
     "--new-window",
     "C:\\my project\\file.ts",
