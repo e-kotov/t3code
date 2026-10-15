@@ -1,4 +1,8 @@
-import { configuredEditorEntries, preferredConfiguredEditor, useEditorPreferences } from "./forkEditorPreferences";
+import {
+  configuredEditorEntries,
+  preferredConfiguredEditor,
+  useEditorPreferences,
+} from "./forkEditorPreferences";
 import { openSavedConfiguredEditor } from "./forkLocalEditorActions";
 import { openInEditorMenuLabel } from "./editorLabels";
 import {
@@ -48,7 +52,10 @@ export class PreferredEditorUnavailableError extends Schema.TaggedError<Preferre
   }
 }
 
-export function usePreferredEditor(availableEditors: ReadonlyArray<EditorId>, environmentId: EnvironmentId | null = null) {
+export function usePreferredEditor(
+  availableEditors: ReadonlyArray<EditorId>,
+  environmentId: EnvironmentId | null = null,
+) {
   const [preferences, setPreferences] = useEditorPreferences(environmentId, false);
   const [lastEditor] = useLocalStorage(LAST_EDITOR_KEY, null, EditorId);
 
@@ -59,8 +66,16 @@ export function usePreferredEditor(availableEditors: ReadonlyArray<EditorId>, en
 
   const entries = configuredEditorEntries(preferences, availableEditors, false);
   const configured = preferredConfiguredEditor(entries, preferences.preferred, effectiveEditor);
-  const label = configured?.builtIn ? openInEditorMenuLabel(configured.builtIn) : configured ? `Open in ${configured.name}` : "Open in editor";
-  return [configured?.id ?? null, (id: string) => setPreferences((value) => ({ ...value, preferred: id })), label] as const;
+  const label = configured?.builtIn
+    ? openInEditorMenuLabel(configured.builtIn)
+    : configured
+      ? `Open in ${configured.name}`
+      : "Open in editor";
+  return [
+    configured?.id ?? null,
+    (id: string) => setPreferences((value) => ({ ...value, preferred: id })),
+    label,
+  ] as const;
 }
 
 function resolveAndPersistPreferredEditor(availableEditors: readonly EditorId[]): EditorId | null {
@@ -113,7 +128,12 @@ export function useOpenInPreferredEditor(
           ),
         );
       }
-      const configured = await openSavedConfiguredEditor(environmentId, availableEditors, targetPath, openInEditor);
+      const configured = await openSavedConfiguredEditor(
+        environmentId,
+        availableEditors,
+        targetPath,
+        openInEditor,
+      );
       if (configured !== null) return configured;
       const editor = resolveAndPersistPreferredEditor(availableEditors);
       if (!editor) {

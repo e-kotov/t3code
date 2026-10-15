@@ -220,19 +220,30 @@ export const OpenInPicker = memo(function OpenInPicker({
   const isPanel = displayMode === "panel";
   const ActionGroup = isPanel ? "div" : Group;
   const panelAnchorRef = useRef<HTMLDivElement | null>(null);
-  const { entries, preferredEditor, setPreferredEditor, open, remote, remoteHintSeen } = useConfiguredEditors(environmentId, availableEditors);
+  const { entries, preferredEditor, setPreferredEditor, open, remote, remoteHintSeen } =
+    useConfiguredEditors(environmentId, availableEditors);
   const canOperateHost = useEnvironmentScope(environmentId, AuthOrchestrationOperateScope);
   const isHostEditorDenied = remote.mode === "local-exec" && !canOperateHost;
   const canOpenEditor = remote.mode !== "remote-unavailable" && !isHostEditorDenied;
   const [menuOpen, setMenuOpen] = useComposerMenuState(isHostEditorDenied);
   const environmentLabel = useEnvironment(environmentId)?.label ?? "this machine";
-  const options = configuredOpenInOptions(entries, resolveOpenInOptions(navigator.platform, entries.flatMap((entry) => entry.builtIn ? [entry.builtIn] : [])));
+  const options = configuredOpenInOptions(
+    entries,
+    resolveOpenInOptions(
+      navigator.platform,
+      entries.flatMap((entry) => (entry.builtIn ? [entry.builtIn] : [])),
+    ),
+  );
   const primaryOption = options.find(({ value }) => value === preferredEditor) ?? null;
-  const openInEditor = useCallback(async (id: string | null) => {
-    if (!openInCwd) return;
-    const result = await open(openInCwd, id);
-    if (result._tag === "Failure") toastManager.add({ type: "error", title: "Could not open editor" });
-  }, [open, openInCwd]);
+  const openInEditor = useCallback(
+    async (id: string | null) => {
+      if (!openInCwd) return;
+      const result = await open(openInCwd, id);
+      if (result._tag === "Failure")
+        toastManager.add({ type: "error", title: "Could not open editor" });
+    },
+    [open, openInCwd],
+  );
 
   const openFavoriteEditorShortcutLabel = useMemo(
     () => shortcutLabelForCommand(keybindings, "editor.openFavorite"),

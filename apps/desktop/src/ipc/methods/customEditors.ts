@@ -12,6 +12,11 @@ export const openCustomEditor = DesktopIpc.makeIpcMethod({
   handler: Effect.fn("desktop.ipc.openCustomEditor")(function* (input) {
     const url = buildCustomEditorUrl(input.template, input.host, input.target);
     if (url === undefined) return false;
-    return yield* Effect.promise(() => Electron.shell.openExternal(url).then(() => true, () => false));
+    return yield* Effect.promise(() =>
+      Electron.shell.openExternal(url).then(
+        () => true,
+        () => false,
+      ),
+    );
   }),
 });

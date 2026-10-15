@@ -19,31 +19,68 @@ export const EditorPreferences = Schema.Struct({
   preferred: Schema.NullOr(Schema.String),
 });
 export type EditorPreferences = typeof EditorPreferences.Type;
-export const EMPTY_EDITOR_PREFERENCES: EditorPreferences = { builtIns: [], custom: [], preferred: null };
+export const EMPTY_EDITOR_PREFERENCES: EditorPreferences = {
+  builtIns: [],
+  custom: [],
+  preferred: null,
+};
 
 export function editorPreferencesKey(environmentId: string | null, remote: boolean) {
   return `t3code:editors:${remote ? "remote-device" : `environment:${environmentId ?? "none"}`}`;
 }
 
 export function useEditorPreferences(environmentId: string | null, remote: boolean) {
-  return useLocalStorage(editorPreferencesKey(environmentId, remote), EMPTY_EDITOR_PREFERENCES, EditorPreferences);
+  return useLocalStorage(
+    editorPreferencesKey(environmentId, remote),
+    EMPTY_EDITOR_PREFERENCES,
+    EditorPreferences,
+  );
 }
 
-export function configuredEditorEntries(preferences: EditorPreferences, detected: readonly EditorId[], remote: boolean) {
+export function configuredEditorEntries(
+  preferences: EditorPreferences,
+  detected: readonly EditorId[],
+  remote: boolean,
+) {
   const builtIns = EDITORS.filter((editor) => {
     if (remote && !REMOTE_CAPABLE_EDITOR_IDS.includes(editor.id)) return false;
-    const visibility = preferences.builtIns.find((entry) => entry.id === editor.id)?.visibility ?? "auto";
+    const visibility =
+      preferences.builtIns.find((entry) => entry.id === editor.id)?.visibility ?? "auto";
     return visibility === "show" || (visibility === "auto" && detected.includes(editor.id));
-  }).map((editor) => ({ id: editor.id as string, name: editor.label, builtIn: editor.id, custom: undefined as CustomEditor | undefined }));
-  const custom = preferences.custom.filter((editor) => editor.enabled && (remote ? editor.remoteUrl.trim() : editor.command.trim()))
+  }).map((editor) => ({
+    id: editor.id as string,
+    name: editor.label,
+    builtIn: editor.id,
+    custom: undefined as CustomEditor | undefined,
+  }));
+  const custom = preferences.custom
+    .filter(
+      (editor) => editor.enabled && (remote ? editor.remoteUrl.trim() : editor.command.trim()),
+    )
     .map((editor) => ({ id: editor.id, name: editor.name, builtIn: undefined, custom: editor }));
   return [...builtIns, ...custom];
 }
 
-export function preferredConfiguredEditor(entries: ReturnType<typeof configuredEditorEntries>, preferred: string | null, legacy: string | null) {
-  return entries.find((entry) => entry.id === preferred) ?? entries.find((entry) => entry.id === legacy) ?? entries[0] ?? null;
+export function preferredConfiguredEditor(
+  entries: ReturnType<typeof configuredEditorEntries>,
+  preferred: string | null,
+  legacy: string | null,
+) {
+  return (
+    entries.find((entry) => entry.id === preferred) ??
+    entries.find((entry) => entry.id === legacy) ??
+    entries[0] ??
+    null
+  );
 }
 
-export function setEditorVisibility(preferences: EditorPreferences, id: EditorId, visibility: EditorVisibility): EditorPreferences {
-  return { ...preferences, builtIns: [...preferences.builtIns.filter((entry) => entry.id !== id), { id, visibility }] };
+export function setEditorVisibility(
+  preferences: EditorPreferences,
+  id: EditorId,
+  visibility: EditorVisibility,
+): EditorPreferences {
+  return {
+    ...preferences,
+    builtIns: [...preferences.builtIns.filter((entry) => entry.id !== id), { id, visibility }],
+  };
 }

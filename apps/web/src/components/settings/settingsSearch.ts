@@ -164,8 +164,15 @@ const SOURCE_CONTROL_HOST_SEARCH_ITEMS = sourceControlClients.definitions.flatMa
  * that may not be mounted point at their nearest stable section instead.
  */
 export const SETTINGS_SEARCH_ITEMS = [
-  { id: "editors", title: "Editors", to: "/settings/integrations", targetId: "editors",
-    searchTerms: ["open in default preferred custom command executable arguments remote ssh URL template Positron Gram VS Code Zed show hide detect"] },
+  {
+    id: "editors",
+    title: "Editors",
+    to: "/settings/integrations",
+    targetId: "editors",
+    searchTerms: [
+      "open in default preferred custom command executable arguments remote ssh URL template Positron Gram VS Code Zed show hide detect",
+    ],
+  },
   {
     id: "storage-worktree-keep-when",
     targetId: "storage-worktrees",

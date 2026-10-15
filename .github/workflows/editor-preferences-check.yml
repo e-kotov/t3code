@@ -10,7 +10,7 @@ jobs:
     timeout-minutes: 40
     env:
       NODE_OPTIONS: --max-old-space-size=6144
-      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
     steps:
       - name: Checkout feature branch
         run: |

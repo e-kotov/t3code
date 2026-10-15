@@ -181,7 +181,11 @@ const BuiltInLaunchEditorInput = Schema.Struct({
 });
 export const LaunchEditorInput = Schema.Union([
   BuiltInLaunchEditorInput,
-  Schema.Struct({ cwd: TrimmedNonEmptyString, editor: Schema.Literal("custom"), customEditor: CustomEditorCommand }),
+  Schema.Struct({
+    cwd: TrimmedNonEmptyString,
+    editor: Schema.Literal("custom"),
+    customEditor: CustomEditorCommand,
+  }),
 ]);
 export type LaunchEditorInput = typeof LaunchEditorInput.Type;
 const LauncherEditorId = Schema.Literals([...EDITORS.map((editor) => editor.id), "custom"]);
