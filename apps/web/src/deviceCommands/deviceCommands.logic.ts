@@ -44,7 +44,6 @@ export function moveDeviceCommand<T>(items: ReadonlyArray<T>, from: number, to: 
   return next;
 }
 
-
 export function paletteDeviceCommands(commands: ReadonlyArray<DeviceCommand>) {
   return commands.filter((command) => command.showInCommandPalette);
 }

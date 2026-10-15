@@ -20,7 +20,9 @@ import {
 /** Live output of one run; it keeps updating while the command runs. */
 export function DeviceCommandOutputDialog() {
   const run = useDeviceCommandsStore((state) => findRun(state.runsByCommandId, state.outputRunId));
-  const command = useDeviceCommandsStore((state) => state.commands.find((item) => item.id === run?.commandId));
+  const command = useDeviceCommandsStore((state) =>
+    state.commands.find((item) => item.id === run?.commandId),
+  );
   return (
     <Dialog
       open={run !== null}
@@ -55,7 +57,11 @@ export function DeviceCommandOutputDialog() {
               Stop
             </Button>
           ) : null}
-          {command && run?.status !== "running" ? <Button type="button" onClick={() => void runDeviceCommand(command)}>Run again</Button> : null}
+          {command && run?.status !== "running" ? (
+            <Button type="button" onClick={() => void runDeviceCommand(command)}>
+              Run again
+            </Button>
+          ) : null}
           <Button type="button" variant="outline" onClick={closeDeviceCommandOutput}>
             Close
           </Button>

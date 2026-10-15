@@ -68,7 +68,14 @@ function DeviceCommandsMenu() {
               <MenuItem disabled>No commands yet</MenuItem>
             ) : (
               commands.map((command) => (
-                <MenuItem key={command.id} onClick={() => runs[command.id] ? openDeviceCommandOutput(runs[command.id]!.runId) : void runDeviceCommand(command)}>
+                <MenuItem
+                  key={command.id}
+                  onClick={() =>
+                    runs[command.id]
+                      ? openDeviceCommandOutput(runs[command.id]!.runId)
+                      : void runDeviceCommand(command)
+                  }
+                >
                   <DeviceCommandGlyph icon={command.icon} />
                   <span className="min-w-0 flex-1 truncate">{command.name}</span>
                   <DeviceCommandRunBadge run={runs[command.id]} now={now} />

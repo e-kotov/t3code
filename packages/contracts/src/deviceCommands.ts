@@ -56,7 +56,12 @@ export const DeviceCommandsState = Schema.Struct({
 });
 export type DeviceCommandsState = typeof DeviceCommandsState.Type;
 
-export const DeviceCommandRunStatus = Schema.Literals(["running", "succeeded", "failed", "stopped"]);
+export const DeviceCommandRunStatus = Schema.Literals([
+  "running",
+  "succeeded",
+  "failed",
+  "stopped",
+]);
 export type DeviceCommandRunStatus = typeof DeviceCommandRunStatus.Type;
 
 export const DeviceCommandRun = Schema.Struct({

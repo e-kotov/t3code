@@ -1,9 +1,33 @@
 import { describe, expect, it } from "vite-plus/test";
-import { applyRunUpdate, findRun, moveDeviceCommand, newDeviceCommandId, paletteDeviceCommands } from "./deviceCommands.logic";
+import {
+  applyRunUpdate,
+  findRun,
+  moveDeviceCommand,
+  newDeviceCommandId,
+  paletteDeviceCommands,
+} from "./deviceCommands.logic";
 import { describeRunOutcome, formatRunAge } from "./deviceCommandsFormat";
 
-const command = { id: "up", name: "GWDG up", command: "gwdg-agent up", icon: "server" as const, confirm: false, showInCommandPalette: true };
-const run = { runId: "run-1", commandId: "up", commandName: "GWDG up", status: "running" as const, startedAt: 1000, finishedAt: null, exitCode: null, output: "", outputTruncated: false, error: null };
+const command = {
+  id: "up",
+  name: "GWDG up",
+  command: "gwdg-agent up",
+  icon: "server" as const,
+  confirm: false,
+  showInCommandPalette: true,
+};
+const run = {
+  runId: "run-1",
+  commandId: "up",
+  commandName: "GWDG up",
+  status: "running" as const,
+  startedAt: 1000,
+  finishedAt: null,
+  exitCode: null,
+  output: "",
+  outputTruncated: false,
+  error: null,
+};
 
 describe("device command presentation", () => {
   it("lets each command opt out of the palette without removing it from the saved list", () => {

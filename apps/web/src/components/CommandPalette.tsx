@@ -1,5 +1,5 @@
 import { useDeviceCommandPaletteItems } from "../deviceCommands/useDeviceCommandPaletteItems";
-"use client";
+("use client");
 
 import { threadPullRequestLinkMode } from "@t3tools/client-runtime/thread-pull-request-compatibility";
 import { visibleThreadPullRequests } from "@t3tools/shared/threadPullRequests";
@@ -1804,7 +1804,9 @@ function OpenCommandPaletteDialog(props: {
     });
   }, [clearOpenIntent, browseNavigation, openIntent, projectThreadItems, pushPaletteView]);
 
-  const actionItems: Array<CommandPaletteActionItem | CommandPaletteSubmenuItem> = [...useDeviceCommandPaletteItems()];
+  const actionItems: Array<CommandPaletteActionItem | CommandPaletteSubmenuItem> = [
+    ...useDeviceCommandPaletteItems(),
+  ];
 
   if (projects.length > 0) {
     const activeProjectTitle =

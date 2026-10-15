@@ -2,11 +2,18 @@ import { paletteDeviceCommands } from "./deviceCommands.logic";
 import { useEffect } from "react";
 import type { CommandPaletteActionItem } from "../components/CommandPalette.logic";
 import { DeviceCommandGlyph } from "./DeviceCommandGlyphs";
-import { ensureDeviceCommandsLoaded, getDeviceCommandsBridge, runDeviceCommand, useDeviceCommandsStore } from "./deviceCommandsStore";
+import {
+  ensureDeviceCommandsLoaded,
+  getDeviceCommandsBridge,
+  runDeviceCommand,
+  useDeviceCommandsStore,
+} from "./deviceCommandsStore";
 
 export function useDeviceCommandPaletteItems(): CommandPaletteActionItem[] {
   const commands = useDeviceCommandsStore((state) => state.commands);
-  useEffect(() => { ensureDeviceCommandsLoaded(); }, []);
+  useEffect(() => {
+    ensureDeviceCommandsLoaded();
+  }, []);
   if (!getDeviceCommandsBridge()) return [];
   return paletteDeviceCommands(commands).map((command) => ({
     kind: "action",

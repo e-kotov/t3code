@@ -166,7 +166,13 @@ const SOURCE_CONTROL_HOST_SEARCH_ITEMS = sourceControlClients.definitions.flatMa
  * that may not be mounted point at their nearest stable section instead.
  */
 export const SETTINGS_SEARCH_ITEMS = [
-  { id: "device-commands", title: "Device commands", to: "/settings/commands", desktopOnly: true, searchTerms: ["shell", "local", "Termux", "command palette"] },
+  {
+    id: "device-commands",
+    title: "Device commands",
+    to: "/settings/commands",
+    desktopOnly: true,
+    searchTerms: ["shell", "local", "Termux", "command palette"],
+  },
   {
     id: "storage-worktree-keep-when",
     targetId: "storage-worktrees",

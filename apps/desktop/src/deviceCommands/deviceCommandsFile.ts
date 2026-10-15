@@ -29,7 +29,10 @@ export async function writeDeviceCommandsFile(
   });
   await NodeFs.mkdir(NodePath.dirname(target), { recursive: true });
   const temporary = `${target}.${randomUUID()}.tmp`;
-  await NodeFs.writeFile(temporary, `${JSON.stringify(document, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+  await NodeFs.writeFile(temporary, `${JSON.stringify(document, null, 2)}\n`, {
+    encoding: "utf8",
+    mode: 0o600,
+  });
   await NodeFs.rename(temporary, target);
 }
 
