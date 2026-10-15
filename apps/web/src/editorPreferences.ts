@@ -4,7 +4,6 @@ import {
   useEditorPreferences,
 } from "./forkEditorPreferences";
 import { openSavedConfiguredEditor } from "./forkLocalEditorActions";
-import { openInEditorMenuLabel } from "./editorLabels";
 import {
   AuthOrchestrationOperateScope,
   EDITORS,
@@ -57,17 +56,22 @@ export function usePreferredEditor(
   environmentId: EnvironmentId | null = null,
 ) {
   const [preferences, setPreferences] = useEditorPreferences(environmentId, false);
-  const [lastEditor] = useLocalStorage(LAST_EDITOR_KEY, null, EditorId);
+  const [lastEditor, setLastEditor] = useLocalStorage(LAST_EDITOR_KEY, null, EditorId);
 
   const effectiveEditor = useMemo(() => {
     if (lastEditor && availableEditors.includes(lastEditor)) return lastEditor;
     return EDITORS.find((editor) => availableEditors.includes(editor.id))?.id ?? null;
   }, [lastEditor, availableEditors]);
 
+  const menuLabel = (id: EditorId | null) => id === null || id === "file-manager" ? "Open in editor" : `Open in ${EDITORS.find((editor) => editor.id === id)?.label ?? "Editor"}`;
+  if (environmentId === null) return [effectiveEditor, (id: string) => {
+    const editor = EDITORS.find((candidate) => candidate.id === id);
+    if (editor) setLastEditor(editor.id);
+  }, menuLabel(effectiveEditor)] as const;
   const entries = configuredEditorEntries(preferences, availableEditors, false);
   const configured = preferredConfiguredEditor(entries, preferences.preferred, effectiveEditor);
   const label = configured?.builtIn
-    ? openInEditorMenuLabel(configured.builtIn)
+    ? menuLabel(configured.builtIn)
     : configured
       ? `Open in ${configured.name}`
       : "Open in editor";

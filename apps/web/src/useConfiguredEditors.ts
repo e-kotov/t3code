@@ -8,10 +8,9 @@ import {
 } from "@t3tools/contracts";
 import { mapAtomCommandResult } from "@t3tools/client-runtime/state/runtime";
 import * as Cause from "effect/Cause";
-import * as Schema from "effect/Schema";
 import { AsyncResult } from "effect/reactivity";
 import { useCallback } from "react";
-import { useLocalStorage } from "./hooks/useLocalStorage";
+import { usePreferredEditor } from "./editorPreferences";
 import {
   configuredEditorEntries,
   preferredConfiguredEditor,
@@ -20,7 +19,7 @@ import {
 import {
   openRemoteEditorUrl,
   useRemoteCapableEditors,
-  useRemoteOpenResolution,
+  useRemoteOpenState,
   useRemoteOpenHint,
 } from "./remoteOpen";
 import { readEnvironmentScope } from "./state/session";
@@ -31,34 +30,31 @@ export function useConfiguredEditors(
   environmentId: EnvironmentId | null,
   availableEditors: readonly EditorId[],
 ) {
-  const resolution = useRemoteOpenResolution(environmentId);
-  const remote = resolution.state;
+  const remote = useRemoteOpenState(environmentId);
   const isRemote = remote.mode !== "local-exec";
   const probed = useRemoteCapableEditors();
   const [preferences, setPreferences] = useEditorPreferences(environmentId, isRemote);
-  const [legacy] = useLocalStorage<string | null, string | null>(
-    "t3code:last-editor",
-    null,
-    Schema.NullOr(Schema.String),
-  );
   const entries = configuredEditorEntries(
     preferences,
     isRemote ? probed : availableEditors,
     isRemote,
   );
+  const [legacy, setLegacy] = usePreferredEditor(entries.flatMap((entry) => entry.builtIn ? [entry.builtIn] : []));
   const preferred = preferredConfiguredEditor(entries, preferences.preferred, legacy);
   const invoke = useAtomCommand(shellEnvironment.openInEditor, { reportFailure: false });
   const [remoteHintSeen, markRemoteHintSeen] = useRemoteOpenHint();
   const setPreferredEditor = useCallback(
-    (id: string) => setPreferences((value) => ({ ...value, preferred: id })),
-    [setPreferences],
+    (id: string) => {
+      if (entries.some((entry) => entry.id === id && entry.builtIn)) setLegacy(id);
+      setPreferences((value) => ({ ...value, preferred: id }));
+    },
+    [entries, setLegacy, setPreferences],
   );
   const open = useCallback(
     async (target: string, id?: string | null) => {
       const entry = id == null ? preferred : entries.find((value) => value.id === id);
       if (
         environmentId === null ||
-        !resolution.isResolved ||
         !entry ||
         remote.mode === "remote-unavailable"
       ) {
@@ -133,7 +129,6 @@ export function useConfiguredEditors(
       markRemoteHintSeen,
       preferred,
       remote,
-      resolution.isResolved,
       setPreferredEditor,
     ],
   );
@@ -147,4 +142,3 @@ export function useConfiguredEditors(
     remoteHintSeen,
   };
 }
-

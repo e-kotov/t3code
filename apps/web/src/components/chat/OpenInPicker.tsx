@@ -242,7 +242,11 @@ export const OpenInPicker = memo(function OpenInPicker({
       const result = await open(openInCwd, id);
       if (result._tag === "Failure") {
         const error = Cause.squash(result.cause);
-        toastManager.add({ type: "error", title: "Could not open editor", description: error instanceof Error ? error.message : undefined });
+        toastManager.add({
+          type: "error",
+          title: "Could not open editor",
+          description: error instanceof Error ? error.message : undefined,
+        });
       }
     },
     [open, openInCwd],

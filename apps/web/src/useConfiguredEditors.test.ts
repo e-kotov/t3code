@@ -10,7 +10,6 @@ const state = vi.hoisted(() => ({
     | { mode: "local-exec" }
     | { mode: "remote-links"; host: { kind: "ssh-alias"; host: string } }
     | { mode: "remote-unavailable" },
-  resolved: true,
   preferences: { builtIns: [], custom: [], preferred: null } as EditorPreferences,
   invoke: vi.fn(),
   persist: vi.fn(),
@@ -19,6 +18,7 @@ const state = vi.hoisted(() => ({
   hintSeen: vi.fn(),
 }));
 vi.mock("react", () => ({ useCallback: (callback: unknown) => callback }));
+vi.mock("./editorPreferences", () => ({ usePreferredEditor: () => [null, vi.fn()] }));
 vi.mock("./hooks/useLocalStorage", () => ({
   useLocalStorage: (key: string) =>
     key === "t3code:last-editor" ? [null, vi.fn()] : [state.preferences, state.persist],
@@ -27,7 +27,7 @@ vi.mock("./state/shell", () => ({ shellEnvironment: { openInEditor: "openInEdito
 vi.mock("./state/use-atom-command", () => ({ useAtomCommand: () => state.invoke }));
 vi.mock("./state/session", () => ({ readEnvironmentScope: () => state.allowed }));
 vi.mock("./remoteOpen", () => ({
-  useRemoteOpenResolution: () => ({ state: state.remote, isResolved: state.resolved }),
+  useRemoteOpenState: () => state.remote,
   useRemoteCapableEditors: () => ["vscode"],
   useRemoteOpenHint: () => [false, state.hintSeen],
   openRemoteEditorUrl: state.openExternal,
@@ -45,7 +45,6 @@ const custom = {
 beforeEach(() => {
   vi.clearAllMocks();
   state.allowed = true;
-  state.resolved = true;
   state.remote = { mode: "local-exec" };
   state.preferences = { builtIns: [], custom: [custom], preferred: custom.id };
   state.invoke.mockResolvedValue(AsyncResult.success(undefined));
@@ -94,10 +93,7 @@ it("does not record success when an older desktop cannot open custom links", asy
   expect(state.persist).not.toHaveBeenCalled();
   expect(state.hintSeen).not.toHaveBeenCalled();
 });
-it("does not launch before connection routing resolves or when the SSH route is absent", async () => {
-  state.resolved = false;
-  expect((await useConfiguredEditors(environmentId, []).open("/project"))._tag).toBe("Failure");
-  state.resolved = true;
+it("does not launch when the SSH route is absent", async () => {
   state.remote = { mode: "remote-unavailable" };
   expect((await useConfiguredEditors(environmentId, []).open("/project"))._tag).toBe("Failure");
   expect(state.invoke).not.toHaveBeenCalled();
