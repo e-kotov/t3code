@@ -56,8 +56,8 @@ export function DeviceCommandsSettings() {
       <SettingsSection title="Commands" id="device-commands">
         {!getDeviceCommandsBridge() ? (
           <p>
-            Commands are available in the desktop app. Android has its own Commands tab using
-            Termux.
+            Commands are available in the macOS and Linux desktop app. Android has its own Commands
+            tab using Termux.
           </p>
         ) : (
           <div className="space-y-4">

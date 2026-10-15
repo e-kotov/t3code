@@ -35,10 +35,6 @@ function DeviceCommandsMenu() {
   const loadError = useDeviceCommandsStore((state) => state.loadError);
   const [now, setNow] = useState(() => Date.now());
   const anyRunning = Object.values(runs).some((run) => run.status === "running");
-  const recentRuns = commands.flatMap((command) => {
-    const run = runs[command.id];
-    return run ? [{ command, run }] : [];
-  });
 
   useEffect(() => {
     ensureDeviceCommandsLoaded();
@@ -83,20 +79,6 @@ function DeviceCommandsMenu() {
               ))
             )}
           </MenuGroup>
-          {recentRuns.length > 0 ? (
-            <>
-              <MenuSeparator />
-              <MenuGroup>
-                <MenuGroupLabel>Output</MenuGroupLabel>
-                {recentRuns.map(({ command, run }) => (
-                  <MenuItem key={run.runId} onClick={() => openDeviceCommandOutput(run.runId)}>
-                    <span className="min-w-0 flex-1 truncate">{command.name}</span>
-                    <DeviceCommandRunBadge run={run} now={now} />
-                  </MenuItem>
-                ))}
-              </MenuGroup>
-            </>
-          ) : null}
           <MenuSeparator />
           <MenuItem onClick={() => void navigate({ to: "/settings/commands" })}>
             Edit commands…

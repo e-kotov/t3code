@@ -14,6 +14,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
+// Intent keys and result fields: https://github.com/termux/termux-app/wiki/RUN_COMMAND-Intent
 private const val PERMISSION = "com.termux.permission.RUN_COMMAND"
 private const val LIMIT = 100_000
 private const val PROBE = "__termux_setup_probe__"

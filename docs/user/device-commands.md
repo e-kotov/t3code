@@ -3,7 +3,7 @@
 Device commands run your own shell commands on the device where you press Run.
 They work without a project or an online environment.
 
-In the desktop app, open **Settings → Commands** to add a name, icon and shell
+On macOS and Linux desktop, open **Settings → Commands** to add a name, icon and shell
 command. You can require confirmation and choose whether each command appears
 in the command palette. Save and test a command, then use the **Commands** menu
 at the bottom of the sidebar to run it or inspect its output. Desktop commands
@@ -23,4 +23,4 @@ command through Termux.
 The command lists stay on each device and are not synced through connected
 environments. Desktop stores its list in a separate `device-commands.json` file;
 Settings shows its location. Android keeps its list in the app's private
-storage. Device commands are unavailable in a plain web browser or on iOS.
+storage. Device commands are unavailable in a plain web browser, on Windows, or on iOS.
