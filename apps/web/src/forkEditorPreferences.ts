@@ -87,8 +87,10 @@ export function setEditorVisibility(
 
 /** Add scoped defaults while retaining the existing built-in preference history. */
 export function useConfiguredPreferredEditor(
-  availableEditors: readonly EditorId[], environmentId: string | null,
-  effectiveEditor: EditorId | null, setLastEditor: (id: EditorId) => void,
+  availableEditors: readonly EditorId[],
+  environmentId: string | null,
+  effectiveEditor: EditorId | null,
+  setLastEditor: (id: EditorId) => void,
 ) {
   const [preferences, setPreferences] = useEditorPreferences(environmentId, false);
   const menuLabel = (id: EditorId | null) =>

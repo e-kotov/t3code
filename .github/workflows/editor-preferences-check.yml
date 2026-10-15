@@ -25,15 +25,10 @@ jobs:
           cache: true
           run-install: false
       - run: vp install
-      - name: Format changed files
+      - name: Check formatting
         run: |
           export PATH="$PWD/node_modules/.bin:$PATH"
-          git diff --name-only --diff-filter=AM a4899b43e75abdc678f2ea6d9892701ce15e2fc2 HEAD -- '*.ts' '*.tsx' '*.yml' | xargs vp fmt
-          git diff > editor-preferences-format.patch
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: editor-preferences-format
-          path: editor-preferences-format.patch
+          git diff --name-only --diff-filter=AM a4899b43e75abdc678f2ea6d9892701ce15e2fc2 HEAD -- '*.ts' '*.tsx' '*.yml' | xargs vp fmt --check
       - name: Focused tests and type checks
         run: scripts/check-editor-preferences.sh
       - name: Lint changed files

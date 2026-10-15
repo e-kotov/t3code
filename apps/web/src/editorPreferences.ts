@@ -58,7 +58,12 @@ export function usePreferredEditor(
     return EDITORS.find((editor) => availableEditors.includes(editor.id))?.id ?? null;
   }, [lastEditor, availableEditors]);
 
-  return useConfiguredPreferredEditor(availableEditors, environmentId, effectiveEditor, setLastEditor);
+  return useConfiguredPreferredEditor(
+    availableEditors,
+    environmentId,
+    effectiveEditor,
+    setLastEditor,
+  );
 }
 
 function resolveAndPersistPreferredEditor(availableEditors: readonly EditorId[]): EditorId | null {

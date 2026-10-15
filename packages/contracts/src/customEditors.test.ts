@@ -15,12 +15,8 @@ it("accepts a custom executable without widening the detected-editor catalog", (
     },
   };
   expect(decodeLaunchEditorInput(input)).toEqual(input);
-  expect(() =>
-    decodeLaunchEditorInput({ cwd: "/repo", editor: "custom" }),
-  ).toThrow();
-  expect(() =>
-    decodeLaunchEditorInput({ ...input, editor: "anything" }),
-  ).toThrow();
+  expect(() => decodeLaunchEditorInput({ cwd: "/repo", editor: "custom" })).toThrow();
+  expect(() => decodeLaunchEditorInput({ ...input, editor: "anything" })).toThrow();
 });
 
 it("preserves spaces, quotes, Unicode and shell metacharacters as literal argv values", () => {
