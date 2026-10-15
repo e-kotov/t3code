@@ -1,7 +1,7 @@
 // @effect-diagnostics nodeBuiltinImport:off -- Native child-process stream fixtures exercise the desktop adapter without a shell or desktop session.
 import type { DeviceCommand, DeviceCommandRun } from "@t3tools/contracts";
-import { EventEmitter } from "node:events";
-import { PassThrough } from "node:stream";
+import * as NodeEvents from "node:events";
+import * as NodeStream from "node:stream";
 import { describe, expect, it } from "vite-plus/test";
 
 import { DeviceCommandsRunner, type DeviceCommandProcess } from "./DeviceCommandsRunner.ts";
@@ -15,9 +15,9 @@ const command: DeviceCommand = {
   showInCommandPalette: true,
 };
 
-class FakeProcess extends EventEmitter {
-  readonly stdout = new PassThrough();
-  readonly stderr = new PassThrough();
+class FakeProcess extends NodeEvents.EventEmitter {
+  readonly stdout = new NodeStream.PassThrough();
+  readonly stderr = new NodeStream.PassThrough();
   readonly pid: number | undefined;
   constructor(pid: number | undefined) {
     super();

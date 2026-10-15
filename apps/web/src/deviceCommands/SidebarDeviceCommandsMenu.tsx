@@ -45,7 +45,7 @@ function DeviceCommandsMenu() {
       <Menu onOpenChange={(open) => open && setNow(Date.now())}>
         <MenuTrigger
           render={
-            <SidebarMenuButton aria-label="Commands" title="Commands" size="icon">
+            <SidebarMenuButton aria-label="Commands" size="icon">
               <span className="relative">
                 <SquareTerminalIcon />
                 {anyRunning ? (

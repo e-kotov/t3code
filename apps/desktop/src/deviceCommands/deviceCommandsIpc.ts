@@ -105,18 +105,16 @@ export const stop = DesktopIpc.makeIpcMethod({
   channel: Channels.DEVICE_COMMANDS_STOP_CHANNEL,
   payload: DeviceCommandStopInput,
   result: Schema.Void,
-  handler: Effect.fn("desktop.ipc.deviceCommands.stop")(function* ({ runId }) {
-    runner.stop(runId);
-  }),
+  handler: Effect.fn("desktop.ipc.deviceCommands.stop")(({ runId }) =>
+    Effect.sync(() => runner.stop(runId)),
+  ),
 });
 
 export const listRuns = DesktopIpc.makeIpcMethod({
   channel: Channels.DEVICE_COMMANDS_LIST_RUNS_CHANNEL,
   payload: Schema.Void,
   result: Schema.Array(DeviceCommandRun),
-  handler: Effect.fn("desktop.ipc.deviceCommands.listRuns")(function* () {
-    return runner.runs();
-  }),
+  handler: Effect.fn("desktop.ipc.deviceCommands.listRuns")(() => Effect.sync(() => runner.runs())),
 });
 
 /** Registers the methods, forwards run updates to every window, and stops runs on quit. */

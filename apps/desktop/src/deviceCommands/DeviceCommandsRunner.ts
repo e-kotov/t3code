@@ -6,7 +6,6 @@ import {
   type DeviceCommand,
   type DeviceCommandRun,
 } from "@t3tools/contracts";
-import { listLoginShellCandidates } from "@t3tools/shared/shell";
 import * as NodeChildProcess from "node:child_process";
 import * as NodeCrypto from "node:crypto";
 
@@ -61,8 +60,7 @@ const defaultKillGroup = (pid: number, signal: NodeJS.Signals) => {
   }
 };
 
-const defaultShell = () =>
-  listLoginShellCandidates(process.platform, process.env.SHELL)[0] ?? "/bin/sh";
+const defaultShell = () => process.env.SHELL || "/bin/sh";
 
 /**
  * Runs device commands in the user's login shell. Desktop startup has already

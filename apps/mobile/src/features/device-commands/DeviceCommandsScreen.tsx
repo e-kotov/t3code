@@ -4,7 +4,7 @@ import {
   type DeviceCommand,
   type DeviceCommandRun,
 } from "@t3tools/contracts";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   AppState,
@@ -48,35 +48,40 @@ const icons: Record<DeviceCommand["icon"], AppSymbolName> = {
 };
 const errorText = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause));
 
+function readSnapshot(): {
+  state: ReturnType<typeof readTermuxCommands> | null;
+  error: string | null;
+} {
+  try {
+    return { state: readTermuxCommands(), error: null };
+  } catch (cause) {
+    return { state: null, error: errorText(cause) };
+  }
+}
+
 export function DeviceCommandsScreen() {
-  const [state, setState] = useState<ReturnType<typeof readTermuxCommands> | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [{ state, error }, setSnapshot] = useState(readSnapshot);
+  function setError(error: string | null) {
+    setSnapshot((previous) => ({ ...previous, error }));
+  }
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<ReadonlyArray<DeviceCommand> | null>(null);
   const [outputId, setOutputId] = useState<string | null>(null);
   const [active, setActive] = useState(AppState.currentState === "active");
-  function refresh() {
-    try {
-      setState(readTermuxCommands());
-      setError(null);
-    } catch (cause) {
-      setError(errorText(cause));
-    }
-  }
+  const refresh = useCallback(() => setSnapshot(readSnapshot()), []);
   useEffect(() => {
-    refresh();
     const subscription = AppState.addEventListener("change", (value) => {
       setActive(value === "active");
       if (value === "active") refresh();
     });
     return () => subscription.remove();
-  }, []);
+  }, [refresh]);
   const running = state?.runs.some((run) => run.status === "running") ?? false;
   useEffect(() => {
     if (!running || !active) return;
     const timer = setInterval(refresh, 1500);
     return () => clearInterval(timer);
-  }, [running, active]);
+  }, [running, active, refresh]);
   const items = draft ?? state?.commands ?? [];
   const runs = latestDeviceCommandRuns(state?.runs ?? []);
   const output = state?.runs.find((run) => run.runId === outputId);

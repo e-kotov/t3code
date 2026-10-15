@@ -7,9 +7,11 @@ import {
   finishedDeviceCommandStatus,
 } from "./deviceCommands.ts";
 
+const decodeDocument = Schema.decodeUnknownSync(DeviceCommandsDocument);
+
 describe("device commands contract", () => {
   it("fills defaults for commands saved with only the required fields", () => {
-    const decoded = Schema.decodeUnknownSync(DeviceCommandsDocument)({
+    const decoded = decodeDocument({
       commands: [{ id: "up", name: "GWDG up", command: "gwdg-agent up" }],
     });
     expect(decoded.commands[0]).toEqual({
@@ -24,7 +26,7 @@ describe("device commands contract", () => {
 
   it("rejects a command without text", () => {
     expect(() =>
-      Schema.decodeUnknownSync(DeviceCommandsDocument)({
+      decodeDocument({
         commands: [{ id: "up", name: "GWDG up", command: "  " }],
       }),
     ).toThrow();

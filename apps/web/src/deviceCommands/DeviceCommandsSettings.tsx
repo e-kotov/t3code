@@ -90,7 +90,7 @@ export function DeviceCommandsSettings() {
                     draggable={!saving}
                     onDragStart={() => setDragId(item.id)}
                     onDragEnd={() => setDragId(null)}
-                    title="Drag to reorder"
+                    aria-label="Drag to reorder"
                     className="cursor-grab"
                   >
                     <GripVerticalIcon className="size-4" />
