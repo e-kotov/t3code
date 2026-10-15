@@ -1,3 +1,6 @@
+import { configuredEditorEntries, preferredConfiguredEditor, useEditorPreferences } from "./forkEditorPreferences";
+import { openSavedConfiguredEditor } from "./forkLocalEditorActions";
+import { openInEditorMenuLabel } from "./editorLabels";
 import {
   AuthOrchestrationOperateScope,
   EDITORS,
@@ -45,15 +48,19 @@ export class PreferredEditorUnavailableError extends Schema.TaggedError<Preferre
   }
 }
 
-export function usePreferredEditor(availableEditors: ReadonlyArray<EditorId>) {
-  const [lastEditor, setLastEditor] = useLocalStorage(LAST_EDITOR_KEY, null, EditorId);
+export function usePreferredEditor(availableEditors: ReadonlyArray<EditorId>, environmentId: EnvironmentId | null = null) {
+  const [preferences, setPreferences] = useEditorPreferences(environmentId, false);
+  const [lastEditor] = useLocalStorage(LAST_EDITOR_KEY, null, EditorId);
 
   const effectiveEditor = useMemo(() => {
     if (lastEditor && availableEditors.includes(lastEditor)) return lastEditor;
     return EDITORS.find((editor) => availableEditors.includes(editor.id))?.id ?? null;
   }, [lastEditor, availableEditors]);
 
-  return [effectiveEditor, setLastEditor] as const;
+  const entries = configuredEditorEntries(preferences, availableEditors, false);
+  const configured = preferredConfiguredEditor(entries, preferences.preferred, effectiveEditor);
+  const label = configured?.builtIn ? openInEditorMenuLabel(configured.builtIn) : configured ? `Open in ${configured.name}` : "Open in editor";
+  return [configured?.id ?? null, (id: string) => setPreferences((value) => ({ ...value, preferred: id })), label] as const;
 }
 
 function resolveAndPersistPreferredEditor(availableEditors: readonly EditorId[]): EditorId | null {
@@ -79,7 +86,8 @@ export function useOpenInPreferredEditor(
       targetPath: string,
     ): Promise<
       AtomCommandResult<
-        EditorId,
+        string,
+        | Error
         | OpenInEditorError
         | PreferredEditorEnvironmentRequiredError
         | PreferredEditorUnavailableError
@@ -105,6 +113,8 @@ export function useOpenInPreferredEditor(
           ),
         );
       }
+      const configured = await openSavedConfiguredEditor(environmentId, availableEditors, targetPath, openInEditor);
+      if (configured !== null) return configured;
       const editor = resolveAndPersistPreferredEditor(availableEditors);
       if (!editor) {
         return AsyncResult.failure(

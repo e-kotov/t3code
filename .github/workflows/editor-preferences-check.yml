@@ -1,0 +1,42 @@
+name: Editor preferences checks
+on:
+  push:
+    branches: [feat/editor-preferences]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - name: Checkout feature branch
+        run: |
+          git init .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch --no-tags origin "$GITHUB_SHA" a4899b43e75abdc678f2ea6d9892701ce15e2fc2
+          git checkout --detach "$GITHUB_SHA"
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: false
+      - run: vp install
+      - name: Format changed files
+        run: |
+          export PATH="$PWD/node_modules/.bin:$PATH"
+          git diff --name-only --diff-filter=AM a4899b43e75abdc678f2ea6d9892701ce15e2fc2 HEAD -- '*.ts' '*.tsx' '*.yml' | xargs vp fmt
+          git diff > editor-preferences-format.patch
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: editor-preferences-format
+          path: editor-preferences-format.patch
+      - name: Focused tests and type checks
+        run: scripts/check-editor-preferences.sh
+      - name: Lint changed files
+        run: |
+          export PATH="$PWD/node_modules/.bin:$PATH"
+          git diff --name-only --diff-filter=AM a4899b43e75abdc678f2ea6d9892701ce15e2fc2 HEAD -- '*.ts' '*.tsx' | xargs vp lint

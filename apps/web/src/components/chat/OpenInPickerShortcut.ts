@@ -1,10 +1,8 @@
 import type { EditorId, EnvironmentId, ResolvedKeybindingsConfig } from "@t3tools/contracts";
 import { useEffect } from "react";
 
-import { usePreferredEditor } from "../../editorPreferences";
+import { useConfiguredEditors } from "../../useConfiguredEditors";
 import { isOpenFavoriteEditorShortcut } from "../../keybindings";
-import { shellEnvironment } from "../../state/shell";
-import { useAtomCommand } from "../../state/use-atom-command";
 
 export function useOpenFavoriteEditorShortcut({
   enabled,
@@ -19,8 +17,7 @@ export function useOpenFavoriteEditorShortcut({
   availableEditors: ReadonlyArray<EditorId>;
   openInCwd: string | null;
 }) {
-  const openInEditorMutation = useAtomCommand(shellEnvironment.openInEditor, "open in editor");
-  const [preferredEditor] = usePreferredEditor(availableEditors);
+  const { preferredEditor, open } = useConfiguredEditors(environmentId, availableEditors);
 
   useEffect(() => {
     if (!enabled) return;
@@ -29,15 +26,9 @@ export function useOpenFavoriteEditorShortcut({
       if (!openInCwd || !preferredEditor) return;
 
       event.preventDefault();
-      void openInEditorMutation({
-        environmentId,
-        input: {
-          cwd: openInCwd,
-          editor: preferredEditor,
-        },
-      });
+      void open(openInCwd);
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [enabled, environmentId, keybindings, openInCwd, openInEditorMutation, preferredEditor]);
+  }, [enabled, environmentId, keybindings, openInCwd, open, preferredEditor]);
 }

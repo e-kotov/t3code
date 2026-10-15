@@ -1,6 +1,9 @@
 import * as Schema from "effect/Schema";
 import { TrimmedNonEmptyString } from "./baseSchemas.ts";
 import { buildGramRemoteOpenUrl, FORK_EDITORS } from "./forkEditors.ts";
+import { CustomEditorCommand } from "./customEditors.ts";
+export { CustomEditorCommand, CustomEditorUrlInput } from "./customEditors.ts";
+export { buildCustomEditorUrl, customEditorArguments } from "./customEditorTemplates.ts";
 
 export const EditorLaunchStyle = Schema.Literals(["direct-path", "goto", "line-column"]);
 export type EditorLaunchStyle = typeof EditorLaunchStyle.Type;
@@ -168,7 +171,7 @@ export type EditorId = typeof EditorId.Type;
 export const FileManagerRevealKind = Schema.Literals(["finder", "file-explorer", "files"]);
 export type FileManagerRevealKind = typeof FileManagerRevealKind.Type;
 
-export const LaunchEditorInput = Schema.Struct({
+const BuiltInLaunchEditorInput = Schema.Struct({
   cwd: TrimmedNonEmptyString,
   editor: EditorId,
   /** Reveal (select) `cwd` in the file manager instead of opening it. Only
@@ -176,7 +179,12 @@ export const LaunchEditorInput = Schema.Struct({
       `shellRevealInFileManager` config flag before sending this. */
   reveal: Schema.optional(Schema.Boolean),
 });
+export const LaunchEditorInput = Schema.Union([
+  BuiltInLaunchEditorInput,
+  Schema.Struct({ cwd: TrimmedNonEmptyString, editor: Schema.Literal("custom"), customEditor: CustomEditorCommand }),
+]);
 export type LaunchEditorInput = typeof LaunchEditorInput.Type;
+const LauncherEditorId = Schema.Literals([...EDITORS.map((editor) => editor.id), "custom"]);
 
 const remoteSchemeOf = (editor: EditorDefinition): string | undefined =>
   editor.remoteScheme ?? (editor.jetbrainsProductCode === undefined ? undefined : "jetbrains");
@@ -277,7 +285,7 @@ export class ExternalLauncherUnsupportedEditorError extends Schema.TaggedError<E
 export class ExternalLauncherCommandNotFoundError extends Schema.TaggedError<ExternalLauncherCommandNotFoundError>()(
   "ExternalLauncherCommandNotFoundError",
   {
-    editor: EditorId,
+    editor: LauncherEditorId,
     command: Schema.String,
   },
 ) {
@@ -290,7 +298,7 @@ export class ExternalLauncherCommandNotFoundError extends Schema.TaggedError<Ext
 export class ExternalLauncherUnsupportedTargetError extends Schema.TaggedError<ExternalLauncherUnsupportedTargetError>()(
   "ExternalLauncherUnsupportedTargetError",
   {
-    editor: EditorId,
+    editor: LauncherEditorId,
   },
 ) {
   override get message(): string {
@@ -320,7 +328,7 @@ export class ExternalLauncherEditorSpawnError extends Schema.TaggedError<Externa
   "ExternalLauncherEditorSpawnError",
   {
     ...ExternalLauncherSpawnFields,
-    editor: EditorId,
+    editor: LauncherEditorId,
     target: Schema.String,
   },
 ) {
