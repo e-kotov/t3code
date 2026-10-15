@@ -7,12 +7,18 @@ on:
     paths:
       - ".github/workflows/fork-device-commands.yml"
       - "apps/desktop/src/deviceCommands/**"
+      - "apps/desktop/src/preload.ts"
+      - "apps/desktop/src/ipc/DesktopIpcHandlers.ts"
       - "apps/web/src/deviceCommands/**"
+      - "apps/web/src/routes/settings.commands.tsx"
+      - "apps/web/src/components/CommandPalette.tsx"
+      - "apps/web/src/components/sidebar/SidebarChrome.tsx"
       - "apps/mobile/src/features/device-commands/**"
       - "apps/mobile/modules/t3-termux-command/**"
       - "apps/mobile/modules/t3-native-controls/android/src/main/java/expo/modules/t3nativecontrols/T3WorkspaceNavigationModule.kt"
       - "apps/mobile/src/features/workspace/**"
       - "packages/contracts/src/deviceCommands*"
+      - "packages/contracts/src/ipc.ts"
 
 permissions:
   contents: read
