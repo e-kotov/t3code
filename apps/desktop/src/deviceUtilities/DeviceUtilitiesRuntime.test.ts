@@ -117,4 +117,14 @@ describe("device utilities runtime", () => {
     expect(await NodeFSP.readFile(file, "utf8")).toBe("invalid");
     runtime.dispose();
   });
+  it("never starts another health process after closing during an action", async () => {
+    const { runtime, pending } = await setup();
+    const initial = await runtime.snapshot();
+    await runtime.action("vpn", "restart", initial.revision);
+    expect(pending).toHaveLength(1);
+    runtime.dispose();
+    await Promise.resolve();
+    expect(pending[0]!.stopped).toBe(true);
+    expect(pending).toHaveLength(1);
+  });
 });

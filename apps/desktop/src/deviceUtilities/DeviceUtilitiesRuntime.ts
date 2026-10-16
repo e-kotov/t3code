@@ -24,6 +24,7 @@ export class DeviceUtilitiesRuntime {
   private readonly generations = new Map<string, number>();
   private readonly actionLocks = new Set<string>();
   private reloading = false;
+  private disposed = false;
   private timer: ReturnType<typeof setInterval> | undefined;
   private readonly runner: UtilityProcessRunner;
   private readonly now: () => number;
@@ -61,12 +62,14 @@ export class DeviceUtilitiesRuntime {
     return this.snapshot();
   }
   private async load() {
-    for (const run of this.running.values()) run.stop();
+    const previousRuns = [...this.running.values()];
+    for (const run of previousRuns) run.stop();
     this.running.clear();
     this.observations.clear();
     this.actions.clear();
     this.generations.clear();
     this.state = { ...this.state, revision: this.state.revision + 1, error: null, config: null };
+    await Promise.all(previousRuns.map((run) => run.promise));
     try {
       const info = await NodeFSP.stat(this.state.configPath);
       if (info.size > UTILITY_CONFIG_LIMIT)
@@ -79,12 +82,14 @@ export class DeviceUtilitiesRuntime {
   }
   async active(clientId: string, active: boolean) {
     await this.snapshot();
+    if (this.disposed) return;
     if (active) this.clients.set(clientId, this.now() + 75_000);
     else this.clients.delete(clientId);
     this.timer ??= setInterval(() => this.tick(), 1000);
     this.tick();
   }
   private tick() {
+    if (this.disposed || this.reloading) return;
     const now = this.now();
     for (const [id, until] of this.clients) if (until <= now) this.clients.delete(id);
     if (!this.clients.size || this.state.error) return;
@@ -99,10 +104,11 @@ export class DeviceUtilitiesRuntime {
   }
   async check() {
     await this.snapshot();
-    if (this.state.error) return;
+    if (this.state.error || this.reloading || this.disposed) return;
     for (const service of this.state.config?.services ?? []) this.startCheck(service);
   }
   private startCheck(service: UtilityService, force = false) {
+    if (this.disposed) return;
     if (
       !service.enabled ||
       this.running.has(service.id) ||
@@ -134,7 +140,7 @@ export class DeviceUtilitiesRuntime {
   }
   async action(serviceId: string, actionId: string, revision: number) {
     await this.snapshot();
-    if (revision !== this.state.revision || this.state.error || this.reloading)
+    if (revision !== this.state.revision || this.state.error || this.reloading || this.disposed)
       throw new Error("Configuration changed. Reopen the action before running it.");
     const service = this.state.config?.services.find((s) => s.id === serviceId && s.enabled);
     const action = service?.actions.find((a) => a.id === actionId);
@@ -150,6 +156,10 @@ export class DeviceUtilitiesRuntime {
       await check.promise;
       this.running.delete(serviceId);
     }
+    if (this.disposed) {
+      this.actionLocks.delete(serviceId);
+      return;
+    }
     const processRun = this.runner.start({
       serviceId,
       actionId,
@@ -161,15 +171,19 @@ export class DeviceUtilitiesRuntime {
     this.actionLocks.delete(serviceId);
     this.actions.set(serviceId, processRun.run);
     void processRun.promise.then((result) => {
+      if (this.disposed) return;
       this.actions.set(serviceId, result);
       this.actionProcesses.delete(serviceId);
       if (this.state.revision === revision) this.startCheck(service, true);
     });
   }
   dispose() {
+    this.disposed = true;
     if (this.timer) clearInterval(this.timer);
     for (const run of [...this.running.values(), ...this.actionProcesses.values()])
       run.stop("App closed.");
     this.clients.clear();
+    this.running.clear();
+    this.actionProcesses.clear();
   }
 }

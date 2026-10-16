@@ -119,7 +119,7 @@ internal object DeviceUtilities {
   }
   @Synchronized fun importConfig(context: Context) {
     val state = expiredState(context)
-    check(items(state.getJSONArray("actions")).none { running(it) } && state.optJSONObject("import")?.let { running(it) } != true) { "Wait for the active utility operation." }
+    check(items(state.getJSONArray("actions")).none { running(it) } && items(state.getJSONArray("checks")).none { running(it) } && state.optJSONObject("import")?.let { running(it) } != true) { "Wait for the active bounded health check or action, then reload." }
     state.put("error", "Importing configuration from Termux…")
     // Fixed path/command: connected environments cannot supply a local shell command.
     launch(context, state, "__config__", null, "cat -- \"\$HOME/.config/t3-utilities/dashboard.json\"", 10, "import")
