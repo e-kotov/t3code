@@ -67,3 +67,5 @@ export * from "./secretRequest.ts";
 export * from "./clientRpcPermissions.ts";
 export * from "./slurmJob.ts";
 export * from "./deviceCommands.ts";
+
+export * from "./deviceUtilities.ts";

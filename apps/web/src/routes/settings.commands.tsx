@@ -1,4 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { DeviceCommandsSettings } from "../deviceCommands/DeviceCommandsSettings";
+import { UtilitiesSettings } from "../deviceUtilities/UtilitiesPanel";
 
-export const Route = createFileRoute("/settings/commands")({ component: DeviceCommandsSettings });
+export const Route = createFileRoute("/settings/commands")({ component: UtilitiesSettings });

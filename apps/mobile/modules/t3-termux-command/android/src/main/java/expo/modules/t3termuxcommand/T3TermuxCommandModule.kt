@@ -127,7 +127,7 @@ class TermuxResultReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     val pending = goAsync()
     Thread {
-      try { TermuxCommands.receive(context, intent) } finally { pending.finish() }
+      try { if (intent.data?.scheme == "t3-utility-result") DeviceUtilities.receive(context, intent) else TermuxCommands.receive(context, intent) } finally { pending.finish() }
     }.start()
   }
 }
@@ -135,6 +135,10 @@ class TermuxResultReceiver : BroadcastReceiver() {
 class T3TermuxCommandModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("T3TermuxCommand")
+    Function("utilitiesSnapshot") { DeviceUtilities.snapshot(appContext.reactContext ?: error("The app is not ready.")) }
+    Function("utilitiesImport") { DeviceUtilities.importConfig(appContext.reactContext ?: error("The app is not ready.")) }
+    Function("utilitiesCheck") { serviceId: String, revision: Int -> DeviceUtilities.check(appContext.reactContext ?: error("The app is not ready."), serviceId, revision) }
+    Function("utilitiesAction") { serviceId: String, actionId: String, revision: Int -> DeviceUtilities.action(appContext.reactContext ?: error("The app is not ready."), serviceId, actionId, revision) }
     Function("getState") {
       val context = appContext.reactContext ?: error("The app is not ready.")
       val installed = try { context.packageManager.getPackageInfo("com.termux", 0); true } catch (_: PackageManager.NameNotFoundException) { false }

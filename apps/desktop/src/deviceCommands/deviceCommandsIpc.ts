@@ -1,3 +1,4 @@
+import { installDeviceUtilities } from "../deviceUtilities/deviceUtilitiesIpc.ts";
 import {
   DeviceCommandRun,
   DeviceCommandRunInput,
@@ -119,6 +120,7 @@ export const listRuns = DesktopIpc.makeIpcMethod({
 
 /** Registers the methods, forwards run updates to every window, and stops runs on quit. */
 export const installDeviceCommands = Effect.fn("desktop.ipc.deviceCommands.install")(function* () {
+  yield* installDeviceUtilities();
   const ipc = yield* DesktopIpc.DesktopIpc;
   const electronWindow = yield* ElectronWindow.ElectronWindow;
   const unsubscribe = runner.subscribe((runUpdate) => {

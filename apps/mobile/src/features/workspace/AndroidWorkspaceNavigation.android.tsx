@@ -1,3 +1,5 @@
+import { useDeviceUtilities } from "../device-utilities/utilitiesStore";
+import { utilityColor } from "../device-utilities/utilityColors";
 import { requireNativeView } from "expo";
 import { CommonActions, useNavigation } from "@react-navigation/native";
 import { androidWorkspaceNavigationState } from "../../lib/android-workspace-navigation";
@@ -20,6 +22,8 @@ import type { WorkspaceTab } from "./workspace-tabs-state";
 export const ANDROID_WORKSPACE_RAIL_WIDTH = 80;
 
 interface NativeNavigationProps extends ViewProps {
+  readonly utilitiesLabel: string;
+  readonly utilitiesColor: number;
   readonly rail: boolean;
   readonly selectedTab: WorkspaceTab;
   readonly dark: boolean;
@@ -42,6 +46,7 @@ export function AndroidWorkspaceNavigation(props: {
   readonly rail?: boolean;
   readonly onSelect?: () => void;
 }) {
+  const utilities = useDeviceUtilities();
   const workspace = useWorkspaceTabs()!;
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -68,6 +73,8 @@ export function AndroidWorkspaceNavigation(props: {
       }}
     >
       <NativeNavigation
+        utilitiesLabel={`Utilities, ${utilities.aggregate}, ${utilities.statuses.filter((s) => s === "down").length} down`}
+        utilitiesColor={nativeColor(utilityColor(utilities.aggregate, themeAppearance === "dark"))}
         rail={rail}
         selectedTab={workspace.state.selectedTab}
         dark={themeAppearance === "dark"}

@@ -1,3 +1,4 @@
+import { UtilitiesSection } from "../device-utilities/UtilitiesSection";
 import {
   DEVICE_COMMAND_ICONS,
   DEVICE_COMMANDS_MAX_COUNT,
@@ -131,7 +132,7 @@ export function DeviceCommandsScreen() {
   return (
     <View className="flex-1 bg-screen">
       <AndroidScreenHeader
-        title="Commands"
+        title="Utilities"
         actions={
           state
             ? [
@@ -150,6 +151,7 @@ export function DeviceCommandsScreen() {
         contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled"
       >
+        <UtilitiesSection />
         <Text className="text-foreground-muted">
           Commands run locally in Termux, using this phone’s setup. Output arrives when the command
           finishes.

@@ -31,11 +31,11 @@ export function WorkspaceRootScreen() {
     return (
       <>
         <NativeStackScreenOptions options={{ headerShown: false }} />
-        <AndroidScreenHeader title="Commands" />
+        <AndroidScreenHeader title="Utilities" />
         <View className="flex-1 items-center justify-center px-10">
           <EmptyState
-            title="Device commands"
-            detail="Run or edit commands in the sidebar."
+            title="Device utilities"
+            detail="Inspect services or run commands in the sidebar."
             variant="plain"
           />
         </View>

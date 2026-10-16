@@ -5,6 +5,15 @@ import * as Channels from "./deviceCommandsChannels.ts";
 
 export function makeDeviceCommandsBridge(ipcRenderer: IpcRenderer): DeviceCommandsBridge {
   return {
+    utilities: {
+      snapshot: () => ipcRenderer.invoke("desktop:utilities-snapshot"),
+      reload: () => ipcRenderer.invoke("desktop:utilities-reload"),
+      check: () => ipcRenderer.invoke("desktop:utilities-check"),
+      active: (clientId, active) =>
+        ipcRenderer.invoke("desktop:utilities-active", { clientId, active }),
+      action: (serviceId, actionId, revision) =>
+        ipcRenderer.invoke("desktop:utilities-action", { serviceId, actionId, revision }),
+    },
     getState: () => ipcRenderer.invoke(Channels.DEVICE_COMMANDS_GET_STATE_CHANNEL),
     save: (document) => ipcRenderer.invoke(Channels.DEVICE_COMMANDS_SAVE_CHANNEL, document),
     run: (commandId) => ipcRenderer.invoke(Channels.DEVICE_COMMANDS_RUN_CHANNEL, { commandId }),

@@ -1,3 +1,4 @@
+import type { DeviceUtilitiesBridge } from "./deviceUtilities.ts";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
@@ -85,6 +86,7 @@ export const DeviceCommandStopInput = Schema.Struct({ runId: TrimmedNonEmptyStri
 
 /** Desktop bridge group. Optional on DesktopBridge: older desktop builds lack it. */
 export interface DeviceCommandsBridge {
+  readonly utilities?: DeviceUtilitiesBridge;
   readonly getState: () => Promise<DeviceCommandsState>;
   readonly save: (document: DeviceCommandsDocument) => Promise<DeviceCommandsState>;
   /** Runs a stored command by ID; the command text is read from the device's own file. */

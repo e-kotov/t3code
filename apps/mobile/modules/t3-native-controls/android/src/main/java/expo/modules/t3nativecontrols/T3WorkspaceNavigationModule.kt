@@ -54,6 +54,8 @@ class T3WorkspaceNavigationModule : Module() {
       Prop("unselectedColor") { view: T3WorkspaceNavigationView, value: Int ->
         view.unselectedColor = value
       }
+      Prop("utilitiesLabel") { view: T3WorkspaceNavigationView, value: String -> view.utilitiesLabel = value }
+      Prop("utilitiesColor") { view: T3WorkspaceNavigationView, value: Int -> view.utilitiesColor = value }
       Events("onTabSelected")
     }
   }
@@ -68,6 +70,8 @@ class T3WorkspaceNavigationView(
   override val shouldUseAndroidLayout = true
 
   private val onTabSelected by EventDispatcher()
+  var utilitiesLabel by mutableStateOf("Utilities, unknown")
+  var utilitiesColor by mutableStateOf(0xff888888.toInt())
   var selectedTab by mutableStateOf("threads")
   var rail by mutableStateOf(false)
   var dark by mutableStateOf(false)
@@ -121,7 +125,7 @@ class T3WorkspaceNavigationView(
                     onClick = { onTabSelected(mapOf("tab" to tab)) },
                     icon = { tabIcon(tab) },
                     label = {
-                      val title = when (tab) { "threads" -> "Chats"; "commands" -> "Commands"; else -> "PRs" }
+                      val title = when (tab) { "threads" -> "Chats"; "commands" -> "Utilities"; else -> "PRs" }
                       Text(title, fontSize = (12 * textScale).sp)
                     },
                     colors = NavigationRailItemDefaults.colors(
@@ -148,7 +152,7 @@ class T3WorkspaceNavigationView(
                     onClick = { onTabSelected(mapOf("tab" to tab)) },
                     icon = { tabIcon(tab) },
                     label = {
-                      val title = when (tab) { "threads" -> "Chats"; "commands" -> "Commands"; else -> "Pull requests" }
+                      val title = when (tab) { "threads" -> "Chats"; "commands" -> "Utilities"; else -> "Pull requests" }
                       Text(title, fontSize = (12 * textScale).sp)
                     },
                     colors = NavigationBarItemDefaults.colors(
@@ -171,6 +175,7 @@ class T3WorkspaceNavigationView(
 
   @Composable
   private fun tabIcon(tab: String) {
+    if (tab == "commands") { UtilityNavigationIcon(utilitiesLabel, utilitiesColor); return }
     val drawable = when (tab) {
       "threads" -> R.drawable.t3_chats
       "commands" -> R.drawable.t3_device_commands
@@ -178,7 +183,7 @@ class T3WorkspaceNavigationView(
     }
     Icon(
       painter = painterResource(drawable),
-      contentDescription = when (tab) { "threads" -> "Chats"; "commands" -> "Commands"; else -> "Pull requests" },
+      contentDescription = when (tab) { "threads" -> "Chats"; "commands" -> "Utilities"; else -> "Pull requests" },
     )
   }
 }

@@ -1,0 +1,93 @@
+import {
+  UtilitySnapshot,
+  utilityAggregate,
+  utilityStatuses,
+  type DeviceUtilitiesBridge,
+} from "@t3tools/contracts";
+import * as Schema from "effect/Schema";
+import { useEffect } from "react";
+import { create } from "zustand";
+
+const decode = Schema.decodeUnknownSync(UtilitySnapshot);
+export const getUtilitiesBridge = (): DeviceUtilitiesBridge | null =>
+  typeof window === "undefined" ? null : (window.desktopBridge?.deviceCommands?.utilities ?? null);
+export const useUtilitiesStore = create<{
+  snapshot: UtilitySnapshot | null;
+  error: string | null;
+  now: number;
+}>(() => ({ snapshot: null, error: null, now: Date.now() }));
+let subscribers = 0;
+let timer: ReturnType<typeof setInterval> | undefined;
+let clientId = "";
+let reading = false;
+let heartbeatAt = 0;
+export async function refreshUtilities() {
+  const bridge = getUtilitiesBridge();
+  if (!bridge || reading) return;
+  reading = true;
+  try {
+    useUtilitiesStore.setState({
+      snapshot: decode(await bridge.snapshot()),
+      now: Date.now(),
+      error: null,
+    });
+  } catch (cause) {
+    useUtilitiesStore.setState({ error: String(cause), now: Date.now() });
+  } finally {
+    reading = false;
+  }
+}
+function heartbeat() {
+  const bridge = getUtilitiesBridge();
+  if (!bridge) return;
+  const visible = document.visibilityState === "visible";
+  if (!visible || Date.now() - heartbeatAt >= 30_000) {
+    heartbeatAt = Date.now();
+    void bridge
+      .active(clientId, visible)
+      .catch((cause) => useUtilitiesStore.setState({ error: String(cause) }));
+  }
+  if (visible) void refreshUtilities();
+}
+export function useDeviceUtilities() {
+  const state = useUtilitiesStore();
+  useEffect(() => {
+    if (!getUtilitiesBridge()) return;
+    subscribers++;
+    if (subscribers === 1) {
+      clientId = window.crypto.randomUUID();
+      heartbeatAt = 0;
+      document.addEventListener("visibilitychange", heartbeat);
+      timer = setInterval(heartbeat, 3000);
+      heartbeat();
+    }
+    return () => {
+      if (--subscribers === 0) {
+        if (timer) clearInterval(timer);
+        document.removeEventListener("visibilitychange", heartbeat);
+        void getUtilitiesBridge()
+          ?.active(clientId, false)
+          .catch(() => undefined);
+      }
+    };
+  }, []);
+  const statuses = state.snapshot ? utilityStatuses(state.snapshot, state.now) : [];
+  return {
+    ...state,
+    statuses,
+    aggregate: state.error ? ("unknown" as const) : utilityAggregate(statuses),
+  };
+}
+export async function reloadUtilities() {
+  try {
+    const snapshot = await getUtilitiesBridge()?.reload();
+    if (snapshot)
+      useUtilitiesStore.setState({ snapshot: decode(snapshot), error: null, now: Date.now() });
+  } catch (cause) {
+    useUtilitiesStore.setState({ error: String(cause) });
+  }
+}
+export async function checkUtilities() {
+  await getUtilitiesBridge()?.check();
+  await refreshUtilities();
+}

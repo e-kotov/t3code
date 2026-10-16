@@ -3,10 +3,15 @@ name: Fork device commands
 on:
   workflow_dispatch:
   push:
-    branches: [main, feat/device-commands]
+    branches: [main, feat/device-commands, feat/device-utilities]
     paths:
       - ".github/workflows/fork-device-commands.yml"
       - "apps/desktop/src/deviceCommands/**"
+      - "apps/desktop/src/deviceUtilities/**"
+      - "apps/web/src/deviceUtilities/**"
+      - "apps/mobile/src/features/device-utilities/**"
+      - "packages/contracts/src/deviceUtilities*"
+      - "apps/mobile/modules/t3-native-controls/android/src/main/java/expo/modules/t3nativecontrols/UtilityNavigationIcon.kt"
       - "apps/desktop/src/preload.ts"
       - "apps/desktop/src/ipc/DesktopIpcHandlers.ts"
       - "apps/web/src/deviceCommands/**"
@@ -62,12 +67,12 @@ jobs:
       - name: Focused tests
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: |
-          vp test run packages/contracts/src/deviceCommands.test.ts apps/mobile/src/features/device-commands/termuxCommands.logic.test.ts apps/mobile/src/features/workspace/workspace-tabs-state.test.ts
-          (cd apps/desktop && vp test run src/deviceCommands/DeviceCommandsRunner.test.ts src/deviceCommands/deviceCommandsFile.test.ts)
+          vp test run packages/contracts/src/deviceUtilities.test.ts packages/contracts/src/deviceCommands.test.ts apps/mobile/src/features/device-commands/termuxCommands.logic.test.ts apps/mobile/src/features/workspace/workspace-tabs-state.test.ts
+          (cd apps/desktop && vp test run src/deviceCommands/DeviceCommandsRunner.test.ts src/deviceCommands/deviceCommandsFile.test.ts src/deviceUtilities/DeviceUtilitiesRuntime.test.ts src/deviceUtilities/UtilityProcessRunner.test.ts)
           (cd apps/web && vp test run --project unit src/deviceCommands/deviceCommands.logic.test.ts)
       - name: Lint feature code
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: vp lint apps/desktop/src/deviceCommands apps/web/src/deviceCommands apps/web/src/routes/settings.commands.tsx apps/mobile/src/features/device-commands packages/contracts/src/deviceCommands.ts packages/contracts/src/deviceCommands.test.ts
+        run: vp lint apps/desktop/src/deviceUtilities apps/web/src/deviceUtilities apps/mobile/src/features/device-utilities packages/contracts/src/deviceUtilities.ts packages/contracts/src/deviceUtilities.test.ts apps/desktop/src/deviceCommands apps/web/src/deviceCommands apps/web/src/routes/settings.commands.tsx apps/mobile/src/features/device-commands packages/contracts/src/deviceCommands.ts packages/contracts/src/deviceCommands.test.ts
       - uses: actions/setup-java@v4
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         with:
@@ -80,4 +85,4 @@ jobs:
       - name: Test Termux result handling
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         working-directory: apps/mobile/android
-        run: ./gradlew :t3-termux-command:testDebugUnitTest --no-daemon --max-workers=2
+        run: ./gradlew :t3-termux-command:testDebugUnitTest :t3-native-controls:compileDebugKotlin --no-daemon --max-workers=2
