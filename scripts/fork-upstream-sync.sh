@@ -26,6 +26,16 @@ case "${1:?usage: fork-upstream-sync.sh merge|checks|footprint}" in
     fi
     git checkout -B main "$start"
     upstream=$(git rev-parse refs/remotes/upstream/main)
+    if [ "${SYNC_PROMOTE_ONLY:-false}" = true ]; then
+      [ -n "${SYNC_BRANCH:-}" ] || { summary 'Promotion requires an explicit branch.'; exit 1; }
+      # Compare the fork against the upstream base it actually contains. A client
+      # release must not silently pull in unrelated upstream protocol changes.
+      upstream=$(git merge-base HEAD refs/remotes/upstream/main)
+      out "upstream=$upstream"
+      summary "Checking the selected branch without merging newer upstream code."
+      [ "$(git rev-parse HEAD)" = "$(git rev-parse refs/remotes/origin/main)" ] && out "changed=false" || out "changed=true"
+      exit 0
+    fi
     out "upstream=$upstream"
     if git merge-base --is-ancestor "$upstream" HEAD; then
       summary "Fork main already contains upstream ${upstream:0:10}."

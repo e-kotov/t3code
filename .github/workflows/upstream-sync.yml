@@ -13,6 +13,11 @@ on:
         required: false
         type: string
         default: ""
+      promote_only:
+        description: "Check and promote the selected branch without merging newer upstream code"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -48,6 +53,7 @@ jobs:
       - id: merge
         env:
           SYNC_BRANCH: ${{ inputs.branch }}
+          SYNC_PROMOTE_ONLY: ${{ inputs.promote_only && 'true' || 'false' }}
         run: scripts/fork-upstream-sync.sh merge
       - if: steps.merge.outputs.changed == 'true'
         uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
