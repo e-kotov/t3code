@@ -18,7 +18,6 @@ export const useUtilitiesStore = create<{
 }>(() => ({ snapshot: null, error: null, now: Date.now() }));
 let subscribers = 0;
 let timer: ReturnType<typeof setInterval> | undefined;
-let clientId = "";
 let reading = false;
 let heartbeatAt = 0;
 export async function refreshUtilities() {
@@ -41,13 +40,17 @@ function heartbeat() {
   const bridge = getUtilitiesBridge();
   if (!bridge) return;
   const visible = document.visibilityState === "visible";
-  if (!visible || Date.now() - heartbeatAt >= 30_000) {
+  if (Date.now() - heartbeatAt >= 30_000) {
     heartbeatAt = Date.now();
     void bridge
-      .active(clientId, visible)
+      .active(visible)
       .catch((cause) => useUtilitiesStore.setState({ error: String(cause) }));
   }
   if (visible) void refreshUtilities();
+}
+function visibilityChanged() {
+  heartbeatAt = 0;
+  heartbeat();
 }
 export function useDeviceUtilities() {
   const state = useUtilitiesStore();
@@ -55,18 +58,17 @@ export function useDeviceUtilities() {
     if (!getUtilitiesBridge()) return;
     subscribers++;
     if (subscribers === 1) {
-      clientId = window.crypto.randomUUID();
       heartbeatAt = 0;
-      document.addEventListener("visibilitychange", heartbeat);
+      document.addEventListener("visibilitychange", visibilityChanged);
       timer = setInterval(heartbeat, 3000);
       heartbeat();
     }
     return () => {
       if (--subscribers === 0) {
         if (timer) clearInterval(timer);
-        document.removeEventListener("visibilitychange", heartbeat);
+        document.removeEventListener("visibilitychange", visibilityChanged);
         void getUtilitiesBridge()
-          ?.active(clientId, false)
+          ?.active(false)
           .catch(() => undefined);
       }
     };

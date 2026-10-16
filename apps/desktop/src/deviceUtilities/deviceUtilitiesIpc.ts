@@ -5,12 +5,24 @@ import * as DesktopIpc from "../ipc/DesktopIpc.ts";
 import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
 import { DeviceUtilitiesRuntime } from "./DeviceUtilitiesRuntime.ts";
 
+class DeviceUtilitiesError extends Schema.TaggedError<DeviceUtilitiesError>()(
+  "DeviceUtilitiesError",
+  { detail: Schema.String },
+) {
+  override get message() {
+    return this.detail;
+  }
+}
+
 export const installDeviceUtilities = Effect.fn("desktop.utilities.install")(function* () {
   const ipc = yield* DesktopIpc.DesktopIpc;
   const environment = yield* DesktopEnvironment.DesktopEnvironment;
   const runtime = new DeviceUtilitiesRuntime(environment.homeDirectory);
   const call = <A>(operation: () => Promise<A>) =>
-    Effect.tryPromise({ try: operation, catch: (cause) => new Error(String(cause)) });
+    Effect.tryPromise({
+      try: operation,
+      catch: (cause) => new DeviceUtilitiesError({ detail: String(cause) }),
+    });
   yield* Effect.addFinalizer(() => Effect.sync(() => runtime.dispose()));
   yield* ipc.handle(
     DesktopIpc.makeIpcMethod({
@@ -39,9 +51,10 @@ export const installDeviceUtilities = Effect.fn("desktop.utilities.install")(fun
   yield* ipc.handle(
     DesktopIpc.makeIpcMethod({
       channel: "desktop:utilities-active",
-      payload: Schema.Struct({ clientId: Schema.String, active: Schema.Boolean }),
+      payload: Schema.Struct({ active: Schema.Boolean }),
       result: Schema.Void,
-      handler: ({ clientId, active }) => call(() => runtime.active(clientId, active)),
+      handler: ({ active }, event) =>
+        call(() => runtime.active(String(event?.sender.id ?? "unknown"), active)),
     }),
   );
   yield* ipc.handle(

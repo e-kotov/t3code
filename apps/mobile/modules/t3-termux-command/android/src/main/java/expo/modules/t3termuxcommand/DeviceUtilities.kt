@@ -81,6 +81,7 @@ internal object DeviceUtilities {
     val previous = items(state.optJSONArray("previousChecks") ?: JSONArray())
     val publicState = JSONObject(state.toString())
     publicState.remove("previousChecks")
+    publicState.remove("import")
     publicState.put("checks", JSONArray(items(state.getJSONArray("checks")).map { run ->
       if (running(run)) previous.find { it.getString("serviceId") == run.getString("serviceId") } ?: run else run
     }))

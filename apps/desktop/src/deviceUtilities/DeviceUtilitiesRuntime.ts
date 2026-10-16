@@ -8,8 +8,8 @@ import {
   type UtilityService,
   type UtilitySnapshot,
 } from "@t3tools/contracts";
-import * as FS from "node:fs/promises";
-import * as Path from "node:path";
+import * as NodeFSP from "node:fs/promises";
+import * as NodePath from "node:path";
 import { UtilityProcessRunner } from "./UtilityProcessRunner.ts";
 
 type ProcessRun = ReturnType<UtilityProcessRunner["start"]>;
@@ -25,13 +25,14 @@ export class DeviceUtilitiesRuntime {
   private readonly actionLocks = new Set<string>();
   private reloading = false;
   private timer: ReturnType<typeof setInterval> | undefined;
-  constructor(
-    home: string,
-    private readonly runner = new UtilityProcessRunner(),
-  ) {
+  private readonly runner: UtilityProcessRunner;
+  private readonly now: () => number;
+  constructor(home: string, runner = new UtilityProcessRunner(), now: () => number = Date.now) {
+    this.runner = runner;
+    this.now = now;
     this.state = {
       config: null,
-      configPath: Path.join(home, UTILITY_CONFIG_PATH),
+      configPath: NodePath.join(home, UTILITY_CONFIG_PATH),
       revision: 0,
       error: null,
       checks: [],
@@ -67,10 +68,10 @@ export class DeviceUtilitiesRuntime {
     this.generations.clear();
     this.state = { ...this.state, revision: this.state.revision + 1, error: null, config: null };
     try {
-      const info = await FS.stat(this.state.configPath);
+      const info = await NodeFSP.stat(this.state.configPath);
       if (info.size > UTILITY_CONFIG_LIMIT)
         throw new Error("Utility configuration exceeds 64 KiB.");
-      const config = decodeUtilityConfig(await FS.readFile(this.state.configPath, "utf8"));
+      const config = decodeUtilityConfig(await NodeFSP.readFile(this.state.configPath, "utf8"));
       this.state = { ...this.state, config };
     } catch (cause) {
       this.state = { ...this.state, error: cause instanceof Error ? cause.message : String(cause) };
@@ -78,13 +79,13 @@ export class DeviceUtilitiesRuntime {
   }
   async active(clientId: string, active: boolean) {
     await this.snapshot();
-    if (active) this.clients.set(clientId, Date.now() + 75_000);
+    if (active) this.clients.set(clientId, this.now() + 75_000);
     else this.clients.delete(clientId);
     this.timer ??= setInterval(() => this.tick(), 1000);
     this.tick();
   }
   private tick() {
-    const now = Date.now();
+    const now = this.now();
     for (const [id, until] of this.clients) if (until <= now) this.clients.delete(id);
     if (!this.clients.size || this.state.error) return;
     for (const service of this.state.config?.services ?? []) {
@@ -110,7 +111,7 @@ export class DeviceUtilitiesRuntime {
     )
       return;
     const previous = this.observations.get(service.id);
-    if (!force && previous && Date.now() - previous.startedAt < 10_000) return;
+    if (!force && previous && this.now() - previous.startedAt < 10_000) return;
     const revision = this.state.revision;
     const generation = this.generations.get(service.id) ?? 0;
     const processRun = this.runner.start({

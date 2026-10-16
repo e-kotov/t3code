@@ -90,17 +90,19 @@ export type UtilitySnapshot = typeof UtilitySnapshot.Type;
 export interface DeviceUtilitiesBridge {
   snapshot(): Promise<UtilitySnapshot>;
   reload(): Promise<UtilitySnapshot>;
-  active(clientId: string, active: boolean): Promise<void>;
+  active(active: boolean): Promise<void>;
   check(): Promise<void>;
   action(serviceId: string, actionId: string, revision: number): Promise<void>;
 }
 
+const decodeConfig = Schema.decodeUnknownSync(UtilityConfig);
+const decodeReport = Schema.decodeUnknownSync(UtilityReport);
 function unique(ids: ReadonlyArray<string>) {
   if (new Set(ids).size !== ids.length) throw new Error("Duplicate utility IDs.");
 }
 export function decodeUtilityConfig(raw: string): UtilityConfig {
   if (raw.length > UTILITY_CONFIG_LIMIT) throw new Error("Utility configuration exceeds 64 KiB.");
-  const value = Schema.decodeUnknownSync(UtilityConfig)(JSON.parse(raw));
+  const value = decodeConfig(JSON.parse(raw));
   unique(value.services.map((s) => s.id));
   for (const service of value.services) {
     unique(service.actions.map((a) => a.id));
@@ -109,12 +111,12 @@ export function decodeUtilityConfig(raw: string): UtilityConfig {
   }
   return value;
 }
-export function readUtilityResult(run: UtilityExecution, now = Date.now()): UtilityResult {
+export function readUtilityResult(run: UtilityExecution, now: number): UtilityResult {
   if (run.finishedAt === null) throw new Error("Check is still running.");
   if (run.error) throw new Error(run.error);
   if (run.truncated) throw new Error("Check output was truncated or exceeded 32 KiB.");
   if (run.exitCode !== 0) throw new Error(`Check failed (exit ${run.exitCode ?? "unknown"}).`);
-  const report = Schema.decodeUnknownSync(UtilityReport)(JSON.parse(run.stdout));
+  const report = decodeReport(JSON.parse(run.stdout));
   unique(report.services.map((s) => s.id));
   const result = report.services.find((s) => s.id === run.serviceId);
   if (!result) throw new Error("Expected service ID is missing from check output.");
@@ -134,7 +136,7 @@ export type UtilityDisplayStatus = UtilityHealth | "stale";
 export function utilityObservation(
   service: UtilityService,
   run: UtilityExecution | undefined,
-  now = Date.now(),
+  now: number,
 ) {
   if (!service.enabled)
     return { status: "inactive" as const, result: null, reason: "Disabled in configuration." };
@@ -166,7 +168,7 @@ export function utilityAggregate(
   if (active.every((s) => s === "down")) return "down";
   return "mixed";
 }
-export function utilityStatuses(snapshot: UtilitySnapshot, now = Date.now()) {
+export function utilityStatuses(snapshot: UtilitySnapshot, now: number) {
   return (snapshot.config?.services ?? []).map(
     (s) => utilityServiceObservation(snapshot, s, now).status,
   );
@@ -174,7 +176,7 @@ export function utilityStatuses(snapshot: UtilitySnapshot, now = Date.now()) {
 export function utilityServiceObservation(
   snapshot: UtilitySnapshot,
   service: UtilityService,
-  now = Date.now(),
+  now: number,
 ) {
   const observation = utilityObservation(
     service,
@@ -190,11 +192,11 @@ export function utilityServiceObservation(
     };
   return observation;
 }
-export function utilityTime(value: string | null, now = Date.now()): string {
+export function utilityTime(value: string | null, now: number): string {
   if (!value) return "Unknown · not reported";
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "Unknown · invalid timestamp";
-  const minutes = Math.max(0, Math.floor((now - date.getTime()) / 60_000));
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return "Unknown · invalid timestamp";
+  const minutes = Math.max(0, Math.floor((now - timestamp) / 60_000));
   const age =
     minutes < 1
       ? "just now"
@@ -203,5 +205,5 @@ export function utilityTime(value: string | null, now = Date.now()): string {
         : minutes < 1440
           ? `${Math.floor(minutes / 60)}h ${minutes % 60}m ago`
           : `${Math.floor(minutes / 1440)}d ${Math.floor((minutes % 1440) / 60)}h ago`;
-  return `${date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "long" })} · ${age}`;
+  return `${new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "long" }).format(timestamp)} · ${age}`;
 }

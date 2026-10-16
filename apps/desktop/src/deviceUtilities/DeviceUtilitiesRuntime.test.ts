@@ -1,7 +1,7 @@
 // @effect-diagnostics nodeBuiltinImport:off -- Temporary files and controlled native process events exercise device boundaries.
-import * as FS from "node:fs/promises";
-import * as OS from "node:os";
-import * as Path from "node:path";
+import * as NodeFSP from "node:fs/promises";
+import * as NodeOS from "node:os";
+import * as NodePath from "node:path";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { DeviceUtilitiesRuntime } from "./DeviceUtilitiesRuntime.ts";
 import { UtilityProcessRunner } from "./UtilityProcessRunner.ts";
@@ -10,14 +10,14 @@ import { UTILITY_CONFIG_PATH, type UtilityExecution } from "@t3tools/contracts";
 const homes: string[] = [];
 afterEach(async () => {
   vi.useRealTimers();
-  for (const home of homes.splice(0)) await FS.rm(home, { recursive: true, force: true });
+  for (const home of homes.splice(0)) await NodeFSP.rm(home, { recursive: true, force: true });
 });
 async function setup() {
-  const home = await FS.mkdtemp(Path.join(OS.tmpdir(), "utilities-"));
+  const home = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "utilities-"));
   homes.push(home);
-  const file = Path.join(home, UTILITY_CONFIG_PATH);
-  await FS.mkdir(Path.dirname(file), { recursive: true });
-  await FS.writeFile(
+  const file = NodePath.join(home, UTILITY_CONFIG_PATH);
+  await NodeFSP.mkdir(NodePath.dirname(file), { recursive: true });
+  await NodeFSP.writeFile(
     file,
     JSON.stringify({
       version: 1,
@@ -44,7 +44,7 @@ async function setup() {
       revision: input.revision,
       serviceId: input.serviceId,
       actionId: input.actionId,
-      startedAt: Date.now(),
+      startedAt: 1000,
       finishedAt: null,
       stdout: "",
       stderr: "",
@@ -69,11 +69,11 @@ async function setup() {
       promise,
       stop: () => {
         entry.stopped = true;
-        resolve({ ...run, finishedAt: Date.now(), error: "superseded" });
+        resolve({ ...run, finishedAt: 1000, error: "superseded" });
       },
     };
   });
-  return { runtime: new DeviceUtilitiesRuntime(home, runner), pending, file };
+  return { runtime: new DeviceUtilitiesRuntime(home, runner, () => 1000), pending, file };
 }
 describe("device utilities runtime", () => {
   it("coalesces multiple windows and refuses an action confirmed against an old config", async () => {
@@ -100,7 +100,7 @@ describe("device utilities runtime", () => {
     await expect(runtime.action("vpn", "restart", initial.revision)).rejects.toThrow(
       "already running",
     );
-    pending[1]!.resolve({ finishedAt: Date.now(), exitCode: 0 });
+    pending[1]!.resolve({ finishedAt: 1000, exitCode: 0 });
     await Promise.resolve();
     expect(pending).toHaveLength(3);
     expect((await runtime.snapshot()).checks).toEqual([]);
@@ -109,12 +109,12 @@ describe("device utilities runtime", () => {
   it("keeps invalid config on disk and pauses monitoring", async () => {
     const { runtime, pending, file } = await setup();
     await runtime.snapshot();
-    await FS.writeFile(file, "invalid");
+    await NodeFSP.writeFile(file, "invalid");
     const state = await runtime.reload();
     expect(state.error).not.toBeNull();
     await runtime.check();
     expect(pending).toHaveLength(0);
-    expect(await FS.readFile(file, "utf8")).toBe("invalid");
+    expect(await NodeFSP.readFile(file, "utf8")).toBe("invalid");
     runtime.dispose();
   });
 });

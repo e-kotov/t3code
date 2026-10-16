@@ -9,8 +9,7 @@ export function makeDeviceCommandsBridge(ipcRenderer: IpcRenderer): DeviceComman
       snapshot: () => ipcRenderer.invoke("desktop:utilities-snapshot"),
       reload: () => ipcRenderer.invoke("desktop:utilities-reload"),
       check: () => ipcRenderer.invoke("desktop:utilities-check"),
-      active: (clientId, active) =>
-        ipcRenderer.invoke("desktop:utilities-active", { clientId, active }),
+      active: (active) => ipcRenderer.invoke("desktop:utilities-active", { active }),
       action: (serviceId, actionId, revision) =>
         ipcRenderer.invoke("desktop:utilities-action", { serviceId, actionId, revision }),
     },
