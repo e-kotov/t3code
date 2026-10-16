@@ -41,6 +41,7 @@ jobs:
       - name: Checkout fork history without vendored gitlinks
         env:
           GIT_TERMINAL_PROMPT: "0"
+          CHECKOUT_REF: ${{ github.sha }}
         run: |
           set -euo pipefail
           git init .
@@ -48,7 +49,7 @@ jobs:
           git sparse-checkout set --no-cone '/*' '!/.repos/'
           git config user.name "t3code-ek upstream sync"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch --no-tags origin main
+          git fetch --no-tags origin "$CHECKOUT_REF"
           git checkout --detach FETCH_HEAD
       - id: merge
         env:
