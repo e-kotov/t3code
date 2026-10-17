@@ -1,7 +1,6 @@
-// @vitest-environment jsdom
 import { EnvironmentId } from "@t3tools/contracts";
 import { act, type ReactNode } from "react";
-import { create, type ReactTestRenderer } from "react-test-renderer";
+import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 import { editorPreferencesKey } from "../../forkEditorPreferences";
 
@@ -71,44 +70,58 @@ vi.mock("../ui/dialog", async () => {
   };
 });
 import { EditorSettings } from "./EditorSettings";
-let renderer: ReactTestRenderer | undefined;
+let root: Root;
+let container: HTMLDivElement;
 beforeEach(() => {
   localStorage.clear();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  container = document.createElement("div");
+  document.body.append(container);
+  root = createRoot(container);
 });
 afterEach(async () => {
-  await act(() => renderer?.unmount());
+  await act(async () => root.unmount());
+  container.remove();
+  localStorage.clear();
   vi.unstubAllGlobals();
 });
 function select(label: string) {
-  return renderer!.root.findAllByType("select").find((node) => node.props["aria-label"] === label)!;
+  return container.querySelector<HTMLSelectElement>(`select[aria-label="${label}"]`)!;
 }
 function button(label: string) {
-  return renderer!.root.findAllByType("button").find((node) => node.children.join("") === label)!;
+  return [...container.querySelectorAll("button")].find((node) => node.textContent === label)!;
+}
+async function change(
+  control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
+  value: string,
+) {
+  await act(async () => {
+    const prototype = control instanceof HTMLInputElement
+      ? HTMLInputElement.prototype
+      : control instanceof HTMLTextAreaElement
+        ? HTMLTextAreaElement.prototype
+        : HTMLSelectElement.prototype;
+    Object.getOwnPropertyDescriptor(prototype, "value")!.set!.call(control, value);
+    control.dispatchEvent(new Event(control instanceof HTMLSelectElement ? "change" : "input", {
+      bubbles: true,
+    }));
+  });
 }
 
 it("persists remote visibility independently of local custom commands, defaults and deletion", async () => {
-  await act(() => {
-    renderer = create(<EditorSettings />);
-  });
-  await act(() => select("Gram visibility").props.onChange({ target: { value: "show" } }));
+  await act(async () => root.render(<EditorSettings />));
+  await change(select("Gram visibility"), "show");
   const remoteKey = editorPreferencesKey(null, true);
   expect(JSON.parse(localStorage.getItem(remoteKey)!)).toMatchObject({
     builtIns: [{ id: "gram", visibility: "show" }],
   });
-  await act(() =>
-    select("Editor configuration target").props.onChange({ target: { value: "mac" } }),
-  );
-  await act(() => button("Add custom editor").props.onClick());
-  const inputs = renderer!.root.findAllByType("input");
-  await act(() => inputs[0]!.props.onChange({ target: { value: "My editor" } }));
-  await act(() => inputs[1]!.props.onChange({ target: { value: "/my tools/editor" } }));
-  await act(() =>
-    renderer!.root
-      .findByType("textarea")
-      .props.onChange({ target: { value: "--goto\n{path}:{line}" } }),
-  );
-  await act(() => renderer!.root.findByType("form").props.onSubmit({ preventDefault: vi.fn() }));
+  await change(select("Editor configuration target"), "mac");
+  await act(async () => button("Add custom editor").click());
+  const inputs = container.querySelectorAll<HTMLInputElement>("input");
+  await change(inputs[0]!, "My editor");
+  await change(inputs[1]!, "/my tools/editor");
+  await change(container.querySelector("textarea")!, "--goto\n{path}:{line}");
+  await act(async () => container.querySelector("form")!.requestSubmit());
   const localKey = editorPreferencesKey(EnvironmentId.make("mac"), false);
   const saved = JSON.parse(localStorage.getItem(localKey)!);
   expect(saved.custom).toHaveLength(1);
@@ -117,11 +130,9 @@ it("persists remote visibility independently of local custom commands, defaults 
     command: "/my tools/editor",
     args: ["--goto", "{path}:{line}"],
   });
-  await act(() =>
-    select("Default editor").props.onChange({ target: { value: saved.custom[0].id } }),
-  );
+  await change(select("Default editor"), saved.custom[0].id);
   expect(JSON.parse(localStorage.getItem(localKey)!).preferred).toBe(saved.custom[0].id);
-  await act(() => button("Remove").props.onClick());
+  await act(async () => button("Remove").click());
   expect(JSON.parse(localStorage.getItem(localKey)!)).toMatchObject({
     custom: [],
     preferred: null,
