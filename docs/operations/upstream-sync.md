@@ -10,8 +10,9 @@ they are not tied to upstream stable releases.
 `scripts/fork-upstream-sync.sh`:
 
 1. `merge` merges upstream `main` into fork `main`. If upstream is already contained, it stops.
-2. `checks` typechecks contracts, shared, client-runtime, server, web and mobile, then runs every
-   test file the fork added or changed relative to upstream.
+2. `checks` typechecks contracts, shared, client-runtime, server, web, mobile and desktop, then
+   runs every test file the fork added or changed relative to upstream, plus upstream sidebar,
+   markdown and editor regression tests. Web browser tests run in headless Chromium on the runner.
 3. If both pass, the merge commit is pushed to `main`. Upstream workflows that became active are
    disabled; only fork-owned workflows stay enabled.
 

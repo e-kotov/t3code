@@ -68,6 +68,16 @@ case "${1:?usage: fork-upstream-sync.sh merge|checks|footprint}" in
     git diff --name-only --diff-filter=AM "$upstream" HEAD -- '*.test.ts' '*.test.tsx' |
       awk -F/ '($1 == "apps" || $1 == "packages") && NF > 2 { print $1 "/" $2 " " substr($0, length($1 "/" $2) + 2) } $1 == "scripts" { print "scripts " substr($0, 9) }' |
       sort > "$RUNNER_TEMP/fork-tests.txt"
+    # Preserve upstream defaults at the fork's sidebar, markdown and editor mounts.
+    cat >> "$RUNNER_TEMP/fork-tests.txt" <<'TESTS'
+apps/web src/components/chat/OpenInPicker.browser.test.tsx
+apps/web src/components/ChatMarkdown.browser.test.tsx
+apps/web src/components/ChatMarkdown.permissions.browser.test.tsx
+apps/web src/components/Sidebar.logic.test.ts
+apps/web src/components/Sidebar.drag.test.ts
+apps/web src/components/Sidebar.pointer.browser.test.tsx
+TESTS
+    sort -u -o "$RUNNER_TEMP/fork-tests.txt" "$RUNNER_TEMP/fork-tests.txt"
     status=0
     for package in $(cut -d' ' -f1 "$RUNNER_TEMP/fork-tests.txt" | uniq); do
       tests=()
