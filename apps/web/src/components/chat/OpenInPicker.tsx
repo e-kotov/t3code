@@ -228,14 +228,6 @@ export const OpenInPicker = memo(function OpenInPicker({
   const canOpenEditor = remote.mode !== "remote-unavailable" && !isHostEditorDenied;
   const [menuOpen, setMenuOpen] = useComposerMenuState(isHostEditorDenied);
   const environmentLabel = useEnvironment(environmentId)?.label ?? "this machine";
-  const options = configuredOpenInOptions(
-    entries,
-    resolveOpenInOptions(
-      navigator.platform,
-      entries.flatMap((entry) => (entry.builtIn ? [entry.builtIn] : [])),
-    ),
-  );
-  const primaryOption = options.find(({ value }) => value === preferredEditor) ?? null;
   const openInEditor = async (id: string | null) => {
     if (!openInCwd) return;
     const result = await open(openInCwd, id);
@@ -282,7 +274,13 @@ export const OpenInPicker = memo(function OpenInPicker({
     remote.mode,
   ]);
   // Derived after the shortcut effect so the compiler can cache the resolved editor list.
-  const options = resolveOpenInOptions(navigator.platform, effectiveEditors);
+  const options = configuredOpenInOptions(
+    entries,
+    resolveOpenInOptions(
+      navigator.platform,
+      entries.flatMap((entry) => (entry.builtIn ? [entry.builtIn] : [])),
+    ),
+  );
   const primaryOption = options.find(({ value }) => value === preferredEditor) ?? null;
   const primaryLabel = isPanel ? `Open in ${primaryOption?.label ?? "editor"}` : "Open";
 

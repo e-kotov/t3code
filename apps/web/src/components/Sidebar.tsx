@@ -1079,7 +1079,7 @@ function SidebarThreadTooltip({
           environmentId={thread.environmentId}
           threadId={thread.id}
           hud={thread.cacheHud}
-          usageWindows={providerEntry?.snapshot.usageLimits?.windows}
+          providerInstanceId={modelInstanceId}
         />
       </ThreadHoverCard>
     </ThreadHoverCardPopup>
@@ -2813,7 +2813,7 @@ export default function Sidebar() {
   });
   const newThreadContext = useHandleNewThread();
   const primaryEnvironmentId = usePrimaryEnvironmentId();
-  const moveConversationMachine = useCallback(
+  const moveConversationMachine = useStableCallback(
     (environmentId: EnvironmentId, delta: -1 | 1) => {
       const visibleIds = [...new Set(threads.map((thread) => thread.environmentId))].sort(
         (left, right) => {
@@ -2836,7 +2836,6 @@ export default function Sidebar() {
       [visibleIds[index], visibleIds[target]] = [visibleIds[target]!, visibleIds[index]!];
       void updateClientSettings({ sidebarConversationMachineOrder: visibleIds });
     },
-    [conversationMachineOrder, primaryEnvironmentId, threads, updateClientSettings],
   );
   const clearSelection = useThreadSelectionStore((s) => s.clearSelection);
   const setSelectionAnchor = useThreadSelectionStore((s) => s.setAnchor);

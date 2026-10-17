@@ -49,7 +49,7 @@ export class PreferredEditorUnavailableError extends Schema.TaggedError<Preferre
 export function usePreferredEditor(
   availableEditors: ReadonlyArray<EditorId>,
   environmentId: EnvironmentId | null = null,
-) {
+): readonly [string | null, (id: string) => void, string?] {
   const [lastEditor, setLastEditor] = useLocalStorage(LAST_EDITOR_KEY, null, EditorId);
 
   const effectiveEditor =

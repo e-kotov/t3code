@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useAtomValue } from "@effect/atom-react";
+import { serverEnvironment } from "~/state/server";
 import type {
   EnvironmentId,
   OrchestrationV2CacheHud,
@@ -26,6 +28,7 @@ export function ThreadCacheHoverDetails(props: {
   threadId: ThreadId;
   hud: OrchestrationV2CacheHud | null | undefined;
   usageWindows?: ReadonlyArray<ServerProviderUsageWindow> | undefined;
+  providerInstanceId?: string;
 }) {
   const warming = useEnvironmentSettings(
     props.environmentId,
@@ -33,7 +36,12 @@ export function ThreadCacheHoverDetails(props: {
   );
   // The card mounts when it opens, so its times are as of opening.
   const [openedAt] = useState(() => Date.now());
-  const limits = describeUsageWindows(props.usageWindows, openedAt);
+  const providers = useAtomValue(serverEnvironment.providersValueAtom(props.environmentId));
+  const usageWindows =
+    props.usageWindows ??
+    providers?.find((provider) => provider.instanceId === props.providerInstanceId)?.usageLimits
+      ?.windows;
+  const limits = describeUsageWindows(usageWindows, openedAt);
   if (!props.hud && limits.length === 0) return null;
   const details = props.hud ? describeCacheHud(props.hud, openedAt) : null;
   const supportsWarming = props.hud?.driver === "codex" || props.hud?.driver === "claudeAgent";
