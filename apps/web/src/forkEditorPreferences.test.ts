@@ -4,6 +4,7 @@ import {
   editorPreferencesKey,
   EMPTY_EDITOR_PREFERENCES,
   preferredConfiguredEditor,
+  resolveEditorPreferences,
   setEditorVisibility,
   type CustomEditor,
 } from "./forkEditorPreferences";
@@ -18,6 +19,11 @@ const custom: CustomEditor = {
 };
 
 describe("configured editors", () => {
+  it.each(["vscode", null, {}])("retains detected editors with legacy or missing preferences: %j", (saved) => {
+    const preferences = resolveEditorPreferences(saved);
+    const entries = configuredEditorEntries(preferences, ["vscode"], false);
+    expect(preferredConfiguredEditor(entries, preferences.preferred, "vscode")?.id).toBe("vscode");
+  });
   it("keeps detection by default and allows explicit visibility overrides", () => {
     expect(
       configuredEditorEntries(EMPTY_EDITOR_PREFERENCES, ["vscode"], false).map((entry) => entry.id),
