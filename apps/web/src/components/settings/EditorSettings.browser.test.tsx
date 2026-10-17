@@ -4,21 +4,27 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 import { editorPreferencesKey } from "../../forkEditorPreferences";
 
-vi.mock("../../state/environments", () => ({
+vi.mock("../../state/environments", async (original) => ({
+  ...(await original<typeof import("../../state/environments")>()),
   useEnvironments: () => ({
     environments: [
       { environmentId: "mac", label: "Mac", serverConfig: { availableEditors: ["vscode"] } },
     ],
   }),
 }));
-vi.mock("../../remoteOpen", () => ({ useRemoteCapableEditors: () => ["vscode"] }));
-vi.mock("./settingsLayout", () => ({
+vi.mock("../../remoteOpen", async (original) => ({
+  ...(await original<typeof import("../../remoteOpen")>()),
+  useRemoteCapableEditors: () => ["vscode"],
+}));
+vi.mock("./settingsLayout", async (original) => ({
+  ...(await original<typeof import("./settingsLayout")>()),
   SettingsSection: ({ children }: { children: ReactNode }) => children,
   SettingsRow: ({ children }: { children: ReactNode }) => children,
 }));
-vi.mock("../ui/select", async () => {
+vi.mock("../ui/select", async (original) => {
   const { Children, isValidElement } = await import("react");
   return {
+    ...(await original<typeof import("../ui/select")>()),
     Select: ({
       children,
       value,
@@ -52,13 +58,23 @@ vi.mock("../ui/select", async () => {
     ),
   };
 });
-vi.mock("../ui/button", () => ({ Button: (props: object) => <button {...props} /> }));
-vi.mock("../ui/input", () => ({ Input: (props: object) => <input {...props} /> }));
-vi.mock("../ui/textarea", () => ({ Textarea: (props: object) => <textarea {...props} /> }));
-vi.mock("../ui/dialog", async () => {
+vi.mock("../ui/button", async (original) => ({
+  ...(await original<typeof import("../ui/button")>()),
+  Button: (props: object) => <button {...props} />,
+}));
+vi.mock("../ui/input", async (original) => ({
+  ...(await original<typeof import("../ui/input")>()),
+  Input: (props: object) => <input {...props} />,
+}));
+vi.mock("../ui/textarea", async (original) => ({
+  ...(await original<typeof import("../ui/textarea")>()),
+  Textarea: (props: object) => <textarea {...props} />,
+}));
+vi.mock("../ui/dialog", async (original) => {
   const { cloneElement } = await import("react");
   const Group = ({ children }: { children: ReactNode }) => children;
   return {
+    ...(await original<typeof import("../ui/dialog")>()),
     Dialog: Group,
     DialogHeader: Group,
     DialogTitle: Group,
