@@ -93,7 +93,7 @@ function DirectSettingsNotificationsRouteScreen() {
       if (value) {
         const permission = await runtime.runPromise(requestAgentNotificationPermission);
         if (permission.type !== "granted") {
-          Alert.alert(
+          Dialog.alert(
             "Notifications are disabled",
             "Allow notifications for T3 Code in Android Settings.",
           );
@@ -102,7 +102,7 @@ function DirectSettingsNotificationsRouteScreen() {
       }
       setDirectNotificationsEnabled(value);
     } catch {
-      Alert.alert("Couldn't change notifications", "Reopen T3 Code and try again.");
+      Dialog.alert("Couldn't change notifications", "Reopen T3 Code and try again.");
     } finally {
       setBusy(false);
     }

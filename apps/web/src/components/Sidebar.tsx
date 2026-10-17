@@ -72,7 +72,11 @@ import {
   type ThreadId,
 } from "@t3tools/contracts";
 
-import type { SidebarConversationSortOrder, SidebarConversationGrouping, TimestampFormat } from "@t3tools/contracts/settings";
+import type {
+  SidebarConversationSortOrder,
+  SidebarConversationGrouping,
+  TimestampFormat,
+} from "@t3tools/contracts/settings";
 import {
   AlarmClockIcon,
   AlarmClockOffIcon,
@@ -656,7 +660,10 @@ function partitionSidebarThreads(input: SidebarThreadPartitionInput) {
   // web and mobile from the same data.
   const sortedPinned = sortPinnedThreadsForSidebar(pinned);
   const sortedActive = sortSidebarConversations(
-    active, input.conversationSortOrder, Date.now(), input.conversationGrouping,
+    active,
+    input.conversationSortOrder,
+    Date.now(),
+    input.conversationGrouping,
   );
   return {
     pinnedThreads:
@@ -678,7 +685,10 @@ function partitionSidebarThreads(input: SidebarThreadPartitionInput) {
             getId: (thread) => scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
           }),
     workingThreads: sortSidebarConversations(
-      working, input.conversationSortOrder, Date.now(), input.conversationGrouping,
+      working,
+      input.conversationSortOrder,
+      Date.now(),
+      input.conversationGrouping,
     ),
     snoozedThreads: snoozed.toSorted(
       (left, right) =>
