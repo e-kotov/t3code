@@ -1,5 +1,5 @@
 import { EnvironmentId } from "@t3tools/contracts";
-import { act, type ReactNode } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
@@ -21,8 +21,12 @@ vi.mock(import("../../remoteOpen"), async (original) => ({
 }));
 vi.mock(import("./settingsLayout"), async (original) => ({
   ...(await original()),
-  SettingsSection: ({ children }: { children: ReactNode }) => <>{children}</>,
-  SettingsRow: ({ children }: { children: ReactNode }) => <>{children}</>,
+  SettingsSection: (props: Parameters<typeof import("./settingsLayout").SettingsSection>[0]) => (
+    <>{props.children}</>
+  ),
+  SettingsRow: (props: Parameters<typeof import("./settingsLayout").SettingsRow>[0]) => (
+    <>{props.children}</>
+  ),
 }));
 
 import { EditorSettings } from "./EditorSettings";
