@@ -21,8 +21,8 @@ vi.mock(import("../../remoteOpen"), async (original) => ({
 }));
 vi.mock(import("./settingsLayout"), async (original) => ({
   ...(await original()),
-  SettingsSection: ({ children }: { children: ReactNode }) => children,
-  SettingsRow: ({ children }: { children: ReactNode }) => children,
+  SettingsSection: ({ children }: { children: ReactNode }) => <>{children}</>,
+  SettingsRow: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
 import { EditorSettings } from "./EditorSettings";
@@ -57,9 +57,18 @@ it("persists remote visibility independently of local custom commands, defaults 
   });
   await choose("Editor configuration target", "Local commands on Mac");
   await act(async () => userEvent.click(page.getByRole("button", { name: "Add custom editor" })));
-  await act(async () => userEvent.fill(page.getByRole("textbox", { name: "Name", exact: true }), "My editor"));
-  await act(async () => userEvent.fill(page.getByRole("textbox", { name: "Executable", exact: true }), "/my tools/editor"));
-  await act(async () => userEvent.fill(document.querySelector("textarea")!, "--goto\n{path}:{line}"));
+  await act(async () =>
+    userEvent.fill(page.getByRole("textbox", { name: "Name", exact: true }), "My editor"),
+  );
+  await act(async () =>
+    userEvent.fill(
+      page.getByRole("textbox", { name: "Executable", exact: true }),
+      "/my tools/editor",
+    ),
+  );
+  await act(async () =>
+    userEvent.fill(document.querySelector("textarea")!, "--goto\n{path}:{line}"),
+  );
   await act(async () => userEvent.click(page.getByRole("button", { name: "Save editor" })));
   const localKey = editorPreferencesKey(EnvironmentId.make("mac"), false);
   const saved = JSON.parse(localStorage.getItem(localKey)!);
