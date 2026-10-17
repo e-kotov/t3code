@@ -10,7 +10,7 @@ import {
   type EnvironmentId,
   type ResolvedKeybindingsConfig,
 } from "@t3tools/contracts";
-import { memo, useCallback, useEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { isOpenFavoriteEditorShortcut, shortcutLabelForCommand } from "../../keybindings";
 import { editorLabelForPlatform } from "../../editorLabels";
 import { useEnvironment } from "../../state/environments";
@@ -236,25 +236,22 @@ export const OpenInPicker = memo(function OpenInPicker({
     ),
   );
   const primaryOption = options.find(({ value }) => value === preferredEditor) ?? null;
-  const openInEditor = useCallback(
-    async (id: string | null) => {
-      if (!openInCwd) return;
-      const result = await open(openInCwd, id);
-      if (result._tag === "Failure") {
-        const error = Cause.squash(result.cause);
-        toastManager.add({
-          type: "error",
-          title: "Could not open editor",
-          description: error instanceof Error ? error.message : undefined,
-        });
-      }
-    },
-    [open, openInCwd],
-  );
+  const openInEditor = async (id: string | null) => {
+    if (!openInCwd) return;
+    const result = await open(openInCwd, id);
+    if (result._tag === "Failure") {
+      const error = Cause.squash(result.cause);
+      toastManager.add({
+        type: "error",
+        title: "Could not open editor",
+        description: error instanceof Error ? error.message : undefined,
+      });
+    }
+  };
 
-  const openFavoriteEditorShortcutLabel = useMemo(
-    () => shortcutLabelForCommand(keybindings, "editor.openFavorite"),
-    [keybindings],
+  const openFavoriteEditorShortcutLabel = shortcutLabelForCommand(
+    keybindings,
+    "editor.openFavorite",
   );
 
   useEffect(() => {
@@ -284,6 +281,9 @@ export const OpenInPicker = memo(function OpenInPicker({
     preferredEditor,
     remote.mode,
   ]);
+  // Derived after the shortcut effect so the compiler can cache the resolved editor list.
+  const options = resolveOpenInOptions(navigator.platform, effectiveEditors);
+  const primaryOption = options.find(({ value }) => value === preferredEditor) ?? null;
   const primaryLabel = isPanel ? `Open in ${primaryOption?.label ?? "editor"}` : "Open";
 
   const editorItems = (

@@ -6,7 +6,7 @@ import { EnvironmentId } from "@t3tools/contracts";
 import { useCallback, useSyncExternalStore } from "react";
 import { AppState } from "react-native";
 
-import { AppText } from "../../components/AppText";
+import { AppText } from "../../components/ui/AppText";
 import { useEnvironmentPresentation } from "../../state/presentation";
 
 const subscribe = createSlurmCountdownClock(

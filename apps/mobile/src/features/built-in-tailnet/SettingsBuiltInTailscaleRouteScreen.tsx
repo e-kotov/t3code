@@ -2,8 +2,8 @@ import { useIsFocused } from "@react-navigation/native";
 import { useEffect, useState } from "react";
 import { Alert, Linking } from "react-native";
 
-import { AppText as Text } from "../../components/AppText";
-import { ScreenScrollView as ScrollView } from "../../components/ScreenScrollView";
+import { AppText as Text } from "../../components/ui/AppText";
+import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
 import { SettingsActionRow } from "../settings/components/SettingsActionRow";
 import { SettingsChoiceRow } from "../settings/components/SettingsChoiceRow";
 import { SettingsScreen } from "../settings/components/SettingsScreen";

@@ -17,11 +17,11 @@ import {
   View,
 } from "react-native";
 
-import { AppText as Text } from "../../components/AppText";
-import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
-import { MaterialButton } from "../../components/MaterialButton";
-import { SymbolView, type AppSymbolName } from "../../components/AppSymbol";
-import { ThemedSwitch } from "../../components/ThemedSwitch";
+import { AppText as Text } from "../../components/ui/AppText";
+import { AndroidScreenHeader } from "../../components/ui/AndroidScreenHeader";
+import { Button } from "../../components/ui/Button";
+import { SymbolView, type AppSymbolName } from "../../components/ui/AppSymbol";
+import { ThemedSwitch } from "../../components/ui/ThemedSwitch";
 import {
   createDeviceCommand,
   latestDeviceCommandRuns,
@@ -172,7 +172,7 @@ export function DeviceCommandsScreen() {
             </Text>
             <View className="flex-row flex-wrap gap-2">
               {!state.permissionGranted && state.installed ? (
-                <MaterialButton
+                <Button
                   label="Grant permission"
                   onPress={() =>
                     void requestTermuxPermission()
@@ -181,11 +181,11 @@ export function DeviceCommandsScreen() {
                   }
                 />
               ) : null}
-              <MaterialButton
+              <Button
                 label="Android settings"
                 onPress={() => void Linking.openSettings()}
               />
-              <MaterialButton
+              <Button
                 label={probe?.status === "running" ? "Testing…" : "Test connection"}
                 disabled={
                   !state.installed || !state.permissionGranted || probe?.status === "running"
@@ -250,17 +250,17 @@ export function DeviceCommandsScreen() {
                   />
                 </View>
                 <View className="flex-row flex-wrap gap-2">
-                  <MaterialButton
+                  <Button
                     label="Move up"
                     disabled={index === 0}
                     onPress={() => setDraft(reorderDeviceCommand(items, index, index - 1))}
                   />
-                  <MaterialButton
+                  <Button
                     label="Move down"
                     disabled={index === items.length - 1}
                     onPress={() => setDraft(reorderDeviceCommand(items, index, index + 1))}
                   />
-                  <MaterialButton
+                  <Button
                     label="Delete"
                     tone="danger"
                     onPress={() => setDraft(items.filter((item) => item.id !== command.id))}
@@ -286,7 +286,7 @@ export function DeviceCommandsScreen() {
                     <Text className="text-foreground-muted">{resultLabel(runs[command.id])}</Text>
                   </View>
                 </Pressable>
-                <MaterialButton
+                <Button
                   label={runs[command.id]?.status === "running" ? "Running…" : "Run"}
                   disabled={
                     !state?.installed ||
@@ -301,12 +301,12 @@ export function DeviceCommandsScreen() {
         ))}
         {editing ? (
           <View className="flex-row flex-wrap gap-2">
-            <MaterialButton
+            <Button
               label="Add command"
               disabled={items.length >= DEVICE_COMMANDS_MAX_COUNT}
               onPress={() => setDraft([...items, createDeviceCommand(items)])}
             />
-            <MaterialButton
+            <Button
               label="Discard changes"
               onPress={() => {
                 setDraft(null);
@@ -332,7 +332,7 @@ export function DeviceCommandsScreen() {
                   : "No output.")}
             </Text>
             {output?.status === "running" ? (
-              <MaterialButton
+              <Button
                 label="Clear waiting status"
                 onPress={() =>
                   Alert.alert(

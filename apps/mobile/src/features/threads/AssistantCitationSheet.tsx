@@ -1,7 +1,7 @@
 import { ASSISTANT_CITATION_MAX_COMMENT_LENGTH, type AssistantCitation } from "@t3tools/contracts";
 import { useState } from "react";
 import { KeyboardAvoidingView, Modal, Pressable, ScrollView, View } from "react-native";
-import { AppText, AppTextInput } from "../../components/AppText";
+import { AppText, AppTextInput } from "../../components/ui/AppText";
 
 export function AssistantCitationSheet(props: {
   readonly citation: AssistantCitation;

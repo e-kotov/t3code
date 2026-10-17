@@ -8,8 +8,8 @@ import {
 } from "@t3tools/contracts";
 import { useEffect, useState } from "react";
 import { Alert, Pressable, View } from "react-native";
-import { AppText as Text } from "../../components/AppText";
-import { MaterialButton } from "../../components/MaterialButton";
+import { AppText as Text } from "../../components/ui/AppText";
+import { Button } from "../../components/ui/Button";
 import {
   importUtilities,
   refreshUtilities,
@@ -85,7 +85,7 @@ function Service({
           <View className="flex-row flex-wrap gap-2">
             {service.enabled
               ? service.actions.map((action) => (
-                  <MaterialButton
+                  <Button
                     key={action.id}
                     label={`${action.name}…`}
                     disabled={actionRun?.finishedAt === null}
@@ -106,7 +106,7 @@ function Service({
                   />
                 ))
               : null}
-            <MaterialButton
+            <Button
               label={output ? "Hide output" : "Check and action output"}
               onPress={() => setOutput(!output)}
             />
@@ -153,7 +153,7 @@ export function UtilitiesSection() {
     <View className="gap-3">
       <View className="flex-row flex-wrap items-center justify-between gap-2">
         <Text className="font-t3-medium">Services</Text>
-        <MaterialButton label="Check now" onPress={() => refreshUtilities(true)} />
+        <Button label="Check now" onPress={() => refreshUtilities(true)} />
       </View>
       {counts ? <Text accessibilityLiveRegion="polite">{counts}</Text> : null}
       {error || snapshot?.error ? (
@@ -167,7 +167,7 @@ export function UtilitiesSection() {
           now={now}
         />
       ))}
-      <MaterialButton
+      <Button
         label={settings ? "Hide configuration" : "Configure utilities…"}
         onPress={() => setSettings(!settings)}
       />
@@ -179,7 +179,7 @@ export function UtilitiesSection() {
             Managed by phone chezmoi in Termux’s home. T3 imports a device-local copy through
             Termux. Install coreutils in Termux for bounded checks.
           </Text>
-          <MaterialButton label="Import / reload from Termux" onPress={importUtilities} />
+          <Button label="Import / reload from Termux" onPress={importUtilities} />
           <Text className="text-foreground-muted">
             Refresh and expiry intervals come from the file. Checks pause while T3 is in the
             background.

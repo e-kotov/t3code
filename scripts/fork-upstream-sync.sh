@@ -63,7 +63,7 @@ case "${1:?usage: fork-upstream-sync.sh merge|checks|footprint}" in
     PATH="$(git rev-parse --show-toplevel)/node_modules/.bin:$PATH"
     vp run --concurrency-limit 2 \
       --filter @t3tools/contracts --filter @t3tools/shared --filter @t3tools/client-runtime \
-      --filter t3 --filter @t3tools/web --filter @t3tools/mobile typecheck
+      --filter t3 --filter @t3tools/web --filter @t3tools/mobile --filter @t3tools/desktop typecheck
     # Tests the fork added or changed, run from each package so its own Vitest config applies.
     git diff --name-only --diff-filter=AM "$upstream" HEAD -- '*.test.ts' '*.test.tsx' |
       awk -F/ '($1 == "apps" || $1 == "packages") && NF > 2 { print $1 "/" $2 " " substr($0, length($1 "/" $2) + 2) } $1 == "scripts" { print "scripts " substr($0, 9) }' |

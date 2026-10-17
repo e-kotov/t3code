@@ -1,7 +1,7 @@
 import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { serverEnvironment } from "../../state/server";
-import { AppText as Text } from "../../components/AppText";
+import { AppText as Text } from "../../components/ui/AppText";
 import { Pressable, View } from "react-native";
 import { useAtomValue } from "@effect/atom-react";
 import { AuthSettingsWriteScope } from "@t3tools/contracts";

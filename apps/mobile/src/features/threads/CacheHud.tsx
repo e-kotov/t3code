@@ -5,7 +5,7 @@ import type { OrchestrationV2CacheHud, ServerProviderUsageWindow } from "@t3tool
 import { createCacheHudClock, createCacheHudSnapshot } from "@t3tools/shared/cacheHud";
 import { formatResetsIn } from "@t3tools/shared/usageLimits";
 import { formatModelSlugName } from "@t3tools/shared/model";
-import { AppText as Text } from "../../components/AppText";
+import { AppText as Text } from "../../components/ui/AppText";
 
 const subscribe = createCacheHudClock(
   () => AppState.currentState === "active",
