@@ -162,7 +162,7 @@ import { useTerminalFocus } from "../hooks/useTerminalFocus";
 import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
 import { registerSettleAndAdvance } from "../settleAndAdvance";
 import { startNewThreadFromContext } from "../lib/chatThreadActions";
-import { useClientSettings, useUpdateClientSettings } from "../hooks/useSettings";
+import { updateClientSettings, useClientSettings } from "../hooks/useSettings";
 import { sortSidebarConversations } from "../lib/threadSort";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { useLocalStorage } from "../hooks/useLocalStorage";
@@ -2763,7 +2763,6 @@ export default function Sidebar() {
   const conversationSortOrder = useClientSettings((s) => s.sidebarConversationSortOrder);
   const conversationGrouping = useClientSettings((s) => s.sidebarConversationGrouping);
   const conversationMachineOrder = useClientSettings((s) => s.sidebarConversationMachineOrder);
-  const updateClientSettings = useUpdateClientSettings();
   const timestampFormat = useClientSettings((s) => s.timestampFormat);
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
   const {
