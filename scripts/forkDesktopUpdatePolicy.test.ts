@@ -18,7 +18,8 @@ it.layer(NodeServices.layer)("EK desktop update policy", (it) => {
         undefined,
         undefined,
       );
-      assert.notProperty(config, "publish");
+      // Upstream pins `publish: null` so electron-builder cannot infer a GitHub feed.
+      assert.isNull(config.publish);
     }).pipe(
       Effect.provide(
         ConfigProvider.layer(
