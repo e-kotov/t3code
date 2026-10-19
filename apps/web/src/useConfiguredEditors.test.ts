@@ -103,5 +103,20 @@ it("keeps the preference unchanged after a failed launch", async () => {
   expect((await useConfiguredEditors(environmentId, []).open("/project"))._tag).toBe("Failure");
   expect(state.persist).not.toHaveBeenCalled();
 });
+it("asks the file manager to reveal only when the caller requests it", async () => {
+  const { open } = useConfiguredEditors(environmentId, ["file-manager"]);
+  await open("/project/file.ts", "file-manager", { revealFileManager: true });
+  await open("/project/file.ts", "file-manager");
+  await open("/project/file.ts", custom.id, { revealFileManager: true });
+  expect(state.invoke.mock.calls.map(([call]) => call.input)).toEqual([
+    { cwd: "/project/file.ts", editor: "file-manager", reveal: true },
+    { cwd: "/project/file.ts", editor: "file-manager" },
+    {
+      cwd: "/project/file.ts",
+      editor: "custom",
+      customEditor: { name: "My editor", command: "/tools/editor", args: ["{path}"] },
+    },
+  ]);
+});
 
 afterEach(() => vi.unstubAllGlobals());
