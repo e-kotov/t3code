@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from "react";
 import { useNavigation, useNavigationState } from "@react-navigation/native";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
+import { useWorkspaceListNavigation } from "../workspace/useAndroidWorkspaceNavigation";
 import {
   BackHandler,
   Keyboard,
@@ -23,6 +24,7 @@ import { useWorkspaceState } from "../../state/workspace";
 import type { EnvironmentId } from "@t3tools/contracts";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import { useToolbarLayout } from "../../components/ui/useToolbarLayout";
+import { PullRequestGlyph } from "../pull-requests/pullRequestGlyphs";
 
 /** One toolbar height for the compact list and expanded sidebar, including search. */
 export function ThreadListToolbar(props: {
@@ -55,6 +57,7 @@ export function ThreadListToolbar(props: {
   const { height: toolbarHeight, ...headerPadding } = useToolbarLayout();
   const { state } = useWorkspaceState();
   const { onRequestVisibility, onSearchQueryChange } = props;
+  const showPullRequests = useWorkspaceListNavigation("pullRequests");
   const searchRef = useRef<TextInputInstance>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const searching = searchOpen || props.searchQuery.length > 0;
@@ -129,7 +132,7 @@ export function ThreadListToolbar(props: {
                 <WorkspaceConnectionTitle
                   grow
                   onPress={props.onOpenEnvironments}
-                  brand={<CompactBrandTitle allowFontScaling={false} />}
+                  brand={<CompactBrandTitle allowFontScaling={false} fit />}
                 />
               </View>
               {props.sortActions && props.onSortAction ? (
@@ -163,6 +166,13 @@ export function ThreadListToolbar(props: {
                     />
                   )}
                 </AndroidAnchoredMenu>
+              ) : null}
+              {props.sidebar && workspace ? (
+                <AndroidHeaderIconButton
+                  accessibilityLabel="Show pull requests"
+                  icon={PullRequestGlyph.pullRequest}
+                  onPress={showPullRequests}
+                />
               ) : null}
               <AndroidHeaderIconButton
                 accessibilityLabel="Search threads"

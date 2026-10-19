@@ -1,8 +1,8 @@
 import { useDeviceUtilities } from "../device-utilities/utilitiesStore";
 import { utilityColor } from "../device-utilities/utilityColors";
 import { requireNativeView } from "expo";
-import { CommonActions, useNavigation } from "@react-navigation/native";
-import { androidWorkspaceNavigationState } from "../../lib/android-workspace-navigation";
+import { useNavigation } from "@react-navigation/native";
+import { resetAndroidWorkspace } from "../../lib/android-workspace-navigation";
 import {
   Keyboard,
   processColor,
@@ -19,12 +19,9 @@ import { useAppearancePreferences } from "../settings/appearance/AppearancePrefe
 import { useWorkspaceTabs } from "./WorkspaceTabsContext";
 import type { WorkspaceTab } from "./workspace-tabs-state";
 
-export const ANDROID_WORKSPACE_RAIL_WIDTH = 80;
-
 interface NativeNavigationProps extends ViewProps {
   readonly utilitiesLabel: string;
   readonly utilitiesColor: number;
-  readonly rail: boolean;
   readonly selectedTab: WorkspaceTab;
   readonly dark: boolean;
   readonly textScale: number;
@@ -42,10 +39,7 @@ function nativeColor(value: string) {
   return typeof color === "number" ? color : 0;
 }
 
-export function AndroidWorkspaceNavigation(props: {
-  readonly rail?: boolean;
-  readonly onSelect?: () => void;
-}) {
+export function AndroidWorkspaceNavigation() {
   const utilities = useDeviceUtilities();
   const workspace = useWorkspaceTabs()!;
   const navigation = useNavigation();
@@ -53,29 +47,15 @@ export function AndroidWorkspaceNavigation(props: {
   const keyboardVisible = useKeyboardState((state) => state.isVisible);
   const { themeAppearance, themeVariables: colors } = useAppearancePreferences();
   const { scale } = useAndroidControlSizing();
-  const rail = Boolean(props.rail);
   const { containerColor, indicatorColor, selectedColor, unselectedColor } =
-    androidWorkspaceNavigationColors(colors, rail);
-  if (!rail && keyboardVisible) return null;
+    androidWorkspaceNavigationColors(colors);
+  if (keyboardVisible) return null;
 
   return (
-    <View
-      style={{
-        backgroundColor: containerColor,
-        ...(rail
-          ? {
-              flex: 1,
-              width: ANDROID_WORKSPACE_RAIL_WIDTH * Math.max(1, scale),
-              paddingTop: insets.top,
-              paddingBottom: insets.bottom,
-            }
-          : { paddingBottom: insets.bottom }),
-      }}
-    >
+    <View style={{ backgroundColor: containerColor, paddingBottom: insets.bottom }}>
       <NativeNavigation
         utilitiesLabel={`Utilities, ${utilities.aggregate}, ${utilities.statuses.filter((s) => s === "down").length} down`}
         utilitiesColor={nativeColor(utilityColor(utilities.aggregate, themeAppearance === "dark"))}
-        rail={rail}
         selectedTab={workspace.state.selectedTab}
         dark={themeAppearance === "dark"}
         textScale={scale}
@@ -88,13 +68,10 @@ export function AndroidWorkspaceNavigation(props: {
           const tab = event.nativeEvent.tab;
           if (tab !== workspace.state.selectedTab) {
             workspace.dispatch({ type: "select", tab });
-            navigation.dispatch((state) =>
-              CommonActions.reset(androidWorkspaceNavigationState(state)),
-            );
+            resetAndroidWorkspace(navigation);
           }
-          props.onSelect?.();
         }}
-        style={rail ? { flex: 1 } : { height: 80 * Math.max(1, scale) }}
+        style={{ height: 80 * Math.max(1, scale) }}
       />
     </View>
   );

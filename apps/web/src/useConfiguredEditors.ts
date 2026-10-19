@@ -53,7 +53,11 @@ export function useConfiguredEditors(
     [entries, setLegacy, setPreferences],
   );
   const open = useCallback(
-    async (target: string, id?: string | null) => {
+    async (
+      target: string,
+      id?: string | null,
+      options?: { readonly revealFileManager?: boolean },
+    ) => {
       const entry = id == null ? preferred : entries.find((value) => value.id === id);
       if (environmentId === null || !entry || remote.mode === "remote-unavailable") {
         return AsyncResult.failure(
@@ -115,7 +119,13 @@ export function useConfiguredEditors(
                 args: entry.custom.args,
               },
             }
-          : { cwd: target, editor: entry.builtIn! },
+          : {
+              cwd: target,
+              editor: entry.builtIn!,
+              ...(options?.revealFileManager && entry.builtIn === "file-manager"
+                ? { reveal: true }
+                : {}),
+            },
       });
       if (result._tag === "Success") setPreferredEditor(entry.id);
       return mapAtomCommandResult(result, () => entry.id);

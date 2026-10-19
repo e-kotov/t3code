@@ -208,6 +208,7 @@ export const OpenInPicker = memo(function OpenInPicker({
   compact = false,
   enableShortcut = true,
   displayMode = "toolbar",
+  revealFileManager = false,
 }: {
   environmentId: EnvironmentId;
   keybindings: ResolvedKeybindingsConfig;
@@ -217,6 +218,7 @@ export const OpenInPicker = memo(function OpenInPicker({
   compact?: boolean;
   enableShortcut?: boolean;
   displayMode?: "toolbar" | "panel";
+  revealFileManager?: boolean;
 }) {
   const isPanel = displayMode === "panel";
   const ActionGroup = isPanel ? "div" : Group;
@@ -230,7 +232,7 @@ export const OpenInPicker = memo(function OpenInPicker({
   const environmentLabel = useEnvironment(environmentId)?.label ?? "this machine";
   const openInEditor = async (id: string | null) => {
     if (!openInCwd) return;
-    const result = await open(openInCwd, id);
+    const result = await open(openInCwd, id, { revealFileManager });
     if (result._tag === "Failure") {
       const error = Cause.squash(result.cause);
       toastManager.add({
