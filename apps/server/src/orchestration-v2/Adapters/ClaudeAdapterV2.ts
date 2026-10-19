@@ -224,7 +224,7 @@ export function claudeProviderTurnTokenUsage(
   modelSelection: ModelSelection,
   updatedAt: string,
   knownPromptCacheTtlMs?: number,
-): OrchestrationV2ProviderTurnTokenUsage {
+) {
   const inputTokens = claudeMessageInputTokens(usage);
   const outputTokens = usage.output_tokens;
   const promptCacheTtlMs =
@@ -241,7 +241,7 @@ export function claudeProviderTurnTokenUsage(
     reasoningOutputTokens: 0,
     ...(promptCacheTtlMs === undefined ? {} : { promptCacheTtlMs }),
     updatedAt,
-  };
+  } satisfies OrchestrationV2ProviderTurnTokenUsage;
 }
 
 type ClaudeMessageUsage = Parameters<typeof claudeProviderTurnTokenUsage>[0];

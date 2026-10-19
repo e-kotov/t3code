@@ -28,6 +28,7 @@ import * as Stream from "effect/Stream";
 
 import * as ClaudeAdapterV2 from "./ClaudeAdapterV2.ts";
 
+const DEFAULT_CLAUDE_SETTINGS = Schema.decodeSync(ClaudeSettings)({});
 const NATIVE_SESSION = "native-thread-claude-cache-ttl";
 const HOUR_MS = 60 * 60_000;
 const MODEL_SELECTION = {
@@ -109,7 +110,7 @@ const reportedTtls = (frames: ReadonlyArray<SDKMessage>) =>
     const sdkMessages = yield* Queue.unbounded<SDKMessage>();
     const adapter = yield* ClaudeAdapterV2.makeClaudeAdapterV2({
       instanceId: ClaudeAdapterV2.CLAUDE_DEFAULT_INSTANCE_ID,
-      settings: Schema.decodeSync(ClaudeSettings)({}),
+      settings: DEFAULT_CLAUDE_SETTINGS,
       environment: {},
       attachmentsDir: yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-claude-cache-ttl-" }),
       fileSystem,

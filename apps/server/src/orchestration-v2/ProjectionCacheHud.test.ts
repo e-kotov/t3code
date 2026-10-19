@@ -30,7 +30,7 @@ const HOUR_MS = 60 * 60_000;
 const FIVE_MINUTES_MS = 5 * 60_000;
 // Report time rises with the ordinal: SQL bounds by ordinal, derivation by time.
 const reportedAt = (ordinal: number) =>
-  new Date(Date.UTC(2026, 9, 19, 9, 0, 0) + ordinal * 1_000).toISOString();
+  DateTime.formatIso(DateTime.makeUnsafe(Date.UTC(2026, 9, 19, 9, 0, 0) + ordinal * 1_000));
 
 const cacheRead = (
   ordinal: number,
