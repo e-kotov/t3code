@@ -17,12 +17,12 @@ export function useOpenFavoriteEditorShortcut({
   availableEditors: ReadonlyArray<EditorId>;
   openInCwd: string | null;
 }) {
-  const { preferredEditor, open } = useConfiguredEditors(environmentId, availableEditors);
+  const { preferredEditor, open, remote } = useConfiguredEditors(environmentId, availableEditors);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || remote.mode !== "local-exec") return;
     const handler = (event: globalThis.KeyboardEvent) => {
-      if (!isOpenFavoriteEditorShortcut(event, keybindings)) return;
+      if (event.defaultPrevented || !isOpenFavoriteEditorShortcut(event, keybindings)) return;
       if (!openInCwd || !preferredEditor) return;
 
       event.preventDefault();
@@ -30,5 +30,5 @@ export function useOpenFavoriteEditorShortcut({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [enabled, keybindings, openInCwd, open, preferredEditor]);
+  }, [enabled, keybindings, openInCwd, open, preferredEditor, remote.mode]);
 }
