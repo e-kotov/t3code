@@ -1,4 +1,5 @@
 import { UtilitiesSection } from "../device-utilities/UtilitiesSection";
+import { useUtilitiesSidebarExitActions } from "./useUtilitiesSidebarActions";
 import {
   DEVICE_COMMAND_ICONS,
   DEVICE_COMMANDS_MAX_COUNT,
@@ -60,7 +61,8 @@ function readSnapshot(): {
   }
 }
 
-export function DeviceCommandsScreen() {
+export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
+  const exitActions = useUtilitiesSidebarExitActions();
   const [{ state, error }, setSnapshot] = useState(readSnapshot);
   function setError(error: string | null) {
     setSnapshot((previous) => ({ ...previous, error }));
@@ -133,8 +135,9 @@ export function DeviceCommandsScreen() {
     <View className="flex-1 bg-screen">
       <AndroidScreenHeader
         title="Utilities"
-        actions={
-          state
+        actions={[
+          ...(props.sidebar ? exitActions : []),
+          ...(state
             ? [
                 {
                   icon: editing ? "checkmark" : "pencil",
@@ -142,10 +145,10 @@ export function DeviceCommandsScreen() {
                   onPress: edit,
                   disabled:
                     editing && items.some((item) => !item.name.trim() || !item.command.trim()),
-                },
+                } as const,
               ]
-            : []
-        }
+            : []),
+        ]}
       />
       <ScrollView
         contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}

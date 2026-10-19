@@ -11,6 +11,7 @@ import { WorkspaceConnectionTitle } from "../home/WorkspaceConnectionTitle";
 import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { useWorkspaceListNavigation } from "../workspace/useAndroidWorkspaceNavigation";
+import { useShowUtilitiesAction } from "../device-commands/useUtilitiesSidebarActions";
 
 /** PR search shares the thread list's native Android header placement. */
 export function PullRequestToolbar(props: {
@@ -24,6 +25,7 @@ export function PullRequestToolbar(props: {
   const listFocused = homeFocused && workspace.state.selectedTab === "pullRequests";
   const { onRequestVisibility } = props;
   const showThreads = useWorkspaceListNavigation("threads");
+  const showUtilities = useShowUtilitiesAction();
   const tab = workspace.state.tabs.pullRequests;
   const input = useRef<TextInputInstance>(null);
   const searching = tab.searchMode !== "resting";
@@ -111,6 +113,7 @@ export function PullRequestToolbar(props: {
                       icon: "text.bubble",
                       onPress: showThreads,
                     } as const,
+                    showUtilities,
                   ]
                 : []),
               {

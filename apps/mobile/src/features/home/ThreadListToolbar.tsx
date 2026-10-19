@@ -25,6 +25,7 @@ import type { EnvironmentId } from "@t3tools/contracts";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import { useToolbarLayout } from "../../components/ui/useToolbarLayout";
 import { PullRequestGlyph } from "../pull-requests/pullRequestGlyphs";
+import { useShowUtilitiesAction } from "../device-commands/useUtilitiesSidebarActions";
 
 /** One toolbar height for the compact list and expanded sidebar, including search. */
 export function ThreadListToolbar(props: {
@@ -58,6 +59,7 @@ export function ThreadListToolbar(props: {
   const { state } = useWorkspaceState();
   const { onRequestVisibility, onSearchQueryChange } = props;
   const showPullRequests = useWorkspaceListNavigation("pullRequests");
+  const showUtilities = useShowUtilitiesAction();
   const searchRef = useRef<TextInputInstance>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const searching = searchOpen || props.searchQuery.length > 0;
@@ -174,6 +176,7 @@ export function ThreadListToolbar(props: {
                   onPress={showPullRequests}
                 />
               ) : null}
+              {props.sidebar && workspace ? <AndroidHeaderIconButton {...showUtilities} /> : null}
               <AndroidHeaderIconButton
                 accessibilityLabel="Search threads"
                 icon="magnifyingglass"
