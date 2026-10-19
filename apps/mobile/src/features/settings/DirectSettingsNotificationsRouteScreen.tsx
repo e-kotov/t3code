@@ -1,3 +1,5 @@
+import { settlePromise } from "@t3tools/client-runtime/state/runtime";
+import { AsyncResult } from "effect/reactivity";
 import { useState } from "react";
 
 import * as Dialog from "../../components/ui/Dialog";
@@ -24,22 +26,22 @@ export function DirectSettingsNotificationsRouteScreen() {
   const status = useDirectNotificationStatus();
   const toggle = async (value: boolean) => {
     setBusy(true);
-    try {
+    const result = await settlePromise(async () => {
       if (value) {
         const permission = await runtime.runPromise(requestAgentNotificationPermission);
-        if (permission.type !== "granted") {
-          Dialog.alert(
-            "Notifications are disabled",
-            "Allow notifications for T3 Code in Android Settings.",
-          );
-          return;
-        }
+        if (permission.type !== "granted") return false;
       }
       setDirectNotificationsEnabled(value);
-    } catch {
+      return true;
+    });
+    setBusy(false);
+    if (AsyncResult.isFailure(result)) {
       Dialog.alert("Couldn't change notifications", "Reopen T3 Code and try again.");
-    } finally {
-      setBusy(false);
+    } else if (!result.value) {
+      Dialog.alert(
+        "Notifications are disabled",
+        "Allow notifications for T3 Code in Android Settings.",
+      );
     }
   };
   return (

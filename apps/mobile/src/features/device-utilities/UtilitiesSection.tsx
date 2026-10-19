@@ -33,6 +33,10 @@ function Service({
   const observed = utilityServiceObservation(snapshot, service, now);
   const run = snapshot.checks.find((r) => r.serviceId === service.id);
   const actionRun = snapshot.actions.find((r) => r.serviceId === service.id);
+  // The React Compiler cannot lower optional chains inside a `||` left operand.
+  const outputText = [run?.stdout, run?.stderr, actionRun?.stdout, actionRun?.stderr]
+    .filter(Boolean)
+    .join("\n");
   return (
     <View className="gap-3 border-t border-border py-3">
       <Pressable
@@ -123,11 +127,7 @@ function Service({
             </Text>
           ) : null}
           {output ? (
-            <Text selectable>
-              {[run?.stdout, run?.stderr, actionRun?.stdout, actionRun?.stderr]
-                .filter(Boolean)
-                .join("\n") || "No output."}
-            </Text>
+            <Text selectable>{outputText || "No output."}</Text>
           ) : null}
         </View>
       ) : null}

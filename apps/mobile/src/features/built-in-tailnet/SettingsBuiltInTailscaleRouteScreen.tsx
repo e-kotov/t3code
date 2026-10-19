@@ -1,4 +1,6 @@
 import { useIsFocused } from "@react-navigation/native";
+import { settlePromise, squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
+import { AsyncResult } from "effect/reactivity";
 import { useEffect, useState } from "react";
 import { Alert, Linking } from "react-native";
 
@@ -86,12 +88,11 @@ export function SettingsBuiltInTailscaleRouteScreen() {
 
   const run = async (work: () => Promise<void>) => {
     setBusy(true);
-    try {
-      await work();
-    } catch (cause) {
+    const result = await settlePromise(work);
+    setBusy(false);
+    if (AsyncResult.isFailure(result)) {
+      const cause = squashAtomCommandFailure(result);
       Alert.alert("Built-in Tailscale", cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setBusy(false);
     }
   };
   const signIn = () =>
