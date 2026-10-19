@@ -4,15 +4,13 @@ import type {
   SidebarConversationGrouping,
   SidebarConversationSortOrder,
 } from "@t3tools/contracts/settings";
+import { updateClientSettings, useClientSettings } from "../../hooks/useSettings";
 import { Menu, MenuGroup, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuTrigger } from "../ui/menu";
 import { SidebarHeaderIconButton } from "./SidebarThreadHeader";
 
-export function SidebarThreadListControls(props: {
-  readonly sortOrder: SidebarConversationSortOrder;
-  readonly grouping: SidebarConversationGrouping;
-  readonly onSortOrderChange: (value: SidebarConversationSortOrder) => void;
-  readonly onGroupingChange: (value: SidebarConversationGrouping) => void;
-}) {
+export function SidebarThreadListControls() {
+  const sortOrder = useClientSettings((s) => s.sidebarConversationSortOrder);
+  const grouping = useClientSettings((s) => s.sidebarConversationGrouping);
   return (
     <>
       <Menu>
@@ -29,9 +27,11 @@ export function SidebarThreadListControls(props: {
               Sort conversations
             </div>
             <MenuRadioGroup
-              value={props.sortOrder}
+              value={sortOrder}
               onValueChange={(value) =>
-                props.onSortOrderChange(value as SidebarConversationSortOrder)
+                void updateClientSettings({
+                  sidebarConversationSortOrder: value as SidebarConversationSortOrder,
+                })
               }
             >
               <MenuRadioItem value="updated_at">Recent activity</MenuRadioItem>
@@ -55,9 +55,11 @@ export function SidebarThreadListControls(props: {
               Group conversations
             </div>
             <MenuRadioGroup
-              value={props.grouping}
+              value={grouping}
               onValueChange={(value) =>
-                props.onGroupingChange(value as SidebarConversationGrouping)
+                void updateClientSettings({
+                  sidebarConversationGrouping: value as SidebarConversationGrouping,
+                })
               }
             >
               <MenuRadioItem value="none">No grouping</MenuRadioItem>

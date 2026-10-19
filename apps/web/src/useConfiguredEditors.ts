@@ -9,7 +9,6 @@ import {
 import { mapAtomCommandResult } from "@t3tools/client-runtime/state/runtime";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/reactivity";
-import { useCallback } from "react";
 import { usePreferredEditor } from "./editorPreferences";
 import {
   configuredEditorEntries,
@@ -45,93 +44,87 @@ export function useConfiguredEditors(
   const preferred = preferredConfiguredEditor(entries, preferences.preferred, legacy);
   const invoke = useAtomCommand(shellEnvironment.openInEditor, { reportFailure: false });
   const [remoteHintSeen, markRemoteHintSeen] = useRemoteOpenHint();
-  const setPreferredEditor = useCallback(
-    (id: string) => {
-      if (entries.some((entry) => entry.id === id && entry.builtIn)) setLegacy(id);
-      setPreferences((value) => ({ ...value, preferred: id }));
-    },
-    [entries, setLegacy, setPreferences],
-  );
-  const open = useCallback(
-    async (
-      target: string,
-      id?: string | null,
-      options?: { readonly revealFileManager?: boolean },
-    ) => {
-      const entry = id == null ? preferred : entries.find((value) => value.id === id);
-      if (environmentId === null || !entry || remote.mode === "remote-unavailable") {
-        return AsyncResult.failure(
-          Cause.fail(new Error("No configured editor or SSH route is available.")),
-        );
-      }
-      if (remote.mode === "remote-links") {
-        try {
-          let opened = false;
-          if (entry.custom) {
-            const input = { template: entry.custom.remoteUrl, host: remote.host.host, target };
-            const url = buildCustomEditorUrl(input.template, input.host, input.target);
-            if (url === undefined) throw new Error("Invalid editor URL template.");
-            if (window.desktopBridge) {
-              if (!window.desktopBridge.openCustomEditor)
-                throw new Error("Update the desktop app to use custom editor links.");
-              opened = await window.desktopBridge.openCustomEditor(input);
-            } else {
-              window.location.assign(url);
-              opened = true;
-            }
-          } else if (entry.builtIn) {
-            const url = buildRemoteOpenUrl({
-              editor: entry.builtIn,
-              host: remote.host.host,
-              absolutePath: target,
-            });
-            if (url !== undefined) opened = await openRemoteEditorUrl(url);
+  const setPreferredEditor = (id: string) => {
+    if (entries.some((entry) => entry.id === id && entry.builtIn)) setLegacy(id);
+    setPreferences((value) => ({ ...value, preferred: id }));
+  };
+  const open = async (
+    target: string,
+    id?: string | null,
+    options?: { readonly revealFileManager?: boolean },
+  ) => {
+    const entry = id == null ? preferred : entries.find((value) => value.id === id);
+    if (environmentId === null || !entry || remote.mode === "remote-unavailable") {
+      return AsyncResult.failure(
+        Cause.fail(new Error("No configured editor or SSH route is available.")),
+      );
+    }
+    if (remote.mode === "remote-links") {
+      try {
+        let opened = false;
+        if (entry.custom) {
+          const input = { template: entry.custom.remoteUrl, host: remote.host.host, target };
+          const url = buildCustomEditorUrl(input.template, input.host, input.target);
+          if (url === undefined) throw new Error("Invalid editor URL template.");
+          if (window.desktopBridge) {
+            if (!window.desktopBridge.openCustomEditor)
+              throw new Error("Update the desktop app to use custom editor links.");
+            opened = await window.desktopBridge.openCustomEditor(input);
+          } else {
+            window.location.assign(url);
+            opened = true;
           }
-          if (!opened) throw new Error("The editor link could not be opened.");
-          setPreferredEditor(entry.id);
-          markRemoteHintSeen();
-          return AsyncResult.success(entry.id);
-        } catch (cause) {
-          return AsyncResult.failure(
-            Cause.fail(cause instanceof Error ? cause : new Error("Could not open the editor.")),
-          );
+        } else if (entry.builtIn) {
+          const url = buildRemoteOpenUrl({
+            editor: entry.builtIn,
+            host: remote.host.host,
+            absolutePath: target,
+          });
+          if (url !== undefined) opened = await openRemoteEditorUrl(url);
         }
-      }
-      if (!readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) {
+        if (!opened) throw new Error("The editor link could not be opened.");
+        setPreferredEditor(entry.id);
+        markRemoteHintSeen();
+        return AsyncResult.success(entry.id);
+      } catch (cause) {
         return AsyncResult.failure(
-          Cause.fail(
-            new EnvironmentAuthorizationError({
-              requiredScope: AuthOrchestrationOperateScope,
-              message: "This connection cannot open an editor on this environment.",
-            }),
-          ),
+          Cause.fail(cause instanceof Error ? cause : new Error("Could not open the editor.")),
         );
       }
-      const result = await invoke({
-        environmentId,
-        input: entry.custom
-          ? {
-              cwd: target,
-              editor: "custom",
-              customEditor: {
-                name: entry.name,
-                command: entry.custom.command,
-                args: entry.custom.args,
-              },
-            }
-          : {
-              cwd: target,
-              editor: entry.builtIn!,
-              ...(options?.revealFileManager && entry.builtIn === "file-manager"
-                ? { reveal: true }
-                : {}),
+    }
+    if (!readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) {
+      return AsyncResult.failure(
+        Cause.fail(
+          new EnvironmentAuthorizationError({
+            requiredScope: AuthOrchestrationOperateScope,
+            message: "This connection cannot open an editor on this environment.",
+          }),
+        ),
+      );
+    }
+    const result = await invoke({
+      environmentId,
+      input: entry.custom
+        ? {
+            cwd: target,
+            editor: "custom",
+            customEditor: {
+              name: entry.name,
+              command: entry.custom.command,
+              args: entry.custom.args,
             },
-      });
-      if (result._tag === "Success") setPreferredEditor(entry.id);
-      return mapAtomCommandResult(result, () => entry.id);
-    },
-    [entries, environmentId, invoke, markRemoteHintSeen, preferred, remote, setPreferredEditor],
-  );
+          }
+        : {
+            cwd: target,
+            editor: entry.builtIn!,
+            ...(options?.revealFileManager && entry.builtIn === "file-manager"
+              ? { reveal: true }
+              : {}),
+          },
+    });
+    if (result._tag === "Success") setPreferredEditor(entry.id);
+    return mapAtomCommandResult(result, () => entry.id);
+  };
   return {
     entries,
     preferredEditor: preferred?.id ?? null,

@@ -1,6 +1,5 @@
-import { LegacySidebarCacheWarmingToggle } from "./LegacySidebarCacheWarmingToggle";
-import { CacheHud } from "./chat/CacheHud";
-import { CACHE_WARMING_EXPLANATION, CacheWarmingThreadToggle } from "./CacheWarmingToggle";
+import { SidebarCacheWarmingToggle } from "./CacheWarmingToggle";
+import { CacheWarmingTitleHint, SidebarThreadCacheControls } from "./sidebar/SidebarThreadCache";
 import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
 import { resolveThreadCurrentPullRequestLink } from "@t3tools/shared/threadPullRequests";
 import { Spinner } from "~/components/ui/spinner";
@@ -739,39 +738,25 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
               onDoubleClick={handleRenameInputClick}
             />
           ) : (
-            <div className="flex min-w-0 flex-1 items-center gap-1">
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <span
-                      className="min-w-0 flex-1 truncate text-sm"
-                      data-testid={`thread-title-${thread.id}`}
-                    />
-                  }
-                >
-                  {thread.title}
-                </TooltipTrigger>
-                <TooltipPopup side="top">
-                  <span>{thread.title}</span>
-                  {thread.cacheHud?.driver === "codex" ||
-                  thread.cacheHud?.driver === "claudeAgent" ? (
-                    <span className="mt-1 block max-w-xs text-2xs text-muted-foreground">
-                      {CACHE_WARMING_EXPLANATION}
-                    </span>
-                  ) : null}
-                </TooltipPopup>
-              </Tooltip>
-              {/* Outside the truncating title so the readout stays on its line. */}
-              <span className="flex shrink-0">
-                <CacheHud hud={thread.cacheHud} compact />
-              </span>
-              <CacheWarmingThreadToggle
-                environmentId={thread.environmentId}
-                threadId={thread.id}
-                driver={thread.cacheHud?.driver}
-                cacheHud={thread.cacheHud}
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <span
+                    className="min-w-0 flex-1 truncate text-sm"
+                    data-testid={`thread-title-${thread.id}`}
+                  >
+                    {thread.title}
+                  </span>
+                }
               />
-            </div>
+              <TooltipPopup side="top">
+                {thread.title}
+                <CacheWarmingTitleHint thread={thread} />
+              </TooltipPopup>
+            </Tooltip>
+          )}
+          {canOperateThread && renamingThreadKey === threadKey ? null : (
+            <SidebarThreadCacheControls thread={thread} />
           )}
         </div>
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
@@ -2782,7 +2767,6 @@ function SortableProjectItem({
 }
 
 interface SidebarProjectsContentProps {
-  cacheWarmingEnvironmentId: EnvironmentId | null;
   showArm64IntelBuildWarning: boolean;
   arm64IntelBuildWarningDescription: string | null;
   desktopUpdateButtonAction: "download" | "install" | "none";
@@ -2863,7 +2847,6 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
     suppressProjectClickForContextMenuRef,
     attachProjectListAutoAnimateRef,
     projectsLength,
-    cacheWarmingEnvironmentId,
   } = props;
 
   const handleProjectSortOrderChange = (sortOrder: SidebarProjectSortOrder) => {
@@ -2891,7 +2874,7 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
               </CommandDialogTrigger>
             </SidebarMenuItem>
           </SidebarMenu>
-          <LegacySidebarCacheWarmingToggle environmentId={cacheWarmingEnvironmentId} />
+          <SidebarCacheWarmingToggle />
         </SidebarGroup>
       }
     >
@@ -3642,7 +3625,6 @@ export default function LegacySidebar() {
       <SidebarChromeHeader isElectron={isElectron} />
 
       <SidebarProjectsContent
-        cacheWarmingEnvironmentId={routeThreadRef?.environmentId ?? null}
         showArm64IntelBuildWarning={showArm64IntelBuildWarning}
         arm64IntelBuildWarningDescription={arm64IntelBuildWarningDescription}
         desktopUpdateButtonAction={desktopUpdateButtonAction}

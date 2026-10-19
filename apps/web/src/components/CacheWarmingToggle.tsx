@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AuthSettingsWriteScope,
   type EnvironmentId,
@@ -9,7 +9,12 @@ import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell
 import { useEnvironmentSettings, useUpdateEnvironmentSettings } from "~/hooks/useSettings";
 import { cacheWarmingState, hotCacheThreadIds } from "@t3tools/shared/cacheHud";
 import { useCacheHudView } from "./chat/CacheHud";
+import { useComposerDraftStore } from "../composerDraftStore";
+import { useThreadRouteTarget } from "../hooks/useThreadRouteTarget";
+import { useThreadShells } from "../state/entities";
+import { usePrimaryEnvironmentId } from "../state/environments";
 import { useEnvironmentScope } from "../state/session";
+import { resolveActiveThreadRouteRef } from "../threadRoutes";
 import { Button } from "./ui/button";
 
 export const CACHE_WARMING_EXPLANATION =
@@ -61,12 +66,24 @@ function useEnvironmentWarming(environmentId: EnvironmentId, threads: readonly C
   return { activeIds, enabled, canWrite, toggleAll };
 }
 
-export function CacheWarmingEnvironmentToggle(props: {
-  environmentId: EnvironmentId | null;
-  threads?: readonly CacheThread[];
-}) {
-  if (props.environmentId === null) return null;
-  return <EnvironmentToggle environmentId={props.environmentId} threads={props.threads ?? []} />;
+/** Sidebar switch for the routed thread's environment, or the primary one off a thread. */
+export function SidebarCacheWarmingToggle() {
+  const routeTarget = useThreadRouteTarget();
+  const routeDraftThread = useComposerDraftStore((store) =>
+    routeTarget?.kind === "draft" ? store.getDraftSession(routeTarget.draftId) : null,
+  );
+  const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const threads = useThreadShells();
+  const environmentId =
+    resolveActiveThreadRouteRef(routeTarget, routeDraftThread)?.environmentId ??
+    primaryEnvironmentId;
+  if (environmentId === null) return null;
+  return (
+    <EnvironmentToggle
+      environmentId={environmentId}
+      threads={threads.filter((thread) => thread.environmentId === environmentId)}
+    />
+  );
 }
 
 /** Machine-group header button: warms or cools every warm conversation on that machine.
@@ -76,9 +93,8 @@ export function CacheWarmingMachineToggle(props: {
   /** All sidebar threads; only this machine's are considered. */
   threads: readonly (CacheThread & Pick<EnvironmentThreadShell, "environmentId">)[];
 }) {
-  const machineThreads = useMemo(
-    () => props.threads.filter((thread) => thread.environmentId === props.environmentId),
-    [props.threads, props.environmentId],
+  const machineThreads = props.threads.filter(
+    (thread) => thread.environmentId === props.environmentId,
   );
   const { activeIds, enabled, canWrite, toggleAll } = useEnvironmentWarming(
     props.environmentId,

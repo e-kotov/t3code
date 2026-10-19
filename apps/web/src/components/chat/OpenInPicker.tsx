@@ -1,7 +1,5 @@
-import * as Cause from "effect/Cause";
 import { useConfiguredEditors } from "../../useConfiguredEditors";
-import { configuredOpenInOptions } from "./configuredOpenInOptions";
-import { toastManager } from "../ui/toast";
+import { configuredOpenInOptions, reportEditorOpenFailure } from "./configuredOpenInOptions";
 import { ThreadDetailsControl } from "./ThreadDetailsControl";
 import { FORK_OPEN_IN_OPTIONS } from "./forkOpenInOptions";
 import {
@@ -230,17 +228,10 @@ export const OpenInPicker = memo(function OpenInPicker({
   const canOpenEditor = remote.mode !== "remote-unavailable" && !isHostEditorDenied;
   const [menuOpen, setMenuOpen] = useComposerMenuState(isHostEditorDenied);
   const environmentLabel = useEnvironment(environmentId)?.label ?? "this machine";
-  const openInEditor = async (id: string | null) => {
+
+  const openInEditor = (editorId: string | null) => {
     if (!openInCwd) return;
-    const result = await open(openInCwd, id, { revealFileManager });
-    if (result._tag === "Failure") {
-      const error = Cause.squash(result.cause);
-      toastManager.add({
-        type: "error",
-        title: "Could not open editor",
-        description: error instanceof Error ? error.message : undefined,
-      });
-    }
+    return reportEditorOpenFailure(open(openInCwd, editorId, { revealFileManager }));
   };
 
   const openFavoriteEditorShortcutLabel = shortcutLabelForCommand(
@@ -276,12 +267,8 @@ export const OpenInPicker = memo(function OpenInPicker({
     remote.mode,
   ]);
   // Derived after the shortcut effect so the compiler can cache the resolved editor list.
-  const options = configuredOpenInOptions(
-    entries,
-    resolveOpenInOptions(
-      navigator.platform,
-      entries.flatMap((entry) => (entry.builtIn ? [entry.builtIn] : [])),
-    ),
+  const options = configuredOpenInOptions(entries, (editors) =>
+    resolveOpenInOptions(navigator.platform, editors),
   );
   const primaryOption = options.find(({ value }) => value === preferredEditor) ?? null;
   const primaryLabel = isPanel ? `Open in ${primaryOption?.label ?? "editor"}` : "Open";

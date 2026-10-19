@@ -3,7 +3,7 @@ import {
   slurmJobCountdownLabel,
 } from "@t3tools/client-runtime/connection";
 import type { EnvironmentId } from "@t3tools/contracts";
-import { useCallback, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 
 import { useEnvironmentPresentation } from "../state/presentation";
 
@@ -23,14 +23,8 @@ export function MachineGroupSlurmTime(props: { environmentId: EnvironmentId }) {
   const { presentation } = useEnvironmentPresentation(props.environmentId);
   const status = presentation?.serverConfig?.slurmJobStatus;
   const connected = presentation?.connection.phase === "connected";
-  const snapshot = useCallback(
-    () => slurmJobCountdownLabel(status, connected),
-    [status, connected],
-  );
-  const clockSubscribe = useCallback(
-    (listener: () => void) => (status ? subscribe(listener) : () => {}),
-    [status],
-  );
+  const snapshot = () => slurmJobCountdownLabel(status, connected);
+  const clockSubscribe = (listener: () => void) => (status ? subscribe(listener) : () => {});
   const label = useSyncExternalStore(clockSubscribe, snapshot, snapshot);
   if (!label) return null;
   return (

@@ -1,0 +1,100 @@
+import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
+import type { EnvironmentId } from "@t3tools/contracts";
+import type {
+  SidebarConversationGrouping,
+  SidebarConversationSortOrder,
+} from "@t3tools/contracts/settings";
+
+import { sortSidebarConversations } from "../../lib/threadSort";
+import type { SidebarListItem, SidebarSection } from "../Sidebar.logic";
+
+export interface SidebarConversationView {
+  readonly sortOrder: SidebarConversationSortOrder;
+  readonly grouping: SidebarConversationGrouping;
+  readonly machineOrder: readonly EnvironmentId[];
+  readonly primaryEnvironmentId: EnvironmentId | null;
+}
+
+/** What a machine-group header marker carries; upstream markers leave it unset. */
+export interface SidebarMarkerFields {
+  readonly key?: string;
+  readonly environmentId?: EnvironmentId;
+  readonly groupPosition?: number;
+  readonly groupCount?: number;
+}
+
+/** The selected conversation order replaces the upstream shelf order it is
+    given. The comparator is total, so the input order never shows through. */
+export function withConversationSort(
+  threads: readonly EnvironmentThreadShell[],
+  view: Pick<SidebarConversationView, "sortOrder" | "grouping">,
+): EnvironmentThreadShell[] {
+  return sortSidebarConversations(threads, view.sortOrder, Date.now(), view.grouping);
+}
+
+/** Saved machine order first; machines never placed follow, primary first. */
+function compareMachineGroups(
+  view: Pick<SidebarConversationView, "machineOrder" | "primaryEnvironmentId">,
+) {
+  return (left: EnvironmentId, right: EnvironmentId) => {
+    const leftRank = view.machineOrder.indexOf(left);
+    const rightRank = view.machineOrder.indexOf(right);
+    if (leftRank >= 0 || rightRank >= 0) {
+      if (leftRank < 0) return 1;
+      if (rightRank < 0) return -1;
+      if (leftRank !== rightRank) return leftRank - rightRank;
+    } else {
+      if (left === view.primaryEnvironmentId) return -1;
+      if (right === view.primaryEnvironmentId) return 1;
+    }
+    return left.localeCompare(right);
+  };
+}
+
+/** Rows for one shelf, regrouped by machine with a header per machine once
+    more than one machine is present. */
+export function groupSidebarRowsByMachine<T extends { readonly environmentId: EnvironmentId }>(
+  list: readonly T[],
+  section: SidebarSection,
+  view: Omit<SidebarConversationView, "sortOrder">,
+  rowsOf: (list: readonly T[], section: SidebarSection) => SidebarListItem[],
+): SidebarListItem[] {
+  if (view.grouping !== "machine") return rowsOf(list, section);
+  const groups = new Map<EnvironmentId, T[]>();
+  for (const thread of list) {
+    const group = groups.get(thread.environmentId) ?? [];
+    group.push(thread);
+    groups.set(thread.environmentId, group);
+  }
+  const order = [...groups.keys()].sort(compareMachineGroups(view));
+  return order.flatMap((environmentId, groupPosition): SidebarListItem[] => [
+    ...(order.length > 1
+      ? [
+          {
+            kind: "marker" as const,
+            marker: "machine-header" as const,
+            key: `sidebar-machine:${section}:${environmentId}`,
+            environmentId,
+            groupPosition,
+            groupCount: order.length,
+          },
+        ]
+      : []),
+    ...rowsOf(groups.get(environmentId)!, section),
+  ]);
+}
+
+/** The machine order to save after moving one machine a step, or null at an edge. */
+export function moveMachineGroup(
+  environmentIds: Iterable<EnvironmentId>,
+  view: Pick<SidebarConversationView, "machineOrder" | "primaryEnvironmentId">,
+  environmentId: EnvironmentId,
+  delta: -1 | 1,
+): EnvironmentId[] | null {
+  const visibleIds = [...new Set(environmentIds)].sort(compareMachineGroups(view));
+  const index = visibleIds.indexOf(environmentId);
+  const target = index + delta;
+  if (index < 0 || target < 0 || target >= visibleIds.length) return null;
+  [visibleIds[index], visibleIds[target]] = [visibleIds[target]!, visibleIds[index]!];
+  return visibleIds;
+}

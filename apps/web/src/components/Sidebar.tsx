@@ -1,12 +1,15 @@
-import { CacheHud } from "./chat/CacheHud";
-import { MachineGroupConnectionStatus } from "./MachineGroupConnectionStatus";
-import { MachineGroupSlurmTime } from "./MachineGroupSlurmTime";
-import {
-  CacheWarmingEnvironmentToggle,
-  CacheWarmingMachineToggle,
-  CacheWarmingThreadToggle,
-} from "./CacheWarmingToggle";
+import { SidebarCacheWarmingToggle } from "./CacheWarmingToggle";
 import { ThreadCacheHoverDetails } from "./ThreadCacheHoverDetails";
+import { SidebarCacheHudSlot, SidebarThreadCacheTitle } from "./sidebar/SidebarThreadCache";
+import {
+  SidebarMachineGroupHeader,
+  useSidebarConversationView,
+} from "./sidebar/SidebarMachineGroupHeader";
+import {
+  withConversationSort,
+  groupSidebarRowsByMachine,
+  type SidebarConversationView,
+} from "./sidebar/sidebarConversationGroups";
 import { type EnvironmentId, type ScopedProjectRef } from "@t3tools/contracts";
 import type { EnvironmentServerConfig } from "@t3tools/client-runtime/connection";
 import { ThreadHoverCard, ThreadHoverCardPopup } from "./ThreadHoverCard";
@@ -74,16 +77,10 @@ import {
   type ThreadId,
 } from "@t3tools/contracts";
 
-import type {
-  SidebarConversationSortOrder,
-  SidebarConversationGrouping,
-  TimestampFormat,
-} from "@t3tools/contracts/settings";
+import type { TimestampFormat } from "@t3tools/contracts/settings";
 import {
   AlarmClockIcon,
   AlarmClockOffIcon,
-  ArrowDownIcon,
-  ArrowUpIcon,
   ArrowRightLeftIcon,
   CheckIcon,
   CircleAlertIcon,
@@ -162,8 +159,7 @@ import { useTerminalFocus } from "../hooks/useTerminalFocus";
 import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
 import { registerSettleAndAdvance } from "../settleAndAdvance";
 import { startNewThreadFromContext } from "../lib/chatThreadActions";
-import { updateClientSettings, useClientSettings } from "../hooks/useSettings";
-import { sortSidebarConversations } from "../lib/threadSort";
+import { useClientSettings } from "../hooks/useSettings";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useNowMinute } from "../hooks/useNowMinute";
@@ -239,6 +235,8 @@ import {
   sidebarThreadKeyAtY,
   sortInboxThreadsByReturn,
   sortPinnedThreadsForSidebar,
+  sortThreadsForSidebar,
+  sortWorkingThreadsBySend,
   useThreadJumpHintVisibility,
   useRetainedValue,
   useSidebarRowSubscriptionLease,
@@ -396,8 +394,7 @@ type SidebarOptimisticDrop = {
 };
 
 interface SidebarThreadPartitionInput {
-  readonly conversationSortOrder: SidebarConversationSortOrder;
-  readonly conversationGrouping: SidebarConversationGrouping;
+  readonly conversationView: SidebarConversationView;
   readonly threads: readonly EnvironmentThreadShell[];
   readonly scopedProjectKeys: ReadonlySet<string> | null;
   readonly serverConfigs: ReadonlyMap<EnvironmentId, EnvironmentServerConfig>;
@@ -469,8 +466,7 @@ function useSidebarThreads(input: {
   const { projectScopeKey, scopedProjectKeys, serverConfigs, optimisticDrop, routeThreadKey } =
     input;
   const threads = useThreadShells();
-  const conversationSortOrder = useClientSettings((s) => s.sidebarConversationSortOrder);
-  const conversationGrouping = useClientSettings((s) => s.sidebarConversationGrouping);
+  const conversationView = useSidebarConversationView();
   const workingShelfEnabled = useClientSettings((s) => s.sidebarWorkingShelfEnabled);
   const nowMinute = useNowMinute();
   // Snooze wake times are second-precise, so classifying with the quantized
@@ -514,8 +510,7 @@ function useSidebarThreads(input: {
     optimisticDrop,
     workingShelfEnabled,
     clockKey: `${nowMinute}:${snoozeWakeTick}`,
-    conversationSortOrder,
-    conversationGrouping,
+    conversationView,
   });
   const partitionNextWakeAt = partition.snoozedThreads[0]?.snoozedUntil ?? null;
   if (partitionNextWakeAt !== nextSnoozeWakeAt) setNextSnoozeWakeAt(partitionNextWakeAt);
@@ -662,11 +657,11 @@ function partitionSidebarThreads(input: SidebarThreadPartitionInput) {
   // sort, or mixed-version fleets would render different pinned orders on
   // web and mobile from the same data.
   const sortedPinned = sortPinnedThreadsForSidebar(pinned);
-  const sortedActive = sortSidebarConversations(
-    active,
-    input.conversationSortOrder,
-    Date.now(),
-    input.conversationGrouping,
+  const sortedActive = withConversationSort(
+    workingShelfEnabled
+      ? sortInboxThreadsByReturn(active, inboxReturns.returnedAt)
+      : sortThreadsForSidebar(active),
+    input.conversationView,
   );
   return {
     pinnedThreads:
@@ -687,12 +682,7 @@ function partitionSidebarThreads(input: SidebarThreadPartitionInput) {
             preferredIds: optimisticDrop.order,
             getId: (thread) => scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
           }),
-    workingThreads: sortSidebarConversations(
-      working,
-      input.conversationSortOrder,
-      Date.now(),
-      input.conversationGrouping,
-    ),
+    workingThreads: withConversationSort(sortWorkingThreadsBySend(working), input.conversationView),
     snoozedThreads: snoozed.toSorted(
       (left, right) =>
         firstValidTimestampMs(left.snoozedUntil ?? null) -
@@ -1079,12 +1069,7 @@ function SidebarThreadTooltip({
             </div>
           </div>
         ) : null}
-        <ThreadCacheHoverDetails
-          environmentId={thread.environmentId}
-          threadId={thread.id}
-          hud={thread.cacheHud}
-          providerInstanceId={modelInstanceId}
-        />
+        <ThreadCacheHoverDetails thread={thread} providerInstanceId={modelInstanceId} />
       </ThreadHoverCard>
     </ThreadHoverCardPopup>
   );
@@ -2162,16 +2147,9 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
               {props.project ? <ProjectFavicon project={props.project} className="size-4" /> : null}
             </span>
             {draftIndicator}
-            {/* One line inside the fixed h-9 row: the title truncates and the
-              cache readout trails it. */}
-            <span className="flex min-w-0 flex-1 items-center gap-1.5">
+            <SidebarThreadCacheTitle variant="slim" thread={thread}>
               {title}
-              <span className="flex shrink-0">
-                <CacheHud hud={thread.cacheHud} compact />
-              </span>
-            </span>
-            {/* Settling or snoozing retires warming on the server, so slim rows
-              (the settled and snoozed shelves) carry no warm toggle. */}
+            </SidebarThreadCacheTitle>
             {pinIndicator}
             {terminalStatusIcon}
             {isRegeneratingTitle ? (
@@ -2338,11 +2316,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
               ) : (
                 <span className="flex-1" />
               )}
-              {/* The fixed-height card has no spare line, so the cache readout
-                  rides the header beside the project label it may truncate. */}
-              <span className="flex shrink-0">
-                <CacheHud hud={thread.cacheHud} compact />
-              </span>
+              <SidebarCacheHudSlot hud={thread.cacheHud} />
               {pinIndicator}
               {sortable?.isDragging ? (
                 dragDestination
@@ -2484,14 +2458,10 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
               )}
               {props.sweepAction !== null ? dragDestination : null}
             </div>
-            <div className="mt-1 flex min-w-0 items-center gap-2">
-              {title}
-              <CacheWarmingThreadToggle
-                environmentId={thread.environmentId}
-                threadId={thread.id}
-                driver={thread.cacheHud?.driver}
-                cacheHud={thread.cacheHud}
-              />
+            <div className="mt-1 flex min-w-0">
+              <SidebarThreadCacheTitle variant="card" thread={thread}>
+                {title}
+              </SidebarThreadCacheTitle>
               {isRegeneratingTitle ? (
                 <span role="status" className="sr-only">
                   Regenerating title
@@ -2760,9 +2730,7 @@ export default function Sidebar() {
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const confirmThreadDelete = useClientSettings((s) => s.confirmThreadDelete);
   const confirmThreadArchive = useClientSettings((s) => s.confirmThreadArchive);
-  const conversationSortOrder = useClientSettings((s) => s.sidebarConversationSortOrder);
-  const conversationGrouping = useClientSettings((s) => s.sidebarConversationGrouping);
-  const conversationMachineOrder = useClientSettings((s) => s.sidebarConversationMachineOrder);
+  const conversationView = useSidebarConversationView();
   const timestampFormat = useClientSettings((s) => s.timestampFormat);
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
   const {
@@ -2840,30 +2808,6 @@ export default function Sidebar() {
   });
   const newThreadContext = useHandleNewThread();
   const primaryEnvironmentId = usePrimaryEnvironmentId();
-  const moveConversationMachine = useStableCallback(
-    (environmentId: EnvironmentId, delta: -1 | 1) => {
-      const visibleIds = [...new Set(threads.map((thread) => thread.environmentId))].sort(
-        (left, right) => {
-          const a = conversationMachineOrder.indexOf(left);
-          const b = conversationMachineOrder.indexOf(right);
-          if (a >= 0 || b >= 0) {
-            if (a < 0) return 1;
-            if (b < 0) return -1;
-            if (a !== b) return a - b;
-          } else {
-            if (left === primaryEnvironmentId) return -1;
-            if (right === primaryEnvironmentId) return 1;
-          }
-          return left.localeCompare(right);
-        },
-      );
-      const index = visibleIds.indexOf(environmentId);
-      const target = index + delta;
-      if (index < 0 || target < 0 || target >= visibleIds.length) return;
-      [visibleIds[index], visibleIds[target]] = [visibleIds[target]!, visibleIds[index]!];
-      void updateClientSettings({ sidebarConversationMachineOrder: visibleIds });
-    },
-  );
   const clearSelection = useThreadSelectionStore((s) => s.clearSelection);
   const setSelectionAnchor = useThreadSelectionStore((s) => s.setAnchor);
   const toggleThreadSelection = useThreadSelectionStore((s) => s.toggleThread);
@@ -3607,58 +3551,16 @@ export default function Sidebar() {
     });
   };
   const sidebarListItemsFresh = ((): readonly SidebarListItem[] => {
-    const rowsOf = (
+    const threadRowsOf = (
       list: readonly EnvironmentThreadShell[],
       section: SidebarSection,
-    ): SidebarListItem[] => {
-      if (conversationGrouping !== "machine") {
-        return list.map((thread) => ({
-          kind: "thread" as const,
-          key: scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
-          section,
-        }));
-      }
-      const groups = new Map<EnvironmentId, EnvironmentThreadShell[]>();
-      for (const thread of list) {
-        const group = groups.get(thread.environmentId) ?? [];
-        group.push(thread);
-        groups.set(thread.environmentId, group);
-      }
-      const orderedGroups = [...groups.entries()].sort(([left], [right]) => {
-        const leftRank = conversationMachineOrder.indexOf(left);
-        const rightRank = conversationMachineOrder.indexOf(right);
-        if (leftRank >= 0 || rightRank >= 0) {
-          if (leftRank < 0) return 1;
-          if (rightRank < 0) return -1;
-          if (leftRank !== rightRank) return leftRank - rightRank;
-        } else {
-          if (left === primaryEnvironmentId) return -1;
-          if (right === primaryEnvironmentId) return 1;
-        }
-        return left.localeCompare(right);
+    ): SidebarListItem[] =>
+      list.map((thread) => {
+        const key = scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id));
+        return { kind: "thread", key, section };
       });
-      const rows: SidebarListItem[] = [];
-      for (const [environmentId, group] of orderedGroups) {
-        if (conversationGrouping === "machine" && orderedGroups.length > 1) {
-          rows.push({
-            kind: "marker",
-            marker: "machine-header",
-            key: `sidebar-machine:${section}:${environmentId}`,
-            environmentId,
-            groupPosition: orderedGroups.findIndex(([id]) => id === environmentId),
-            groupCount: orderedGroups.length,
-          });
-        }
-        rows.push(
-          ...group.map((thread) => ({
-            kind: "thread" as const,
-            key: scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
-            section,
-          })),
-        );
-      }
-      return rows;
-    };
+    const rowsOf = (list: readonly EnvironmentThreadShell[], section: SidebarSection) =>
+      groupSidebarRowsByMachine(list, section, conversationView, threadRowsOf);
     if (
       pinnedThreads.length +
         activeThreads.length +
@@ -3695,11 +3597,7 @@ export default function Sidebar() {
   // sortable context and every sortable row stay memoized meanwhile.
   const sidebarListItemsKey = sidebarListItemsFresh
     .map((item) =>
-      item.kind === "thread"
-        ? item.section + ":" + item.key
-        : item.marker === "machine-header"
-          ? `${item.key}:${item.groupPosition}:${item.groupCount}`
-          : item.marker,
+      item.kind === "thread" ? item.section + ":" + item.key : (item.key ?? item.marker),
     )
     .join("\n");
   const [sidebarListItemsState, setSidebarListItems] = useState(sidebarListItemsFresh);
@@ -4672,18 +4570,7 @@ export default function Sidebar() {
             <SidebarThreadHeader
               searchFieldRef={headerSearchRef}
               hasProjects={projectGroups.length > 0}
-              listControls={
-                <SidebarThreadListControls
-                  sortOrder={conversationSortOrder}
-                  grouping={conversationGrouping}
-                  onSortOrderChange={(sidebarConversationSortOrder) =>
-                    void updateClientSettings({ sidebarConversationSortOrder })
-                  }
-                  onGroupingChange={(sidebarConversationGrouping) =>
-                    void updateClientSettings({ sidebarConversationGrouping })
-                  }
-                />
-              }
+              listControls={<SidebarThreadListControls />}
               projectScope={
                 <Combobox
                   items={projectScopeItems}
@@ -4826,13 +4713,7 @@ export default function Sidebar() {
               activeSearchResultIndex={activeSearchResultIndex}
               onClearSearch={clearThreadSearch}
             />
-            <CacheWarmingEnvironmentToggle
-              environmentId={routeThreadRef?.environmentId ?? primaryEnvironmentId}
-              threads={threads.filter(
-                (thread) =>
-                  thread.environmentId === (routeThreadRef?.environmentId ?? primaryEnvironmentId),
-              )}
-            />
+            <SidebarCacheWarmingToggle />
           </SidebarGroup>
         }
       >
@@ -5070,65 +4951,11 @@ export default function Sidebar() {
                                 marker={item.marker}
                                 id={sidebarListItemId(item)}
                               >
-                                <div className="mx-2 mt-2 flex items-center gap-1 border-t border-sidebar-border/60 pt-2 text-3xs font-medium uppercase tracking-wide text-sidebar-muted-foreground/70">
-                                  {item.environmentId ? (
-                                    <MachineGroupConnectionStatus
-                                      environmentId={item.environmentId}
-                                    />
-                                  ) : null}
-                                  {item.environmentId ? (
-                                    <EnvironmentMachineIcon
-                                      kind={
-                                        environmentMachineById.get(item.environmentId) ?? "server"
-                                      }
-                                      className="size-3 shrink-0"
-                                    />
-                                  ) : null}
-                                  <span className="min-w-0 flex-1 truncate">
-                                    {item.environmentId
-                                      ? (environmentLabelById.get(item.environmentId) ?? "Machine")
-                                      : "Machine"}
-                                    {item.environmentId ? (
-                                      <MachineGroupSlurmTime environmentId={item.environmentId} />
-                                    ) : null}
-                                  </span>
-                                  {item.environmentId ? (
-                                    <CacheWarmingMachineToggle
-                                      environmentId={item.environmentId}
-                                      threads={threads}
-                                    />
-                                  ) : null}
-                                  {item.environmentId &&
-                                  item.groupPosition !== undefined &&
-                                  item.groupCount !== undefined ? (
-                                    <span className="flex shrink-0">
-                                      <button
-                                        type="button"
-                                        aria-label="Move machine group up"
-                                        disabled={item.groupPosition === 0}
-                                        className="rounded p-1 hover:bg-accent disabled:opacity-30"
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          moveConversationMachine(item.environmentId!, -1);
-                                        }}
-                                      >
-                                        <ArrowUpIcon className="size-3" />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        aria-label="Move machine group down"
-                                        disabled={item.groupPosition === item.groupCount - 1}
-                                        className="rounded p-1 hover:bg-accent disabled:opacity-30"
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          moveConversationMachine(item.environmentId!, 1);
-                                        }}
-                                      >
-                                        <ArrowDownIcon className="size-3" />
-                                      </button>
-                                    </span>
-                                  ) : null}
-                                </div>
+                                <SidebarMachineGroupHeader
+                                  item={item}
+                                  labelById={environmentLabelById}
+                                  threads={threads}
+                                />
                               </SortableSidebarMarker>,
                             );
                             break;

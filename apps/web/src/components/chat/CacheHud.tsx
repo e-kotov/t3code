@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import type { OrchestrationV2CacheHud, ServerProviderUsageWindow } from "@t3tools/contracts";
 import { formatResetsIn } from "@t3tools/shared/usageLimits";
 import { createCacheHudClock, createCacheHudSnapshot } from "@t3tools/shared/cacheHud";
@@ -83,11 +83,9 @@ export function useCacheHudView(hud: OrchestrationV2CacheHud | null | undefined)
     ((hud.usage.cachedInputTokens ?? 0) > 0 || (hud.usage.cacheCreationTokens ?? 0) > 0)
       ? Date.parse(hud.usage.updatedAt) + hud.ttlMs
       : null;
-  const clockSubscribe = useCallback(
-    (listener: () => void) => (expiry !== null ? subscribe(expiry, listener) : () => {}),
-    [expiry],
-  );
-  const snapshot = useMemo(() => createCacheHudSnapshot(hud), [hud]);
+  const clockSubscribe = (listener: () => void) =>
+    expiry !== null ? subscribe(expiry, listener) : () => {};
+  const snapshot = createCacheHudSnapshot(hud);
   return useSyncExternalStore(clockSubscribe, snapshot, snapshot);
 }
 

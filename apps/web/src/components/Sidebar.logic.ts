@@ -23,6 +23,7 @@ import {
   type ThreadSortInput,
 } from "../lib/threadSort";
 import type { SidebarThreadSummary, Thread } from "../types";
+import type { SidebarMarkerFields } from "./sidebar/sidebarConversationGroups";
 import { cn, normalizeSearchText } from "../lib/utils";
 import { isLatestRunSettled } from "../session-logic";
 import { resolveServerBackedAppStageLabel } from "../branding.logic";
@@ -149,14 +150,7 @@ export function sidebarMarkerId(marker: SidebarListMarker): string {
 
 export type SidebarListItem =
   | { readonly kind: "thread"; readonly key: string; readonly section: SidebarSection }
-  | {
-      readonly kind: "marker";
-      readonly marker: SidebarListMarker;
-      readonly key?: string;
-      readonly environmentId?: EnvironmentId;
-      readonly groupPosition?: number;
-      readonly groupCount?: number;
-    };
+  | ({ readonly kind: "marker"; readonly marker: SidebarListMarker } & SidebarMarkerFields);
 
 export function sidebarListItemId(item: SidebarListItem): string {
   return item.kind === "thread" ? item.key : (item.key ?? sidebarMarkerId(item.marker));
@@ -205,10 +199,8 @@ export function resolveSidebarDropTarget(
         item.marker === "settled-header"
       )
         break;
-    } else if (item.kind === "thread") {
-      if (currentSection === "pinned") pinnedOrder.push(item.key);
-      else activeOrder.push(item.key);
-    }
+    } else if (currentSection === "pinned") pinnedOrder.push(item.key);
+    else activeOrder.push(item.key);
   }
   return { section, pinnedOrder, activeOrder };
 }

@@ -17,7 +17,6 @@ const state = vi.hoisted(() => ({
   openCustom: vi.fn(),
   hintSeen: vi.fn(),
 }));
-vi.mock("react", () => ({ useCallback: (callback: unknown) => callback }));
 vi.mock("./editorPreferences", () => ({ usePreferredEditor: () => [null, vi.fn()] }));
 vi.mock("./hooks/useLocalStorage", () => ({
   useLocalStorage: (key: string) =>

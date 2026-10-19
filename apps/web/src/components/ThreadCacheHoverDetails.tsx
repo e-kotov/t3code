@@ -1,12 +1,8 @@
 import { useState } from "react";
 import { useAtomValue } from "@effect/atom-react";
 import { serverEnvironment } from "~/state/server";
-import type {
-  EnvironmentId,
-  OrchestrationV2CacheHud,
-  ServerProviderUsageWindow,
-  ThreadId,
-} from "@t3tools/contracts";
+import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
+import type { ServerProviderUsageWindow } from "@t3tools/contracts";
 import { describeCacheHud, describeUsageWindows } from "@t3tools/shared/cacheHud";
 import {
   ChartPieIcon,
@@ -24,27 +20,26 @@ import { CACHE_WARMING_EXPLANATION } from "./CacheWarmingToggle";
 /** Cache, context, warming and subscription-limit rows for a conversation's
  * sidebar hover card. Limits belong to the provider account on that machine. */
 export function ThreadCacheHoverDetails(props: {
-  environmentId: EnvironmentId;
-  threadId: ThreadId;
-  hud: OrchestrationV2CacheHud | null | undefined;
+  thread: Pick<EnvironmentThreadShell, "environmentId" | "id" | "cacheHud">;
   usageWindows?: ReadonlyArray<ServerProviderUsageWindow> | undefined;
   providerInstanceId?: string;
 }) {
+  const { environmentId, id: threadId, cacheHud: hud } = props.thread;
   const warming = useEnvironmentSettings(
-    props.environmentId,
-    (settings) => settings.cacheWarmingSessions[props.threadId] === true,
+    environmentId,
+    (settings) => settings.cacheWarmingSessions[threadId] === true,
   );
   // The card mounts when it opens, so its times are as of opening.
   const [openedAt] = useState(() => Date.now());
-  const providers = useAtomValue(serverEnvironment.providersValueAtom(props.environmentId));
+  const providers = useAtomValue(serverEnvironment.providersValueAtom(environmentId));
   const usageWindows =
     props.usageWindows ??
     providers?.find((provider) => provider.instanceId === props.providerInstanceId)?.usageLimits
       ?.windows;
   const limits = describeUsageWindows(usageWindows, openedAt);
-  if (!props.hud && limits.length === 0) return null;
-  const details = props.hud ? describeCacheHud(props.hud, openedAt) : null;
-  const supportsWarming = props.hud?.driver === "codex" || props.hud?.driver === "claudeAgent";
+  if (!hud && limits.length === 0) return null;
+  const details = hud ? describeCacheHud(hud, openedAt) : null;
+  const supportsWarming = hud?.driver === "codex" || hud?.driver === "claudeAgent";
   return (
     <div className="grid gap-1.5 border-t border-border/60 pt-1.5" data-thread-cache-details="true">
       {details ? (
