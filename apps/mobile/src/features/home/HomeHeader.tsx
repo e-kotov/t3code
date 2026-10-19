@@ -16,6 +16,8 @@ import { buildHomeListFilterMenu } from "./home-list-filter-menu";
 import { createSidebarHeaderItems } from "../threads/sidebar-native-header-items";
 import type { HomeHeaderProps } from "./HomeHeader.types";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
+import { isConversationListCustomized } from "./conversationListOptions";
+import { renderConversationListToolbarMenus } from "./conversationListToolbarMenus";
 
 export type { HomeHeaderEnvironment } from "./HomeHeader.types";
 
@@ -46,8 +48,7 @@ export function HomeHeader(props: HomeHeaderProps) {
   const hasCustomListOptions =
     props.selectedEnvironmentId !== null ||
     props.selectedProjectKey !== null ||
-    props.conversationSortOrder !== "updated_at" ||
-    props.conversationGrouping !== "none";
+    isConversationListCustomized(props);
   const focusSearch = useCallback(() => {
     if (primaryColumn && !panes.primarySidebarVisible) {
       focusAfterReveal.current = true;
@@ -216,42 +217,7 @@ export function HomeHeader(props: HomeHeaderProps) {
                 ))}
               </Toolbar.Menu>
             ) : null}
-            <Toolbar.Menu title="Sort conversations">
-              <Toolbar.Label>Sort conversations</Toolbar.Label>
-              <Toolbar.MenuAction
-                isOn={props.conversationSortOrder === "updated_at"}
-                onPress={() => props.onConversationSortOrderChange("updated_at")}
-              >
-                <Toolbar.Label>Recent activity</Toolbar.Label>
-              </Toolbar.MenuAction>
-              <Toolbar.MenuAction
-                isOn={props.conversationSortOrder === "created_at"}
-                onPress={() => props.onConversationSortOrderChange("created_at")}
-              >
-                <Toolbar.Label>Created</Toolbar.Label>
-              </Toolbar.MenuAction>
-              <Toolbar.MenuAction
-                isOn={props.conversationSortOrder === "cache_expiry"}
-                onPress={() => props.onConversationSortOrderChange("cache_expiry")}
-              >
-                <Toolbar.Label>Cache expiry</Toolbar.Label>
-              </Toolbar.MenuAction>
-            </Toolbar.Menu>
-            <Toolbar.Menu title="Group conversations">
-              <Toolbar.Label>Group conversations</Toolbar.Label>
-              <Toolbar.MenuAction
-                isOn={props.conversationGrouping === "none"}
-                onPress={() => props.onConversationGroupingChange("none")}
-              >
-                <Toolbar.Label>No grouping</Toolbar.Label>
-              </Toolbar.MenuAction>
-              <Toolbar.MenuAction
-                isOn={props.conversationGrouping === "machine"}
-                onPress={() => props.onConversationGroupingChange("machine")}
-              >
-                <Toolbar.Label>By machine</Toolbar.Label>
-              </Toolbar.MenuAction>
-            </Toolbar.Menu>
+            {renderConversationListToolbarMenus(props)}
           </Toolbar.Menu>
           <Toolbar.Spacer flexible />
           <Toolbar.Button

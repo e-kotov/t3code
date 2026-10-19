@@ -30,7 +30,6 @@ import { threadJumpTarget } from "../keyboard/threadKeyboardShortcuts";
 import {
   buildThreadListV2Items,
   buildThreadListV2ListItems,
-  groupThreadListV2ItemsByMachine,
   getThreadListV2OrderedSection,
   isThreadListV2ListItem,
   resolveThreadListV2SnoozeMenuSelection,
@@ -55,37 +54,6 @@ function makeThread(
 }
 
 const NOW = "2026-06-02T00:00:00.000Z";
-
-describe("machine grouped thread order", () => {
-  it("uses the persisted order and exposes move positions on machine headers", () => {
-    const row = (environmentId: string, key: string) =>
-      ({
-        type: "v2-thread",
-        key,
-        item: { thread: { environmentId } },
-      }) as unknown as ThreadListV2ListItem;
-    const grouped = groupThreadListV2ItemsByMachine(
-      [row("machine-b", "b1"), row("machine-a", "a1"), row("machine-b", "b2")],
-      new Map([
-        ["machine-a", "A"],
-        ["machine-b", "B"],
-      ]),
-      ["machine-b", "machine-a"],
-    );
-    expect(
-      grouped.map((item) => (item.type === "v2-machine-header" ? item.environmentId : item.key)),
-    ).toEqual(["machine-b", "b1", "b2", "machine-a", "a1"]);
-    const headers = grouped.filter((item) => item.type === "v2-machine-header");
-    expect(
-      headers.map((header) =>
-        header.type === "v2-machine-header" ? [header.position, header.count] : null,
-      ),
-    ).toEqual([
-      [0, 2],
-      [1, 2],
-    ]);
-  });
-});
 
 const linkedPullRequest = {
   projectId: ProjectId.make("project-1"),

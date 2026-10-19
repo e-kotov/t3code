@@ -1,6 +1,10 @@
 import type { EnvironmentMachineKind } from "@t3tools/contracts";
 
-import { isThreadListV2ListItem, type ThreadListV2MachineHeaderListItem } from "./threadListV2";
+import {
+  compareMachineOrder,
+  type ThreadListV2MachineHeaderListItem,
+} from "./conversationListOrder";
+import { isThreadListV2ListItem } from "./threadListV2";
 
 /** Keep machine status reachable when grouping is off or has only one machine. */
 export function withMobileMachineContext<T extends { readonly type: string }>(
@@ -22,14 +26,7 @@ export function withMobileMachineContext<T extends { readonly type: string }>(
   const labels = new Map(
     environments.map((environment) => [environment.environmentId, environment.label]),
   );
-  const ordered = [...ids].sort((left, right) => {
-    const a = preferredOrder.indexOf(left);
-    const b = preferredOrder.indexOf(right);
-    return (
-      (a < 0 ? Number.MAX_SAFE_INTEGER : a) - (b < 0 ? Number.MAX_SAFE_INTEGER : b) ||
-      left.localeCompare(right)
-    );
-  });
+  const ordered = [...ids].sort(compareMachineOrder(preferredOrder));
   const headers: ThreadListV2MachineHeaderListItem[] = ordered.map((environmentId, position) => ({
     type: "v2-machine-header",
     key: `mobile-machine-context:${environmentId}`,

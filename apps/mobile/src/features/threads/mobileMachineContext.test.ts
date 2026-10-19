@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import { groupThreadListV2ItemsByMachine } from "./machineGroupedThreadList";
 import { withMobileMachineContext } from "./mobileMachineContext";
-import { groupThreadListV2ItemsByMachine, type ThreadListV2ListItem } from "./threadListV2";
+import type { ThreadListV2ListItem } from "./threadListV2";
 
 const environments = [
   { environmentId: "gwdg", label: "GWDG" },

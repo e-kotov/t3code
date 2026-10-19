@@ -1,4 +1,11 @@
-import { withMobileMachineContext } from "./mobileMachineContext";
+import { arrangeMobileConversationList } from "./machineGroupedThreadList";
+import { renderMachineGroupHeader } from "./MachineGroupHeader";
+import { useConversationMachineOrder } from "./useConversationMachineOrder";
+import {
+  applyConversationListMenuEvent,
+  conversationListMenuActions,
+  isConversationListCustomized,
+} from "../home/conversationListOptions";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import { resolveScratchProjectScopeKey } from "@t3tools/client-runtime/state/project-grouping";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
@@ -14,14 +21,13 @@ import {
 } from "@t3tools/client-runtime/state/thread-search";
 import { LegendList } from "@legendapp/list/react-native";
 import type { MenuAction } from "@react-native-menu/menu";
-import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { useAtomValue } from "@effect/atom-react";
 import { useEffect, useRef, useState } from "react";
 import type { LayoutChangeEvent, TextInputInstance } from "react-native";
 import { Platform, StyleSheet, TextInput, View } from "react-native";
 import { GestureDetector, useNativeGesture } from "react-native-gesture-handler";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import type { SearchBarCommands } from "react-native-screens";
 
 import { AppText as Text } from "../../components/ui/AppText";
@@ -62,7 +68,6 @@ import { SidebarNavigationShell } from "./sidebar-navigation-shell";
 import {
   ThreadListV2PendingRow,
   ThreadListV2Row,
-  ThreadListV2MachineHeader,
   ThreadListV2SettledShelfHeader,
   ThreadListV2ShowMoreRow,
   ThreadListV2SnoozedShelfHeader,
@@ -72,7 +77,6 @@ import { useThreadRowProviderInstanceResolver } from "./thread-provider-instance
 import type { ThreadPrPresentation } from "../../state/thread-pr-presentation";
 import {
   buildThreadListV2Items,
-  groupThreadListV2ItemsByMachine,
   getThreadListV2OrderedSection,
   buildThreadListV2ListItems,
   isThreadListV2ListItem,
@@ -131,12 +135,6 @@ function NativeSidebarContainer(props: ThreadNavigationSidebarProps) {
 function ThreadNavigationSidebarPane(
   props: ThreadNavigationSidebarProps & { readonly nativeChrome: boolean },
 ) {
-  const preferencesResult = useAtomValue(mobilePreferencesAtom);
-  const updatePreferences = useAtomSet(updateMobilePreferencesAtom);
-  const machineOrder =
-    preferencesResult._tag === "Success"
-      ? (preferencesResult.value.conversationMachineOrder ?? [])
-      : [];
   const { themeVariables: materialTheme } = useAppearancePreferences();
   const drawerColor = materialTheme["--color-drawer"];
 
@@ -173,33 +171,12 @@ function ThreadNavigationSidebarPane(
       label: connection.environmentLabel,
     }))
     .sort((left, right) => left.label.localeCompare(right.label));
-  const moveMachine = (environmentId: string, delta: -1 | 1) => {
-    const ordered = [
-      ...new Set(environments.map((environment) => String(environment.environmentId))),
-    ].sort((left, right) => {
-      const a = machineOrder.indexOf(left);
-      const b = machineOrder.indexOf(right);
-      return (
-        (a < 0 ? Number.MAX_SAFE_INTEGER : a) - (b < 0 ? Number.MAX_SAFE_INTEGER : b) ||
-        left.localeCompare(right)
-      );
-    });
-    const index = ordered.indexOf(environmentId);
-    const target = index + delta;
-    if (index < 0 || target < 0 || target >= ordered.length) return;
-    [ordered[index], ordered[target]] = [ordered[target]!, ordered[index]!];
-    updatePreferences({ conversationMachineOrder: ordered });
-  };
+  const { machineOrder, moveMachine } = useConversationMachineOrder(environments);
   const availableEnvironmentIds = new Set(
     environments.map((environment) => environment.environmentId),
   );
-  const {
-    options,
-    setSelectedEnvironmentId,
-    setSelectedProjectKey,
-    setConversationSortOrder,
-    setConversationGrouping,
-  } = useHomeListOptions(availableEnvironmentIds);
+  const { options, setSelectedEnvironmentId, setSelectedProjectKey, conversationList } =
+    useHomeListOptions(availableEnvironmentIds);
   const cacheWarmingEnvironmentId =
     options.selectedEnvironmentId ?? environments[0]?.environmentId ?? null;
   const searchEnvironmentIds =
@@ -395,7 +372,7 @@ function ThreadNavigationSidebarPane(
         (v2SearchQuery.length === 0 ||
           pendingTask.title.toLocaleLowerCase().includes(v2SearchQuery)),
     );
-    const baseItems: SidebarListItem[] = buildThreadListV2ListItems({
+    const items: SidebarListItem[] = buildThreadListV2ListItems({
       items: threadListV2Layout.items,
       pendingTasks: v2PendingTasks,
       workingCount: threadListV2Layout.workingCount,
@@ -413,20 +390,6 @@ function ThreadNavigationSidebarPane(
       moveAvailability: threadMoveAvailability,
       shelfPreferencesLoading: !shelfPreferencesLoaded,
     });
-    const items =
-      options.conversationGrouping === "machine"
-        ? groupThreadListV2ItemsByMachine(
-            baseItems.filter(isThreadListV2ListItem),
-            new Map(
-              environments.map((environment) => [
-                String(environment.environmentId),
-                environment.label,
-              ]),
-            ),
-            machineOrder,
-            machineByEnvironmentId,
-          )
-        : baseItems;
     if (settledShelfExpanded && threadListV2Layout.hiddenSettledCount > 0) {
       items.push({
         type: "v2-show-more",
@@ -434,7 +397,12 @@ function ThreadNavigationSidebarPane(
         hiddenCount: threadListV2Layout.hiddenSettledCount,
       });
     }
-    return withMobileMachineContext(items, environments, machineByEnvironmentId, machineOrder);
+    return arrangeMobileConversationList(items, {
+      grouping: options.conversationGrouping,
+      environments,
+      machineKinds: machineByEnvironmentId,
+      machineOrder,
+    });
   })();
   const listMenuActions = [
     {
@@ -478,35 +446,7 @@ function ThreadNavigationSidebarPane(
             ],
           },
         ] satisfies MenuAction[])),
-    {
-      id: "sort",
-      title: "Sort conversations",
-      subactions: (
-        [
-          ["updated_at", "Recent activity"],
-          ["created_at", "Created"],
-          ["cache_expiry", "Cache expiry"],
-        ] as const
-      ).map(([value, title]) => ({
-        id: `sort:${value}`,
-        title,
-        state: options.conversationSortOrder === value ? ("on" as const) : ("off" as const),
-      })),
-    },
-    {
-      id: "grouping",
-      title: "Group conversations",
-      subactions: (
-        [
-          ["none", "No grouping"],
-          ["machine", "By machine"],
-        ] as const
-      ).map(([value, title]) => ({
-        id: `grouping:${value}`,
-        title,
-        state: options.conversationGrouping === value ? ("on" as const) : ("off" as const),
-      })),
-    },
+    ...conversationListMenuActions(options),
   ] satisfies MenuAction[];
   const handleListMenuAction = ({
     nativeEvent,
@@ -536,16 +476,7 @@ function ThreadNavigationSidebarPane(
       }
       return;
     }
-    if (event.startsWith("sort:")) {
-      const value = event.slice("sort:".length);
-      if (value === "updated_at" || value === "created_at" || value === "cache_expiry")
-        setConversationSortOrder(value);
-      return;
-    }
-    if (event.startsWith("grouping:")) {
-      const value = event.slice("grouping:".length);
-      if (value === "none" || value === "machine") setConversationGrouping(value);
-    }
+    applyConversationListMenuEvent(event, conversationList);
   };
 
   const [measuredHeaderHeight, setMeasuredHeaderHeight] = useState<number | null>(null);
@@ -641,17 +572,7 @@ function ThreadNavigationSidebarPane(
   const renderListItem = ({ item }: { readonly item: SidebarListItem }) => {
     switch (item.type) {
       case "v2-machine-header":
-        return (
-          <ThreadListV2MachineHeader
-            label={item.label}
-            pane="sidebar"
-            environmentId={item.environmentId}
-            position={item.position}
-            count={item.count}
-            onMove={moveMachine}
-            machineKind={item.machineKind}
-          />
-        );
+        return renderMachineGroupHeader(item, "sidebar", moveMachine);
       case "v2-pending": {
         const pendingScopeKey = scopedProjectKey(
           item.pendingTask.environmentId,
@@ -784,8 +705,7 @@ function ThreadNavigationSidebarPane(
   const filterCustomized =
     options.selectedEnvironmentId !== null ||
     selectedProjectKey !== null ||
-    options.conversationSortOrder !== "updated_at" ||
-    options.conversationGrouping !== "none";
+    isConversationListCustomized(options);
   const filterIcon = filterCustomized
     ? "line.3.horizontal.decrease.circle.fill"
     : "line.3.horizontal.decrease.circle";
@@ -796,10 +716,7 @@ function ThreadNavigationSidebarPane(
     selectedProjectKey,
     onEnvironmentChange: setSelectedEnvironmentId,
     onProjectChange: setSelectedProjectKey,
-    conversationSortOrder: options.conversationSortOrder,
-    conversationGrouping: options.conversationGrouping,
-    onConversationSortOrderChange: setConversationSortOrder,
-    onConversationGroupingChange: setConversationGrouping,
+    ...conversationList,
   });
   const nativeHeaderItems = createSidebarHeaderItems({
     filterIcon,

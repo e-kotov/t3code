@@ -26,6 +26,8 @@ import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSi
 import { useToolbarLayout } from "../../components/ui/useToolbarLayout";
 import { PullRequestGlyph } from "../pull-requests/pullRequestGlyphs";
 import { useShowUtilitiesAction } from "../device-commands/useUtilitiesSidebarActions";
+import type { ConversationListControls } from "./conversationListOptions";
+import { ConversationListToolbarButtons } from "./ConversationListToolbarButtons";
 
 /** One toolbar height for the compact list and expanded sidebar, including search. */
 export function ThreadListToolbar(props: {
@@ -36,12 +38,7 @@ export function ThreadListToolbar(props: {
   readonly onFilterAction: NonNullable<ComponentProps<typeof Menu>["onPressAction"]>;
   readonly onOpenSettings: () => void;
   readonly onOpenEnvironments: () => void;
-  readonly sortActions?: MenuAction[];
-  readonly onSortAction?: ComponentProps<typeof Menu>["onPressAction"];
-  readonly sortCustomized?: boolean;
-  readonly groupActions?: MenuAction[];
-  readonly onGroupAction?: ComponentProps<typeof Menu>["onPressAction"];
-  readonly groupCustomized?: boolean;
+  readonly conversationList?: ConversationListControls;
   readonly sidebar?: boolean;
   readonly onLayout?: (event: LayoutChangeEvent) => void;
   readonly onRequestVisibility?: () => void;
@@ -137,37 +134,8 @@ export function ThreadListToolbar(props: {
                   brand={<CompactBrandTitle allowFontScaling={false} fit />}
                 />
               </View>
-              {props.sortActions && props.onSortAction ? (
-                <AndroidAnchoredMenu
-                  actions={props.sortActions}
-                  onPressAction={props.onSortAction}
-                  title="Sort conversations"
-                >
-                  {(open) => (
-                    <AndroidHeaderIconButton
-                      accessibilityLabel="Sort conversations"
-                      icon="arrow.up.arrow.down"
-                      selected={props.sortCustomized}
-                      onPress={open}
-                    />
-                  )}
-                </AndroidAnchoredMenu>
-              ) : null}
-              {props.groupActions && props.onGroupAction ? (
-                <AndroidAnchoredMenu
-                  actions={props.groupActions}
-                  onPressAction={props.onGroupAction}
-                  title="Group conversations"
-                >
-                  {(open) => (
-                    <AndroidHeaderIconButton
-                      accessibilityLabel="Group conversations"
-                      icon="square.3.layers.3d"
-                      selected={props.groupCustomized}
-                      onPress={open}
-                    />
-                  )}
-                </AndroidAnchoredMenu>
+              {props.conversationList ? (
+                <ConversationListToolbarButtons controls={props.conversationList} />
               ) : null}
               {props.sidebar && workspace ? (
                 <AndroidHeaderIconButton

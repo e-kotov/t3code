@@ -9,7 +9,6 @@ import {
 } from "@t3tools/client-runtime/state/thread-settled";
 import type { SnoozePreset } from "@t3tools/client-runtime/state/thread-settled";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
-import type { EnvironmentMachineKind } from "@t3tools/contracts";
 import { resolveThreadProviderStack } from "@t3tools/client-runtime/state/models";
 import { threadSearchMatchKey } from "@t3tools/client-runtime/state/thread-search";
 import {
@@ -21,15 +20,19 @@ import {
 import {
   sortActiveThreadsByOrderKey,
   resolveSettledThreadTimestamp,
-  sortSidebarConversations,
   sortPinnedThreadsByOrderKey,
   sortSettledThreads,
 } from "@t3tools/client-runtime/state/thread-sort";
 import type { EnvironmentId, ProjectId } from "@t3tools/contracts";
-import type { SidebarConversationSortOrder } from "@t3tools/contracts/settings";
 
 import type { ThreadListProvider } from "../../state/thread-list-environments";
 import type { ThreadMoveAvailability } from "./threadOrder";
+import {
+  machineHeadersAreEqual,
+  sortConversationShelf,
+  type ConversationShelfSortInput,
+  type ThreadListV2MachineHeaderListItem,
+} from "./conversationListOrder";
 
 import { relativeTime } from "../../lib/time";
 import type { PendingNewTask } from "../../state/use-pending-new-tasks";
@@ -316,16 +319,6 @@ export interface ThreadListV2SettledShelfListItem {
   readonly disabled: boolean;
 }
 
-export interface ThreadListV2MachineHeaderListItem {
-  readonly type: "v2-machine-header";
-  readonly key: string;
-  readonly label: string;
-  readonly environmentId: string;
-  readonly position: number;
-  readonly count: number;
-  readonly machineKind?: EnvironmentMachineKind;
-}
-
 export type ThreadListV2ListItem =
   | ThreadListV2ThreadListItem
   | ThreadListV2PendingListItem
@@ -347,88 +340,18 @@ export function isThreadListV2ListItem(value: {
   );
 }
 
-export function groupThreadListV2ItemsByMachine(
-  items: readonly ThreadListV2ListItem[],
-  labels: ReadonlyMap<string, string>,
-  preferredOrder: readonly string[] = [],
-  machineKinds: ReadonlyMap<string, EnvironmentMachineKind> = new Map(),
-): ThreadListV2ListItem[] {
-  const environmentIds = [
-    ...new Set(
-      items
-        .filter((item) => item.type === "v2-thread")
-        .map((item) => item.item.thread.environmentId),
-    ),
-  ].sort((left, right) => {
-    const leftPosition = preferredOrder.indexOf(left);
-    const rightPosition = preferredOrder.indexOf(right);
-    if (leftPosition >= 0 || rightPosition >= 0) {
-      if (leftPosition < 0) return 1;
-      if (rightPosition < 0) return -1;
-      if (leftPosition !== rightPosition) return leftPosition - rightPosition;
-    }
-    return left.localeCompare(right);
-  });
-  const environmentCount = environmentIds.length;
-  if (environmentCount <= 1) return [...items];
-  const grouped: ThreadListV2ListItem[] = [];
-  let index = 0;
-  let cursor = 0;
-  while (cursor < items.length) {
-    if (items[cursor]?.type !== "v2-thread") {
-      grouped.push(items[cursor]!);
-      cursor += 1;
-      continue;
-    }
-    const segment: Extract<ThreadListV2ListItem, { type: "v2-thread" }>[] = [];
-    while (cursor < items.length && items[cursor]?.type === "v2-thread") {
-      segment.push(items[cursor] as Extract<ThreadListV2ListItem, { type: "v2-thread" }>);
-      cursor += 1;
-    }
-    const groupedRows = new Map<string, typeof segment>();
-    for (const row of segment) {
-      const id = row.item.thread.environmentId;
-      groupedRows.set(id, [...(groupedRows.get(id) ?? []), row]);
-    }
-    const segmentEnvironmentIds = environmentIds.filter((id) => groupedRows.has(id));
-    for (const [position, environmentId] of segmentEnvironmentIds.entries()) {
-      grouped.push({
-        type: "v2-machine-header",
-        key: `v2-machine:${index++}:${environmentId}`,
-        label: labels.get(environmentId) ?? "Machine",
-        environmentId,
-        position,
-        count: segmentEnvironmentIds.length,
-        machineKind: machineKinds.get(environmentId),
-      });
-      grouped.push(...(groupedRows.get(environmentId) ?? []));
-    }
-  }
-  return grouped;
-}
-
-/** Recycled-list equality for the flat v2 list (Home + iPad sidebar).
-    Item objects are rebuilt on every minute tick and every partition run;
-    without this the lists would consider every mounted row changed and
-    re-render all of them (each carrying a swipeable + a PR subscription).
-    The clock-derived fields are per-row precomputed text, so a minute tick
-    only flips equality on rows whose visible text (or snooze menu) actually
-    moved. Thread references are stable across rebuilds. */
+/**
+ * Item objects are rebuilt on every minute tick and every partition run;
+ * without this the lists would consider every mounted row changed and re-render
+ * all of them (each carrying a swipeable + a PR subscription).
+ */
 export function threadListV2ListItemsAreEqual(
   previous: ThreadListV2ListItem,
   item: ThreadListV2ListItem,
 ): boolean {
   switch (item.type) {
     case "v2-machine-header":
-      return (
-        previous.type === item.type &&
-        previous.key === item.key &&
-        previous.label === item.label &&
-        previous.environmentId === item.environmentId &&
-        previous.position === item.position &&
-        previous.count === item.count &&
-        previous.machineKind === item.machineKind
-      );
+      return machineHeadersAreEqual(previous, item);
     case "v2-thread":
       return (
         previous.type === "v2-thread" &&
@@ -644,17 +567,13 @@ export function buildThreadListV2Items(input: {
   readonly settledLimit?: number;
   readonly now: string;
   readonly workingShelfEnabled?: boolean;
-  /** User-selected sort for the visible Working and Active shelves. */
-  readonly conversationSortOrder?: SidebarConversationSortOrder;
-  readonly conversationGrouping?: "none" | "machine";
-  /** Expands the Working shelf into rows. Collapsed is the default. */
   readonly workingShelfExpanded?: boolean;
   readonly inboxReturnAt?: (thread: EnvironmentThreadShell) => number | undefined;
   readonly snoozedShelfExpanded?: boolean;
   readonly settledShelfExpanded?: boolean;
   readonly selectedThreadKey?: string | null;
   readonly queuedThreadKeys?: ReadonlySet<string>;
-}): ThreadListV2Layout {
+} & ConversationShelfSortInput): ThreadListV2Layout {
   const now = input.now;
   const pending =
     input.pendingOrder == null
@@ -727,26 +646,13 @@ export function buildThreadListV2Items(input: {
     }
   }
 
-  // The beta inbox is time-ordered, so the saved arrangement (and any move in
-  // flight) is kept but not applied until the beta is off again.
-  // Without a selected sort order, keep upstream's saved and inbox ordering.
-  const sortOrder = input.conversationSortOrder;
-  const applySelectedSort = <T extends (typeof active)[number]>(threads: T[]) =>
-    sortOrder === undefined
-      ? threads
-      : sortSidebarConversations(
-          threads,
-          sortOrder,
-          Date.now(),
-          input.conversationGrouping ?? "none",
-        );
-  const orderedActive = applySelectedSort(
+  const orderedActive = sortConversationShelf(
+    input,
     workingShelfEnabled
       ? sortInboxThreadsByReturn(active, input.inboxReturnAt)
       : applyPendingThreadOrder(sortThreadsForListV2(active), "active", pending),
   );
-  // Newest send first; finishing and waking again do not move a row.
-  const orderedWorking = applySelectedSort(sortWorkingThreadsBySend(working));
+  const orderedWorking = sortConversationShelf(input, sortWorkingThreadsBySend(working));
   const orderedSnoozed = [...snoozed].sort(
     (left, right) =>
       parseTimestampMs(left.snoozedUntil ?? "") - parseTimestampMs(right.snoozedUntil ?? ""),

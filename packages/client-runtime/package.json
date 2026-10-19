@@ -280,8 +280,8 @@
       "default": "./src/state/subagentRuntime.ts"
     },
     "./state/thread-sort": {
-      "types": "./src/state/threadSort.ts",
-      "default": "./src/state/threadSort.ts"
+      "types": "./src/state/threadSortEntry.ts",
+      "default": "./src/state/threadSortEntry.ts"
     },
     "./state/thread-inbox": {
       "types": "./src/state/threadInbox.ts",

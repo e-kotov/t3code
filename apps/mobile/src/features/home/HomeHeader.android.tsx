@@ -3,6 +3,7 @@ import { useCallback, useMemo } from "react";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { ThreadListToolbar } from "./ThreadListToolbar";
 import type { HomeHeaderProps } from "./HomeHeader.types";
+import { isConversationListCustomized } from "./conversationListOptions";
 
 export type { HomeHeaderEnvironment } from "./HomeHeader.types";
 
@@ -14,43 +15,7 @@ export function HomeHeader(props: HomeHeaderProps) {
   const hasCustomListOptions =
     props.selectedEnvironmentId !== null ||
     props.selectedProjectKey !== null ||
-    props.conversationSortOrder !== "updated_at" ||
-    props.conversationGrouping !== "none";
-  const sortActions = useMemo<MenuAction[]>(
-    () => [
-      {
-        id: "sort:updated_at",
-        title: "Recent activity",
-        state: checkedMenuState(props.conversationSortOrder === "updated_at"),
-      },
-      {
-        id: "sort:created_at",
-        title: "Created",
-        state: checkedMenuState(props.conversationSortOrder === "created_at"),
-      },
-      {
-        id: "sort:cache_expiry",
-        title: "Cache expiry",
-        state: checkedMenuState(props.conversationSortOrder === "cache_expiry"),
-      },
-    ],
-    [props.conversationSortOrder],
-  );
-  const groupActions = useMemo<MenuAction[]>(
-    () => [
-      {
-        id: "group:none",
-        title: "No grouping",
-        state: checkedMenuState(props.conversationGrouping === "none"),
-      },
-      {
-        id: "group:machine",
-        title: "By machine",
-        state: checkedMenuState(props.conversationGrouping === "machine"),
-      },
-    ],
-    [props.conversationGrouping],
-  );
+    isConversationListCustomized(props);
   const menuActions = useMemo<MenuAction[]>(
     () => [
       {
@@ -123,12 +88,6 @@ export function HomeHeader(props: HomeHeaderProps) {
         }
         return;
       }
-
-      if (id === "sort:updated_at") props.onConversationSortOrderChange("updated_at");
-      else if (id === "sort:created_at") props.onConversationSortOrderChange("created_at");
-      else if (id === "sort:cache_expiry") props.onConversationSortOrderChange("cache_expiry");
-      else if (id === "group:none") props.onConversationGroupingChange("none");
-      else if (id === "group:machine") props.onConversationGroupingChange("machine");
     },
     [props],
   );
@@ -144,12 +103,7 @@ export function HomeHeader(props: HomeHeaderProps) {
         onFilterAction={handleMenuAction}
         onOpenSettings={props.onOpenSettings}
         onOpenEnvironments={props.onOpenEnvironments}
-        sortActions={sortActions}
-        onSortAction={handleMenuAction}
-        sortCustomized={props.conversationSortOrder !== "updated_at"}
-        groupActions={groupActions}
-        onGroupAction={handleMenuAction}
-        groupCustomized={props.conversationGrouping !== "none"}
+        conversationList={props}
       />
     </>
   );

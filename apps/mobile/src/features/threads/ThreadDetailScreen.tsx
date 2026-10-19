@@ -21,19 +21,18 @@ import type { LegendListRef } from "@legendapp/list/react-native";
 import { HeaderHeightContext } from "@react-navigation/elements";
 import { NativeLayoutObserver } from "../../native/NativeLayoutObserver";
 import { deriveBottomControlInsets, type NativeLayoutMetrics } from "../../lib/reserved-regions";
-import {
+import type {
+  EnvironmentId,
   MessageId,
-  type AssistantCitation,
-  type EnvironmentId,
-  type ModelSelection,
-  type ProviderApprovalDecision,
-  type ProviderInteractionMode,
-  type RuntimeMode,
-  type RuntimeRequestId,
-  type ScopedThreadRef,
-  type ServerConfig as T3ServerConfig,
-  type ThreadId,
-  type UsageLimitsReport,
+  ModelSelection,
+  ProviderApprovalDecision,
+  ProviderInteractionMode,
+  RuntimeMode,
+  RuntimeRequestId,
+  ScopedThreadRef,
+  ServerConfig as T3ServerConfig,
+  ThreadId,
+  UsageLimitsReport,
 } from "@t3tools/contracts";
 import {
   appendCodexArtifactTemplateUsePrompt,
@@ -88,12 +87,7 @@ import { useNativeColumnLayoutMetrics } from "../../native/native-layout-metrics
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { collectProviderUsageLimits } from "@t3tools/shared/usageLimits";
 import type { ComposerEditorHandle } from "../../components/ComposerEditor";
-import { AssistantCitationSheet } from "./AssistantCitationSheet";
-import { addAssistantCitationSelectionListener } from "../../native/SelectableMarkdownText";
-import {
-  serializeAssistantCitation,
-  withAssistantCitationComment,
-} from "@t3tools/shared/assistantCitations";
+import { useAssistantCitationSheet } from "./useAssistantCitationSheet";
 import type { StatusTone } from "../../components/StatusPill";
 import { getComposerDraftSnapshot } from "../../state/use-composer-drafts";
 import { RenderErrorBoundary, RenderFailureView } from "../../components/RenderErrorBoundary";
@@ -406,33 +400,13 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
   const turnSubagents = useThreadTurnSubagents(props.selectedThreadDetailRef);
   const agentsSegment = resolveSubagentPillSegment(turnSubagents);
   const composerEditorRef = useRef<ComposerEditorHandle>(null);
-  const [pendingAssistantCitation, setPendingAssistantCitation] =
-    useState<AssistantCitation | null>(null);
-  useEffect(() => {
-    if (Platform.OS !== "android") return;
-    const subscription = addAssistantCitationSelectionListener((selection) => {
-      if (
-        selection.environmentId !== props.environmentId ||
-        selection.threadId !== props.selectedThread.id ||
-        selection.text.trim().length === 0
-      ) {
-        return;
-      }
-      setPendingAssistantCitation({
-        version: 1,
-        environmentId: props.environmentId,
-        threadId: props.selectedThread.id,
-        messageId: MessageId.make(selection.messageId),
-        text: selection.text,
-        start: selection.start,
-        end: selection.end,
-        prefix: selection.prefix,
-        suffix: selection.suffix,
-      });
-    });
-    return () => subscription?.remove();
-  }, [props.environmentId, props.selectedThread.id]);
-  // A provider-native subagent shows status instead of a composer.
+  const assistantCitationSheet = useAssistantCitationSheet({
+    environmentId: props.environmentId,
+    threadId: props.selectedThread.id,
+    composerDraftKey: props.composerDraftKey,
+    onChangeDraftMessage: props.onChangeDraftMessage,
+    composerEditorRef,
+  });
   const isProviderSubagent = isProviderNativeSubagentThread(props.selectedThread.source);
   const editingRunId = props.queuedRunEdit?.runId ?? null;
   useEffect(() => {
@@ -993,23 +967,6 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
     });
   };
 
-  const handleAddAssistantCitation = (comment: string) => {
-    if (!pendingAssistantCitation) return;
-    const citation = withAssistantCitationComment(pendingAssistantCitation, comment);
-    const marker = serializeAssistantCitation(citation);
-    const currentDraft =
-      props.composerDraftKey === null ? "" : getComposerDraftSnapshot(props.composerDraftKey).text;
-    const nextDraft = currentDraft
-      ? `${currentDraft}${/\s$/.test(currentDraft) ? "" : "\n"}${marker}`
-      : marker;
-    props.onChangeDraftMessage(nextDraft);
-    setPendingAssistantCitation(null);
-    requestAnimationFrame(() => {
-      composerEditorRef.current?.focus();
-      composerEditorRef.current?.setSelection({ start: nextDraft.length, end: nextDraft.length });
-    });
-  };
-
   const handleScrollToEnd = () => {
     void Haptics.selectionAsync();
     void scrollMessageToEnd({ animated: true, closeKeyboard: false }).catch(() => {
@@ -1414,13 +1371,7 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
           </ComposerPopoverHost>
         </KeyboardStickyView>
       ) : null}
-      {pendingAssistantCitation ? (
-        <AssistantCitationSheet
-          citation={pendingAssistantCitation}
-          onCancel={() => setPendingAssistantCitation(null)}
-          onAdd={handleAddAssistantCitation}
-        />
-      ) : null}
+      {assistantCitationSheet}
     </View>
   );
 };

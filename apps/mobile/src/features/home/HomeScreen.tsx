@@ -1,4 +1,7 @@
-import { withMobileMachineContext } from "../threads/mobileMachineContext";
+import { arrangeMobileConversationList } from "../threads/machineGroupedThreadList";
+import { renderMachineGroupHeader } from "../threads/MachineGroupHeader";
+import { useConversationMachineOrder } from "../threads/useConversationMachineOrder";
+import type { ConversationListOptions } from "./conversationListOptions";
 import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import type { ThreadMoveDestination } from "../threads/threadOrder";
@@ -12,13 +15,8 @@ import {
   threadSearchMatchKey,
   type EnvironmentThreadSearchMatch,
 } from "@t3tools/client-runtime/state/thread-search";
-import {
-  type EnvironmentId,
-  type SidebarConversationGrouping,
-  type SidebarConversationSortOrder,
-  type SidebarProjectGroupingMode,
-} from "@t3tools/contracts";
-import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { type EnvironmentId, type SidebarProjectGroupingMode } from "@t3tools/contracts";
+import { useAtomValue } from "@effect/atom-react";
 import { useFocusEffect } from "@react-navigation/native";
 import { use, useEffect, useRef, useState, type ComponentProps } from "react";
 import {
@@ -35,7 +33,6 @@ import { ScrollViewMarker } from "react-native-screens";
 import { GestureDetector, useNativeGesture } from "react-native-gesture-handler";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 
 import { cn } from "../../lib/cn";
 import {
@@ -64,7 +61,6 @@ import { useQueuedThreadKeys } from "../../state/use-thread-outbox";
 import {
   ThreadListV2PendingRow,
   ThreadListV2Row,
-  ThreadListV2MachineHeader,
   ThreadListV2SettledShelfHeader,
   ThreadListV2ShowMoreRow,
   ThreadListV2SnoozedShelfHeader,
@@ -76,7 +72,6 @@ import { useOpenThreadPullRequests } from "../threads/use-open-thread-pull-reque
 import type { ThreadPrPresentation } from "../../state/thread-pr-presentation";
 import {
   buildThreadListV2Items,
-  groupThreadListV2ItemsByMachine,
   getThreadListV2OrderedSection,
   buildThreadListV2ListItems,
   threadListV2ListItemsAreEqual,
@@ -98,7 +93,7 @@ import { useFabScroll } from "./FabScrollContext";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { ThreadListFilters } from "./ThreadListFilters";
 
-interface HomeScreenProps {
+interface HomeScreenProps extends ConversationListOptions {
   readonly projects: ReadonlyArray<EnvironmentProject>;
   readonly threads: ReadonlyArray<EnvironmentThreadShell>;
   readonly pendingTasks: ReadonlyArray<PendingNewTask>;
@@ -111,8 +106,6 @@ interface HomeScreenProps {
   readonly selectedEnvironmentId: EnvironmentId | null;
   readonly selectedProjectKey: string | null;
   readonly projectSortOrder: HomeProjectSortOrder;
-  readonly conversationSortOrder: SidebarConversationSortOrder;
-  readonly conversationGrouping: SidebarConversationGrouping;
   readonly projectGroupingMode: SidebarProjectGroupingMode;
   readonly onSearchQueryChange: (query: string) => void;
   readonly onEnvironmentChange: (environmentId: EnvironmentId | null) => void;
@@ -262,29 +255,7 @@ function renderHomeScrollView(props: ScrollViewProps) {
 }
 
 export function HomeScreen(props: HomeScreenProps) {
-  const preferencesResult = useAtomValue(mobilePreferencesAtom);
-  const updatePreferences = useAtomSet(updateMobilePreferencesAtom);
-  const machineOrder =
-    preferencesResult._tag === "Success"
-      ? (preferencesResult.value.conversationMachineOrder ?? [])
-      : [];
-  const moveMachine = (environmentId: string, delta: -1 | 1) => {
-    const ordered = [
-      ...new Set(props.environments.map((environment) => String(environment.environmentId))),
-    ].sort((left, right) => {
-      const a = machineOrder.indexOf(left);
-      const b = machineOrder.indexOf(right);
-      return (
-        (a < 0 ? Number.MAX_SAFE_INTEGER : a) - (b < 0 ? Number.MAX_SAFE_INTEGER : b) ||
-        left.localeCompare(right)
-      );
-    });
-    const index = ordered.indexOf(environmentId);
-    const target = index + delta;
-    if (index < 0 || target < 0 || target >= ordered.length) return;
-    [ordered[index], ordered[target]] = [ordered[target]!, ordered[index]!];
-    updatePreferences({ conversationMachineOrder: ordered });
-  };
+  const { machineOrder, moveMachine } = useConversationMachineOrder(props.environments);
   const usesNativeWorkspaceColumns = useNativeWorkspaceColumnsSupported();
   const workspace = useWorkspaceTabs();
   const [initialScrollOffset] = useState(() => workspace?.getScrollOffset("threads") ?? 0);
@@ -600,24 +571,12 @@ export function HomeScreen(props: HomeScreenProps) {
     moveAvailability: threadMoveAvailability,
     shelfPreferencesLoading: !shelfPreferencesLoaded,
   });
-  const threadListV2Items = withMobileMachineContext(
-    props.conversationGrouping === "machine"
-      ? groupThreadListV2ItemsByMachine(
-          ungroupedThreadListV2Items,
-          new Map(
-            props.environments.map((environment) => [
-              String(environment.environmentId),
-              environment.label,
-            ]),
-          ),
-          machineOrder,
-          machineByEnvironmentId,
-        )
-      : ungroupedThreadListV2Items,
-    props.environments,
-    machineByEnvironmentId,
+  const threadListV2Items = arrangeMobileConversationList(ungroupedThreadListV2Items, {
+    grouping: props.conversationGrouping,
+    environments: props.environments,
+    machineKinds: machineByEnvironmentId,
     machineOrder,
-  );
+  });
 
   useThreadJumpShortcuts(threadListV2Items, props.onSelectThread);
   useEffect(() => {
@@ -680,17 +639,7 @@ export function HomeScreen(props: HomeScreenProps) {
       );
     }
     if (item.type === "v2-machine-header") {
-      return (
-        <ThreadListV2MachineHeader
-          label={item.label}
-          pane={primaryColumn ? "sidebar" : "screen"}
-          environmentId={item.environmentId}
-          position={item.position}
-          count={item.count}
-          onMove={moveMachine}
-          machineKind={item.machineKind}
-        />
-      );
+      return renderMachineGroupHeader(item, primaryColumn ? "sidebar" : "screen", moveMachine);
     }
     const thread = item.item.thread;
     return (

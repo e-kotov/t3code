@@ -1,9 +1,4 @@
-import type {
-  EnvironmentId,
-  SidebarConversationGrouping,
-  SidebarConversationSortOrder,
-  SidebarProjectGroupingMode,
-} from "@t3tools/contracts";
+import type { EnvironmentId, SidebarProjectGroupingMode } from "@t3tools/contracts";
 import { DEFAULT_SIDEBAR_PROJECT_SORT_ORDER } from "@t3tools/contracts";
 import { useAtomSet } from "@effect/atom-react";
 import {
@@ -21,13 +16,16 @@ import {
 import type { ThreadListFilters } from "../../persistence/mobile-preferences";
 import { updateMobilePreferencesAtom } from "../../state/preferences";
 import type { HomeProjectSortOrder } from "./homeThreadList";
+import {
+  conversationListControls,
+  DEFAULT_CONVERSATION_LIST_OPTIONS,
+  type ConversationListOptions,
+} from "./conversationListOptions";
 
-export interface HomeListOptions {
+export interface HomeListOptions extends ConversationListOptions {
   readonly selectedEnvironmentId: EnvironmentId | null;
   readonly selectedProjectKey: string | null;
   readonly projectSortOrder: HomeProjectSortOrder;
-  readonly conversationSortOrder: SidebarConversationSortOrder;
-  readonly conversationGrouping: SidebarConversationGrouping;
 }
 
 export interface ResolvedHomeListOptions extends HomeListOptions {
@@ -42,8 +40,7 @@ function defaultHomeListOptions(filters?: ThreadListFilters): HomeListOptions {
       DEFAULT_SIDEBAR_PROJECT_SORT_ORDER === "manual"
         ? "updated_at"
         : DEFAULT_SIDEBAR_PROJECT_SORT_ORDER,
-    conversationSortOrder: "updated_at",
-    conversationGrouping: "none",
+    ...DEFAULT_CONVERSATION_LIST_OPTIONS,
   };
 }
 
@@ -108,18 +105,11 @@ export function useHomeListOptions(availableEnvironmentIds: ReadonlySet<Environm
   const setProjectSortOrder = (value: HomeProjectSortOrder) => {
     setOptions((current) => ({ ...current, projectSortOrder: value }));
   };
-  const setConversationSortOrder = (value: SidebarConversationSortOrder) => {
-    setOptions((current) => ({ ...current, conversationSortOrder: value }));
-  };
-  const setConversationGrouping = (value: SidebarConversationGrouping) => {
-    setOptions((current) => ({ ...current, conversationGrouping: value }));
-  };
   return {
     options: resolvedOptions,
     setSelectedEnvironmentId,
     setSelectedProjectKey,
     setProjectSortOrder,
-    setConversationSortOrder,
-    setConversationGrouping,
+    conversationList: conversationListControls(resolvedOptions, setOptions),
   } as const;
 }

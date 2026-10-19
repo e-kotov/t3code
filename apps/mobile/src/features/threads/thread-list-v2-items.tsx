@@ -1,7 +1,5 @@
 import { CacheHud } from "./CacheHud";
-import { MachineGroupConnectionStatus } from "./MachineGroupConnectionStatus";
-import { MachineGroupSlurmTime } from "./MachineGroupSlurmTime";
-import { CacheWarmingMachineControl, CacheWarmingThreadControl } from "./CacheWarmingControls";
+import { CacheWarmingThreadControl } from "./CacheWarmingControls";
 import * as Dialog from "../../components/ui/Dialog";
 import type { ThreadRowProviderInstance } from "./thread-provider-instance";
 import {
@@ -22,22 +20,11 @@ import type {
   EnvironmentThreadShell,
 } from "@t3tools/client-runtime/state/shell";
 import type { EnvironmentThreadSearchMatch } from "@t3tools/client-runtime/state/thread-search";
-import {
-  AuthOrchestrationOperateScope,
-  EnvironmentId,
-  type EnvironmentMachineKind,
-} from "@t3tools/contracts";
+import { AuthOrchestrationOperateScope, type EnvironmentMachineKind } from "@t3tools/contracts";
 import { canSnooze, resolveSnoozePresets } from "@t3tools/client-runtime/state/thread-settled";
 import type { MenuAction } from "@react-native-menu/menu";
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ComponentProps,
-  type ReactNode,
-} from "react";
+import { memo, useCallback, useEffect, useMemo, useState, type ComponentProps } from "react";
+import type { ReactNode } from "react";
 import { Pressable, useWindowDimensions, View } from "react-native";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 
@@ -150,7 +137,7 @@ const LEGACY_MENU_ACTIONS: MenuAction[] = [
 
 const SIDEBAR_V2_ROW_RADIUS = 12;
 
-function ThreadListV2Section(props: {
+export function ThreadListV2Section(props: {
   readonly label: ReactNode;
   readonly pane?: "screen" | "sidebar";
   readonly tone?: "default" | "snoozed";
@@ -161,12 +148,7 @@ function ThreadListV2Section(props: {
     readonly accessibilityLabel: string;
     readonly accessibilityHint: string;
   };
-  readonly machineReorder?: {
-    readonly position: number;
-    readonly count: number;
-    readonly onMove: (delta: -1 | 1) => void;
-  };
-  /** Drawn between the rule and the reorder arrows (machine warming switch). */
+  /** Trailing controls after the rule (fork machine group headers). */
   readonly accessory?: ReactNode;
 }) {
   const snoozed = props.tone === "snoozed";
@@ -211,35 +193,6 @@ function ThreadListV2Section(props: {
         />
       ) : null}
       {props.accessory}
-      {props.machineReorder
-        ? ([-1, 1] as const).map((delta) => (
-            <Pressable
-              key={delta}
-              accessibilityRole="button"
-              accessibilityLabel={`${delta < 0 ? "Move" : "Move"} machine group ${delta < 0 ? "up" : "down"}`}
-              accessibilityState={{
-                disabled:
-                  delta < 0
-                    ? props.machineReorder!.position === 0
-                    : props.machineReorder!.position === props.machineReorder!.count - 1,
-              }}
-              disabled={
-                delta < 0
-                  ? props.machineReorder?.position === 0
-                  : props.machineReorder?.position === (props.machineReorder?.count ?? 0) - 1
-              }
-              hitSlop={8}
-              onPress={() => props.machineReorder?.onMove(delta)}
-            >
-              <SymbolView
-                name={delta < 0 ? "chevron.up" : "chevron.down"}
-                size={12}
-                tintColorClassName="accent-foreground-muted"
-                type="monochrome"
-              />
-            </Pressable>
-          ))
-        : null}
     </>
   );
 
@@ -269,57 +222,6 @@ export const ThreadListV2SectionDivider = memo(function ThreadListV2SectionDivid
   readonly pane?: "screen" | "sidebar";
 }) {
   return <ThreadListV2Section {...props} />;
-});
-
-export const ThreadListV2MachineHeader = memo(function ThreadListV2MachineHeader(props: {
-  readonly label: string;
-  readonly pane?: "screen" | "sidebar";
-  readonly environmentId?: string;
-  readonly position?: number;
-  readonly count?: number;
-  readonly onMove?: (environmentId: string, delta: -1 | 1) => void;
-  readonly machineKind?: EnvironmentMachineKind;
-}) {
-  return (
-    <View className={cn("flex-row items-center", props.pane === "sidebar" ? "px-3" : "px-5")}>
-      <MachineGroupConnectionStatus environmentId={props.environmentId} />
-      {props.machineKind ? (
-        <EnvironmentMachineSymbol
-          kind={props.machineKind}
-          size={13}
-          tintColorClassName="accent-foreground-muted"
-        />
-      ) : null}
-      <View className="flex-1">
-        <ThreadListV2Section
-          label={
-            <>
-              {props.label}
-              <MachineGroupSlurmTime environmentId={props.environmentId} />
-            </>
-          }
-          pane={props.pane}
-          accessory={
-            props.environmentId ? (
-              <CacheWarmingMachineControl environmentId={EnvironmentId.make(props.environmentId)} />
-            ) : undefined
-          }
-          machineReorder={
-            props.environmentId &&
-            props.position !== undefined &&
-            props.count !== undefined &&
-            props.onMove
-              ? {
-                  position: props.position,
-                  count: props.count,
-                  onMove: (delta) => props.onMove?.(props.environmentId!, delta),
-                }
-              : undefined
-          }
-        />
-      </View>
-    </View>
-  );
 });
 
 type ThreadListV2ShelfHeaderProps = {
@@ -1319,21 +1221,17 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
             </View>
           ) : null}
           <View className="min-w-0 flex-1">
-            <View className="flex-row items-center">
-              <Text
-                className={cn(
-                  "min-w-0 flex-1 text-base",
-                  selected
-                    ? selectedThreadRowColors.foregroundClassName
-                    : rowAppearance.mutedForegroundClassName,
-                )}
-                numberOfLines={1}
-              >
-                {thread.title}
-              </Text>
-              {/* Settling or snoozing retires warming on the server, so slim
-                  rows (settled and snoozed) carry no warm toggle. */}
-            </View>
+            <Text
+              className={cn(
+                "text-base",
+                selected
+                  ? selectedThreadRowColors.foregroundClassName
+                  : rowAppearance.mutedForegroundClassName,
+              )}
+              numberOfLines={1}
+            >
+              {thread.title}
+            </Text>
             <CacheHud hud={thread.cacheHud} compact />
             {props.searchMatch ? (
               <ThreadSearchMatchExcerpt
