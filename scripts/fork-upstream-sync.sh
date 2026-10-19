@@ -2,14 +2,20 @@
 # Daily fork maintenance for .github/workflows/upstream-sync.yml.
 #   merge      merge pingdotgg/t3code main into the fork's main (fails on conflict)
 #   checks     typecheck the packages the fork changes and run every test file it touched
-#   footprint  list upstream-owned files the fork edits, with changed line counts
+#   footprint [REV]  list upstream-owned files the fork edits, with changed line counts;
+#                    measures the working tree by default, or REV (e.g. HEAD) if given
+# checks and footprint compare against UPSTREAM_SHA, else the upstream commit HEAD contains,
+# so a fetched but unmerged upstream/main does not count its own changes as fork edits.
 set -euo pipefail
 
 UPSTREAM_URL=${UPSTREAM_URL:-https://github.com/pingdotgg/t3code.git}
 out() { echo "$1" >> "${GITHUB_OUTPUT:-/dev/null}"; }
 summary() { echo "$1" >> "${GITHUB_STEP_SUMMARY:-/dev/stderr}"; }
+fork_base() { [ -n "${UPSTREAM_SHA:-}" ] && echo "$UPSTREAM_SHA" || git merge-base HEAD refs/remotes/upstream/main; }
 
-case "${1:?usage: fork-upstream-sync.sh merge|checks|footprint}" in
+cmd=${1:?usage: fork-upstream-sync.sh merge|checks|footprint [REV]}
+shift
+case "$cmd" in
   merge)
     git fetch --no-tags origin main:refs/remotes/origin/main
     git fetch --no-tags "$UPSTREAM_URL" main:refs/remotes/upstream/main
@@ -57,7 +63,7 @@ case "${1:?usage: fork-upstream-sync.sh merge|checks|footprint}" in
     out "changed=true"
     ;;
   checks)
-    upstream=${UPSTREAM_SHA:-$(git rev-parse upstream/main)}
+    upstream=$(fork_base)
     RUNNER_TEMP=${RUNNER_TEMP:-$(mktemp -d)}
     # Git hooks put a relative node_modules/.bin on PATH, which breaks after cd into a package.
     PATH="$(git rev-parse --show-toplevel)/node_modules/.bin:$PATH"
@@ -68,14 +74,26 @@ case "${1:?usage: fork-upstream-sync.sh merge|checks|footprint}" in
     git diff --name-only --diff-filter=AM "$upstream" HEAD -- '*.test.ts' '*.test.tsx' |
       awk -F/ '($1 == "apps" || $1 == "packages") && NF > 2 { print $1 "/" $2 " " substr($0, length($1 "/" $2) + 2) } $1 == "scripts" { print "scripts " substr($0, 9) }' |
       sort > "$RUNNER_TEMP/fork-tests.txt"
-    # Preserve upstream defaults at the fork's sidebar, markdown and editor mounts.
+    # Upstream tests beside upstream files the fork mounts into keep upstream defaults intact.
+    # reactCompilerCoverage compiles every mobile source file, fork files included.
     cat >> "$RUNNER_TEMP/fork-tests.txt" <<'TESTS'
+apps/mobile src/reactCompilerCoverage.test.ts
+apps/mobile src/features/home/home-list-filter-menu.test.ts
+apps/mobile src/features/home/home-list-options.test.ts
+apps/mobile src/features/settings/SettingsRouteScreen.logic.test.ts
+apps/mobile src/features/threads/threadListV2.test.ts
+apps/mobile src/features/workspace/workspace-tabs-state.test.ts
+apps/mobile src/lib/composerChipPresentation.test.ts
+apps/server src/process/externalLauncher.test.ts
 apps/web src/components/chat/OpenInPicker.browser.test.tsx
 apps/web src/components/ChatMarkdown.browser.test.tsx
 apps/web src/components/ChatMarkdown.permissions.browser.test.tsx
 apps/web src/components/Sidebar.logic.test.ts
 apps/web src/components/Sidebar.drag.test.ts
 apps/web src/components/Sidebar.pointer.browser.test.tsx
+apps/web src/editorPreferences.test.ts
+apps/web src/lib/threadSort.test.ts
+packages/client-runtime src/state/threadSort.test.ts
 TESTS
     sort -u -o "$RUNNER_TEMP/fork-tests.txt" "$RUNNER_TEMP/fork-tests.txt"
     status=0
@@ -91,8 +109,8 @@ TESTS
     ;;
   footprint)
     # Fork edits inside upstream files are where merge conflicts come from; keep this list short.
-    upstream=${UPSTREAM_SHA:-$(git rev-parse upstream/main)}
-    git diff --numstat --diff-filter=M "$upstream" HEAD |
+    upstream=$(fork_base)
+    git diff --numstat --diff-filter=M "$upstream" "$@" |
       awk '{ printf "%6d  %s\n", $1 + $2, $3; total += $1 + $2 } END { printf "%6d  total lines in %d upstream files\n", total, NR }' |
       sort -rn
     ;;

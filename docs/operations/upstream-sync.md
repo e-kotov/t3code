@@ -11,8 +11,9 @@ they are not tied to upstream stable releases.
 
 1. `merge` merges upstream `main` into fork `main`. If upstream is already contained, it stops.
 2. `checks` typechecks contracts, shared, client-runtime, server, web, mobile and desktop, then
-   runs every test file the fork added or changed relative to upstream, plus upstream sidebar,
-   markdown and editor regression tests. Web browser tests run in headless Chromium on the runner.
+   runs every test file the fork added or changed relative to upstream, plus the upstream tests
+   beside upstream files the fork mounts into (listed in the script) and the mobile React
+   Compiler coverage test. Web browser tests run in headless Chromium on the runner.
 3. If both pass, the merge commit is pushed to `main`. Upstream workflows that became active are
    disabled; only fork-owned workflows stay enabled.
 
@@ -55,5 +56,26 @@ rebase it onto `upstream/main` with a backup branch `ek/pre-sync-<date>` and for
   refuses a push that would drop remote commits, and warns about untested code and edits to
   upstream-owned files. `FORK_SKIP_CHECKS=1` skips the checks. Without local dependencies it
   refuses the push and points to the branch path above.
-- `scripts/fork-upstream-sync.sh footprint` lists upstream files the fork edits.
+- `scripts/fork-upstream-sync.sh footprint [REV]` lists upstream files the fork edits: the
+  working tree by default, `HEAD` for committed work only. It and `checks` compare against
+  `UPSTREAM_SHA` when set, otherwise against the upstream commit `HEAD` already contains, so a
+  freshly fetched `upstream/main` does not count unmerged upstream changes as fork edits.
 - Agent rules: `.agents/skills/fork-development/SKILL.md`, linked from `AGENTS.md`.
+
+## What the daily checks cover
+
+Tests the fork adds or changes run automatically, so this map names anchors. A green sync
+does not cover the right-hand column; check those on a device or in the named workflow before
+a release that touches them.
+
+| Fork capability | Daily sync runs | Not covered by the daily sync |
+| --- | --- | --- |
+| Cache HUD and warming | `packages/shared/src/cacheHud.test.ts`, `apps/server/src/orchestration-v2/ProjectionCacheHud.test.ts`, `Adapters/ClaudeAdapterV2.cacheTtl.test.ts`, `CacheWarmingService.test.ts`, `CacheWarmingDispatch.integration.test.ts` | Web and mobile HUD rendering (`apps/web/src/components/chat/CacheHud.tsx`, `apps/mobile/src/features/threads/CacheHud.tsx`, `CacheWarmingControls.tsx`); a real warm-up turn |
+| Order, groups, machine metadata | Upstream `threadSort` tests in web and client-runtime, `Sidebar.logic`, `Sidebar.drag` and `Sidebar.pointer` tests, mobile `home-list-options`/`home-list-filter-menu`, `threadListV2.test.ts`, `mobileMachineContext.test.ts`, client-runtime `machineGroupStatus`, `serverLabel`, `slurmJob*`, fork-changed `supervisor`/`session` tests, server `SlurmJob*` tests | Multi-machine layouts on screen |
+| Assistant citations | `packages/shared/src/composerInlineTokens.test.ts`, web `ChatMarkdown` browser tests, mobile `composerChipPresentation.test.ts` | Mobile text selection to citation sheet (`apps/mobile/src/native/assistantCitationSelection.ts`, `apps/mobile/src/features/threads/AssistantCitationSheet.tsx`) on iOS and Android |
+| Editors | Contracts, server, desktop and web `forkEditors`/`customEditor*` tests, `useConfiguredEditors.test.ts`, `forkLocalEditorActions.browser.test.ts`, upstream `OpenInPicker`, `editorPreferences` and `externalLauncher` tests | Launching an editor from the desktop app |
+| Utilities and Termux | Contracts `deviceUtilities`/`deviceCommands` tests, desktop `deviceUtilities`/`deviceCommands` tests, web `deviceCommands.logic.test.ts`, mobile `termuxCommands.logic.test.ts` and upstream `workspace-tabs-state.test.ts` | Kotlin `DeviceUtilitiesTest.kt`/`TermuxCommandsTest.kt` and the `t3-native-controls` compile run only in `.github/workflows/fork-device-commands.yml`, after a push to `main` touching its paths; a real Termux command on the phone |
+| Built-in tailnet and notifications | `packages/client-runtime/src/connection/builtInTailnet.test.ts`, mobile `directNotifications.test.ts` and upstream `SettingsRouteScreen.logic.test.ts` | Go engine tests (`apps/mobile/modules/t3-tailnet/go`) and `DirectAgentEventsTest.kt` run only in `.github/workflows/release-fork.yml`; joining a tailnet and receiving Android notifications on the device |
+
+The daily sync typechecks TypeScript only. Fork edits in upstream Kotlin files (for example
+`T3WorkspaceNavigationModule.kt`) first compile in those two workflows.
