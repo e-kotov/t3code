@@ -1,11 +1,11 @@
 name: Upstream sync
 
-# Merges pingdotgg/t3code main into this fork every day. A clean merge that passes the
+# Merges pingdotgg/t3code main into this fork every six hours. A clean merge that passes the
 # fork checks is pushed to main; a conflict or failed check leaves main untouched and fails
 # the run, which GitHub reports by email. See docs/operations/upstream-sync.md.
 on:
   schedule:
-    - cron: "17 3 * * *"
+    - cron: "17 3,9,15,21 * * *"
   workflow_dispatch:
     inputs:
       branch:

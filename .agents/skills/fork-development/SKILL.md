@@ -6,7 +6,7 @@ description: Rules for changing source in e-kotov/t3code, a fork that merges pin
 # Developing in the T3 Code fork
 
 This checkout is Egor Kotov's fork. Upstream will not merge fork features, and
-`.github/workflows/upstream-sync.yml` merges upstream `main` into fork `main` every day
+`.github/workflows/upstream-sync.yml` merges upstream `main` into fork `main` every six hours
 (runbook: `docs/operations/upstream-sync.md`). Every rule below keeps that merge clean.
 
 ## Before changing code
@@ -20,6 +20,7 @@ This checkout is Egor Kotov's fork. Upstream will not merge fork features, and
 - Put feature logic in new, fork-owned files (components, hooks, services, tests).
 - Change upstream-owned files only to mount that code: an import plus a line or two. Do not
   restructure, reformat or rename upstream code.
+- CI and the pre-push checks enforce `scripts/fork-footprint-budget.json` per upstream-owned file. New upstream-file edits have zero budget; extract fork logic first. An unavoidable mount change needs an explicit, reviewed budget update via `python3 scripts/fork-footprint-budget.py --write` after committing. Never auto-refresh it in CI.
 - Run `scripts/fork-upstream-sync.sh footprint` before and after. It lists upstream files the
   fork edits; your change should not grow it beyond the mount lines. If a feature needs a
   large edit inside an upstream file, extract the fork part into a new file first.

@@ -6,11 +6,11 @@ they are not tied to upstream stable releases.
 
 ## Daily automation
 
-`.github/workflows/upstream-sync.yml` runs daily at 03:17 UTC and on manual dispatch. It runs
+`.github/workflows/upstream-sync.yml` runs at 03:17, 09:17, 15:17 and 21:17 UTC and on manual dispatch. It runs
 `scripts/fork-upstream-sync.sh`:
 
 1. `merge` merges upstream `main` into fork `main`. If upstream is already contained, it stops.
-2. `checks` typechecks contracts, shared, client-runtime, server, web, mobile and desktop, then
+2. `checks` first rejects any growth beyond the reviewed per-file upstream-edit budget, then typechecks contracts, shared, client-runtime, server, web, mobile and desktop, then
    runs every test file the fork added or changed relative to upstream, plus the upstream tests
    beside upstream files the fork mounts into (listed in the script) and the mobile React
    Compiler coverage test. Web browser tests run in headless Chromium on the runner.
@@ -18,7 +18,7 @@ they are not tied to upstream stable releases.
    disabled; only fork-owned workflows stay enabled.
 
 A conflict or failed check leaves `main` unchanged and fails the run. GitHub emails the
-failure; the run summary lists the conflicting files. The next day's run retries automatically,
+failure; the run summary lists the conflicting files. The next scheduled run retries automatically,
 so a broken upstream commit that upstream fixes itself needs no action.
 
 The push uses the `UPSTREAM_SYNC_TOKEN` repository secret, a fine-grained token for this
@@ -61,6 +61,19 @@ rebase it onto `upstream/main` with a backup branch `ek/pre-sync-<date>` and for
   `UPSTREAM_SHA` when set, otherwise against the upstream commit `HEAD` already contains, so a
   freshly fetched `upstream/main` does not count unmerged upstream changes as fork edits.
 - Agent rules: `.agents/skills/fork-development/SKILL.md`, linked from `AGENTS.md`.
+
+## Upstream edit budget
+
+`scripts/fork-footprint-budget.json` caps changed lines in each upstream-owned file.
+Newly touched upstream files have a zero budget. Fork-owned files do not consume it.
+The sync and pre-push checks reject growth before typechecking; reductions pass.
+This catches expanding integration points before they become recurring conflicts.
+
+After reviewing an unavoidable mount change, commit it and run
+`python3 scripts/fork-footprint-budget.py --write`, then review and commit the budget diff.
+Never refresh the budget automatically in CI. The comparison uses the incorporated upstream
+base, so unmerged upstream work does not inflate it. Upstream refactors can require a reviewed
+budget adjustment even when the fork feature is unchanged.
 
 ## What the daily checks cover
 

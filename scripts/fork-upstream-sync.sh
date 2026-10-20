@@ -64,6 +64,8 @@ case "$cmd" in
     ;;
   checks)
     upstream=$(fork_base)
+    python3 scripts/fork-footprint-budget.test.py
+    UPSTREAM_SHA="$upstream" python3 scripts/fork-footprint-budget.py
     RUNNER_TEMP=${RUNNER_TEMP:-$(mktemp -d)}
     # Git hooks put a relative node_modules/.bin on PATH, which breaks after cd into a package.
     PATH="$(git rev-parse --show-toplevel)/node_modules/.bin:$PATH"
@@ -94,6 +96,7 @@ apps/web src/components/Sidebar.pointer.browser.test.tsx
 apps/web src/editorPreferences.test.ts
 apps/web src/lib/threadSort.test.ts
 packages/client-runtime src/state/threadSort.test.ts
+packages/shared src/composerInlineTokens.test.ts
 TESTS
     sort -u -o "$RUNNER_TEMP/fork-tests.txt" "$RUNNER_TEMP/fork-tests.txt"
     status=0

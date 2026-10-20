@@ -18,7 +18,7 @@ import type { SelectableMarkdownTextProps } from "./SelectableMarkdownText.types
 import { useAppearancePreferences } from "../features/settings/appearance/AppearancePreferencesProvider";
 import { Menu } from "../components/ui/Menu";
 import { useEnrichedLinkVariants } from "./useEnrichedLinkVariants";
-import { emitAssistantCitationSelection } from "./assistantCitationSelection";
+import { useAssistantCitationMenu } from "./useAssistantCitationMenu";
 import { copyTextWithHaptic } from "../lib/copyTextWithHaptic";
 import {
   ENRICHED_INLINE_FILE_LINK_REGEX,
@@ -60,6 +60,15 @@ function enrichedStyle(
   };
   return {
     paragraph: body,
+    math: {
+      fontSize: style.fontSize,
+      color: style.color,
+      backgroundColor: "transparent",
+      padding: 8,
+      marginTop: 4,
+      marginBottom: 12,
+    },
+    inlineMath: { color: style.color },
     h1: heading(1),
     h2: heading(2),
     h3: heading(3),
@@ -141,32 +150,12 @@ function enrichedStyle(
 
 export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
   const { renderImage, resolveImageSource } = props;
+  const { themeAppearance, mathRenderingEnabled } = useAppearancePreferences();
   const markdown = useMemo(
     () => markdownWithTableBreaks(markdownWithHtml(props.markdown)),
     [props.markdown],
   );
-  const citationSource = props.assistantCitationSource;
-  // Android's selection menu offers "Cite"; the thread screen turns it into a composer quote.
-  const contextMenuItems = useMemo(
-    () =>
-      Platform.OS === "android" && citationSource
-        ? [
-            {
-              text: "Cite",
-              icon: "text.quote",
-              onPress: ({
-                text,
-                selection,
-              }: {
-                text: string;
-                selection: { start: number; end: number };
-              }) => emitAssistantCitationSelection(citationSource, text, selection),
-            },
-          ]
-        : undefined,
-    [citationSource],
-  );
-  const { themeAppearance } = useAppearancePreferences();
+  const contextMenuItems = useAssistantCitationMenu(props.assistantCitationSource);
   const [documentAssets, setDocumentAssets] = useState<DocumentAssetsEvent["assets"]>([]);
   const onDocumentAssets = useCallback(({ assets }: DocumentAssetsEvent) => {
     setDocumentAssets((previous) =>
@@ -330,7 +319,7 @@ export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
           selectionColor={props.textStyle.selectionColor}
           selectionHandleColor={props.textStyle.selectionHandleColor}
           md4cFlags={{
-            latexMath: false,
+            latexMath: mathRenderingEnabled,
             hardSoftBreaks: props.preserveSoftBreaks ?? false,
             admonitions: true,
           }}

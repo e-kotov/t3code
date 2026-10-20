@@ -202,6 +202,7 @@ export const OpenInPicker = memo(function OpenInPicker({
   keybindings,
   availableEditors,
   openInCwd,
+  openInCwdIsFile = false,
   presentation = "toolbar",
   compact = false,
   enableShortcut = true,
@@ -212,6 +213,7 @@ export const OpenInPicker = memo(function OpenInPicker({
   keybindings: ResolvedKeybindingsConfig;
   availableEditors: ReadonlyArray<EditorId>;
   openInCwd: string | null;
+  openInCwdIsFile?: boolean;
   presentation?: "toolbar" | "menu";
   compact?: boolean;
   enableShortcut?: boolean;
@@ -231,7 +233,7 @@ export const OpenInPicker = memo(function OpenInPicker({
 
   const openInEditor = (editorId: string | null) => {
     if (!openInCwd) return;
-    return reportEditorOpenFailure(open(openInCwd, editorId, { revealFileManager }));
+    return reportEditorOpenFailure(open(openInCwd, editorId, { revealFileManager, isFile: openInCwdIsFile }));
   };
 
   const openFavoriteEditorShortcutLabel = shortcutLabelForCommand(

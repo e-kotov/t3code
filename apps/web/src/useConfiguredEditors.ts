@@ -51,7 +51,7 @@ export function useConfiguredEditors(
   const open = async (
     target: string,
     id?: string | null,
-    options?: { readonly revealFileManager?: boolean },
+    options?: { readonly revealFileManager?: boolean; readonly isFile?: boolean },
   ) => {
     const entry = id == null ? preferred : entries.find((value) => value.id === id);
     if (environmentId === null || !entry || remote.mode === "remote-unavailable") {
@@ -79,6 +79,7 @@ export function useConfiguredEditors(
             editor: entry.builtIn,
             host: remote.host.host,
             absolutePath: target,
+            isFile: options?.isFile,
           });
           if (url !== undefined) opened = await openRemoteEditorUrl(url);
         }

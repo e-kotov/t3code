@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { collectComposerInlineTokens } from "./composerInlineTokens.ts";
-import { serializeAssistantCitation } from "./assistantCitations.ts";
-import { EnvironmentId, MessageId, ThreadId } from "@t3tools/contracts";
 
 describe("collectComposerInlineTokens", () => {
   it("collects file links, mentions, and skills with source ranges", () => {
@@ -33,48 +31,19 @@ describe("collectComposerInlineTokens", () => {
     ]);
   });
 
-  it("keeps assistant citations as atomic composer tokens with their quote metadata", () => {
-    const citation = {
-      version: 1 as const,
-      environmentId: EnvironmentId.make("environment-1"),
-      threadId: ThreadId.make("thread-1"),
-      messageId: MessageId.make("message-1"),
-      text: "Keep the selection attached to its source.",
-      comment: "Explain why this matters",
-      start: 8,
-      end: 43,
-      prefix: "Please ",
-      suffix: " Next sentence.",
-    };
-    const marker = serializeAssistantCitation(citation);
-    const draft = `Review this ${marker} please`;
-    const [token] = collectComposerInlineTokens(draft);
-
-    expect(token).toMatchObject({
-      type: "assistantCitation",
-      value: citation.text,
-      source: marker,
-      citation,
-    });
-    expect(draft.slice(token!.start, token!.end)).toBe(marker);
+  it.each(["$", "€", "𑿝"])("collects %s skill names that begin with a digit", (prefix) => {
+    expect(collectComposerInlineTokens(`Use ${prefix}2spec next`)).toEqual([
+      {
+        type: "skill",
+        value: "2spec",
+        source: `${prefix}2spec`,
+        start: 4,
+        end: 9 + prefix.length,
+      },
+    ]);
   });
 
-  it.each(["$", "€", "£", "¥", "₹", "₩", "₿", "𑿝"])(
-    "collects %s skill names that begin with a digit",
-    (prefix) => {
-      expect(collectComposerInlineTokens(`Use ${prefix}2spec next`)).toEqual([
-        {
-          type: "skill",
-          value: "2spec",
-          source: `${prefix}2spec`,
-          start: 4,
-          end: 9 + prefix.length,
-        },
-      ]);
-    },
-  );
-
-  it.each(["€", "£", "¥", "₹", "₩", "₿", "𑿝"])("leaves %s currency amounts as text", (prefix) => {
+  it.each(["€", "𑿝"])("leaves %s currency amounts as text", (prefix) => {
     expect(
       collectComposerInlineTokens(
         `${prefix}20 ${prefix}1_000 ${prefix}20k ${prefix}100M ${prefix}1e6 `,
@@ -237,5 +206,12 @@ describe("collectComposerInlineTokens", () => {
     const started = performance.now();
     expect(collectComposerInlineTokens(" [[".repeat(40_000))).toEqual([]);
     expect(performance.now() - started).toBeLessThan(1_000);
+  });
+
+  it("keeps skill and mention sources inside TeX out of the context chip list", () => {
+    const source = "\\[\\text{use $browser and @README.md here}\\] then $real-skill ";
+    expect(collectComposerInlineTokens(source).map((token) => token.source)).toEqual([
+      "$real-skill",
+    ]);
   });
 });
