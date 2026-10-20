@@ -2,7 +2,7 @@
   "files": {
     "AGENTS.md": 4,
     "apps/desktop/package.json": 2,
-    "apps/desktop/src/electron/ElectronShell.ts": 2,
+    "apps/desktop/src/electron/ElectronShell.ts": 3,
     "apps/desktop/src/ipc/DesktopIpcHandlers.ts": 5,
     "apps/desktop/src/ipc/channels.ts": 1,
     "apps/desktop/src/preload.ts": 5,
