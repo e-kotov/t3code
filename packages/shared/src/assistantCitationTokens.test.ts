@@ -29,5 +29,4 @@ describe("assistant citation composer integration", () => {
     });
     expect(draft.slice(token!.start, token!.end)).toBe(marker);
   });
-
 });

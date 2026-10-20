@@ -118,4 +118,16 @@ it("asks the file manager to reveal only when the caller requests it", async () 
   ]);
 });
 
+it("preserves upstream remote file targeting for configured built-in editors", async () => {
+  state.remote = { mode: "remote-links", host: { kind: "ssh-alias", host: "gwdg" } };
+  state.preferences = { builtIns: [], custom: [], preferred: null };
+  const { open } = useConfiguredEditors(environmentId, []);
+  await open("/project/file.ts", "vscode", { isFile: true });
+  await open("/project", "vscode");
+  expect(state.openExternal.mock.calls).toEqual([
+    ["vscode://vscode-remote/ssh-remote+gwdg/project/file.ts:1:1"],
+    ["vscode://vscode-remote/ssh-remote+gwdg/project"],
+  ]);
+});
+
 afterEach(() => vi.unstubAllGlobals());

@@ -5197,14 +5197,23 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       (candidate) => candidate.id === projection.thread.activeProviderThreadId,
     );
     const activeRun = projection.runs.find(isBlockingRun);
-    if (dispatchMode.type === "start_if_idle" && unsafeCacheWarmingDispatch({
-      projection, command, activeRun,
-      latestRun: latestExecutedRun(projection.runs),
-      hasPendingBackgroundWork: pendingBackgroundTurnItems({ turnItems: projection.turnItems, runs: projection.runs }).length > 0,
-      hasProviderFailure: latestRootProviderFailure(latestExecutedRun(projection.runs) ?? null, projection.turnItems) !== null,
-    })) {
+    if (
+      dispatchMode.type === "start_if_idle" &&
+      unsafeCacheWarmingDispatch({
+        projection,
+        command,
+        activeRun,
+        latestRun: latestExecutedRun(projection.runs),
+        hasPendingBackgroundWork:
+          pendingBackgroundTurnItems({ turnItems: projection.turnItems, runs: projection.runs })
+            .length > 0,
+        hasProviderFailure:
+          latestRootProviderFailure(latestExecutedRun(projection.runs) ?? null, projection.turnItems) !== null,
+      })
+    ) {
       return yield* new OrchestratorDispatchError({
-        commandId: command.commandId, commandType: command.type,
+        commandId: command.commandId,
+        commandType: command.type,
         cause: "The cache warmer only starts on an unchanged, idle thread without pending work or provider errors.",
       });
     }

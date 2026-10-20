@@ -1,3 +1,4 @@
+import { DeviceUtilitiesDetailPane } from "../device-commands/DeviceUtilitiesDetailPane.android";
 import { DeviceCommandsScreen } from "../device-commands/DeviceCommandsScreen";
 import { useMemo } from "react";
 import { View } from "react-native";
@@ -34,22 +35,9 @@ export function WorkspaceRootScreen() {
   const tab = workspace.state.selectedTab;
 
   if (workspace.state.selectedTab === "commands" && layout.usesSplitView) {
-    return (
-      <>
-        <NativeStackScreenOptions options={{ headerShown: false }} />
-        <AndroidScreenHeader title="Utilities" />
-        <View className="flex-1 items-center justify-center px-10">
-          <EmptyState
-            title="Device utilities"
-            detail="Inspect services or run commands in the sidebar."
-            variant="plain"
-          />
-        </View>
-      </>
-    );
+    return <DeviceUtilitiesDetailPane />;
   }
 
-  // Split lists live beside the navigator; Home remains an empty detail pane.
   if (layout.usesSplitView) {
     return (
       <WorkspaceTabPanes
@@ -85,7 +73,9 @@ export function WorkspaceRootScreen() {
             tabs={TABS}
             selected={tab}
             renderTab={(tab) =>
-              tab === "commands" ? <DeviceCommandsScreen /> : tab === "threads" ? (
+              tab === "commands" ? (
+                <DeviceCommandsScreen />
+              ) : tab === "threads" ? (
                 <HomeRouteScreen />
               ) : (
                 <PullRequestFilterMenuProvider>

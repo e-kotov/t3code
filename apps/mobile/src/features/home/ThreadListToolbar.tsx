@@ -119,7 +119,14 @@ export function ThreadListToolbar(props: {
         searchAccessibilityLabel="Search threads"
         titleAccessibilityLabel="T3 Code, Threads"
         onOpenEnvironments={props.onOpenEnvironments}
-        filter={<>{props.conversationList ? <ConversationListToolbarButtons controls={props.conversationList} /> : null}{filterButton}</>}
+        filter={
+          <>
+            {props.conversationList ? (
+              <ConversationListToolbarButtons controls={props.conversationList} />
+            ) : null}
+            {filterButton}
+          </>
+        }
       />
     </View>
   );

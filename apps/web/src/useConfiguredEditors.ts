@@ -79,7 +79,7 @@ export function useConfiguredEditors(
             editor: entry.builtIn,
             host: remote.host.host,
             absolutePath: target,
-            isFile: options?.isFile,
+            isFile: options?.isFile ?? false,
           });
           if (url !== undefined) opened = await openRemoteEditorUrl(url);
         }

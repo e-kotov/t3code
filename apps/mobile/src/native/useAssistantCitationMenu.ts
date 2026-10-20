@@ -7,14 +7,19 @@ export function useAssistantCitationMenu(source: AssistantCitationSource | undef
   return useMemo(
     () =>
       Platform.OS === "android" && source
-        ? [{
+        ? [
+            {
             text: "Cite",
             icon: "text.quote",
-            onPress: ({ text, selection }: {
+            onPress: ({
+              text,
+              selection,
+            }: {
               text: string;
               selection: { start: number; end: number };
             }) => emitAssistantCitationSelection(source, text, selection),
-          }]
+            },
+          ]
         : undefined,
     [source],
   );
