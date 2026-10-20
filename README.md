@@ -11,7 +11,21 @@ Slurm and workflows across multiple machines. It adds:
 [Download fork releases](https://github.com/e-kotov/t3code/releases) for Mac Apple Silicon,
 Android ARM64 and Linux x64 server. [Fork setup and updates](docs/operations/fork-release.md).
 Nightly prereleases are published when validated main has changed.
-The installation instructions below describe upstream T3 Code.
+
+## Install on macOS (Apple Silicon)
+
+```sh
+brew install --cask e-kotov/tap/t3-code-ek
+```
+
+To update:
+
+```sh
+brew update
+brew upgrade --cask t3-code-ek
+```
+
+The installation instructions in the upstream section below describe upstream T3 Code.
 
 ## Upstream T3 Code
 
