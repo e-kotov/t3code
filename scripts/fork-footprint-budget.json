@@ -1,6 +1,7 @@
 {
   "files": {
     "AGENTS.md": 4,
+    "README.md": 16,
     "apps/desktop/package.json": 2,
     "apps/desktop/src/electron/ElectronShell.ts": 3,
     "apps/desktop/src/ipc/DesktopIpcHandlers.ts": 5,
