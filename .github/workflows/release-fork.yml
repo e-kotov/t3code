@@ -14,6 +14,14 @@ on:
         description: "Publish a GitHub release after every build succeeds"
         default: false
         type: boolean
+      commit:
+        description: "Exact main commit to build; empty uses the dispatch commit"
+        default: ""
+        type: string
+      nightly:
+        description: "Label this prerelease as a nightly build"
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -33,28 +41,40 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
+      sha: ${{ steps.version.outputs.sha }}
     steps:
       - id: version
         env:
           REQUESTED_VERSION: ${{ inputs.version }}
+          REQUESTED_COMMIT: ${{ inputs.commit || github.sha }}
         run: |
           set -euo pipefail
           version="$REQUESTED_VERSION"
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-ek\.[0-9]+$ ]] || { echo 'Expected MAJOR.MINOR.PATCH-ek.NUMBER'; exit 1; }
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tag=v$version" >> "$GITHUB_OUTPUT"
-      - name: Require an existing tag for manual publication
+          [[ "$REQUESTED_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo 'Expected a full build commit SHA.'; exit 1; }
+          printf 'sha=%s\nversion=%s\ntag=v%s\n' "$REQUESTED_COMMIT" "$version" "$version" >> "$GITHUB_OUTPUT"
+      - name: Require the published commit to belong to main
+        if: inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ steps.version.outputs.sha }}
+        run: |
+          set -euo pipefail
+          status="$(gh api "repos/$GITHUB_REPOSITORY/compare/$RELEASE_SHA...main" --jq .status)"
+          [[ "$status" == identical || "$status" == ahead ]] || { echo 'Published commit must be on main.'; exit 1; }
+      - name: Require an existing tag for publication
         if: inputs.publish
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_SHA: ${{ steps.version.outputs.sha }}
         run: |
           set -euo pipefail
           tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq .sha)" || {
             echo "Push $RELEASE_TAG at the build commit before publishing."
             exit 1
           }
-          [[ "$tag_sha" == "$GITHUB_SHA" ]] || { echo 'Release tag must point to the selected build commit.'; exit 1; }
+          [[ "$tag_sha" == "$RELEASE_SHA" ]] || { echo 'Release tag must point to the selected build commit.'; exit 1; }
 
   bundle:
     needs: prepare
@@ -63,7 +83,7 @@ jobs:
     steps:
       - name: Checkout release commit without vendored gitlinks
         env:
-          RELEASE_REF: ${{ github.sha }}
+          RELEASE_REF: ${{ needs.prepare.outputs.sha }}
           GIT_TERMINAL_PROMPT: "0"
         run: |
           set -euo pipefail
@@ -114,7 +134,7 @@ jobs:
       rust_target: ${{ matrix.rust_target }}
       resource_key: ${{ matrix.resource_key }}
       version: ${{ needs.prepare.outputs.version }}
-      ref: ${{ github.sha }}
+      ref: ${{ needs.prepare.outputs.sha }}
       release_channel: stable
       relay_client_tracing: false
       clerk_publishable_key: ""
@@ -129,7 +149,7 @@ jobs:
     steps:
       - name: Checkout release commit without vendored gitlinks
         env:
-          RELEASE_REF: ${{ github.sha }}
+          RELEASE_REF: ${{ needs.prepare.outputs.sha }}
           GIT_TERMINAL_PROMPT: "0"
         run: |
           set -euo pipefail
@@ -186,7 +206,7 @@ jobs:
     steps:
       - name: Checkout release commit without vendored gitlinks
         env:
-          RELEASE_REF: ${{ github.sha }}
+          RELEASE_REF: ${{ needs.prepare.outputs.sha }}
           GIT_TERMINAL_PROMPT: "0"
         run: |
           set -euo pipefail
@@ -220,7 +240,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ runner.temp }}/t3-android-ccache
-          key: android-ccache-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          key: android-ccache-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ needs.prepare.outputs.sha }}
           restore-keys: |
             android-ccache-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}-
             android-ccache-v1-${{ runner.os }}-${{ runner.arch }}-
@@ -309,6 +329,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+          NIGHTLY: ${{ inputs.nightly }}
         run: |
           set -euo pipefail
           cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
@@ -320,8 +342,11 @@ jobs:
           Herdr-style cache/context HUD on Mac, web and Android: estimated countdown, last-request cache hit percentage, cached tokens and context used/max. Claude reported lifetime and Codex estimates are distinguished. Install this Linux server too for the HUD on remote connections.
           Verify downloaded assets against SHA256SUMS.
           NOTES
+          printf '\nBuild commit: %s.\n' "$RELEASE_SHA" >> "$RUNNER_TEMP/release-notes.md"
+          title="T3 Code EK $RELEASE_VERSION"
+          if [[ "$NIGHTLY" == true ]]; then title="$title (nightly $(date -u +%F))"; fi
           gh release create "$RELEASE_TAG" assets/* --repo "$GITHUB_REPOSITORY" \
-            --verify-tag --title "T3 Code EK $RELEASE_VERSION" \
+            --verify-tag --title "$title" \
             --notes-file "$RUNNER_TEMP/release-notes.md" --prerelease --latest=false
 
   homebrew_tap:

@@ -51,6 +51,28 @@ nightly/preview tags are excluded. Downloads and `SHA256SUMS` come from the same
 fork release. `--version X.Y.Z-ek.N` pins a release; `T3CODE_RELEASE_BASE_URL`
 can still override the download origin for a mirror.
 
+## Nightly prereleases
+
+`nightly-fork.yml` attempts a release at 04:47 UTC each day. It skips a commit that already
+has a published EK release. For a changed candidate it runs the seven package typechecks,
+selected fork/upstream regression tests and edit-budget gate, then creates an annotated tag
+and dispatches `release-fork.yml`. GitHub may delay scheduled starts.
+
+Nightlies retain `vX.Y.Z-ek.N` tags and GitHub's prerelease flag. `X.Y.Z` comes from the newest
+upstream nightly incorporated into the candidate; `N` exceeds every existing tag for that
+base, including tags from failed builds. The release title identifies the nightly date.
+The updater and Homebrew cask therefore keep recognizing the same version scheme.
+
+Every platform builds the exact checked commit, even if main advances while the release is
+queued. Publication requires that commit to belong to main and match the existing tag. All
+platforms must pass before publication; the cask then advances through the usual job.
+Installation remains manual.
+
+To run the nightly path now, use
+`gh workflow run nightly-fork.yml --ref main -f publish=true`.
+Omit `publish` for a dry run: it plans and validates a changed candidate without tagging or
+building installers. An already released candidate skips validation too.
+
 ## Release
 
 Push a tag such as `v0.0.45-ek.1` at the head of `main` with your own Git
@@ -68,8 +90,8 @@ rebuilt Android from a cold Gradle cache every time; runs on `main` save caches
 that the next release reads. Without `publish` a run only uploads Actions
 artifacts (a test build; it needs no tag). Publication requires the version tag
 to point at the build commit, which avoids relying on the Actions token to
-create a release tag at a commit that changes workflow files. Missing or
-mismatched tags fail before compilation. Every platform must build
+create a release tag at a commit that changes workflow files. The optional `commit` input pins a full main commit SHA; when omitted, the dispatch commit is
+built. Missing or mismatched tags fail before compilation. Every platform must build
 successfully before publication. Use a new version for every published release.
 
 `X.Y.Z` is the version of upstream's newest `vX.Y.Z-nightly.*` tag merged into

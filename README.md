@@ -10,6 +10,7 @@ Slurm and workflows across multiple machines. It adds:
 
 [Download fork releases](https://github.com/e-kotov/t3code/releases) for Mac Apple Silicon,
 Android ARM64 and Linux x64 server. [Fork setup and updates](docs/operations/fork-release.md).
+Nightly prereleases are published when validated main has changed.
 The installation instructions below describe upstream T3 Code.
 
 ## Upstream T3 Code

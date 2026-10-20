@@ -1,6 +1,6 @@
 ---
 name: fork-development
-description: Rules for changing source in e-kotov/t3code, a fork that merges pingdotgg/t3code main daily. Use before adding or changing any fork feature, committing, pushing main, or resolving an upstream-sync conflict.
+description: Rules for changing source in e-kotov/t3code, a fork that merges pingdotgg/t3code main every six hours. Use before adding or changing any fork feature, committing, pushing main, or resolving an upstream-sync conflict.
 ---
 
 # Developing in the T3 Code fork
@@ -48,15 +48,19 @@ This checkout is Egor Kotov's fork. Upstream will not merge fork features, and
 
 ## Releases
 
-Egor chooses when to release; do not tag one on your own. Procedure:
-`docs/operations/fork-release.md`.
+Checkpoint releases are made when Egor asks. Automatic nightly prereleases are authorized
+for changed, validated main through `nightly-fork.yml`; the driver skips published commits.
+Procedure: `docs/operations/fork-release.md`.
 
 - Tag `vX.Y.Z-ek.N`, annotated, on a commit already on `main`, pushed with
   `git push origin <tag>`. `X.Y.Z` is the version of upstream's newest nightly merged into
   `main` (`git tag --merged origin/main --sort=-v:refname --list 'v*-nightly.*' | head -1`).
   `N` starts at 1 for each new `X.Y.Z` and only goes up. Never reuse or move a tag, even for
   a release that failed to build; take the next `N`.
-- Pushing the tag builds and publishes a GitHub prerelease, then the `homebrew_tap` job moves
+- For a checkpoint, push the tag and dispatch `release-fork.yml` on main with its version and
+  `publish=true`; a tag push alone does not build. The nightly driver does this automatically
+  after validation, passing the exact checked commit. Every build must pass before publication.
+  Releases remain GitHub prereleases, then the `homebrew_tap` job moves
   the `e-kotov/tap` cask `t3-code-ek` to it. Edit the cask by hand only if that job failed;
   copy the DMG checksums from the release's `SHA256SUMS`.
 - Never install or upgrade T3 Code on Egor's Mac (`brew upgrade`, replacing the app): agent
