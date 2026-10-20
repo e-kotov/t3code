@@ -17,7 +17,7 @@ export function unsafeCacheWarmingDispatch({
   readonly projection: OrchestrationV2ThreadProjection;
   readonly command: Extract<OrchestrationV2Command, { readonly type: "message.dispatch" }>;
   readonly activeRun: OrchestrationV2Run | undefined;
-  readonly latestRun: OrchestrationV2Run | undefined;
+  readonly latestRun: OrchestrationV2Run | null | undefined;
   readonly hasPendingBackgroundWork: boolean;
   readonly hasProviderFailure: boolean;
 }): boolean {

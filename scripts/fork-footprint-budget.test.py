@@ -65,6 +65,9 @@ class FootprintBudgetTest(unittest.TestCase):
             (root / "untouched.ts").write_text("upstream\n")
             commit()
             gate()
+            (root / "untouched.ts").unlink()
+            commit()
+            self.assertIn("untouched.ts: 1 > 0", gate(success=False))
 
 
 if __name__ == "__main__":

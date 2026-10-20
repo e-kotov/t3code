@@ -4,7 +4,7 @@ import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 import { withLateEditorConfig } from "../ws.ts";
-import { withStatusUpdates } from "./SlurmJob.ts";
+import { optional, SlurmJob, withStatusUpdates } from "./SlurmJob.ts";
 
 it.effect("emits the new event only to clients that opt in", () =>
   Effect.gen(function* () {
@@ -45,5 +45,15 @@ it.effect("late editor snapshots preserve the newest Slurm observation", () =>
       Stream.runCollect,
     );
     expect(events.find((event) => event.type === "snapshot")?.config.slurmJobStatus).toEqual(job);
+  }),
+);
+
+it.effect("keeps host metadata optional without hiding a provided Slurm service", () =>
+  Effect.gen(function* () {
+    const absent = yield* optional;
+    expect(yield* absent.current).toBeNull();
+    expect(yield* Stream.runCollect(absent.streamChanges)).toEqual([]);
+    const provided = SlurmJob.of({ current: Effect.succeed(null), streamChanges: Stream.empty });
+    expect(yield* optional.pipe(Effect.provideService(SlurmJob, provided))).toBe(provided);
   }),
 );

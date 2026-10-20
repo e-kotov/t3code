@@ -5,6 +5,7 @@ import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
 
@@ -164,3 +165,11 @@ export function withStatusUpdates<E, R>(
       )
     : updates;
 }
+
+/** Upstream RPC consumers can omit this optional host metadata service. */
+export const optional = Effect.serviceOption(SlurmJob).pipe(
+  Effect.map(Option.getOrElse(() => SlurmJob.of({
+    current: Effect.succeed(null),
+    streamChanges: Stream.empty,
+  }))),
+);

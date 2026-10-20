@@ -65,7 +65,7 @@ rebase it onto `upstream/main` with a backup branch `ek/pre-sync-<date>` and for
 ## Upstream edit budget
 
 `scripts/fork-footprint-budget.json` caps changed lines in each upstream-owned file.
-Newly touched upstream files have a zero budget. Fork-owned files do not consume it.
+Newly touched or deleted upstream files have a zero budget. Fork-owned files do not consume it.
 The sync and pre-push checks reject growth before typechecking; reductions pass.
 This catches expanding integration points before they become recurring conflicts.
 
@@ -89,6 +89,9 @@ a release that touches them.
 | Editors | Contracts, server, desktop and web `forkEditors`/`customEditor*` tests, `useConfiguredEditors.test.ts`, `forkLocalEditorActions.browser.test.ts`, upstream `OpenInPicker`, `editorPreferences` and `externalLauncher` tests | Launching an editor from the desktop app |
 | Utilities and Termux | Contracts `deviceUtilities`/`deviceCommands` tests, desktop `deviceUtilities`/`deviceCommands` tests, web `deviceCommands.logic.test.ts`, mobile `termuxCommands.logic.test.ts` and upstream `workspace-tabs-state.test.ts` | Kotlin `DeviceUtilitiesTest.kt`/`TermuxCommandsTest.kt` and the `t3-native-controls` compile run only in `.github/workflows/fork-device-commands.yml`, after a push to `main` touching its paths; a real Termux command on the phone |
 | Built-in tailnet and notifications | `packages/client-runtime/src/connection/builtInTailnet.test.ts`, mobile `directNotifications.test.ts` and upstream `SettingsRouteScreen.logic.test.ts` | Go engine tests (`apps/mobile/modules/t3-tailnet/go`) and `DirectAgentEventsTest.kt` run only in `.github/workflows/release-fork.yml`; joining a tailnet and receiving Android notifications on the device |
+
+All seven typechecks and the fork test groups run even if an earlier group fails, so one
+validation run reports integration failures across packages.
 
 The daily sync typechecks TypeScript only. Fork edits in upstream Kotlin files (for example
 `T3WorkspaceNavigationModule.kt`) first compile in those two workflows.

@@ -69,9 +69,12 @@ case "$cmd" in
     RUNNER_TEMP=${RUNNER_TEMP:-$(mktemp -d)}
     # Git hooks put a relative node_modules/.bin on PATH, which breaks after cd into a package.
     PATH="$(git rev-parse --show-toplevel)/node_modules/.bin:$PATH"
-    vp run --concurrency-limit 2 \
-      --filter @t3tools/contracts --filter @t3tools/shared --filter @t3tools/client-runtime \
-      --filter t3 --filter @t3tools/web --filter @t3tools/mobile --filter @t3tools/desktop typecheck
+    status=0
+    for package in packages/contracts packages/shared packages/client-runtime apps/server apps/web apps/mobile apps/desktop; do
+      echo "::group::$package typecheck"
+      (cd "$package" && vp exec tsc-rs --noEmit) || status=1
+      echo "::endgroup::"
+    done
     # Tests the fork added or changed, run from each package so its own Vitest config applies.
     git diff --name-only --diff-filter=AM "$upstream" HEAD -- '*.test.ts' '*.test.tsx' |
       awk -F/ '($1 == "apps" || $1 == "packages") && NF > 2 { print $1 "/" $2 " " substr($0, length($1 "/" $2) + 2) } $1 == "scripts" { print "scripts " substr($0, 9) }' |
@@ -87,6 +90,7 @@ apps/mobile src/features/threads/threadListV2.test.ts
 apps/mobile src/features/workspace/workspace-tabs-state.test.ts
 apps/mobile src/lib/composerChipPresentation.test.ts
 apps/server src/process/externalLauncher.test.ts
+apps/server src/ws.test.ts
 apps/web src/components/chat/OpenInPicker.browser.test.tsx
 apps/web src/components/ChatMarkdown.browser.test.tsx
 apps/web src/components/ChatMarkdown.permissions.browser.test.tsx
@@ -99,7 +103,6 @@ packages/client-runtime src/state/threadSort.test.ts
 packages/shared src/composerInlineTokens.test.ts
 TESTS
     sort -u -o "$RUNNER_TEMP/fork-tests.txt" "$RUNNER_TEMP/fork-tests.txt"
-    status=0
     for package in $(cut -d' ' -f1 "$RUNNER_TEMP/fork-tests.txt" | uniq); do
       tests=()
       while read -r test; do tests+=("$test"); done < <(awk -v p="$package" '$1 == p { print $2 }' "$RUNNER_TEMP/fork-tests.txt")
@@ -107,13 +110,13 @@ TESTS
       (cd "$package" && vp test run "${tests[@]}") || status=1
       echo "::endgroup::"
     done
-    [ "$status" -eq 0 ] || summary "Fork tests failed after merging upstream; main was not changed."
+    [ "$status" -eq 0 ] || summary "Fork validation failed after merging upstream; main was not changed."
     exit "$status"
     ;;
   footprint)
     # Fork edits inside upstream files are where merge conflicts come from; keep this list short.
     upstream=$(fork_base)
-    git diff --numstat --diff-filter=M "$upstream" "$@" |
+    git diff --numstat --diff-filter=MD "$upstream" "$@" |
       awk '{ printf "%6d  %s\n", $1 + $2, $3; total += $1 + $2 } END { printf "%6d  total lines in %d upstream files\n", total, NR }' |
       sort -rn
     ;;

@@ -1564,7 +1564,6 @@ export function threadShellFromProjection(
     providerThreads: projection.providerThreads,
     turnItems: projection.turnItems,
     activeProviderThreadId: projection.thread.activeProviderThreadId,
-    cacheHud: cacheHudFromProjection(projection),
     runs: projection.runs,
     pullRequests: projection.thread.pullRequests,
   });
@@ -1592,6 +1591,7 @@ export function threadShellFromProjection(
       : { activeOrderKey: projection.thread.activeOrderKey }),
     lineage: projection.thread.lineage,
     forkedFrom: projection.thread.forkedFrom,
+    cacheHud: cacheHudFromProjection(projection),
     activeProviderThreadId: projection.thread.activeProviderThreadId,
     ...(projection.thread.historyOrigin === undefined
       ? {}

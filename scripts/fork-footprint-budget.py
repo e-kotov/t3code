@@ -20,7 +20,7 @@ def main():
     os.chdir(root)
     baseline = root / "scripts/fork-footprint-budget.json"
     base = os.environ.get("UPSTREAM_SHA") or git("merge-base", args.rev, "refs/remotes/upstream/main")
-    rows = git("diff", "--numstat", "--diff-filter=M", "--no-renames", base, args.rev)
+    rows = git("diff", "--numstat", "--diff-filter=MD", "--no-renames", base, args.rev)
     counts = {}
     for row in rows.splitlines():
         added, removed, path = row.split("\t", 2)
