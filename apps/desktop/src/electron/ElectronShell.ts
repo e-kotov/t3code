@@ -1,3 +1,4 @@
+import { isGramRemoteEditorUrl } from "./forkEditorExternalLinks.ts";
 import { MAC_PERMISSION_SETTINGS_URLS } from "../permissions/MacPermission.ts";
 import {
   REMOTE_CAPABLE_EDITOR_IDS,
@@ -29,7 +30,7 @@ const isRemoteEditorUrl = (url: URL) =>
   REMOTE_EDITOR_PROTOCOLS.has(url.protocol) &&
   url.username.length === 0 &&
   url.password.length === 0 &&
-  (url.protocol === "zed:" || url.protocol === "gram:"
+  (url.protocol === "zed:"
     ? url.host === "ssh" && ZED_SSH_PATHNAME.test(url.pathname)
     : url.protocol === "jetbrains:"
       ? url.host === "gateway" &&
@@ -46,7 +47,7 @@ export function parseSafeExternalUrl(rawUrl: unknown): Option.Option<string> {
 
   try {
     const url = new URL(rawUrl);
-    return SAFE_WEB_PROTOCOLS.has(url.protocol) || isRemoteEditorUrl(url)
+    return SAFE_WEB_PROTOCOLS.has(url.protocol) || isRemoteEditorUrl(url) || isGramRemoteEditorUrl(url)
       ? Option.some(url.href)
       : Option.none();
   } catch {

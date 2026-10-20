@@ -82,6 +82,7 @@ case "$cmd" in
     # Upstream tests beside upstream files the fork mounts into keep upstream defaults intact.
     # reactCompilerCoverage compiles every mobile source file, fork files included.
     cat >> "$RUNNER_TEMP/fork-tests.txt" <<'TESTS'
+apps/desktop src/electron/ElectronShell.test.ts
 apps/mobile src/reactCompilerCoverage.test.ts
 apps/mobile src/features/home/home-list-filter-menu.test.ts
 apps/mobile src/features/home/home-list-options.test.ts

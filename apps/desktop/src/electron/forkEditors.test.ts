@@ -10,6 +10,7 @@ describe("fork editor external links", () => {
     "positron://vscode-remote/ssh-remote+gwdg/home/ek/my%20project",
     "gram://ssh/gwdg/home/ek/my%20project",
     "gram://ssh/gwdg/",
+    "zed://ssh/user@gwdg/home/ek",
   ])("allows a project link: %s", (url) => {
     expect(Option.getOrNull(parseSafeExternalUrl(url))).toBe(url);
   });
