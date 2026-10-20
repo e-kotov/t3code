@@ -1,4 +1,18 @@
-# T3 Code
+# T3 Code EK
+
+A customized fork of [T3 Code](https://github.com/pingdotgg/t3code) for cache control,
+Slurm and workflows across multiple machines. It adds:
+
+- **Cache controls:** Claude/Codex cache and context HUDs, cache-expiry sorting and opt-in cache warming.
+- **HPC workflows:** Slurm job status and time remaining, machine grouping and conversation sorting.
+- **Device utilities:** configurable service health checks and actions, plus custom commands including Android/Termux.
+- **Everyday tools:** assistant quote citations, custom editor commands, and built-in Android Tailscale and direct notifications.
+
+[Download fork releases](https://github.com/e-kotov/t3code/releases) for Mac Apple Silicon,
+Android ARM64 and Linux x64 server. [Fork setup and updates](docs/operations/fork-release.md).
+The installation instructions below describe upstream T3 Code.
+
+## Upstream T3 Code
 
 T3 Code is an "agent harness control surface". It enables control of the agents on your machine with a best-in-class mobile app ([iOS](https://apps.apple.com/us/app/t3-code-remote-claude-more/id6787819824), [Android](https://play.google.com/store/apps/details?id=com.t3tools.t3code)), [web app](https://app.t3.codes) and [Electron-based desktop app](https://t3.codes).
 
