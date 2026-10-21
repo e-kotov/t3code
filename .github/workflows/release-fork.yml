@@ -104,6 +104,18 @@ jobs:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
       - run: vp run --concurrency-limit 2 --filter @t3tools/contracts --filter @t3tools/shared --filter @t3tools/client-runtime --filter @t3tools/web --filter ./apps/server typecheck
       - run: vp run build:desktop
+      - name: Package native Termux ARM64 server
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          python3 -m pip install PyYAML==6.0.3
+          python3 scripts/build-termux-server.test.py
+          python3 scripts/build-termux-server.py --bundle apps/server/dist --output release-termux --version "$RELEASE_VERSION"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: fork-termux-server
+          path: release-termux/*
+          if-no-files-found: error
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: js-bundle
@@ -334,7 +346,8 @@ jobs:
         run: |
           set -euo pipefail
           cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
-          Fork installers for Mac (Apple Silicon), Android, and Linux x64 server (with web UI).
+          Fork installers for Mac (Apple Silicon), Android, Linux x64 server, and native Termux ARM64 server (with web UI).
+          The Termux bundle installs with t3-termux update from Egor's Termux dotfiles; native dependencies are prepared on the phone.
           Mac builds are not notarized. Android uses the fork's own signing key and package ID.
           Direct SSH/Tailscale pairing works without upstream cloud configuration. Upstream Expo updates are disabled.
           Android direct notifications use the paired SSH/Tailscale server connection and do not require T3 Connect; Android keeps an ongoing connection notification while listening.

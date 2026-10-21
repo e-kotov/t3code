@@ -1,0 +1,58 @@
+name: Publish Termux server from existing build
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Fork release run containing js-bundle
+        required: true
+        type: string
+      version:
+        description: Existing release version without v
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  termux:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: packager
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '26'
+      - name: Verify existing build and check out its source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ inputs.run_id }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_RUN" =~ ^[0-9]+$ ]]
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-ek\.[0-9]+$ ]]
+          gh run view "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --json conclusion --jq .conclusion | grep -qx success
+          run_sha="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" --jq .head_sha)"
+          tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/v$VERSION" --jq .sha)"
+          [[ "$run_sha" == "$tag_sha" ]]
+          gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY"
+          git init source
+          git -C source remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          git -C source fetch --depth=1 origin "$run_sha"
+          git -C source checkout --detach FETCH_HEAD
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --name js-bundle --dir bundle
+      - run: python3 -m pip install PyYAML==6.0.3
+      - run: python3 packager/scripts/build-termux-server.test.py
+      - name: Package and publish the matching Termux server
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          python3 packager/scripts/build-termux-server.py --repo source --bundle bundle/server/dist --output assets --version "$VERSION"
+          gh release upload "v$VERSION" assets/* --repo "$GITHUB_REPOSITORY"

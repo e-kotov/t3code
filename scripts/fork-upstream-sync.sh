@@ -66,6 +66,7 @@ case "$cmd" in
     upstream=$(fork_base)
     python3 scripts/fork-footprint-budget.test.py
     python3 scripts/fork-nightly-release.test.py
+    python3 scripts/build-termux-server.test.py
     UPSTREAM_SHA="$upstream" python3 scripts/fork-footprint-budget.py
     RUNNER_TEMP=${RUNNER_TEMP:-$(mktemp -d)}
     # Git hooks put a relative node_modules/.bin on PATH, which breaks after cd into a package.
