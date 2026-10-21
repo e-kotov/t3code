@@ -7,7 +7,8 @@ same conversation normally. For a natural idle-gap observation, keep optional
 After a gap of at least 30 minutes between observed requests, `↩47m:82%` means
 the first response after a 47-minute gap reported 82% of its input from cache.
 A later tool response cannot replace this result. The latest such observation
-remains visible across subsequent short-gap turns. Web sidebar details include
+remains visible across subsequent short-gap turns within the recent history
+window. Web sidebar details include
 exact counts and the observation timestamp; mobile includes them in the HUD's
 accessibility description.
 

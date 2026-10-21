@@ -1,11 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
 import { ProviderDriverKind, ProviderInstanceId, type OrchestrationV2ProviderTurnTokenUsage } from "@t3tools/contracts";
+import * as DateTime from "effect/DateTime";
 import { deriveCacheHud, describeCacheHud, presentCacheHud } from "./cacheHud.ts";
 
 const selection = { instanceId: ProviderInstanceId.make("codex"), model: "gpt-6.1-sol" };
 const scope = "codex:gpt-6.1-sol";
 const driver = ProviderDriverKind.make("codex");
-const at = (minutes: number) => new Date(Date.UTC(2026, 9, 21, 9, minutes)).toISOString();
+const at = (minutes: number) => DateTime.formatIso(DateTime.makeUnsafe(Date.UTC(2026, 9, 21, 9, minutes)));
 const report = (minutes: number, cached = 9_000): OrchestrationV2ProviderTurnTokenUsage => ({
   usedTokens: 10_100, inputTokens: 10_000, cachedInputTokens: cached,
   cacheScopeKey: scope, updatedAt: at(minutes),
@@ -24,6 +25,16 @@ describe("observed Codex cache reuse after a gap", () => {
     const coldResume = deriveCacheHud(driver, [report(0), resumed(0)], selection)!;
     expect(presentCacheHud(coldResume, Date.parse(at(50))).cacheText).toContain("↩47m:0%");
     expect(coldResume.usage.cachedInputTokens).toBe(9_000);
+  });
+
+  it("distinguishes a small positive cache hit from a complete miss", () => {
+    const smallHit = resumed(1_024);
+    const hud = deriveCacheHud(driver, [report(0), {
+      ...smallHit,
+      cacheFirstRequest: { ...smallHit.cacheFirstRequest!, inputTokens: 500_000 },
+    }], selection)!;
+    expect(presentCacheHud(hud, Date.parse(at(50))).cacheText).toContain("↩47m:<1%");
+    expect(hud.resumeObservation?.cachedInputTokens).toBe(1_024);
   });
 
   it("retains a measured resume result when subsequent short-gap turns arrive", () => {

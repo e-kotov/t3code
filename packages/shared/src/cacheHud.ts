@@ -114,9 +114,12 @@ export function presentCacheHud(hud: OrchestrationV2CacheHud, nowMs: number) {
         ? `? ${percentage === null ? "" : `${percentage}% `}${tokens}`
         : `${state === "expiring" ? "⏰ " : ""}~${clock} ${percentage === null ? "" : `${percentage}% `}${tokens}`;
   const resumed = hud.resumeObservation;
-  const resumePercentage = resumed
+  const roundedResumePercentage = resumed
     ? Math.round((resumed.cachedInputTokens / resumed.inputTokens) * 100)
     : null;
+  const resumePercentage = resumed && resumed.cachedInputTokens > 0 && roundedResumePercentage === 0
+    ? "<1"
+    : roundedResumePercentage;
   const resumeText = resumed
     ? `↩${Math.floor(resumed.gapMs / 60_000)}m:${resumePercentage}%`
     : null;
