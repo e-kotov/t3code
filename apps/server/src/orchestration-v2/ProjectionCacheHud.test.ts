@@ -233,7 +233,7 @@ it.effect.each([
       };
       yield* reportUsage(codexThread, 2, latestRequest, codex);
       yield* assertCacheHud({
-        driver: codex, usage: latestRequest, ttlMs: 30 * 60_000, basis: "estimated",
+        driver: codex, usage: latestRequest, basis: "unknown",
         resumeObservation: { ...firstRequest, gapMs: 47 * 60_000 },
       });
       // Completion events omit usage; both persistence paths must retain the first-response evidence.
@@ -246,7 +246,7 @@ it.effect.each([
         driver: codex, occurredAt: now, payload: withoutUsage,
       });
       yield* assertCacheHud({
-        driver: codex, usage: latestRequest, ttlMs: 30 * 60_000, basis: "estimated",
+        driver: codex, usage: latestRequest, basis: "unknown",
         resumeObservation: { ...firstRequest, gapMs: 47 * 60_000 },
       });
     }).pipe(Effect.provide(layer)),

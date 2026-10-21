@@ -10,7 +10,6 @@ import type * as Scope from "effect/Scope";
 import * as ServerSettings from "../serverSettings.ts";
 import * as ThreadManagement from "./ThreadManagementService.ts";
 
-const CODEX_WARM_MARGIN_MS = 5 * 60_000;
 const CLAUDE_WARM_MARGIN_MS = 60_000;
 const CHECK_INTERVAL = "30 seconds";
 const WARM_PROMPT =
@@ -82,7 +81,8 @@ export function cacheWarmingWindow(input: CacheWarmingCandidate): CacheWarmingWi
   const hud = thread.cacheHud;
   if (
     hud == null ||
-    (hud.driver !== "codex" && hud.driver !== "claudeAgent") ||
+    hud.driver !== "claudeAgent" ||
+    hud.basis !== "reported" ||
     hud.ttlMs === undefined ||
     ((hud.usage.cachedInputTokens ?? 0) <= 0 && (hud.usage.cacheCreationTokens ?? 0) <= 0)
   ) {
@@ -91,7 +91,7 @@ export function cacheWarmingWindow(input: CacheWarmingCandidate): CacheWarmingWi
 
   const view = presentCacheHud(hud, input.nowMs);
   if (view.remainingMs === null || view.remainingMs <= 0) return null;
-  const marginMs = hud.driver === "codex" ? CODEX_WARM_MARGIN_MS : CLAUDE_WARM_MARGIN_MS;
+  const marginMs = CLAUDE_WARM_MARGIN_MS;
   if (view.remainingMs > marginMs) return null;
 
   const lastUserMessageAt = thread.latestUserAuthoredMessageAt;

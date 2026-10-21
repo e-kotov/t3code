@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { ProviderDriverKind, ProviderInstanceId, type OrchestrationV2ProviderTurnTokenUsage } from "@t3tools/contracts";
 import * as DateTime from "effect/DateTime";
-import { deriveCacheHud, describeCacheHud, presentCacheHud } from "./cacheHud.ts";
+import { cacheHudExpiry, deriveCacheHud, describeCacheHud, presentCacheHud } from "./cacheHud.ts";
 
 const selection = { instanceId: ProviderInstanceId.make("codex"), model: "gpt-6.1-sol" };
 const scope = "codex:gpt-6.1-sol";
@@ -42,12 +42,29 @@ describe("observed Codex cache reuse after a gap", () => {
     expect(hud.resumeObservation?.gapMs).toBe(47 * 60_000);
   });
 
-  it("does not infer a miss merely because the historical 30-minute reference elapsed", () => {
+  it("keeps observed Codex hits independent of elapsed time, including legacy countdown payloads", () => {
     const hud = deriveCacheHud(driver, [report(0)], selection)!;
-    const view = presentCacheHud(hud, Date.parse(at(40)));
-    expect(view.state).toBe("unknown");
-    expect(view.cacheText).not.toContain("❄");
-    expect(describeCacheHud(hud, Date.parse(at(40))).cache).toBe("30-minute reference elapsed · retention unverified");
+    expect(hud.ttlMs).toBeUndefined();
+    expect(hud.basis).toBe("unknown");
+    const legacy = { ...hud, ttlMs: 30 * 60_000, basis: "estimated" as const };
+    for (const minutes of [0, 25, 30, 106, 720]) {
+      const view = presentCacheHud(legacy, Date.parse(at(minutes)));
+      expect(view.state).toBe("hit");
+      expect(view.cacheText).toBe("Last hit 90% ⇣9k");
+      expect(view.remainingMs).toBeNull();
+      expect(cacheHudExpiry(legacy)).toBeNull();
+    }
+    expect(describeCacheHud(legacy, Date.parse(at(720))).cache).toContain("Cache lifetime not reported");
+  });
+
+  it("distinguishes reported misses from missing cache accounting", () => {
+    const missed = deriveCacheHud(driver, [report(0, 0)], selection)!;
+    expect(presentCacheHud(missed, Date.parse(at(106))).cacheText).toBe("Last miss 0% ⇣0");
+    expect(presentCacheHud(missed, Date.parse(at(106))).state).toBe("miss");
+    const { cachedInputTokens: _cached, ...withoutCache } = report(0);
+    const unknown = deriveCacheHud(driver, [withoutCache], selection)!;
+    expect(presentCacheHud(unknown, Date.parse(at(106))).state).toBe("unknown");
+    expect(presentCacheHud(unknown, Date.parse(at(106))).cacheText).toBe("Last ? ⇣?");
   });
 
   it("does not turn slow responses, missing first-response telemetry or another model into evidence", () => {

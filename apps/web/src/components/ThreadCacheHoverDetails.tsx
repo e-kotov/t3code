@@ -39,7 +39,7 @@ export function ThreadCacheHoverDetails(props: {
   const limits = describeUsageWindows(usageWindows, openedAt);
   if (!hud && limits.length === 0) return null;
   const details = hud ? describeCacheHud(hud, openedAt) : null;
-  const supportsWarming = hud?.driver === "codex" || hud?.driver === "claudeAgent";
+  const supportsWarming = hud?.driver === "claudeAgent";
   return (
     <div className="grid gap-1.5 border-t border-border/60 pt-1.5" data-thread-cache-details="true">
       {details ? (

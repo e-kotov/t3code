@@ -2,6 +2,7 @@ import { ProviderDriverKind, ThreadId, type OrchestrationV2CacheHud } from "@t3t
 import { describe, expect, it } from "@effect/vitest";
 
 import {
+  cacheHudExpiry,
   cacheWarmingState,
   describeCacheHud,
   describeUsageWindows,
@@ -42,7 +43,7 @@ describe("describeCacheHud", () => {
     expect(details.context).toBe("Context 140k of 200k · 70%");
   });
 
-  it("labels the Codex reference timer and shows cache writes", () => {
+  it("shows Codex observed reads and writes without an expiry", () => {
     const details = describeCacheHud(
       hud({
         driver: ProviderDriverKind.make("codex"),
@@ -59,7 +60,7 @@ describe("describeCacheHud", () => {
       start,
     );
     expect(details.cache).toBe(
-      "30-minute reference · 30 min left (not an expiry)",
+      `Cache lifetime not reported · last report ${updatedAt}`,
     );
     expect(details.lastRequest).toBe("Last request: 25% from cache (10k) · 4k written");
     expect(details.context).toBe("Context 50k");
@@ -76,6 +77,12 @@ describe("describeCacheHud", () => {
     expect(missed.cache).toBe("Cache missed on the last request");
     const { ttlMs: _ttl, ...withoutTtl } = hud({ basis: "unknown" });
     expect(describeCacheHud(withoutTtl, start).cache).toBe("Cache lifetime unknown");
+  });
+
+  it("keeps Claude's reported expiry available to both client clocks", () => {
+    expect(cacheHudExpiry(hud())).toBe(start + 3_600_000);
+    expect(cacheHudExpiry(undefined)).toBeNull();
+    expect(cacheHudExpiry(hud({ usage: { ...hud().usage, cachedInputTokens: 0 } }))).toBeNull();
   });
 
   it("formats long remaining lifetimes in hours", () => {
@@ -117,7 +124,7 @@ describe("describeUsageWindows", () => {
 });
 
 describe("hotCacheThreadIds", () => {
-  it("keeps only unarchived Claude/Codex conversations with a warm cache", () => {
+  it("keeps only unarchived Claude conversations with a reported warm cache", () => {
     const now = start + 10 * 60_000;
     const thread = (
       id: string,
@@ -143,7 +150,7 @@ describe("hotCacheThreadIds", () => {
       ],
       now,
     );
-    expect(ids).toEqual(["claude", "codex"]);
+    expect(ids).toEqual(["claude"]);
   });
 });
 

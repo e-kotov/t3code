@@ -27,29 +27,29 @@ function thread(overrides: Partial<WarmThread> = {}): WarmThread {
     status: "completed",
     latestUserAuthoredMessageAt: userMessageAt,
     cacheHud: {
-      driver: "codex",
+      driver: "claudeAgent",
       usage: {
         usedTokens: 12_000,
         inputTokens: 12_000,
         cachedInputTokens: 10_000,
-        cacheScopeKey: "codex:gpt-5.4",
-        updatedAt: isoAt(NOW - 25 * 60_000),
+        cacheScopeKey: "claudeAgent:claude-sonnet-4-6",
+        updatedAt: isoAt(NOW - 4 * 60_000),
       },
-      ttlMs: 30 * 60_000,
-      basis: "estimated",
+      ttlMs: 5 * 60_000,
+      basis: "reported",
     },
     ...overrides,
   } as WarmThread;
 }
 
 const enabled = { nowMs: NOW, enabled: true } as const;
-const fingerprint = `${DateTime.toEpochMillis(userMessageAt)}|${NOW - 25 * 60_000}|codex:gpt-5.4|`;
+const fingerprint = `${DateTime.toEpochMillis(userMessageAt)}|${NOW - 4 * 60_000}|claudeAgent:claude-sonnet-4-6|`;
 
 describe("cacheWarmingWindow", () => {
   it("arms one supported, still-hot window inside the provider margin", () => {
     expect(cacheWarmingWindow({ ...enabled, thread: thread() })).toEqual({
       fingerprint,
-      marginMs: 5 * 60_000,
+      marginMs: 60_000,
     });
   });
 
@@ -84,7 +84,7 @@ describe("cacheWarmingWindow", () => {
     const refreshed = thread({
       cacheHud: {
         ...base.cacheHud!,
-        usage: { ...base.cacheHud!.usage, updatedAt: isoAt(NOW - 26 * 60_000) },
+        usage: { ...base.cacheHud!.usage, updatedAt: isoAt(NOW - 4.5 * 60_000) },
       },
     });
     expect(
@@ -104,7 +104,7 @@ describe("cacheWarmingWindow", () => {
         thread: thread({
           cacheHud: {
             ...base.cacheHud!,
-            usage: { ...base.cacheHud!.usage, updatedAt: isoAt(NOW - 20 * 60_000) },
+            usage: { ...base.cacheHud!.usage, updatedAt: isoAt(NOW - 3 * 60_000) },
           },
         }),
       }),
@@ -115,7 +115,7 @@ describe("cacheWarmingWindow", () => {
         thread: thread({
           cacheHud: {
             ...base.cacheHud!,
-            usage: { ...base.cacheHud!.usage, updatedAt: isoAt(NOW - 31 * 60_000) },
+            usage: { ...base.cacheHud!.usage, updatedAt: isoAt(NOW - 6 * 60_000) },
           },
         }),
       }),
@@ -184,6 +184,20 @@ describe("cacheWarmingWindow", () => {
     });
     expect(cacheWarmingWindow({ ...enabled, thread: current })?.marginMs).toBe(60_000);
   });
+
+  it.each(["estimated", "reported"] as const)(
+    "never schedules a Codex warm even with a saved opt-in and a legacy %s TTL",
+    (basis) => {
+      const current = thread({
+        cacheHud: {
+          ...thread().cacheHud!,
+          driver: ProviderDriverKind.make("codex"),
+          basis,
+        },
+      });
+      expect(cacheWarmingWindow({ ...enabled, thread: current })).toBeNull();
+    },
+  );
 
   it("leaves other providers unsupported", () => {
     const current = thread({

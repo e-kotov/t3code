@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import type { OrchestrationV2CacheHud, ServerProviderUsageWindow } from "@t3tools/contracts";
 import { formatResetsIn } from "@t3tools/shared/usageLimits";
-import { createCacheHudClock, createCacheHudSnapshot } from "@t3tools/shared/cacheHud";
+import { cacheHudExpiry, createCacheHudClock, createCacheHudSnapshot } from "@t3tools/shared/cacheHud";
 import type { ReactNode } from "react";
 import { ComposerBanner } from "./ComposerBanner";
 
@@ -39,7 +39,7 @@ export function CacheHud(props: {
   const color =
     view.state === "expiring"
       ? "text-warning-foreground font-semibold"
-      : view.state === "cold" || view.state === "unknown"
+      : view.state === "cold" || view.state === "miss" || view.state === "unknown"
         ? "text-secondary-label"
         : "text-foreground";
   const content = (
@@ -78,11 +78,7 @@ function HudTab({ children }: { children: ReactNode }) {
 }
 
 export function useCacheHudView(hud: OrchestrationV2CacheHud | null | undefined) {
-  const expiry =
-    hud?.ttlMs !== undefined &&
-    ((hud.usage.cachedInputTokens ?? 0) > 0 || (hud.usage.cacheCreationTokens ?? 0) > 0)
-      ? Date.parse(hud.usage.updatedAt) + hud.ttlMs
-      : null;
+  const expiry = cacheHudExpiry(hud);
   const clockSubscribe = (listener: () => void) =>
     expiry !== null ? subscribe(expiry, listener) : () => {};
   const snapshot = createCacheHudSnapshot(hud);

@@ -1,7 +1,7 @@
 # Prompt cache warming
 
 The **Warm all** button is visible in the main conversation interface. It turns
-warming on or off for every conversation with a current Codex or Claude cache
+warming on or off for every conversation with a reported Claude cache
 window, and each conversation button updates to match. You can then change any
 conversation independently. Everything starts off. The global button applies to
 the selected server. Individual buttons appear only while a supported
@@ -14,8 +14,11 @@ Warming sends a short, visible **billable** agent turn: it asks for exactly
 conversation and model. It does not guarantee a provider cache hit or extend a
 provider's cache lifetime beyond what that provider supports.
 
-The server checks every 30 seconds. Codex conversations can warm within five
-minutes of cache expiry; Claude conversations within one minute. Only a fresh
+Codex warming is unavailable because Codex does not report a cache expiry.
+Saved Codex warming selections do not trigger requests.
+
+The server checks every 30 seconds. Claude conversations can warm within one
+minute of reported cache expiry. Only a fresh
 cache with observed cached or cache-creation tokens qualifies. Unsupported
 providers, expired or unknown caches, subagents, archived conversations, active
 work, pending approvals or background work, failures and usage-limit recovery

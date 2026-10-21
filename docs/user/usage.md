@@ -167,10 +167,10 @@ On Android it is below the conversation header; on web and Mac it is above the
 composer. Conversation lists show a compact copy. No legacy setting is required.
 
 The countdown estimates freshness. Claude uses its reported cache lifetime;
-Codex uses a 30-minute historical reference, not a measured expiry. Its
+Codex shows its last observed hit or miss without an expiry countdown. Its
 `↩47m:82%` records cache reuse on the first response after an observed gap;
-see [Measure Codex cache reuse](codex-cache-observations.md). `⏰` marks the final
-five minutes. `❄` marks a reported miss or an elapsed Claude estimate. Other
+see [Measure Codex cache reuse](codex-cache-observations.md). For Claude, `⏰`
+marks the final five minutes and `❄` a miss or an elapsed estimate. Other
 providers show token counts when reported and `?` for unknown lifetime. Context
 is the latest provider report, not a sum of all turns.
 

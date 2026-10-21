@@ -68,7 +68,7 @@ export function SidebarThreadCacheControls(props: { readonly thread: CacheThread
 /** Title tooltip note for providers the warmer supports. */
 export function CacheWarmingTitleHint(props: { readonly thread: CacheThread }) {
   const driver = props.thread.cacheHud?.driver;
-  if (driver !== "codex" && driver !== "claudeAgent") return null;
+  if (driver !== "claudeAgent") return null;
   return (
     <span className="mt-1 block max-w-xs text-2xs text-muted-foreground">
       {CACHE_WARMING_EXPLANATION}

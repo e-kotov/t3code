@@ -37,7 +37,8 @@ function EnvironmentControl(props: {
         thread.environmentId === props.environmentId &&
         thread.archivedAt === null &&
         hud &&
-        (hud.driver === "codex" || hud.driver === "claudeAgent") &&
+        hud.driver === "claudeAgent" &&
+        hud.basis === "reported" &&
         (hud.usage.cachedInputTokens ?? 0) + (hud.usage.cacheCreationTokens ?? 0) > 0 &&
         hud.ttlMs !== undefined &&
         Date.now() - Date.parse(hud.usage.updatedAt) < hud.ttlMs
@@ -52,7 +53,7 @@ function EnvironmentControl(props: {
       <View className="min-w-0">
         <Text className="text-xs">Warm cache</Text>
         <Text className="text-[9px] text-muted-foreground">
-          This server · Codex/Claude · billable turns
+          This server · Claude · billable turns
         </Text>
       </View>
       <Pressable
@@ -145,7 +146,7 @@ export function CacheWarmingThreadControl(props: {
   });
   const canWrite = useEnvironmentScope(props.environmentId, AuthSettingsWriteScope);
   const enabled = settings?.cacheWarmingSessions?.[props.threadId] === true;
-  const unsupportedProvider = props.driver !== "codex" && props.driver !== "claudeAgent";
+  const unsupportedProvider = props.driver !== "claudeAgent";
   const disabled = !canWrite || unsupportedProvider;
   const toggle = () => {
     void updateSettings({
@@ -153,16 +154,13 @@ export function CacheWarmingThreadControl(props: {
       input: { patch: { cacheWarmingSessions: { [props.threadId]: !enabled } } },
     });
   };
+  if (unsupportedProvider) return null;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: enabled }}
       accessibilityLabel={`${enabled ? "Disable" : "Enable"} cache warming for this conversation`}
-      accessibilityHint={
-        unsupportedProvider
-          ? "Prompt cache warming currently supports Codex and Claude only."
-          : EXPLANATION
-      }
+      accessibilityHint={EXPLANATION}
       disabled={disabled}
       className={`ml-2 min-h-8 rounded-full border px-2.5 items-center justify-center ${enabled ? "border-primary bg-primary" : "border-border bg-transparent"} ${disabled ? "opacity-40" : ""}`}
       onPress={(event) => {
@@ -174,7 +172,7 @@ export function CacheWarmingThreadControl(props: {
       <Text
         className={`text-[11px] font-t3-medium ${enabled ? "text-primary-foreground" : "text-foreground-muted"}`}
       >
-        {unsupportedProvider ? "N/A" : enabled ? "Warm on" : "Warm off"}
+        {enabled ? "Warm on" : "Warm off"}
       </Text>
     </Pressable>
   );
