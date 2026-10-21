@@ -1,3 +1,4 @@
+import { makeCodexCacheUsageRecorder } from "../../provider/CodexCacheTelemetry.ts";
 import { revertCodexThread } from "../../provider/CodexThreadRevert.ts";
 import { historyResponseItems } from "@t3tools/provider-core/server/handoffBudget";
 import { makeProviderTextDeltaCoalescer } from "./ProviderTextDeltaCoalescer.ts";
@@ -1833,6 +1834,7 @@ export const makeCodexAdapterV2 = Effect.fn("makeCodexAdapterV2")(function* (
           new Map<ProviderThreadId, Extract<OrchestrationV2TurnItem, { type: "error" }>>(),
         );
         const activeTurns = yield* Ref.make(new Map<string, ActiveCodexTurnContext>());
+        const codexCacheUsage = makeCodexCacheUsageRecorder(codexProviderTurnTokenUsage);
         const turnTokenUsageByThread = new Map<string, CodexTurnTokenUsageState>();
         const usageStateForThread = (nativeThreadId: string) => {
           let state = turnTokenUsageByThread.get(nativeThreadId);
@@ -4431,11 +4433,7 @@ export const makeCodexAdapterV2 = Effect.fn("makeCodexAdapterV2")(function* (
                 status: "running",
                 startedAt: context.startedAt,
                 completedAt: null,
-                tokenUsage: codexProviderTurnTokenUsage(
-                  payload.tokenUsage,
-                  DateTime.formatIso(now),
-                  context.input.modelSelection,
-                ),
+                tokenUsage: codexCacheUsage(payload, DateTime.formatIso(now), context),
               },
             });
           }).pipe(Effect.orDie),

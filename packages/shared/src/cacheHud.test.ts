@@ -42,7 +42,7 @@ describe("describeCacheHud", () => {
     expect(details.context).toBe("Context 140k of 200k · 70%");
   });
 
-  it("marks Codex lifetimes as estimates and shows cache writes", () => {
+  it("labels the Codex reference timer and shows cache writes", () => {
     const details = describeCacheHud(
       hud({
         driver: ProviderDriverKind.make("codex"),
@@ -59,7 +59,7 @@ describe("describeCacheHud", () => {
       start,
     );
     expect(details.cache).toBe(
-      `Cache until ~${localClock(start + 1_800_000)} · 30 min left (estimate)`,
+      "30-minute reference · 30 min left (not an expiry)",
     );
     expect(details.lastRequest).toBe("Last request: 25% from cache (10k) · 4k written");
     expect(details.context).toBe("Context 50k");

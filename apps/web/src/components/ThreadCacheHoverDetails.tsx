@@ -46,6 +46,7 @@ export function ThreadCacheHoverDetails(props: {
         <>
           <Row icon={TimerIcon} warning={details.state === "expiring"} label={details.cache} />
           {details.lastRequest ? <Row icon={DatabaseIcon} label={details.lastRequest} /> : null}
+          {details.resume ? <Row icon={DatabaseIcon} label={details.resume} /> : null}
           <Row icon={GaugeIcon} label={details.context} />
         </>
       ) : null}
@@ -75,7 +76,7 @@ function Row(props: { icon: LucideIcon; label: string; warning?: boolean }) {
           props.warning ? "stroke-current" : "stroke-muted-foreground",
         )}
       />
-      <div className={cn("min-w-0 truncate", !props.warning && "text-foreground/75")}>
+      <div title={props.label} className={cn("min-w-0 truncate", !props.warning && "text-foreground/75")}>
         {props.label}
       </div>
     </div>

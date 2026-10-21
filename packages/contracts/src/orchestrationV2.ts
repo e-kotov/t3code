@@ -1,3 +1,4 @@
+import { CodexCacheFirstRequest, CodexCacheResumeObservation } from "./cacheTelemetry.ts";
 import { OrchestrationMessageContext } from "./composerContext.ts";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
@@ -172,6 +173,7 @@ export const OrchestrationV2ProviderTurnTokenUsage = Schema.Struct({
   cacheScopeKey: Schema.optional(Schema.String),
   outputTokens: Schema.optional(NonNegativeInt),
   reasoningOutputTokens: Schema.optional(NonNegativeInt),
+  cacheFirstRequest: Schema.optional(CodexCacheFirstRequest),
   promptCacheTtlMs: Schema.optional(PositiveInt),
   autoCompactThreshold: Schema.optional(PositiveInt),
   promptCacheExpiresAt: Schema.optional(Schema.String),
@@ -971,6 +973,7 @@ export const OrchestrationV2ContextHandoff = Schema.Struct({
 export type OrchestrationV2ContextHandoff = typeof OrchestrationV2ContextHandoff.Type;
 
 export const OrchestrationV2CacheHud = Schema.Struct({
+  resumeObservation: Schema.optional(CodexCacheResumeObservation),
   driver: ProviderDriverKind,
   usage: OrchestrationV2ProviderTurnTokenUsage,
   ttlMs: Schema.optional(PositiveInt),
