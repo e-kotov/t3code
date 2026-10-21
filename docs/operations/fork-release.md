@@ -15,6 +15,9 @@ publishing account is required.
   upstream app data is not automatically transferred. Expo OTA updates are disabled.
 - Linux x64: `t3-VERSION-linux-x64.tar.gz`, including the executable, native
   dependencies, resource monitor and web client; suitable for the GWDG workstation.
+- Native Termux ARM64: `t3-VERSION-termux-arm64.tar.gz` and its `.sha256` file.
+  Contains server/web JavaScript, locked npm dependencies and patches; the Termux
+  dotfiles updater installs Android dependencies and compiles the PTY on the phone.
 - `SHA256SUMS` for downloaded assets.
 
 Set `T3CODE_ENVIRONMENT_LABEL` in a server's environment to give it a fixed name, for
@@ -50,6 +53,20 @@ selects the highest published `vX.Y.Z-ek.N` prerelease. Drafts and upstream
 nightly/preview tags are excluded. Downloads and `SHA256SUMS` come from the same
 fork release. `--version X.Y.Z-ek.N` pins a release; `T3CODE_RELEASE_BASE_URL`
 can still override the download origin for a mirror.
+
+On the phone, apply Egor's Termux dotfiles, then use `t3-termux update` instead.
+It selects the newest published EK release with a Termux asset, verifies its checksum,
+prepares the runtime, and restarts a running server with the same state and pairing.
+`t3-termux update --check` only checks availability; a positional version pins the update.
+The Android APK is a separate client update. Full phone installation verification is
+performed on the device, not by the Linux packaging job.
+
+To add a Termux asset to a release made before this packaging was introduced, dispatch
+**Publish Termux server from existing build** (`release-termux.yml`) with its successful
+fork-release `run_id` and version. It checks the tag against the source run, uses that
+run's `js-bundle` plus matching source lockfile/patches, and uploads the archive and
+separate checksum without replacing existing assets. The source artifact must still
+be available (normally three days). Future full releases include Termux automatically.
 
 ## Nightly prereleases
 
