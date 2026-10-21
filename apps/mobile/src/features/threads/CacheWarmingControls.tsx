@@ -106,7 +106,11 @@ export function CacheWarmingMachineControl(props: { readonly environmentId: Envi
           ? "Warming is on for some warm conversations on this machine; enable it for all"
           : `${state === "on" ? "Disable" : "Enable"} warming for all warm conversations on this machine`
       }
-      accessibilityHint={EXPLANATION}
+      accessibilityHint={
+        unsupportedProvider
+          ? "Prompt cache warming currently supports Claude only."
+          : EXPLANATION
+      }
       accessibilityState={{
         checked: state === "mixed" ? "mixed" : state === "on",
         disabled: !canWrite,
@@ -154,7 +158,7 @@ export function CacheWarmingThreadControl(props: {
       input: { patch: { cacheWarmingSessions: { [props.threadId]: !enabled } } },
     });
   };
-  if (unsupportedProvider) return null;
+  if (props.driver === "codex") return null;
   return (
     <Pressable
       accessibilityRole="button"
@@ -172,7 +176,7 @@ export function CacheWarmingThreadControl(props: {
       <Text
         className={`text-[11px] font-t3-medium ${enabled ? "text-primary-foreground" : "text-foreground-muted"}`}
       >
-        {enabled ? "Warm on" : "Warm off"}
+        {unsupportedProvider ? "N/A" : enabled ? "Warm on" : "Warm off"}
       </Text>
     </Pressable>
   );
