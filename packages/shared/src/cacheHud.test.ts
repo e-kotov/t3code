@@ -1,12 +1,18 @@
-import { ProviderDriverKind, ThreadId, type OrchestrationV2CacheHud } from "@t3tools/contracts";
+import {
+  ProviderDriverKind,
+  ProviderInstanceId,
+  ThreadId,
+  type OrchestrationV2CacheHud,
+} from "@t3tools/contracts";
 import { describe, expect, it } from "@effect/vitest";
 
 import {
-  cacheHudExpiry,
   cacheWarmingState,
+  deriveCacheHud,
   describeCacheHud,
   describeUsageWindows,
   hotCacheThreadIds,
+  presentCacheHud,
 } from "./cacheHud.ts";
 
 const updatedAt = "2026-10-13T08:00:00.000Z";
@@ -34,6 +40,27 @@ function hud(overrides: Partial<OrchestrationV2CacheHud> = {}): OrchestrationV2C
   };
 }
 
+describe("deriveCacheHud", () => {
+  it("keeps Codex's one-hour estimate despite earlier misses and expires at that boundary", () => {
+    const selection = { instanceId: ProviderInstanceId.make("codex"), model: "gpt-6.1-sol" };
+    const reports = ["00", "05", "10", "15", "20", "25", "30"].map((minute, i) => ({
+      updatedAt: `2026-10-13T08:${minute}:00.000Z`,
+      usedTokens: 12_000,
+      inputTokens: 12_000,
+      cachedInputTokens: i % 2 === 0 ? 10_000 : 0,
+      cacheScopeKey: "codex:gpt-6.1-sol",
+    }));
+    const result = deriveCacheHud(ProviderDriverKind.make("codex"), reports, selection)!;
+    expect(result.ttlMs).toBe(60 * 60_000);
+    expect(result.basis).toBe("estimated");
+    const lastReport = Date.parse(reports.at(-1)!.updatedAt);
+    expect(presentCacheHud(result, lastReport + 40 * 60_000).state).toBe("hot");
+    expect(presentCacheHud(result, lastReport + 55 * 60_000).state).toBe("expiring");
+    expect(presentCacheHud(result, lastReport + 60 * 60_000).state).toBe("cold");
+    expect(presentCacheHud(result, lastReport).description).toContain("assumed one-hour window");
+  });
+});
+
 describe("describeCacheHud", () => {
   it("spells out a warm cache, the last request and context", () => {
     const details = describeCacheHud(hud(), start + 46 * 60_000);
@@ -43,12 +70,12 @@ describe("describeCacheHud", () => {
     expect(details.context).toBe("Context 140k of 200k · 70%");
   });
 
-  it("shows Codex observed reads and writes without an expiry", () => {
+  it("marks Codex lifetimes as estimates and shows cache writes", () => {
     const details = describeCacheHud(
       hud({
         driver: ProviderDriverKind.make("codex"),
         basis: "estimated",
-        ttlMs: 30 * 60_000,
+        ttlMs: 60 * 60_000,
         usage: {
           updatedAt,
           usedTokens: 50_000,
@@ -60,7 +87,7 @@ describe("describeCacheHud", () => {
       start,
     );
     expect(details.cache).toBe(
-      `Cache lifetime not reported · last report ${updatedAt}`,
+      `Cache until ~${localClock(start + 3_600_000)} · 1 h left (estimate)`,
     );
     expect(details.lastRequest).toBe("Last request: 25% from cache (10k) · 4k written");
     expect(details.context).toBe("Context 50k");
@@ -77,12 +104,6 @@ describe("describeCacheHud", () => {
     expect(missed.cache).toBe("Cache missed on the last request");
     const { ttlMs: _ttl, ...withoutTtl } = hud({ basis: "unknown" });
     expect(describeCacheHud(withoutTtl, start).cache).toBe("Cache lifetime unknown");
-  });
-
-  it("keeps Claude's reported expiry available to both client clocks", () => {
-    expect(cacheHudExpiry(hud())).toBe(start + 3_600_000);
-    expect(cacheHudExpiry(undefined)).toBeNull();
-    expect(cacheHudExpiry(hud({ usage: { ...hud().usage, cachedInputTokens: 0 } }))).toBeNull();
   });
 
   it("formats long remaining lifetimes in hours", () => {
@@ -124,7 +145,7 @@ describe("describeUsageWindows", () => {
 });
 
 describe("hotCacheThreadIds", () => {
-  it("keeps only unarchived Claude conversations with a reported warm cache", () => {
+  it("keeps only unarchived Claude/Codex conversations with a warm cache", () => {
     const now = start + 10 * 60_000;
     const thread = (
       id: string,
@@ -150,7 +171,7 @@ describe("hotCacheThreadIds", () => {
       ],
       now,
     );
-    expect(ids).toEqual(["claude"]);
+    expect(ids).toEqual(["claude", "codex"]);
   });
 });
 

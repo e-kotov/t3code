@@ -32,8 +32,7 @@ function useEnvironmentWarming(environmentId: EnvironmentId, threads: readonly C
         if (
           thread.archivedAt !== null ||
           !hud ||
-          hud.driver !== "claudeAgent" ||
-          hud.basis !== "reported" ||
+          (hud.driver !== "codex" && hud.driver !== "claudeAgent") ||
           (hud.usage.cachedInputTokens ?? 0) + (hud.usage.cacheCreationTokens ?? 0) <= 0 ||
           hud.ttlMs === undefined
         )
@@ -143,7 +142,7 @@ function EnvironmentToggle(props: {
       <span className="min-w-0 flex-1 truncate">
         <span className="block">Warm prompt cache</span>
         <span className="block text-3xs opacity-75">
-          This server · Claude · billable turns
+          This server · Codex/Claude · billable turns
         </span>
       </span>
       <Button
@@ -177,7 +176,7 @@ export function CacheWarmingThreadToggle(props: {
   );
   const update = useUpdateEnvironmentSettings(props.environmentId);
   const canWrite = useEnvironmentScope(props.environmentId, AuthSettingsWriteScope);
-  const unsupportedProvider = props.driver !== "claudeAgent";
+  const unsupportedProvider = props.driver !== "codex" && props.driver !== "claudeAgent";
   const cacheView = useCacheHudView(props.cacheHud);
   if (unsupportedProvider || (cacheView?.state !== "hot" && cacheView?.state !== "expiring"))
     return null;

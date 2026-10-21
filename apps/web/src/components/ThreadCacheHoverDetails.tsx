@@ -39,14 +39,13 @@ export function ThreadCacheHoverDetails(props: {
   const limits = describeUsageWindows(usageWindows, openedAt);
   if (!hud && limits.length === 0) return null;
   const details = hud ? describeCacheHud(hud, openedAt) : null;
-  const supportsWarming = hud?.driver === "claudeAgent";
+  const supportsWarming = hud?.driver === "codex" || hud?.driver === "claudeAgent";
   return (
     <div className="grid gap-1.5 border-t border-border/60 pt-1.5" data-thread-cache-details="true">
       {details ? (
         <>
           <Row icon={TimerIcon} warning={details.state === "expiring"} label={details.cache} />
           {details.lastRequest ? <Row icon={DatabaseIcon} label={details.lastRequest} /> : null}
-          {details.resume ? <Row icon={DatabaseIcon} label={details.resume} /> : null}
           <Row icon={GaugeIcon} label={details.context} />
         </>
       ) : null}
@@ -76,7 +75,7 @@ function Row(props: { icon: LucideIcon; label: string; warning?: boolean }) {
           props.warning ? "stroke-current" : "stroke-muted-foreground",
         )}
       />
-      <div title={props.label} className={cn("min-w-0 truncate", !props.warning && "text-foreground/75")}>
+      <div className={cn("min-w-0 truncate", !props.warning && "text-foreground/75")}>
         {props.label}
       </div>
     </div>

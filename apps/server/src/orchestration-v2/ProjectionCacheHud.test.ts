@@ -82,11 +82,7 @@ it.effect.each([
         assert.deepEqual((yield* store.getThreadShell(threadId))?.cacheHud, expected);
         assert.deepEqual(listed?.cacheHud, expected);
       });
-      const activateProviderThread = (
-        providerThreadId: ProviderThreadId,
-        providerDriver = driver,
-        selection = sonnet,
-      ) =>
+      const activateProviderThread = (providerThreadId: ProviderThreadId) =>
         store.apply({
           id: nextEventId(),
           type: "provider-thread.updated",
@@ -94,8 +90,8 @@ it.effect.each([
           occurredAt: now,
           payload: {
             id: providerThreadId,
-            driver: providerDriver,
-            providerInstanceId: selection.instanceId,
+            driver,
+            providerInstanceId: sonnet.instanceId,
             providerSessionId: null,
             appThreadId: threadId,
             ownerNodeId: null,
@@ -115,14 +111,13 @@ it.effect.each([
         providerThreadId: ProviderThreadId,
         ordinal: number,
         tokenUsage: OrchestrationV2ProviderTurnTokenUsage,
-        providerDriver = driver,
       ) =>
         store.apply({
           id: nextEventId(),
           type: "provider-turn.updated",
           threadId,
           nodeId,
-          driver: providerDriver,
+          driver,
           occurredAt: now,
           payload: {
             id: ProviderTurnId.make(`${providerThreadId}:turn:${ordinal}`),
@@ -212,42 +207,5 @@ it.effect.each([
       });
       yield* reportUsage(second, 67, cacheRead(67, opus));
       yield* assertCacheHud({ driver, usage: cacheRead(67, opus), basis: "unknown" });
-
-      const codex = ProviderDriverKind.make("codex");
-      const codexSelection = { instanceId: ProviderInstanceId.make("codex"), model: "gpt-6.1-sol" };
-      const codexThread = ProviderThreadId.make("provider-thread:cache-hud:codex");
-      yield* store.apply({
-        id: nextEventId(), type: "thread.model-selection-updated", threadId, occurredAt: now,
-        payload: { ...thread, modelSelection: codexSelection },
-      });
-      yield* activateProviderThread(codexThread, codex, codexSelection);
-      const previousRequest = { ...cacheRead(1, codexSelection), updatedAt: "2026-10-21T09:00:00.000Z" };
-      yield* reportUsage(codexThread, 1, previousRequest, codex);
-      const firstRequest = {
-        startedAt: "2026-10-21T09:47:00.000Z", reportedAt: "2026-10-21T09:48:00.000Z",
-        inputTokens: 10_000, cachedInputTokens: 0,
-      };
-      const latestRequest = {
-        ...cacheRead(2, codexSelection), updatedAt: "2026-10-21T09:50:00.000Z",
-        cacheFirstRequest: firstRequest,
-      };
-      yield* reportUsage(codexThread, 2, latestRequest, codex);
-      yield* assertCacheHud({
-        driver: codex, usage: latestRequest, basis: "unknown",
-        resumeObservation: { ...firstRequest, gapMs: 47 * 60_000 },
-      });
-      // Completion events omit usage; both persistence paths must retain the first-response evidence.
-      const turn = (yield* store.getThreadProjection(threadId)).providerTurns.find(
-        (entry) => entry.providerThreadId === codexThread && entry.ordinal === 2,
-      )!;
-      const { tokenUsage: _usage, ...withoutUsage } = turn;
-      yield* store.apply({
-        id: nextEventId(), type: "provider-turn.updated", threadId, nodeId,
-        driver: codex, occurredAt: now, payload: withoutUsage,
-      });
-      yield* assertCacheHud({
-        driver: codex, usage: latestRequest, basis: "unknown",
-        resumeObservation: { ...firstRequest, gapMs: 47 * 60_000 },
-      });
     }).pipe(Effect.provide(layer)),
 );

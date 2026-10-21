@@ -37,8 +37,7 @@ function EnvironmentControl(props: {
         thread.environmentId === props.environmentId &&
         thread.archivedAt === null &&
         hud &&
-        hud.driver === "claudeAgent" &&
-        hud.basis === "reported" &&
+        (hud.driver === "codex" || hud.driver === "claudeAgent") &&
         (hud.usage.cachedInputTokens ?? 0) + (hud.usage.cacheCreationTokens ?? 0) > 0 &&
         hud.ttlMs !== undefined &&
         Date.now() - Date.parse(hud.usage.updatedAt) < hud.ttlMs
@@ -53,7 +52,7 @@ function EnvironmentControl(props: {
       <View className="min-w-0">
         <Text className="text-xs">Warm cache</Text>
         <Text className="text-[9px] text-muted-foreground">
-          This server · Claude · billable turns
+          This server · Codex/Claude · billable turns
         </Text>
       </View>
       <Pressable
@@ -146,7 +145,7 @@ export function CacheWarmingThreadControl(props: {
   });
   const canWrite = useEnvironmentScope(props.environmentId, AuthSettingsWriteScope);
   const enabled = settings?.cacheWarmingSessions?.[props.threadId] === true;
-  const unsupportedProvider = props.driver !== "claudeAgent";
+  const unsupportedProvider = props.driver !== "codex" && props.driver !== "claudeAgent";
   const disabled = !canWrite || unsupportedProvider;
   const toggle = () => {
     void updateSettings({
@@ -154,7 +153,6 @@ export function CacheWarmingThreadControl(props: {
       input: { patch: { cacheWarmingSessions: { [props.threadId]: !enabled } } },
     });
   };
-  if (props.driver === "codex") return null;
   return (
     <Pressable
       accessibilityRole="button"
@@ -162,7 +160,7 @@ export function CacheWarmingThreadControl(props: {
       accessibilityLabel={`${enabled ? "Disable" : "Enable"} cache warming for this conversation`}
       accessibilityHint={
         unsupportedProvider
-          ? "Prompt cache warming currently supports Claude only."
+          ? "Prompt cache warming currently supports Codex and Claude only."
           : EXPLANATION
       }
       disabled={disabled}

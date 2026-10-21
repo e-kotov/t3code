@@ -167,12 +167,11 @@ On Android it is below the conversation header; on web and Mac it is above the
 composer. Conversation lists show a compact copy. No legacy setting is required.
 
 The countdown estimates freshness. Claude uses its reported cache lifetime;
-Codex shows its last observed hit or miss without an expiry countdown. Its
-`↩47m:82%` records cache reuse on the first response after an observed gap;
-see [Measure Codex cache reuse](codex-cache-observations.md). For Claude, `⏰`
-marks the final five minutes and `❄` a miss or an elapsed estimate. Other
-providers show token counts when reported and `?` for unknown lifetime. Context
-is the latest provider report, not a sum of all turns.
+Codex uses an assumed one-hour window, not a provider-reported guarantee.
+Prefix changes, model switches and eviction can make
+a cache cold earlier. `⏰` marks the final five minutes and `❄` marks a miss or
+elapsed estimate. Other providers show token counts when reported and `?` for
+unknown lifetime. Context is the latest provider report, not a sum of all turns.
 
 Install the fork server as well as the client to receive this HUD on remote
 connections. Upstream servers continue to connect but do not send the summary.
