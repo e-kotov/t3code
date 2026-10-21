@@ -106,11 +106,7 @@ export function CacheWarmingMachineControl(props: { readonly environmentId: Envi
           ? "Warming is on for some warm conversations on this machine; enable it for all"
           : `${state === "on" ? "Disable" : "Enable"} warming for all warm conversations on this machine`
       }
-      accessibilityHint={
-        unsupportedProvider
-          ? "Prompt cache warming currently supports Claude only."
-          : EXPLANATION
-      }
+      accessibilityHint={EXPLANATION}
       accessibilityState={{
         checked: state === "mixed" ? "mixed" : state === "on",
         disabled: !canWrite,
@@ -164,7 +160,11 @@ export function CacheWarmingThreadControl(props: {
       accessibilityRole="button"
       accessibilityState={{ selected: enabled }}
       accessibilityLabel={`${enabled ? "Disable" : "Enable"} cache warming for this conversation`}
-      accessibilityHint={EXPLANATION}
+      accessibilityHint={
+        unsupportedProvider
+          ? "Prompt cache warming currently supports Claude only."
+          : EXPLANATION
+      }
       disabled={disabled}
       className={`ml-2 min-h-8 rounded-full border px-2.5 items-center justify-center ${enabled ? "border-primary bg-primary" : "border-border bg-transparent"} ${disabled ? "opacity-40" : ""}`}
       onPress={(event) => {
