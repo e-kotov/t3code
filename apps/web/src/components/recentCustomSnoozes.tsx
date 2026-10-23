@@ -12,11 +12,14 @@ export function RecentCustomSnoozeMenuItems(props: {
     <>
       <MenuSeparator />
       {choices.map((choice) => (
-        <MenuItem key={choice.id} onClick={(event) => {
-          event.stopPropagation();
-          const selected = selectSnoozePreset(choices, `snooze:${choice.id}`);
-          if (selected) props.onSnooze({ snoozedUntil: selected.snoozedUntil });
-        }}>
+        <MenuItem
+          key={choice.id}
+          onClick={(event) => {
+            event.stopPropagation();
+            const selected = selectSnoozePreset(choices, `snooze:${choice.id}`);
+            if (selected) props.onSnooze({ snoozedUntil: selected.snoozedUntil });
+          }}
+        >
           {choice.label}
           <MenuShortcut>{choice.whenLabel}</MenuShortcut>
         </MenuItem>

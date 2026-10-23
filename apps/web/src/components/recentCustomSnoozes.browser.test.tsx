@@ -3,7 +3,11 @@ import { render } from "../../test/render";
 import { RECENT_CUSTOM_SNOOZES_KEY } from "@t3tools/shared/recentCustomSnoozes";
 import { Menu, MenuPopup, MenuTrigger } from "./ui/menu";
 import { RecentCustomSnoozeMenuItems } from "./recentCustomSnoozes";
-import { resolveCustomSnooze, resolveSnoozePresets, selectSnoozePreset } from "./recentCustomSnoozeHistory";
+import {
+  resolveCustomSnooze,
+  resolveSnoozePresets,
+  selectSnoozePreset,
+} from "./recentCustomSnoozeHistory";
 
 it("offers persisted custom dates and snoozes another thread to the selected exact instant", async () => {
   const dates = [
@@ -31,13 +35,18 @@ it("offers persisted custom dates and snoozes another thread to the selected exa
   await expect.element(screen.getByRole("menuitem").nth(3)).not.toBeInTheDocument();
   await screen.getByRole("menuitem").nth(1).click();
   expect(onSnooze).toHaveBeenCalledExactlyOnceWith({ snoozedUntil: dates[1] });
-  expect(write).toHaveBeenCalledWith(RECENT_CUSTOM_SNOOZES_KEY, JSON.stringify([dates[1], dates[0], dates[2]]));
+  expect(write).toHaveBeenCalledWith(
+    RECENT_CUSTOM_SNOOZES_KEY,
+    JSON.stringify([dates[1], dates[0], dates[2]]),
+  );
 });
 
 it("makes custom dates available to context and bulk menus while preserving presets and excluding durations", () => {
   let saved: string | null = null;
   using _read = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => saved);
-  using _write = vi.spyOn(Storage.prototype, "setItem").mockImplementation((_key, value) => { saved = value; });
+  using _write = vi.spyOn(Storage.prototype, "setItem").mockImplementation((_key, value) => {
+    saved = value;
+  });
   const now = new Date(2026, 9, 23, 10);
   resolveCustomSnooze({ mode: "duration", amount: "2", unit: "hours" }, now);
   resolveCustomSnooze({ mode: "date", date: "invalid", time: "15:47" }, now);
