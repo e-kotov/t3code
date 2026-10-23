@@ -3,7 +3,8 @@
 A customized fork of [T3 Code](https://github.com/pingdotgg/t3code) for cache control,
 Slurm and workflows across multiple machines.
 
-- **Cache controls:** Claude/Codex context HUDs, cache-expiry sorting and opt-in warming.
+- **[Cache controls](docs/user/cache-warming.md):** per-thread warming or idle compaction,
+  Claude/Codex context HUDs and cache-expiry sorting.
 - **HPC workflows:** Slurm job status, machine grouping and conversation sorting.
 - **Device utilities:** service health checks, custom actions, Android/Termux integration.
 - **Everyday tools:** assistant citations, custom editors and recent custom snooze dates.

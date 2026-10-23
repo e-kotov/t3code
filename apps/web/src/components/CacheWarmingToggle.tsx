@@ -12,7 +12,7 @@ import { resolveActiveThreadRouteRef } from "../threadRoutes";
 import { Button } from "./ui/button";
 
 export const CACHE_WARMING_EXPLANATION =
-  "When enabled for this environment and conversation, T3 may send a short visible, billable cache-warm turn near cache expiry.";
+  "Keep warm may send a short visible, billable turn near cache expiry for this conversation.";
 
 type CacheThread = Pick<EnvironmentThreadShell, "id" | "cacheHud" | "archivedAt">;
 

@@ -10,7 +10,7 @@ import {
 export type ThreadCachePolicy = ServerSettings["threadCachePolicies"][ThreadId];
 type PolicySettings = Pick<ServerSettings, "threadCachePolicies" | "cacheWarmingSessions">;
 
-export const THREAD_CACHE_POLICIES = [
+const THREAD_CACHE_POLICIES = [
   {
     value: "default",
     label: "Default",

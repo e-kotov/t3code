@@ -1,32 +1,47 @@
-# Prompt cache warming
+# Idle cache policies and warming
 
-The **Warm all** button is visible in the main conversation interface. It turns
-warming on or off for every conversation with a current Codex or Claude cache
-window, and each conversation button updates to match. You can then change any
-conversation independently. Everything starts off. The global button applies to
-the selected server. Individual buttons appear only while a supported
-conversation's cache is hot. When some hot conversations are on and others off,
-the global button shows **Warm all: Mixed**; clicking it turns warming on for all
-currently hot conversations.
+Choose an idle cache policy from a conversation’s cache control or context menu.
+On mobile, tap the memory-chip icon; no hover is needed. Choices are saved on the
+connected server and shared across devices.
+
+- **Default** follows the Claude instance’s settings, including its override of
+  **Settings → General → Compact idle threads**. It sends no warming turns.
+- **Keep warm** sends visible, billable warm turns near expiry and suppresses
+  automatic idle compaction and return-compaction prompts.
+- **Compact before expiry** uses Claude’s automatic compaction for idle
+  conversations with at least 200k context tokens and a known cache expiry, even
+  if the machine’s default is Never.
+- **Off** disables warming, automatic idle compaction and return prompts for this
+  conversation.
+
+New conversations use Default. Existing warming opt-ins carry over as Keep warm.
+Codex supports Default, Keep warm and Off; Claude’s idle compaction is not offered
+for Codex. Manual compaction and compaction at the provider’s context limit remain
+available under every policy.
+
+The machine-wide **Warm all** switch updates currently hot Codex/Claude
+conversations to Keep warm or back to Default. Each conversation can then be
+changed independently. Mixed means some eligible conversations have Keep warm
+selected and others do not. Default can still use automatic compaction.
 
 Warming sends a short, visible **billable** agent turn: it asks for exactly
 `cache warm` and asks the agent to avoid tools and changes. It uses the current
 conversation and model. It does not guarantee a provider cache hit or extend a
-provider's cache lifetime beyond what that provider supports.
+provider’s cache lifetime beyond what that provider supports.
 
 The server checks every 30 seconds. Codex uses an assumed one-hour cache window
 and can warm within its final five minutes; Claude conversations within one minute
-of their reported expiry. The Codex estimate does not guarantee retention. Only a fresh
-cache with observed cached or cache-creation tokens qualifies. Unsupported
+of their reported expiry. The Codex estimate does not guarantee retention. Only a
+fresh cache with observed cached or cache-creation tokens qualifies. Unsupported
 providers, expired or unknown caches, subagents, archived conversations, active
 work, pending approvals or background work, failures and usage-limit recovery
 are skipped. An unchanged cache window is warmed at most once, including across
 server restarts.
 
-Settling or snoozing a conversation turns its warming off. Un-settling it or
-waking it does not turn warming back on; use the conversation button again if
-you want it. Settled and snoozed rows do not show the button.
+Settling or snoozing resets Keep warm to Default. Waking or un-settling does not
+silently enable warming again. Neither background action runs on a
+conversation you have explicitly settled or snoozed until later. Changing policy also rechecks waiting compaction
+timers and queued warming actions before they can send a turn.
 
-Selections are saved on the server, so warming can run while clients are closed.
-The server must remain running. Normal completion notifications may also report
-these warming turns.
+The server must remain running for background actions to work, even while clients
+are closed. Normal completion notifications may also report warming turns.

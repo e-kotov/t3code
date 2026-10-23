@@ -128,14 +128,3 @@ config directory and put the router's endpoint and credential variables in that
 instance's **Environment variables**. The router must run where the environment
 can reach it. Follow the [Claude Code Router instructions](https://github.com/musistudio/claude-code-router)
 for its installation and routing configuration.
-
-### Per-conversation idle cache policy (EK)
-
-Choose an idle cache policy from a conversation’s cache control or context menu. It is saved on the connected machine and shared across devices:
-
-- **Default** follows that Claude instance’s settings, including its override of General → Compact idle threads.
-- **Keep warm** sends visible, billable warm turns near expiry and suppresses automatic idle compaction and return prompts.
-- **Compact before expiry** uses Claude’s automatic compaction for idle conversations with at least 200k context tokens and a known cache expiry, even if the machine’s default is Never.
-- **Off** disables warm turns, automatic idle compaction and return prompts for this conversation.
-
-Manual compaction and compaction at the provider’s context limit remain available under every policy. Settling or snoozing retires a Keep warm choice; waking the conversation does not silently enable warming again. Codex supports Default, Keep warm and Off, but not Claude’s idle compaction. Bulk warming switches set eligible hot conversations to Keep warm or back to Default.

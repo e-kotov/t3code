@@ -1,7 +1,7 @@
 import { cloneElement, type ReactElement } from "react";
 import type { PressableProps } from "react-native";
 import type { ComponentProps } from "react";
-import { Menu } from "../../components/ui/Menu";
+import type { Menu } from "../../components/ui/Menu";
 import { AndroidAnchoredMenu } from "../../components/ui/AndroidAnchoredMenu";
 
 export function ThreadCachePolicyMenu(props: ComponentProps<typeof Menu>) {
