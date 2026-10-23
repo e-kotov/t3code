@@ -5243,7 +5243,8 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       return yield* new OrchestratorDispatchError({
         commandId: command.commandId,
         commandType: command.type,
-        cause: "The cache warmer only starts on an unchanged, idle thread without pending work or provider errors.",
+        cause:
+          "The cache warmer only starts on an unchanged, idle thread without pending work or provider errors.",
       });
     }
     // A message queued during worktree setup can arrive after that setup failed

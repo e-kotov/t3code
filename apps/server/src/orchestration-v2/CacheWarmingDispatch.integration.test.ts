@@ -138,45 +138,47 @@ it.effect(
     }).pipe(Effect.provide(layerTest)),
 );
 
-it.effect("rechecks queued runs, run failures and background work from the current projection", () =>
-  Effect.gen(function* () {
-    const orchestrator = yield* Orchestrator.OrchestratorV2;
-    const projections = yield* ProjectionStore.ProjectionStoreV2;
-    const threadId = ThreadId.make("thread:cache-warm-projection-guard");
-    yield* orchestrator.dispatch(createThread(threadId));
-    yield* orchestrator.dispatch(warmCommand(threadId, "cache-warm-projection-fixture"));
-    const projection = yield* projections.getThreadProjection(threadId);
-    const run = projection.runs[0]!;
-    const item = projection.turnItems[0]!;
-    const now = DateTime.makeUnsafe(0);
-    const completedRun = { ...run, status: "completed" as const, completedAt: now };
-    const idle = { ...projection, runs: [completedRun] };
-    const rejects = (current: OrchestrationV2ThreadProjection) =>
-      unsafeCacheWarmingDispatch({
-        projection: current,
-        command: warmCommand(threadId, "cache-warm-projection-recheck"),
-        activeRun: undefined,
-      });
-    assert.isFalse(rejects(idle));
-    assert.isTrue(rejects({ ...idle, runs: [{ ...completedRun, status: "failed" }] }));
-    assert.isTrue(rejects({ ...idle, runs: [{ ...completedRun, status: "interrupted" }] }));
-    assert.isTrue(rejects({ ...idle, runs: [{ ...completedRun, status: "queued" }] }));
+it.effect(
+  "rechecks queued runs, run failures and background work from the current projection",
+  () =>
+    Effect.gen(function* () {
+      const orchestrator = yield* Orchestrator.OrchestratorV2;
+      const projections = yield* ProjectionStore.ProjectionStoreV2;
+      const threadId = ThreadId.make("thread:cache-warm-projection-guard");
+      yield* orchestrator.dispatch(createThread(threadId));
+      yield* orchestrator.dispatch(warmCommand(threadId, "cache-warm-projection-fixture"));
+      const projection = yield* projections.getThreadProjection(threadId);
+      const run = projection.runs[0]!;
+      const item = projection.turnItems[0]!;
+      const now = DateTime.makeUnsafe(0);
+      const completedRun = { ...run, status: "completed" as const, completedAt: now };
+      const idle = { ...projection, runs: [completedRun] };
+      const rejects = (current: OrchestrationV2ThreadProjection) =>
+        unsafeCacheWarmingDispatch({
+          projection: current,
+          command: warmCommand(threadId, "cache-warm-projection-recheck"),
+          activeRun: undefined,
+        });
+      assert.isFalse(rejects(idle));
+      assert.isTrue(rejects({ ...idle, runs: [{ ...completedRun, status: "failed" }] }));
+      assert.isTrue(rejects({ ...idle, runs: [{ ...completedRun, status: "interrupted" }] }));
+      assert.isTrue(rejects({ ...idle, runs: [{ ...completedRun, status: "queued" }] }));
 
-    const background = {
-      ...item,
-      type: "command_execution" as const,
-      input: "background work",
-      status: "running" as const,
-      runId: run.id,
-    };
-    assert.isTrue(rejects({ ...idle, turnItems: [background] }));
-    // Upstream excludes rolled-back work from its pending-work policy.
-    assert.isFalse(
-      rejects({
-        ...idle,
-        runs: [{ ...completedRun, status: "rolled_back" }],
-        turnItems: [background],
-      }),
-    );
-  }).pipe(Effect.provide(layerTest)),
+      const background = {
+        ...item,
+        type: "command_execution" as const,
+        input: "background work",
+        status: "running" as const,
+        runId: run.id,
+      };
+      assert.isTrue(rejects({ ...idle, turnItems: [background] }));
+      // Upstream excludes rolled-back work from its pending-work policy.
+      assert.isFalse(
+        rejects({
+          ...idle,
+          runs: [{ ...completedRun, status: "rolled_back" }],
+          turnItems: [background],
+        }),
+      );
+    }).pipe(Effect.provide(layerTest)),
 );
