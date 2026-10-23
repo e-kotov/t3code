@@ -13,7 +13,7 @@ they are not tied to upstream stable releases.
    `fork-merge-upstream.sh` preserves the fork-owned README, including when upstream edits
    would otherwise merge cleanly. All other paths keep normal Git conflict detection;
    upstream documentation remains linked from the fork landing page.
-2. `checks` first rejects any growth beyond the reviewed per-file upstream-edit budget, then typechecks contracts, shared, client-runtime, server, web, mobile and desktop, then
+2. `checks` first rejects any growth beyond the reviewed per-file upstream-edit budget, then typechecks contracts, shared, client-runtime, SSH, server, web, mobile and desktop, then
    runs every test file the fork added or changed relative to upstream, plus the upstream tests
    beside upstream files the fork mounts into (listed in the script) and the mobile React
    Compiler coverage test. Web browser tests run in headless Chromium on the runner.
@@ -101,7 +101,7 @@ a release that touches them.
 | Utilities and Termux               | Contracts `deviceUtilities`/`deviceCommands` tests, desktop `deviceUtilities`/`deviceCommands` tests, web `deviceCommands.logic.test.ts`, mobile `termuxCommands.logic.test.ts` and upstream `workspace-tabs-state.test.ts`                                                                                                                                                                                    | Kotlin `DeviceUtilitiesTest.kt`/`TermuxCommandsTest.kt` and the `t3-native-controls` compile run only in `.github/workflows/fork-device-commands.yml`, after a push to `main` touching its paths; a real Termux command on the phone |
 | Built-in tailnet and notifications | `packages/client-runtime/src/connection/builtInTailnet.test.ts`, mobile `directNotifications.test.ts` and upstream `SettingsRouteScreen.logic.test.ts`                                                                                                                                                                                                                                                         | Go engine tests (`apps/mobile/modules/t3-tailnet/go`) and `DirectAgentEventsTest.kt` run only in `.github/workflows/release-fork.yml`; joining a tailnet and receiving Android notifications on the device                           |
 
-All seven typechecks and the fork test groups run even if an earlier group fails, so one
+All eight typechecks and the fork test groups run even if an earlier group fails, so one
 validation run reports integration failures across packages.
 
 The daily sync typechecks TypeScript only. Fork edits in upstream Kotlin files (for example

@@ -76,7 +76,7 @@ case "$cmd" in
     if [ -n "${FORK_CHANGED_CHECKS_BASE:-}" ]; then
       vp run check:changed "$FORK_CHANGED_CHECKS_BASE" || status=1
     fi
-    for package in packages/contracts packages/shared packages/client-runtime apps/server apps/web apps/mobile apps/desktop; do
+    for package in packages/contracts packages/shared packages/client-runtime packages/ssh apps/server apps/web apps/mobile apps/desktop; do
       echo "::group::$package typecheck"
       (cd "$package" && vp run typecheck) || status=1
       echo "::endgroup::"
@@ -106,6 +106,7 @@ apps/web src/editorPreferences.test.ts
 apps/web src/lib/threadSort.test.ts
 packages/client-runtime src/rpc/session.test.ts
 packages/client-runtime src/state/threadSort.test.ts
+packages/ssh src/tunnel.test.ts
 packages/shared src/serverSettings.test.ts
 packages/shared src/composerInlineTokens.test.ts
 TESTS

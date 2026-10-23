@@ -73,7 +73,7 @@ be available (normally three days). Future full releases include Termux automati
 ## Nightly prereleases
 
 `nightly-fork.yml` attempts a release at 04:47 UTC each day. It skips a commit that already
-has a published EK release. For a changed candidate it runs the seven package typechecks,
+has a published EK release. For a changed candidate it runs the eight package typechecks,
 selected fork/upstream regression tests and edit-budget gate, then creates an annotated tag
 and dispatches `release-fork.yml`. GitHub may delay scheduled starts.
 
