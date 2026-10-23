@@ -1184,8 +1184,9 @@ function OpenCommandPaletteDialog(props: {
     if (firstOption) startNewProject(firstOption.environmentId, null);
   };
 
-  const actionItems: Array<CommandPaletteActionItem | CommandPaletteSubmenuItem> =
-    useDeviceCommandPaletteItems();
+  const actionItems: Array<CommandPaletteActionItem | CommandPaletteSubmenuItem> = [
+    ...useDeviceCommandPaletteItems(),
+  ];
 
   if (projects.length > 0) {
     const activeProjectTitle =
