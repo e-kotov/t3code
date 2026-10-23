@@ -43,15 +43,16 @@ export function captureAssistantCitationEdit(input: {
 
 export type PendingAssistantCitationEdit = NonNullable<ReturnType<typeof captureAssistantCitationEdit>>;
 
-export function prepareAssistantCitationEdit(input: {
+interface AssistantCitationEditInput {
   readonly pending: PendingAssistantCitationEdit;
   readonly environmentId: EnvironmentId;
   readonly threadId: ThreadId;
   readonly draftKey: string | null;
   readonly canEdit: boolean;
   readonly draft: string;
-  readonly comment: string;
-}): { readonly error: string } | { readonly value: string; readonly cursor: number } {
+}
+
+function editTargetError(input: AssistantCitationEditInput): string | null {
   const { pending } = input;
   if (
     !input.canEdit ||
@@ -59,12 +60,21 @@ export function prepareAssistantCitationEdit(input: {
     input.environmentId !== pending.environmentId ||
     input.threadId !== pending.threadId
   ) {
-    return { error: "The composer is not ready. Return to an editable prompt and try again." };
+    return "The composer is not ready. Return to an editable prompt and try again.";
   }
   // Never guess which of two identical chips survived a background draft change.
   if (input.draft !== pending.draft) {
-    return { error: "The draft changed. Close this sheet and tap the quote again." };
+    return "The draft changed. Close this sheet and tap the quote again.";
   }
+  return null;
+}
+
+export function prepareAssistantCitationEdit(input: AssistantCitationEditInput & {
+  readonly comment: string;
+}): { readonly error: string } | { readonly value: string; readonly cursor: number } {
+  const targetError = editTargetError(input);
+  if (targetError) return { error: targetError };
+  const { pending } = input;
   const commentError = assistantCitationCommentError(input.comment);
   if (commentError) return { error: commentError };
   const marker = serializeAssistantCitation(withAssistantCitationComment(pending.citation, input.comment));
@@ -73,4 +83,13 @@ export function prepareAssistantCitationEdit(input: {
   const lengthError = assistantCitationPromptLengthError(value);
   if (lengthError) return { error: lengthError };
   return { value, cursor: start + marker.length };
+}
+
+export function prepareAssistantCitationRemoval(
+  input: AssistantCitationEditInput,
+): { readonly error: string } | { readonly value: string; readonly cursor: number } {
+  const error = editTargetError(input);
+  if (error) return { error };
+  const { start, end } = input.pending.selection;
+  return { value: input.draft.slice(0, start) + input.draft.slice(end), cursor: start };
 }
