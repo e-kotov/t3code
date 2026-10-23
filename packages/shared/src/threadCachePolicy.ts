@@ -63,7 +63,10 @@ export function threadCachePolicySettingsPatch(
   patch: ServerSettingsPatch,
 ) {
   if (patch.cacheWarmingSessions === undefined && patch.threadCachePolicies === undefined)
-    return { threadCachePolicies: current.threadCachePolicies, cacheWarmingSessions: current.cacheWarmingSessions };
+    return {
+      threadCachePolicies: current.threadCachePolicies,
+      cacheWarmingSessions: current.cacheWarmingSessions,
+    };
   const policies: Record<string, ThreadCachePolicy> = { ...current.threadCachePolicies };
   const warming: Record<string, boolean> = { ...current.cacheWarmingSessions };
   for (const [id, enabled] of Object.entries(patch.cacheWarmingSessions ?? {})) {
