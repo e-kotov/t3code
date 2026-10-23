@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Platform } from "react-native";
+import * as Dialog from "../components/ui/Dialog";
 import type { AssistantCitationSource } from "./SelectableMarkdownText.types";
 import { emitAssistantCitationSelection } from "./assistantCitationSelection";
 
@@ -17,7 +18,10 @@ export function useAssistantCitationMenu(source: AssistantCitationSource | undef
               }: {
                 text: string;
                 selection: { start: number; end: number };
-              }) => emitAssistantCitationSelection(source, text, selection),
+              }) => {
+                const error = emitAssistantCitationSelection(source, text, selection);
+                if (error) Dialog.alert("Cannot cite selection", error);
+              },
             },
           ]
         : undefined,

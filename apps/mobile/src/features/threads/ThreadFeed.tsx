@@ -137,7 +137,6 @@ import { hasWideMarkdownBlock } from "../../lib/wideMarkdownBlocks";
 import { faviconUrlForOrigin } from "@t3tools/shared/favicon";
 import {
   SelectableMarkdownText,
-  type AssistantCitationSource,
   type MarkdownFileContextMenu,
   type MarkdownImageRenderer,
   type MarkdownImageSourceResolver,
@@ -321,6 +320,7 @@ export interface ThreadFeedHistoryControls {
 }
 
 export interface ThreadFeedProps {
+  readonly canCiteAssistantText?: boolean;
   readonly worktreeSetup?: WorktreeSetupCardProps | null;
   readonly setupWorkingStartedAt?: string | null;
   readonly queuedMessages: ReadonlyArray<QueuedThreadMessage>;
@@ -841,13 +841,22 @@ const AssistantMarkdownContent = memo(function AssistantMarkdownContent(props: {
   readonly environmentId: EnvironmentId;
   readonly markdownStyles: MarkdownStyleSet;
   readonly linkHandlers: MarkdownLinkHandlers;
-  readonly assistantCitationSource?: AssistantCitationSource;
+  readonly citationThreadId: ThreadId;
+  readonly citationMessageId?: MessageId;
   readonly onUseArtifactTemplate?: ((template: CodexArtifactTemplate) => void) | undefined;
   readonly renderImage: MarkdownImageRenderer;
   readonly skills?: ReadonlyArray<SelectableMarkdownSkill> | undefined;
 }) {
   const liveMarkdown = useLiveThreadLinkLabels(props.markdown, props.environmentId);
   const segments = useMemo(() => splitCodexArtifactTemplateMarkdown(liveMarkdown), [liveMarkdown]);
+  const assistantCitationSource = useMemo(
+    () => props.citationMessageId === undefined ? undefined : ({
+      environmentId: props.environmentId,
+      threadId: props.citationThreadId,
+      messageId: props.citationMessageId,
+    }),
+    [props.environmentId, props.citationThreadId, props.citationMessageId],
+  );
 
   return segments.map((segment) => {
     if (segment.kind === "artifact-template") {
@@ -866,7 +875,7 @@ const AssistantMarkdownContent = memo(function AssistantMarkdownContent(props: {
       <SelectableMarkdownText
         key={`markdown:${segment.sourceOffset}`}
         markdown={markdown}
-        assistantCitationSource={props.assistantCitationSource}
+        assistantCitationSource={assistantCitationSource}
         skills={props.skills}
         textStyle={props.markdownStyles.nativeTextStyle}
         {...props.linkHandlers}
@@ -1169,6 +1178,7 @@ function renderFeedEntry(
   props: Pick<
     ThreadFeedProps,
     | "environmentId"
+    | "canCiteAssistantText"
     | "onUseArtifactTemplate"
     | "skills"
     | "dispatchingMessageId"
@@ -1643,11 +1653,8 @@ function renderFeedEntry(
             <AssistantMarkdownContent
               markdown={renderedText}
               environmentId={props.environmentId}
-              assistantCitationSource={{
-                environmentId: props.environmentId,
-                threadId: props.threadId,
-                messageId: message.id,
-              }}
+              citationThreadId={props.threadId}
+              citationMessageId={props.canCiteAssistantText ? message.id : undefined}
               markdownStyles={styles}
               linkHandlers={props.markdownLinkHandlers}
               onUseArtifactTemplate={props.onUseArtifactTemplate}
@@ -2908,6 +2915,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
         <ThreadMediaVisibility>
           {renderFeedEntry(info, {
             environmentId: props.environmentId,
+            canCiteAssistantText: props.canCiteAssistantText,
             dispatchingMessageId: props.dispatchingMessageId,
             onEditPendingMessage: props.onEditPendingMessage,
             onUseArtifactTemplate: props.onUseArtifactTemplate,
