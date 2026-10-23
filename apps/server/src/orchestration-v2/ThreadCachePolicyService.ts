@@ -8,7 +8,7 @@ import * as ServerSettings from "../serverSettings.ts";
 import { forkParked } from "../serverActivation.ts";
 import * as ProjectionStore from "./ProjectionStore.ts";
 
-const encodePolicySettings = Schema.encode(
+const encodePolicySettings = Schema.encodeEffect(
   Schema.fromJsonString(
     Schema.Struct({
       threadCachePolicies: SettingsSchema.fields.threadCachePolicies,

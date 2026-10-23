@@ -94,11 +94,19 @@ export function ThreadCachePolicyMenu(props: {
       <MenuPopup align="end" onClick={(event) => event.stopPropagation()}>
         <MenuRadioGroup
           value={props.policy}
-          onValueChange={(value) => props.onChange(value as ThreadCachePolicy)}
+          onValueChange={(value) => {
+            props.onChange(value as ThreadCachePolicy);
+            setOpen(false);
+          }}
         >
           <MenuGroupLabel>Idle cache policy</MenuGroupLabel>
           {cachePolicyChoices(props.driver).map((choice) => (
-            <MenuRadioItem key={choice.value} value={choice.value} title={choice.description}>
+            <MenuRadioItem
+              key={choice.value}
+              value={choice.value}
+              title={choice.description}
+              onClick={() => setOpen(false)}
+            >
               <span className="flex max-w-72 flex-col">
                 <span>{choice.label}</span>
                 <span className="text-xs text-muted-foreground">{choice.description}</span>
