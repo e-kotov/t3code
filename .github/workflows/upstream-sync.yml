@@ -64,6 +64,9 @@ jobs:
           run-install: false
       - if: steps.merge.outputs.changed == 'true'
         run: vp install
+      - name: Install Python packaging test dependency
+        if: steps.merge.outputs.changed == 'true'
+        run: python3 -m pip install PyYAML==6.0.3
       - name: Check formatting before browser setup
         if: steps.merge.outputs.changed == 'true'
         run: |
