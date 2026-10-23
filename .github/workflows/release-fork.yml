@@ -191,8 +191,6 @@ jobs:
           mkdir -p apps/server/dist/resource-monitor/linux-x64
           cp native/resource-monitor/target/release/t3-resource-monitor apps/server/dist/resource-monitor/linux-x64/
       - run: node apps/server/scripts/cli.ts build-exe --verbose
-        env:
-          VP_NODE_VERSION: "26.8.2"
       - run: node scripts/build-cli-archive.ts --platform linux --arch x64 --version "$RELEASE_VERSION" --output-dir release-cli
         env:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
