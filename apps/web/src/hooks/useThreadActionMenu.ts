@@ -1,3 +1,4 @@
+import { showThreadCachePolicyMenu } from "../components/threadCachePolicyContextMenu";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { requestCustomSnooze } from "../components/CustomSnoozeDialog";
 import {
@@ -142,7 +143,7 @@ export function useThreadActionMenu(input: {
         supports,
         snoozePresets,
       });
-      const clicked = await settlePromise(() => api.contextMenu.show(items, position));
+      const clicked = await settlePromise(() => showThreadCachePolicyMenu(thread, items, position));
       if (clicked._tag === "Failure" || clicked.value === null) return;
       const action: ThreadActionMenuId = clicked.value;
       if (

@@ -1,3 +1,4 @@
+import { ThreadCachePolicyControl, useThreadCachePolicyMenu } from "./ThreadCachePolicyControl";
 import { CacheHud } from "./CacheHud";
 import { CacheThreadTitle } from "./CacheThreadTitle";
 import * as Dialog from "../../components/ui/Dialog";
@@ -680,6 +681,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   // says the item is unchanged — so any row-local UI state must be dismissed
   // when the identity under it changes.
   const rowIdentity = `${thread.environmentId}:${thread.id}`;
+  const cachePolicyMenu = useThreadCachePolicyMenu(thread);
   const [boundIdentity, setBoundIdentity] = useState(rowIdentity);
   if (boundIdentity !== rowIdentity) {
     setBoundIdentity(rowIdentity);
@@ -874,6 +876,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   );
   const handleMenuAction = useCallback(
     ({ nativeEvent }: { readonly nativeEvent: { readonly event: string } }) => {
+      if (cachePolicyMenu.handleAction(nativeEvent.event)) return;
       if (nativeEvent.event === "new-thread-on-branch") onNewThreadOnBranch(thread);
       if (nativeEvent.event === "settle") handleSettle();
       if (nativeEvent.event === "unsettle") handleUnsettle();
@@ -910,7 +913,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         );
       }
     },
-    [
+    [cachePolicyMenu,
       onNewThreadOnBranch,
       thread,
       handleArchive,
@@ -1344,6 +1347,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
               />
             ) : null}
           </View>
+          <ThreadCachePolicyControl thread={thread} />
           {props.hasQueuedMessages ? <QueuedMessageIcon selected={selected} /> : null}
           <Text
             className={cn(
@@ -1393,6 +1397,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         {(close) => (
           <Menu
             actions={[
+              ...(cachePolicyMenu.supported ? [{ id: "cache-policy", title: "Idle cache policy", subactions: cachePolicyMenu.actions }] : []),
               ...(thread.branch
                 ? [
                     {

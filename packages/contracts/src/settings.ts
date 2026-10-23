@@ -20,6 +20,7 @@ import {
   TrimmedNonEmptyString,
   TrimmedString,
 } from "./baseSchemas.ts";
+import { threadCachePolicySettings, threadCachePolicyPatch } from "./threadCachePolicy.ts";
 import { UsageLimitSourceId } from "./usageLimitSourceId.ts";
 import { EnvironmentMachineKind, ThreadEnvMode, WorktreeSubmodules } from "./environment.ts";
 import { KeybindingShortcut } from "./keybindings.ts";
@@ -1330,6 +1331,7 @@ export const ServerSettings = Schema.Struct({
   cursorKeychainUsageEnabled: Schema.Boolean.pipe(
     Schema.withDecodingDefault(Effect.succeed(false)),
   ),
+  ...threadCachePolicySettings,
   /** Legacy master switch read only while migrating previous warming preferences. */
   cacheWarmingEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   /** One-time conversion of the former environment master switch to per-thread choices. */
@@ -1664,6 +1666,7 @@ export const ServerSettingsPatch = Schema.Struct({
     Schema.Record(UsageLimitSourceId, Schema.NullOr(UsageLimitSourceConfig)),
   ),
   cursorKeychainUsageEnabled: Schema.optionalKey(Schema.Boolean),
+  ...threadCachePolicyPatch,
   cacheWarmingEnabled: Schema.optionalKey(Schema.Boolean),
   cacheWarmingInitialized: Schema.optionalKey(Schema.Boolean),
   /** Per-entry updates; `null` removes one thread's saved choice. */

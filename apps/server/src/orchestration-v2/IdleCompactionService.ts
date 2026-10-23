@@ -1,11 +1,12 @@
 import {
   CommandId,
   MessageId,
-  resolveIdleCompaction,
   resolveProjectProviderInstanceEnabled,
   type RunId,
   type ThreadId,
 } from "@t3tools/contracts";
+import { resolveThreadIdleCompaction } from "@t3tools/shared/threadCachePolicy";
+import { watchThreadCachePolicies } from "./ThreadCachePolicyService.ts";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -48,7 +49,7 @@ export const make = Effect.gen(function* () {
           { messageRunIds: [runId], turnItemStatuses: ["pending", "running", "waiting"] },
         );
         if (
-          resolveIdleCompaction(current, records.thread.providerInstanceId) !==
+          resolveThreadIdleCompaction(current, threadId, records.thread.providerInstanceId) !==
             "beforeCacheExpires" ||
           !resolveProjectProviderInstanceEnabled(
             current,
@@ -88,6 +89,7 @@ export const make = Effect.gen(function* () {
   const start = Effect.fn("IdleCompactionService.start")(function* () {
     // Keyed by thread: a newer completed run replaces the waiting timer.
     const timers = yield* FiberMap.make<ThreadId>();
+    yield* watchThreadCachePolicies(timers, compactWhenDue);
     yield* forkParked(
       Stream.runForEach(orchestrator.streamDomainEvents, (event) =>
         event.type === "run.updated" && event.payload.status === "completed"

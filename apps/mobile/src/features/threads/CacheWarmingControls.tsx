@@ -1,4 +1,4 @@
-import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import type { EnvironmentId } from "@t3tools/contracts";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { serverEnvironment } from "../../state/server";
 import { AppText as Text } from "../../components/ui/AppText";
@@ -138,52 +138,6 @@ export function CacheWarmingMachineControl(props: { readonly environmentId: Envi
         className={`text-[11px] font-t3-medium ${state === "on" ? "text-primary-foreground" : "text-foreground-muted"}`}
       >
         {state === "mixed" ? "Warm: Mixed" : state === "on" ? "Warm: On" : "Warm: Off"}
-      </Text>
-    </Pressable>
-  );
-}
-
-export function CacheWarmingThreadControl(props: {
-  readonly environmentId: EnvironmentId;
-  readonly threadId: ThreadId;
-  readonly driver?: string | null | undefined;
-}) {
-  const settings = useAtomValue(serverEnvironment.settingsValueAtom(props.environmentId));
-  const updateSettings = useAtomCommand(serverEnvironment.updateSettings, {
-    label: "conversation prompt cache warming setting",
-  });
-  const canWrite = useEnvironmentScope(props.environmentId, AuthSettingsWriteScope);
-  const enabled = settings?.cacheWarmingSessions?.[props.threadId] === true;
-  const unsupportedProvider = props.driver !== "codex" && props.driver !== "claudeAgent";
-  const disabled = !canWrite || unsupportedProvider;
-  const toggle = () => {
-    void updateSettings({
-      environmentId: props.environmentId,
-      input: { patch: { cacheWarmingSessions: { [props.threadId]: !enabled } } },
-    });
-  };
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: enabled }}
-      accessibilityLabel={`${enabled ? "Disable" : "Enable"} cache warming for this conversation`}
-      accessibilityHint={
-        unsupportedProvider
-          ? "Prompt cache warming currently supports Codex and Claude only."
-          : EXPLANATION
-      }
-      disabled={disabled}
-      className={`ml-2 min-h-8 rounded-full border px-2.5 items-center justify-center ${enabled ? "border-primary bg-primary" : "border-border bg-transparent"} ${disabled ? "opacity-40" : ""}`}
-      onPress={(event) => {
-        event.stopPropagation();
-        toggle();
-      }}
-      onTouchStart={(event) => event.stopPropagation()}
-    >
-      <Text
-        className={`text-[11px] font-t3-medium ${enabled ? "text-primary-foreground" : "text-foreground-muted"}`}
-      >
-        {unsupportedProvider ? "N/A" : enabled ? "Warm on" : "Warm off"}
       </Text>
     </Pressable>
   );

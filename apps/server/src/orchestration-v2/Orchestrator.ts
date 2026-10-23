@@ -81,6 +81,7 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
 import * as ProjectStore from "./ProjectStore.ts";
+import { isBackgroundCacheCommand, backgroundCacheCommandAllowed } from "./ThreadCachePolicyDispatch.ts";
 import { unsafeCacheWarmingDispatch } from "./CacheWarmingDispatchGuard.ts";
 import {
   isCheckpointRestoreIsolated,
@@ -4817,6 +4818,9 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
     effects: Ref.Ref<Array<PendingOrchestrationEffectV2>>,
   ) {
     let projection = yield* getProjectionWithPendingEvents(command.threadId, events);
+    if (isBackgroundCacheCommand(command) && !backgroundCacheCommandAllowed(yield* serverSettings.getSettings.pipe(Effect.orDie), projection, command, DateTime.toEpochMillis(yield* DateTime.now))) {
+      return yield* new OrchestratorDispatchError({ commandId: command.commandId, commandType: command.type, cause: "The thread’s idle cache policy or state changed before this background action." });
+    }
     if (
       command.dispatchMode.type === "start_if_idle" &&
       unsafeCacheWarmingDispatch({

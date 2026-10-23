@@ -8,7 +8,7 @@ import {
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import { useEnvironmentSettings, useUpdateEnvironmentSettings } from "~/hooks/useSettings";
 import { cacheWarmingState, hotCacheThreadIds } from "@t3tools/shared/cacheHud";
-import { useCacheHudView } from "./chat/CacheHud";
+import { ThreadCachePolicyControl } from "./ThreadCachePolicyControl";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { useThreadRouteTarget } from "../hooks/useThreadRouteTarget";
 import { useThreadShells } from "../state/entities";
@@ -172,31 +172,5 @@ export function CacheWarmingThreadToggle(props: {
   driver?: string | null | undefined;
   cacheHud?: OrchestrationV2CacheHud | null | undefined;
 }) {
-  const enabled = useEnvironmentSettings(
-    props.environmentId,
-    (settings) => settings.cacheWarmingSessions[props.threadId] === true,
-  );
-  const update = useUpdateEnvironmentSettings(props.environmentId);
-  const canWrite = useEnvironmentScope(props.environmentId, AuthSettingsWriteScope);
-  const unsupportedProvider = props.driver !== "codex" && props.driver !== "claudeAgent";
-  const cacheView = useCacheHudView(props.cacheHud);
-  if (unsupportedProvider || (cacheView?.state !== "hot" && cacheView?.state !== "expiring"))
-    return null;
-  return (
-    <Button
-      size="micro"
-      variant={enabled ? "default" : "outline"}
-      disabled={!canWrite}
-      aria-label={`${enabled ? "Disable" : "Enable"} cache warming for ${props.threadId}`}
-      aria-pressed={enabled}
-      onPointerDown={(event) => event.stopPropagation()}
-      onKeyDown={(event) => event.stopPropagation()}
-      onClick={(event) => {
-        event.stopPropagation();
-        void update({ cacheWarmingSessions: { [props.threadId]: !enabled } });
-      }}
-    >
-      {enabled ? "Warm on" : "Warm off"}
-    </Button>
-  );
+  return <ThreadCachePolicyControl environmentId={props.environmentId} threadId={props.threadId} driver={props.driver} />;
 }

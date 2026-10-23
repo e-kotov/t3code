@@ -1,3 +1,4 @@
+import { resolveThreadIdleCompaction } from "@t3tools/shared/threadCachePolicy";
 import { makeProviderTextDeltaCoalescer } from "./ProviderTextDeltaCoalescer.ts";
 import { claudeTaskOutputRoot, tailClaudeTaskOutput } from "./ClaudeTaskOutputTail.ts";
 import {
@@ -98,7 +99,6 @@ import {
   type ProviderThreadId,
   type RunId,
   type ThreadId,
-  resolveIdleCompaction,
 } from "@t3tools/contracts";
 
 import * as Cause from "effect/Cause";
@@ -9073,10 +9073,12 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               if (request.dialogKind !== "resume_return") {
                 return { behavior: "cancelled" as const };
               }
+              const dialogTurn = yield* Ref.get(activeTurn);
+              if (dialogTurn === null) return { behavior: "cancelled" as const };
               const idleCompaction = Option.isSome(serverSettings)
                 ? yield* serverSettings.value.getSettings.pipe(
                     Effect.map((settings) =>
-                      resolveIdleCompaction(settings, adapterOptions.instanceId),
+                      resolveThreadIdleCompaction(settings, dialogTurn.input.threadId, adapterOptions.instanceId),
                     ),
                     Effect.orElseSucceed(() => adapterOptions.settings.idleCompaction),
                   )

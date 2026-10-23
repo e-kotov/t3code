@@ -1,3 +1,4 @@
+import { showThreadCachePolicyMenu } from "./threadCachePolicyContextMenu";
 import { SidebarThreadListControls } from "./sidebar/SidebarThreadListControls";
 import { SidebarCacheWarmingToggle } from "./CacheWarmingToggle";
 import {
@@ -2337,7 +2338,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
             ),
           ) ?? null;
         const clicked = await settlePromise(() =>
-          api.contextMenu.show(
+          showThreadCachePolicyMenu(thread,
             buildThreadActionMenuItems({
               canOperate: readEnvironmentScope(
                 threadRef.environmentId,

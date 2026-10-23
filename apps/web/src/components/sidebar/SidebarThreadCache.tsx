@@ -2,9 +2,10 @@ import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/model
 import type { ReactNode } from "react";
 
 import { CACHE_WARMING_EXPLANATION, CacheWarmingThreadToggle } from "../CacheWarmingToggle";
+import { ThreadCachePolicyControl } from "../ThreadCachePolicyControl";
 import { CacheHud } from "../chat/CacheHud";
 
-type CacheThread = Pick<EnvironmentThreadShell, "environmentId" | "id" | "cacheHud">;
+type CacheThread = Pick<EnvironmentThreadShell, "environmentId" | "id" | "cacheHud" | "modelSelection">;
 
 /** The compact readout, outside any truncating title so it stays on its line. */
 export function SidebarCacheHudSlot(props: { readonly hud: CacheThread["cacheHud"] }) {
@@ -26,12 +27,6 @@ function ThreadWarmToggle(props: { readonly thread: CacheThread }) {
   );
 }
 
-/**
- * A sidebar row title with its cache control on the same line. Slim rows sit in a fixed
- * h-9 line, so the title truncates and the readout trails it; they belong to the settled
- * and snoozed shelves, where the server has already retired warming, so they carry no
- * warm toggle. Cards show their readout in the header line and the toggle here.
- */
 export function SidebarThreadCacheTitle(props: {
   readonly variant: "card" | "slim";
   readonly thread: CacheThread;
@@ -46,11 +41,7 @@ export function SidebarThreadCacheTitle(props: {
       }
     >
       {props.children}
-      {props.variant === "slim" ? (
-        <SidebarCacheHudSlot hud={props.thread.cacheHud} />
-      ) : (
-        <ThreadWarmToggle thread={props.thread} />
-      )}
+      {props.variant === "slim" ? <><SidebarCacheHudSlot hud={props.thread.cacheHud} /><SidebarThreadCachePolicy thread={props.thread} /></> : null}
     </span>
   );
 }
@@ -74,4 +65,9 @@ export function CacheWarmingTitleHint(props: { readonly thread: CacheThread }) {
       {CACHE_WARMING_EXPLANATION}
     </span>
   );
+}
+
+export function SidebarThreadCachePolicy(props: { readonly thread: CacheThread }) {
+  return <ThreadCachePolicyControl environmentId={props.thread.environmentId} threadId={props.thread.id}
+    instanceId={props.thread.modelSelection.instanceId} driver={props.thread.cacheHud?.driver} reveal />;
 }

@@ -93,6 +93,7 @@ apps/mobile src/reactCompilerCoverage.test.ts
 apps/mobile src/features/settings/SettingsRouteScreen.logic.test.ts
 apps/mobile src/features/threads/threadListV2.test.ts
 apps/mobile src/features/workspace/workspace-tabs-state.test.ts
+apps/server src/orchestration-v2/IdleCompaction.test.ts
 apps/server src/orchestration-v2/Adapters/ClaudeAdapterV2.test.ts
 apps/server src/process/externalLauncher.test.ts
 apps/server src/ws.test.ts

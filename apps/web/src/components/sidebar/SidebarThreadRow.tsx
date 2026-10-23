@@ -1,5 +1,5 @@
 import { ThreadCacheHoverDetails } from "../ThreadCacheHoverDetails";
-import { SidebarCacheHudSlot, SidebarThreadCacheTitle } from "./SidebarThreadCache";
+import { SidebarCacheHudSlot, SidebarThreadCacheTitle, SidebarThreadCachePolicy } from "./SidebarThreadCache";
 import { ThreadHoverCard, ThreadHoverCardPopup } from "../ThreadHoverCard";
 import { ThreadTerminalStatusButton } from "../ThreadStatusIndicators";
 import { discardComposerDraft } from "../../lib/discardComposerDraft";
@@ -1291,6 +1291,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                 <span className="flex-1" />
               )}
               <SidebarCacheHudSlot hud={thread.cacheHud} />
+              <SidebarThreadCachePolicy thread={thread} />
               {sortable?.isDragging ? (
                 dragDestination
               ) : (

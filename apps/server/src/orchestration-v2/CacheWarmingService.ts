@@ -1,4 +1,5 @@
 import { CommandId, MessageId, type OrchestrationV2ThreadShell } from "@t3tools/contracts";
+import { threadCachePolicy } from "@t3tools/shared/threadCachePolicy";
 import { presentCacheHud } from "@t3tools/shared/cacheHud";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
@@ -126,7 +127,7 @@ export const make = Effect.gen(function* () {
     const now = DateTime.toEpochMillis(yield* DateTime.now);
     for (const thread of snapshot.threads) {
       const latestSettings = yield* settingsService.getSettings;
-      const enabled = latestSettings.cacheWarmingSessions[thread.id] === true;
+      const enabled = threadCachePolicy(latestSettings, thread.id) === "warm";
       if (!enabled) continue;
       if (cacheWarmingRetired(thread, now)) {
         yield* settingsService
@@ -149,7 +150,7 @@ export const make = Effect.gen(function* () {
       if (window === null) continue;
 
       const submissionSettings = yield* settingsService.getSettings;
-      if (submissionSettings.cacheWarmingSessions[thread.id] !== true) continue;
+      if (threadCachePolicy(submissionSettings, thread.id) !== "warm") continue;
       if (submissionSettings.cacheWarmingLastWindows[thread.id] === window.fingerprint) continue;
 
       // Give a rejected idle-only attempt a fresh receipt key on the next sweep.
