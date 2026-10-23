@@ -73,7 +73,9 @@ describe("editing a citation comment", () => {
   it("can remove a comment without removing the citation", () => {
     const result = prepareAssistantCitationEdit({ ...fixture(), comment: " \n " });
     if ("error" in result) throw new Error(result.error);
-    const [{ citation: updated }] = collectAssistantCitations(result.value);
+    const quote = collectAssistantCitations(result.value)[0];
+    if (!quote) throw new Error("Expected the citation to remain");
+    const updated = quote.citation;
     expect(updated).toEqual(withAssistantCitationComment(citation, ""));
     expect(updated).not.toHaveProperty("comment");
   });
