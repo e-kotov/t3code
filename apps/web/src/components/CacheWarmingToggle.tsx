@@ -2,13 +2,10 @@ import { useEffect, useState } from "react";
 import {
   AuthSettingsWriteScope,
   type EnvironmentId,
-  type OrchestrationV2CacheHud,
-  type ThreadId,
 } from "@t3tools/contracts";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import { useEnvironmentSettings, useUpdateEnvironmentSettings } from "~/hooks/useSettings";
 import { cacheWarmingState, hotCacheThreadIds } from "@t3tools/shared/cacheHud";
-import { ThreadCachePolicyControl } from "./ThreadCachePolicyControl";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { useThreadRouteTarget } from "../hooks/useThreadRouteTarget";
 import { useThreadShells } from "../state/entities";
@@ -164,13 +161,4 @@ function EnvironmentToggle(props: {
       </Button>
     </div>
   );
-}
-
-export function CacheWarmingThreadToggle(props: {
-  environmentId: EnvironmentId;
-  threadId: ThreadId;
-  driver?: string | null | undefined;
-  cacheHud?: OrchestrationV2CacheHud | null | undefined;
-}) {
-  return <ThreadCachePolicyControl environmentId={props.environmentId} threadId={props.threadId} driver={props.driver} />;
 }

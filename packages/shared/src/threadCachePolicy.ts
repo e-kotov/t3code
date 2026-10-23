@@ -37,8 +37,9 @@ export function resolveThreadIdleCompaction(
 
 /** Old clients and bulk switches still write booleans. Keep both representations coherent. */
 export function threadCachePolicySettingsPatch(current: PolicySettings, patch: ServerSettingsPatch) {
-  const policies = { ...current.threadCachePolicies };
-  const warming = { ...current.cacheWarmingSessions };
+  if (patch.cacheWarmingSessions === undefined && patch.threadCachePolicies === undefined) return current;
+  const policies: Record<string, ThreadCachePolicy> = { ...current.threadCachePolicies };
+  const warming: Record<string, boolean> = { ...current.cacheWarmingSessions };
   for (const [id, enabled] of Object.entries(patch.cacheWarmingSessions ?? {})) {
     if (enabled === null) delete warming[id];
     else warming[id] = enabled;

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vite-plus/test";
+import { expect, it } from "vite-plus/test";
 import { DEFAULT_SERVER_SETTINGS, ProviderInstanceId, ServerSettings, ServerSettingsPatch, ThreadId } from "@t3tools/contracts";
 import * as Schema from "effect/Schema";
 import { applyServerSettingsPatch } from "./serverSettings.ts";
@@ -18,7 +18,7 @@ it("decodes old settings, preserves warming opt-ins and leaves previously off th
 
 it.each(["onReturn", "beforeCacheExpires", "off"] as const)("applies each thread policy over global %s without changing the environment", (global) => {
   const base = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, { idleCompaction: global });
-  for (const [policy, expected] of [["default", global], ["warm", "off"], ["compact", "beforeCacheExpires"], ["off", "off"] as const) {
+  for (const [policy, expected] of [["default", global], ["warm", "off"], ["compact", "beforeCacheExpires"], ["off", "off"]] as const) {
     const settings = applyServerSettingsPatch(base, { threadCachePolicies: { [id]: policy } });
     expect(resolveThreadIdleCompaction(settings, id, instanceId)).toBe(expected);
     expect(resolveThreadIdleCompaction(settings, other, instanceId)).toBe(global);

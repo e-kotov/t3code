@@ -1,7 +1,7 @@
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import type { ReactNode } from "react";
 
-import { CACHE_WARMING_EXPLANATION, CacheWarmingThreadToggle } from "../CacheWarmingToggle";
+import { CACHE_WARMING_EXPLANATION } from "../CacheWarmingToggle";
 import { ThreadCachePolicyControl } from "../ThreadCachePolicyControl";
 import { CacheHud } from "../chat/CacheHud";
 
@@ -18,11 +18,11 @@ export function SidebarCacheHudSlot(props: { readonly hud: CacheThread["cacheHud
 
 function ThreadWarmToggle(props: { readonly thread: CacheThread }) {
   return (
-    <CacheWarmingThreadToggle
+    <ThreadCachePolicyControl
       environmentId={props.thread.environmentId}
       threadId={props.thread.id}
       driver={props.thread.cacheHud?.driver}
-      cacheHud={props.thread.cacheHud}
+      instanceId={props.thread.modelSelection.instanceId}
     />
   );
 }

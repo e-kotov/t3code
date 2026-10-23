@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { AuthSettingsWriteScope, type EnvironmentId, type ProviderInstanceId, type ThreadId } from "@t3tools/contracts";
 import { CACHE_CHIP_PATH, CACHE_CHIP_MODIFIERS, cachePolicyChoices, cachePolicyDriver, threadCachePolicy, type ThreadCachePolicy } from "@t3tools/shared/threadCachePolicy";
 import { useEnvironmentSettings, useUpdateEnvironmentSettings } from "../hooks/useSettings";
@@ -6,10 +6,13 @@ import { useEnvironmentScope } from "../state/session";
 import { Menu, MenuTrigger, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuGroupLabel } from "./ui/menu";
 
 function CacheChip({ policy }: { readonly policy: ThreadCachePolicy }) {
+  const maskId = useId();
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d={CACHE_CHIP_PATH} />
-    {policy === "warm" || policy === "compact" ? <circle cx="18" cy="18" r="6" fill="var(--color-background)" stroke="none" /> : null}
-    {policy === "off" ? <path d={CACHE_CHIP_MODIFIERS.off} stroke="var(--color-background)" strokeWidth="4.5" /> : null}
+    <defs><mask id={maskId}><rect width="24" height="24" fill="white" stroke="none" />
+      {policy === "warm" || policy === "compact" ? <circle cx="18" cy="18" r="6" fill="black" stroke="none" /> : null}
+      {policy === "off" ? <path d={CACHE_CHIP_MODIFIERS.off} stroke="black" strokeWidth="4.5" /> : null}
+    </mask></defs>
+    <path d={CACHE_CHIP_PATH} mask={`url(#${maskId})`} />
     <path d={CACHE_CHIP_MODIFIERS[policy]} />
   </svg>;
 }
@@ -19,7 +22,7 @@ export function ThreadCachePolicyMenu(props: {
   readonly driver: string | null | undefined;
   readonly canWrite: boolean;
   readonly onChange: (policy: ThreadCachePolicy) => void;
-  readonly reveal?: boolean;
+  readonly reveal?: boolean | undefined;
 }) {
   const [open, setOpen] = useState(false);
   if (props.driver !== "codex" && props.driver !== "claudeAgent") return null;
@@ -49,8 +52,8 @@ export function ThreadCachePolicyControl(props: {
   readonly environmentId: EnvironmentId;
   readonly threadId: ThreadId;
   readonly instanceId?: ProviderInstanceId;
-  readonly driver?: string | null;
-  readonly reveal?: boolean;
+  readonly driver?: string | null | undefined;
+  readonly reveal?: boolean | undefined;
 }) {
   const policy = useEnvironmentSettings(props.environmentId, (settings) => threadCachePolicy(settings, props.threadId));
   const driver = useEnvironmentSettings(props.environmentId, (settings) => cachePolicyDriver(settings, props.instanceId, props.driver));
