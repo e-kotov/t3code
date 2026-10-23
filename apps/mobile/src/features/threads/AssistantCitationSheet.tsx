@@ -6,13 +6,14 @@ import { assistantCitationCommentError } from "../../lib/assistantCitationDraft"
 
 export function AssistantCitationSheet(props: {
   readonly citation: AssistantCitation;
+  readonly mode?: "create" | "edit";
   readonly onCancel: () => void;
-  readonly onAdd: (comment: string) => string | null;
+  readonly onSubmit: (comment: string) => string | null;
 }) {
-  const [comment, setComment] = useState("");
-  const [insertionError, setInsertionError] = useState<string | null>(null);
+  const [comment, setComment] = useState(props.mode === "edit" ? props.citation.comment ?? "" : "");
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
   const commentError = assistantCitationCommentError(comment);
-  const error = commentError ?? insertionError;
+  const error = commentError ?? submissionError;
   return (
     <Modal visible transparent animationType="slide" onRequestClose={props.onCancel}>
       <KeyboardAvoidingView className="flex-1 justify-end bg-backdrop" behavior="padding">
@@ -28,7 +29,7 @@ export function AssistantCitationSheet(props: {
         >
           <View className="h-1 w-10 self-center rounded-full bg-border" />
           <AppText accessibilityRole="header" className="text-lg font-t3-semibold">
-            Add quote to message
+            {props.mode === "edit" ? "Edit quote comment" : "Add quote to message"}
           </AppText>
           <View className="max-h-28 rounded-2xl bg-subtle px-3.5 py-3">
             <AppText className="text-sm text-foreground-secondary" numberOfLines={4}>
@@ -45,7 +46,7 @@ export function AssistantCitationSheet(props: {
             value={comment}
             onChangeText={(value) => {
               setComment(value);
-              setInsertionError(null);
+              setSubmissionError(null);
             }}
           />
           {error ? (
@@ -64,9 +65,11 @@ export function AssistantCitationSheet(props: {
               accessibilityState={{ disabled: commentError !== null }}
               className="min-h-11 justify-center rounded-xl bg-primary px-4"
               disabled={commentError !== null}
-              onPress={() => setInsertionError(props.onAdd(comment))}
+              onPress={() => setSubmissionError(props.onSubmit(comment))}
             >
-              <AppText className="font-t3-semibold text-primary-foreground">Add to prompt</AppText>
+              <AppText className="font-t3-semibold text-primary-foreground">
+                {props.mode === "edit" ? "Save" : "Add to prompt"}
+              </AppText>
             </Pressable>
           </View>
         </ScrollView>

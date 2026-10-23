@@ -132,14 +132,15 @@ The quoted text and comment count toward the message limit.
 On Android, select assistant text and choose **Cite** in the native selection menu.
 Add an optional comment in the sheet to insert the quote chip into the prompt.
 The chip shows a preview of your comment, or of the quote when no comment was added.
-Android does not yet offer editing a comment after insertion; delete and recreate the
-quote to change it. Adding a quote is refused with an explanation if the selection
+Tap a quote chip in the editable prompt to change its comment, then save. The original
+quoted text stays unchanged. If the draft changes while the sheet is open, close the
+sheet and tap the quote again before editing. Adding a quote is refused with an explanation if the selection
 is too long or the resulting prompt would exceed the message limit. The limit is
 checked again when sending, including text added after inserting the quote.
 Saved quotes in sent messages remain readable as text; tapping one does not yet
 navigate to its source. Quotes created on Android may also fail to navigate back
 from web or desktop when the quoted phrase appears more than once in the original message.
-iOS displays saved quotes and comments but does not create citations yet.
+iOS displays saved quotes and comments but does not create citations or edit their comments yet.
 
 ## Recall a sent prompt
 

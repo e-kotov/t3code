@@ -9,12 +9,27 @@ import {
   type PendingAssistantCitation,
 } from "../../lib/assistantCitationDraft";
 import { addAssistantCitationSelectionListener } from "../../native/assistantCitationSelection";
+import { addAssistantCitationEditListener } from "../../native/assistantCitationEditing";
+import {
+  captureAssistantCitationEdit,
+  prepareAssistantCitationEdit,
+  type PendingAssistantCitationEdit,
+} from "../../lib/assistantCitationEdit";
 import {
   captureComposerDraftInsertion,
   getComposerDraftSnapshot,
   rememberComposerDraftSelection,
 } from "../../state/use-composer-drafts";
 import { AssistantCitationSheet } from "./AssistantCitationSheet";
+
+type PendingQuote =
+  | (PendingAssistantCitation & {
+      readonly mode: "create";
+      readonly id: number;
+      readonly environmentId: EnvironmentId;
+      readonly threadId: AssistantCitation["threadId"];
+    })
+  | (PendingAssistantCitationEdit & { readonly mode: "edit"; readonly id: number });
 
 export function useAssistantCitationSheet(input: {
   readonly environmentId: EnvironmentId;
@@ -29,7 +44,8 @@ export function useAssistantCitationSheet(input: {
   useLayoutEffect(() => {
     latestInput.current = input;
   }, [input]);
-  const [pending, setPending] = useState<PendingAssistantCitation | null>(null);
+  const [pending, setPending] = useState<PendingQuote | null>(null);
+  const nextPendingId = useRef(0);
   useEffect(() => {
     if (Platform.OS !== "android") return;
     const subscription = addAssistantCitationSelectionListener((selection) => {
@@ -42,6 +58,10 @@ export function useAssistantCitationSheet(input: {
         return;
       }
       setPending({
+        mode: "create",
+        id: nextPendingId.current++,
+        environmentId,
+        threadId,
         draftKey: composerDraftKey,
         insertion: captureComposerDraftInsertion(composerDraftKey),
         citation: {
@@ -57,30 +77,52 @@ export function useAssistantCitationSheet(input: {
         },
       });
     });
-    return () => subscription.remove();
+    const editSubscription =
+      canInsert && composerDraftKey !== null
+        ? addAssistantCitationEditListener(composerDraftKey, (selection) => {
+            const edit = captureAssistantCitationEdit({
+              environmentId,
+              threadId,
+              draftKey: composerDraftKey,
+              draft: getComposerDraftSnapshot(composerDraftKey).text,
+              selection,
+            });
+            if (edit === null) {
+              Dialog.alert("Cannot edit quote", "The draft changed. Tap the quote again.");
+              return;
+            }
+            setPending({ ...edit, mode: "edit", id: nextPendingId.current++ });
+          })
+        : null;
+    return () => {
+      subscription.remove();
+      editSubscription?.remove();
+    };
   }, [environmentId, threadId, composerDraftKey, canInsert]);
 
   if (pending === null) return null;
   if (
     pending.draftKey !== composerDraftKey ||
-    pending.citation.environmentId !== environmentId ||
-    pending.citation.threadId !== threadId
+    pending.environmentId !== environmentId ||
+    pending.threadId !== threadId ||
+    (pending.mode === "edit" && !canInsert)
   ) {
     setPending(null);
     return null;
   }
-  const addCitation = (comment: string): string | null => {
+  const submitCitation = (comment: string): string | null => {
     const current = latestInput.current;
     const draftKey = current.composerDraftKey;
-    const result = prepareAssistantCitationInsertion({
-      pending,
+    const currentDraft = {
       environmentId: current.environmentId,
       threadId: current.threadId,
       draftKey,
-      canInsert: current.canInsert,
       draft: draftKey === null ? "" : getComposerDraftSnapshot(draftKey).text,
       comment,
-    });
+    };
+    const result = pending.mode === "edit"
+      ? prepareAssistantCitationEdit({ ...currentDraft, pending, canEdit: current.canInsert })
+      : prepareAssistantCitationInsertion({ ...currentDraft, pending, canInsert: current.canInsert });
     if ("error" in result) return result.error;
     current.onChangeDraftMessage(result.value);
     const selection = { start: result.cursor, end: result.cursor };
@@ -102,9 +144,11 @@ export function useAssistantCitationSheet(input: {
   };
   return (
     <AssistantCitationSheet
+      key={pending.id}
       citation={pending.citation}
+      mode={pending.mode}
       onCancel={() => setPending(null)}
-      onAdd={addCitation}
+      onSubmit={submitCitation}
     />
   );
 }

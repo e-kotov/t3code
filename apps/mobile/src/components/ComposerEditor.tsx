@@ -1,4 +1,5 @@
 import * as Dialog from "./ui/Dialog";
+import { requestAssistantCitationEdit } from "../native/assistantCitationEditing";
 import { ComposerContextId } from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/reactivity";
@@ -183,6 +184,7 @@ export function ComposerEditor({
             onInertChipPress?.();
             return;
           }
+          if (requestAssistantCitationEdit(draftKey, selection, props, importing)) return;
           const path = composerMentionPath(selection.source, draft.context);
           if (path && onOpenMention) {
             onOpenMention(path);
