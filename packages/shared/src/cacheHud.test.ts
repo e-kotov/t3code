@@ -41,6 +41,73 @@ function hud(overrides: Partial<OrchestrationV2CacheHud> = {}): OrchestrationV2C
 }
 
 describe("deriveCacheHud", () => {
+  it.each([
+    [102_152, 101_760, 25_656, "26k/475k"],
+    [231_901, 13_312, 25_411, "25k/475k"],
+  ])(
+    "updates a %i-token context after compaction without refreshing the cache",
+    (usedTokens, cachedInputTokens, compactedTokens, contextText) => {
+      const selection = { instanceId: ProviderInstanceId.make("codex"), model: "gpt-6.1-sol" };
+      const request = {
+        updatedAt,
+        usedTokens,
+        maxTokens: 475_000,
+        inputTokens: usedTokens - 5,
+        cachedInputTokens,
+        cacheScopeKey: "codex:gpt-6.1-sol",
+      };
+      const compacted = {
+        ...request,
+        updatedAt: "2026-10-13T08:30:00.000Z",
+        usedTokens: compactedTokens,
+        inputTokens: 0,
+        cachedInputTokens: 0,
+      };
+      const before = deriveCacheHud(ProviderDriverKind.make("codex"), [request], selection)!;
+      const after = deriveCacheHud(
+        ProviderDriverKind.make("codex"),
+        [compacted, request],
+        selection,
+      )!;
+      expect(after.usage).toEqual({ ...request, usedTokens: compactedTokens });
+      const now = start + 40 * 60_000;
+      expect(presentCacheHud(after, now).contextText).toBe(contextText);
+      expect(presentCacheHud(after, now).cacheText).toBe(presentCacheHud(before, now).cacheText);
+      expect(presentCacheHud(after, now).remainingMs).toBe(20 * 60_000);
+      expect(presentCacheHud(after, start + 60 * 60_000).state).toBe("unknown");
+      const resumed = {
+        ...request,
+        updatedAt: "2026-10-13T08:40:00.000Z",
+        usedTokens: compactedTokens + 5,
+        inputTokens: compactedTokens,
+        cachedInputTokens: 0,
+      };
+      expect(
+        deriveCacheHud(ProviderDriverKind.make("codex"), [request, compacted, resumed], selection)
+          ?.usage,
+      ).toEqual(resumed);
+    },
+  );
+
+  it("shows a context-only report without inventing a cache miss or lifetime", () => {
+    const selection = { instanceId: ProviderInstanceId.make("codex"), model: "gpt-6.1-sol" };
+    const report = {
+      updatedAt,
+      usedTokens: 25_656,
+      maxTokens: 475_000,
+      inputTokens: 0,
+      cachedInputTokens: 0,
+      cacheScopeKey: "codex:gpt-6.1-sol",
+    };
+    const result = deriveCacheHud(ProviderDriverKind.make("codex"), [report], selection);
+    expect(result).not.toBeNull();
+    const view = presentCacheHud(result!, start);
+    expect(view.contextText).toBe("26k/475k");
+    expect(view.cacheText).toBe("? ⇣?");
+    expect(view.state).toBe("unknown");
+    expect(view.remainingMs).toBeNull();
+  });
+
   it("keeps Codex's one-hour estimate despite earlier misses and becomes unknown at that boundary", () => {
     const selection = { instanceId: ProviderInstanceId.make("codex"), model: "gpt-6.1-sol" };
     const reports = ["00", "05", "10", "15", "20", "25", "30"].map((minute, i) => ({

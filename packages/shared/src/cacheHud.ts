@@ -19,20 +19,45 @@ export function deriveCacheHud(
   modelSelection: ModelSelection,
 ): OrchestrationV2CacheHud | null {
   const scope = `${modelSelection.instanceId}:${modelSelection.model}`;
-  const meaningful = [...reports]
+  const recent = [...reports]
     .sort((a, b) => Date.parse(a.updatedAt) - Date.parse(b.updatedAt))
     .slice(-64)
     .filter(
       (report) =>
         Number.isFinite(Date.parse(report.updatedAt)) &&
-        (report.cacheScopeKey === undefined || report.cacheScopeKey === scope) &&
-        ((report.inputTokens ?? 0) > 0 ||
-          (report.cachedInputTokens ?? 0) > 0 ||
-          (report.cacheCreationTokens ?? 0) > 0 ||
-          (report.inputTokens === undefined && report.usedTokens > 0)),
+        (report.cacheScopeKey === undefined || report.cacheScopeKey === scope),
     );
-  const usage = meaningful.at(-1);
-  if (!usage) return null;
+  const meaningful = recent.filter(
+    (report) =>
+      (report.inputTokens ?? 0) > 0 ||
+      (report.cachedInputTokens ?? 0) > 0 ||
+      (report.cacheCreationTokens ?? 0) > 0 ||
+      (report.inputTokens === undefined && report.usedTokens > 0),
+  );
+  const request = meaningful.at(-1);
+  // Codex reports the compacted context with zero request counters. Its size is
+  // current, but those zeros neither describe a cache miss nor refresh its clock.
+  const context = recent.findLast((report) => report.usedTokens > 0) ?? request;
+  if (!context) return null;
+  if (!request) {
+    return {
+      driver,
+      usage: {
+        usedTokens: context.usedTokens,
+        ...(context.maxTokens === undefined ? {} : { maxTokens: context.maxTokens }),
+        updatedAt: context.updatedAt,
+      },
+      basis: "unknown",
+    };
+  }
+  const usage =
+    context === request
+      ? request
+      : {
+          ...request,
+          usedTokens: context.usedTokens,
+          ...(context.maxTokens === undefined ? {} : { maxTokens: context.maxTokens }),
+        };
   if (driver === "claudeAgent") {
     // A cache-only read refreshes the lifetime previously written by this
     // provider thread. Persisted reports retain it across process restarts.
