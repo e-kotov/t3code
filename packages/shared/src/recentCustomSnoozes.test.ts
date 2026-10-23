@@ -27,7 +27,8 @@ describe("recent custom snooze dates", () => {
       ),
     ).toEqual(dates.slice(0, 3));
     expect(recentCustomSnoozes({ dates }, NOW)).toEqual([]);
-    expect(recentCustomSnoozes(dates, DateTime.toDate(DateTime.makeUnsafe(dates[2]!)))).toEqual([dates[3]]);
+    const expiredAt = DateTime.toDate(DateTime.makeUnsafe(dates[2]!));
+    expect(recentCustomSnoozes(dates, expiredAt)).toEqual([dates[3]]);
   });
 
   it("hydrates before recording, promotes reused dates, and persists across store instances", async () => {
