@@ -5,13 +5,14 @@ import { useAtomValue } from "@effect/atom-react";
 import { AuthSettingsWriteScope } from "@t3tools/contracts";
 import {
   CACHE_CHIP_PATH,
+  CACHE_CHIP_CLIPS,
   CACHE_CHIP_MODIFIERS,
   cachePolicyChoices,
   cachePolicyDriver,
   threadCachePolicy,
 } from "@t3tools/shared/threadCachePolicy";
 import { Pressable } from "react-native";
-import Svg, { Circle, Path, Defs, Mask, Rect } from "react-native-svg";
+import Svg, { Path, Defs, ClipPath } from "react-native-svg";
 import { ThreadCachePolicyMenu as Menu } from "./ThreadCachePolicyMenu";
 import { useEnvironmentScope } from "../../state/session";
 import { serverEnvironment } from "../../state/server";
@@ -98,18 +99,17 @@ export function ThreadCachePolicyControl({ thread }: { readonly thread: CacheThr
           strokeLinejoin="round"
         >
           <Defs>
-            <Mask id={maskId}>
-              <Rect width={24} height={24} fill="white" stroke="none" />
-              {menu.policy === "warm" || menu.policy === "compact" ? (
-                <Circle cx={18} cy={18} r={6} fill="black" stroke="none" />
-              ) : null}
-              {menu.policy === "off" ? (
-                <Path d={CACHE_CHIP_MODIFIERS.off} stroke="black" strokeWidth={4.5} />
-              ) : null}
-            </Mask>
-          </Defs>
-          <Path d={CACHE_CHIP_PATH} mask={`url(#${maskId})`} />
-          <Path d={CACHE_CHIP_MODIFIERS[menu.policy]} />
+          <ClipPath id={maskId}>
+            <Path
+              d={CACHE_CHIP_CLIPS[menu.policy]}
+              clipRule="evenodd"
+              fillRule="evenodd"
+              fill={color}
+            />
+          </ClipPath>
+        </Defs>
+        <Path d={CACHE_CHIP_PATH} clipPath={`url(#${maskId})`} />
+        <Path d={CACHE_CHIP_MODIFIERS[menu.policy]} />
         </Svg>
       </Pressable>
     </Menu>

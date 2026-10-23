@@ -134,3 +134,12 @@ export function legacyCacheWarmingMigration(
       : {}),
   };
 }
+
+const CACHE_CHIP_FRAME = "M0 0H24V24H0Z";
+const CACHE_CHIP_BADGE = "M12 18a6 6 0 1 0 12 0a6 6 0 1 0-12 0Z";
+export const CACHE_CHIP_CLIPS: Record<ThreadCachePolicy, string> = {
+  default: CACHE_CHIP_FRAME,
+  warm: CACHE_CHIP_FRAME + CACHE_CHIP_BADGE,
+  compact: CACHE_CHIP_FRAME + CACHE_CHIP_BADGE,
+  off: CACHE_CHIP_FRAME + "M1.4 4.6 4.6 1.4 22.6 19.4 19.4 22.6Z",
+};

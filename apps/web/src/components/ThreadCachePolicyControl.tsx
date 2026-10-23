@@ -7,6 +7,7 @@ import {
 } from "@t3tools/contracts";
 import {
   CACHE_CHIP_PATH,
+  CACHE_CHIP_CLIPS,
   CACHE_CHIP_MODIFIERS,
   cachePolicyChoices,
   cachePolicyDriver,
@@ -15,6 +16,7 @@ import {
 } from "@t3tools/shared/threadCachePolicy";
 import { useEnvironmentSettings, useUpdateEnvironmentSettings } from "../hooks/useSettings";
 import { useEnvironmentScope } from "../state/session";
+import { Tooltip, TooltipTrigger, TooltipPopup } from "./ui/tooltip";
 import {
   Menu,
   MenuTrigger,
@@ -39,17 +41,16 @@ function CacheChip({ policy }: { readonly policy: ThreadCachePolicy }) {
       aria-hidden
     >
       <defs>
-        <mask id={maskId}>
-          <rect width="24" height="24" fill="white" stroke="none" />
-          {policy === "warm" || policy === "compact" ? (
-            <circle cx="18" cy="18" r="6" fill="black" stroke="none" />
-          ) : null}
-          {policy === "off" ? (
-            <path d={CACHE_CHIP_MODIFIERS.off} stroke="black" strokeWidth="4.5" />
-          ) : null}
-        </mask>
+        <clipPath id={maskId}>
+          <path
+            d={CACHE_CHIP_CLIPS[policy]}
+            clipRule="evenodd"
+            fillRule="evenodd"
+            fill="currentColor"
+          />
+        </clipPath>
       </defs>
-      <path d={CACHE_CHIP_PATH} mask={`url(#${maskId})`} />
+      <path d={CACHE_CHIP_PATH} clipPath={`url(#${maskId})`} />
       <path d={CACHE_CHIP_MODIFIERS[policy]} />
     </svg>
   );
@@ -69,28 +70,34 @@ export function ThreadCachePolicyMenu(props: {
     "Compact before expiry (Claude only)";
   return (
     <Menu open={open} onOpenChange={setOpen}>
-      <MenuTrigger
-        render={
-          <button
-            type="button"
-            disabled={!props.canWrite}
-            aria-label={`Idle cache policy: ${label}`}
-            title={`Idle cache policy: ${label}`}
-            className={`inline-flex shrink-0 cursor-pointer items-center justify-center rounded-md p-1 text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-default disabled:opacity-40 ${props.policy === "warm" ? "text-amber-600 dark:text-amber-400" : ""} ${props.reveal && props.policy === "default" && !open ? "opacity-0 group-any-hover/sidebar-row:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100" : ""}`}
-            onPointerDown={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
-            onDoubleClick={(event) => event.stopPropagation()}
-            onClick={(event) => event.stopPropagation()}
-            onContextMenu={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              setOpen(true);
-            }}
-          />
-        }
-      >
-        <CacheChip policy={props.policy} />
-      </MenuTrigger>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <MenuTrigger
+              render={
+                <button
+                  type="button"
+                  disabled={!props.canWrite}
+                  aria-label={`Idle cache policy: ${label}`}
+                  className={`inline-flex shrink-0 cursor-pointer items-center justify-center rounded-md p-1 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-default disabled:opacity-40 ${props.policy === "warm" ? "text-warning-foreground" : "text-muted-foreground"} ${props.reveal && props.policy === "default" && !open ? "opacity-0 group-any-hover/sidebar-row:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100" : ""}`}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => event.stopPropagation()}
+                  onDoubleClick={(event) => event.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setOpen(true);
+                  }}
+                />
+              }
+            />
+          }
+        >
+          <CacheChip policy={props.policy} />
+        </TooltipTrigger>
+        <TooltipPopup>Idle cache policy: {label}</TooltipPopup>
+      </Tooltip>
       <MenuPopup align="end" onClick={(event) => event.stopPropagation()}>
         <MenuRadioGroup
           value={props.policy}
@@ -104,7 +111,6 @@ export function ThreadCachePolicyMenu(props: {
             <MenuRadioItem
               key={choice.value}
               value={choice.value}
-              title={choice.description}
               onClick={() => setOpen(false)}
             >
               <span className="flex max-w-72 flex-col">

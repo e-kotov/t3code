@@ -77,7 +77,7 @@ function HudTab({ children }: { children: ReactNode }) {
   );
 }
 
-export function useCacheHudView(hud: OrchestrationV2CacheHud | null | undefined) {
+function useCacheHudView(hud: OrchestrationV2CacheHud | null | undefined) {
   const expiry =
     hud?.ttlMs !== undefined &&
     ((hud.usage.cachedInputTokens ?? 0) > 0 || (hud.usage.cacheCreationTokens ?? 0) > 0)
