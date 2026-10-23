@@ -59,14 +59,17 @@ export function presentCacheHud(hud: OrchestrationV2CacheHud, nowMs: number) {
   const remainingMs =
     hud.ttlMs === undefined ? null : Math.max(0, Date.parse(usage.updatedAt) + hud.ttlMs - nowMs);
   const observedCold = cached === 0 && (usage.cacheCreationTokens ?? 0) === 0;
+  const estimateElapsed = hud.driver === "codex" && hud.basis === "estimated" && remainingMs === 0;
   const state =
-    observedCold || remainingMs === 0
+    observedCold
       ? "cold"
-      : remainingMs === null || (cached === undefined && !usage.cacheCreationTokens)
+      : estimateElapsed || remainingMs === null || (cached === undefined && !usage.cacheCreationTokens)
         ? "unknown"
-        : remainingMs <= 300_000
-          ? "expiring"
-          : "hot";
+        : remainingMs === 0
+          ? "cold"
+          : remainingMs <= 300_000
+            ? "expiring"
+            : "hot";
   const percentage =
     usage.inputTokens && cached !== undefined
       ? Math.min(100, Math.round((cached / usage.inputTokens) * 100))
@@ -105,9 +108,11 @@ export function describeCacheHud(hud: OrchestrationV2CacheHud, nowMs: number) {
   const clock = `${String(expiry.getHours()).padStart(2, "0")}:${String(expiry.getMinutes()).padStart(2, "0")}`;
   const cache =
     view.state === "unknown"
-      ? "Cache lifetime unknown"
+      ? view.remainingMs === 0
+        ? "Cache status unknown · estimate elapsed"
+        : "Cache lifetime unknown"
       : view.state === "cold"
-        ? view.remainingMs === 0
+        ? view.remainingMs === 0 && hud.basis === "reported"
           ? `Cache expired at ~${clock}`
           : "Cache missed on the last request"
         : `Cache until ~${clock} · ${formatRemaining(view.remainingMs ?? 0)} left${hud.basis === "estimated" ? " (estimate)" : ""}`;

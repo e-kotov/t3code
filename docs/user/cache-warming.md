@@ -33,6 +33,8 @@ provider’s cache lifetime beyond what that provider supports.
 The server checks every 30 seconds. Codex uses an assumed one-hour cache window
 and can warm within its final five minutes; Claude conversations within one minute
 of their reported expiry. The Codex estimate does not guarantee retention. Only a
+new usage report can confirm reuse; once the estimate passes, Codex shows unknown
+cache status and keeps the last-request counters visible. Only a
 fresh cache with observed cached or cache-creation tokens qualifies. Unsupported
 providers, expired or unknown caches, subagents, archived conversations, active
 work, pending approvals or background work, failures and usage-limit recovery
