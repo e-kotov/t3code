@@ -204,20 +204,19 @@ export function withBuiltInTailnet(
       if (result.failure.reason === "unsupported") return yield* result.failure;
       yield* Effect.logInfo("Built-in Tailscale route did not connect.", {
         detail: result.failure.detail,
-    });
-        failure ??= result.failure;
-      }
-      const rest = [...after, ...deferred];
-      if (rest.length > 0)
-        return yield* driver.connect(entryWithRoutes(entry, rest), reportProgress);
-      return yield* (
-        failure ??
-          new ConnectionTransientError({
-            reason: "endpoint-unavailable",
-            detail: `${entry.target.label} did not answer on any route.`,
-          })
-      );
-    });
+      });
+      failure ??= result.failure;
+    }
+    const rest = [...after, ...deferred];
+    if (rest.length > 0) return yield* driver.connect(entryWithRoutes(entry, rest), reportProgress);
+    return yield* (
+      failure ??
+        new ConnectionTransientError({
+          reason: "endpoint-unavailable",
+          detail: `${entry.target.label} did not answer on any route.`,
+        })
+    );
+  });
 
   /**
    * Whether `route`, ranked above the route in use, should replace it. While
