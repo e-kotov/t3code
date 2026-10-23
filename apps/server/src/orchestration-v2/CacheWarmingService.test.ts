@@ -1,7 +1,8 @@
 import { ProviderDriverKind, ThreadId } from "@t3tools/contracts";
 import * as DateTime from "effect/DateTime";
 import { describe, expect, it } from "vite-plus/test";
-import { cacheWarmingRetired, cacheWarmingWindow } from "./CacheWarmingService.ts";
+import { cacheWarmingRetired } from "./CacheWarmingDispatchGuard.ts";
+import { cacheWarmingWindow } from "./CacheWarmingService.ts";
 
 const NOW = Date.parse("2026-10-11T10:00:00.000Z");
 const userMessageAt = DateTime.makeUnsafe(NOW - 60 * 60_000);

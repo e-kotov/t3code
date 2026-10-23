@@ -162,6 +162,7 @@ it.effect(
             expectedActiveProviderThreadId: current.thread.activeProviderThreadId,
           },
           activeRun: undefined,
+          nowMs: 0,
         });
       assert.isFalse(rejects(idle));
       assert.isTrue(rejects({ ...idle, runs: [{ ...completedRun, status: "failed" }] }));
@@ -195,5 +196,46 @@ it.effect(
           turnItems: [background],
         }),
       );
+    }).pipe(Effect.provide(layerTest)),
+);
+
+it.effect.each([
+  {
+    action: "settled",
+    command: (threadId: ThreadId) => ({
+      type: "thread.settle" as const,
+      commandId: CommandId.make(`settle:${threadId}`),
+      threadId,
+    }),
+  },
+  {
+    action: "snoozed",
+    command: (threadId: ThreadId) => ({
+      type: "thread.snooze" as const,
+      commandId: CommandId.make(`snooze:${threadId}`),
+      threadId,
+      snoozedUntil: "2099-01-01T00:00:00.000Z",
+    }),
+  },
+])(
+  "leaves a thread the user $action after the warmer's snapshot untouched",
+  ({ action, command }) =>
+    Effect.gen(function* () {
+      const orchestrator = yield* Orchestrator.OrchestratorV2;
+      const projections = yield* ProjectionStore.ProjectionStoreV2;
+      const threadId = ThreadId.make(`thread:cache-warm-${action}-race`);
+      yield* orchestrator.dispatch(createThread(threadId));
+      yield* orchestrator.dispatch(command(threadId));
+      const before = yield* projections.getThreadProjection(threadId);
+
+      const warm = yield* Effect.flip(
+        orchestrator.dispatch(warmCommand(threadId, `warm:${action}`)),
+      );
+      assert.include(String(warm.cause), "The cache warmer only starts");
+      const after = yield* projections.getThreadProjection(threadId);
+      assert.equal(after.thread.settledOverride, before.thread.settledOverride);
+      assert.deepEqual(after.thread.snoozedUntil, before.thread.snoozedUntil);
+      assert.isEmpty(after.runs);
+      assert.isEmpty(after.messages);
     }).pipe(Effect.provide(layerTest)),
 );

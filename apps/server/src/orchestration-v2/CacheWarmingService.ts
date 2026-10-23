@@ -7,6 +7,7 @@ import * as Schedule from "effect/Schedule";
 import type * as Scope from "effect/Scope";
 
 import * as ServerSettings from "../serverSettings.ts";
+import { cacheWarmingRetired } from "./CacheWarmingDispatchGuard.ts";
 import * as ThreadManagement from "./ThreadManagementService.ts";
 
 const CODEX_WARM_MARGIN_MS = 5 * 60_000;
@@ -38,20 +39,6 @@ export interface CacheWarmingCandidate {
   readonly nowMs: number;
   readonly enabled: boolean;
   readonly alreadyWarmedWindow?: string;
-}
-
-/**
- * Settling or snoozing a thread retires its warming opt-in: the sweep turns it
- * off, so un-settling or waking later does not resume warming on its own.
- */
-export function cacheWarmingRetired(
-  thread: Pick<OrchestrationV2ThreadShell, "settledOverride" | "snoozedUntil">,
-  nowMs: number,
-): boolean {
-  return (
-    thread.settledOverride === "settled" ||
-    (thread.snoozedUntil != null && DateTime.toEpochMillis(thread.snoozedUntil) > nowMs)
-  );
 }
 
 export interface CacheWarmingWindow {

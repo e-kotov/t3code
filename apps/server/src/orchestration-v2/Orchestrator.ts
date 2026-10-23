@@ -4817,6 +4817,22 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
     effects: Ref.Ref<Array<PendingOrchestrationEffectV2>>,
   ) {
     let projection = yield* getProjectionWithPendingEvents(command.threadId, events);
+    if (
+      command.dispatchMode.type === "start_if_idle" &&
+      unsafeCacheWarmingDispatch({
+        projection,
+        command,
+        activeRun: projection.runs.find(isBlockingRun),
+        nowMs: DateTime.toEpochMillis(yield* DateTime.now),
+      })
+    ) {
+      return yield* new OrchestratorDispatchError({
+        commandId: command.commandId,
+        commandType: command.type,
+        cause:
+          "The cache warmer only starts on an unchanged, idle thread without pending work or provider errors.",
+      });
+    }
     if (command.manualContinuationOfRunId !== undefined) {
       const source = projection.runs.find((run) => run.id === command.manualContinuationOfRunId);
       const limited = latestRootProviderFailure(source ?? null, projection.turnItems);
@@ -5236,17 +5252,6 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       (candidate) => candidate.id === projection.thread.activeProviderThreadId,
     );
     const activeRun = projection.runs.find(isBlockingRun);
-    if (
-      dispatchMode.type === "start_if_idle" &&
-      unsafeCacheWarmingDispatch({ projection, command, activeRun })
-    ) {
-      return yield* new OrchestratorDispatchError({
-        commandId: command.commandId,
-        commandType: command.type,
-        cause:
-          "The cache warmer only starts on an unchanged, idle thread without pending work or provider errors.",
-      });
-    }
     // A message queued during worktree setup can arrive after that setup failed
     // without a worktree. It waits, held, like the messages queued before the
     // failure, instead of starting in the project checkout.
