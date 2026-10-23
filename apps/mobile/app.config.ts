@@ -1,4 +1,5 @@
 import type { ExpoConfig } from "expo/config";
+import { withForkAppIdentity } from "./fork-app-identity";
 
 import { BRAND_ASSET_PATHS } from "../../scripts/lib/brand-assets.ts";
 import { loadRepoEnv } from "../../scripts/lib/public-config.ts";
@@ -226,10 +227,8 @@ const config: ExpoConfig = {
   name: isForkBuild ? "T3 Code EK" : variant.appName,
   slug: "t3-code",
   platforms: ["ios", "android"],
-  scheme: isForkBuild ? "t3code-ek" : variant.scheme,
-  version: isForkBuild
-    ? (repoEnv.T3CODE_FORK_VERSION ?? "0.0.45")
-    : (repoEnv.T3CODE_MOBILE_VERSION ?? "2.1.0"),
+  scheme: variant.scheme,
+  version: repoEnv.T3CODE_MOBILE_VERSION ?? "2.1.0",
   runtimeVersion: {
     // Development manifests resolve on every launch, so avoid fingerprint's
     // expensive native-project calculation there. Preview and production stay
@@ -499,4 +498,4 @@ const config: ExpoConfig = {
   },
 };
 
-export default config;
+export default withForkAppIdentity(config, isForkBuild, repoEnv.T3CODE_FORK_VERSION);

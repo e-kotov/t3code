@@ -70,7 +70,20 @@ jobs:
       - if: steps.merge.outputs.changed == 'true'
         env:
           UPSTREAM_SHA: ${{ steps.merge.outputs.upstream }}
+          FORK_CHANGED_CHECKS_BASE: ${{ inputs.promote_only && inputs.branch != '' && 'refs/remotes/origin/main' || '' }}
         run: scripts/fork-upstream-sync.sh checks
+      - name: Capture formatting fixes for a failed manual promotion
+        if: failure() && inputs.promote_only && inputs.branch != ''
+        run: |
+          git diff --name-only --diff-filter=AM -z refs/remotes/origin/main HEAD |
+            xargs -0 -r vp fmt --no-error-on-unmatched-pattern
+          git diff --binary > "$RUNNER_TEMP/fork-format.patch"
+      - if: failure() && inputs.promote_only && inputs.branch != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: fork-format-fixes
+          path: ${{ runner.temp }}/fork-format.patch
+          retention-days: 3
       - if: steps.merge.outputs.changed == 'true'
         run: git bundle create "$RUNNER_TEMP/merge.bundle" refs/remotes/origin/main..main
       - if: steps.merge.outputs.changed == 'true'

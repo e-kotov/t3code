@@ -21,6 +21,11 @@ export function CacheWarmingEnvironmentControl(props: {
   return <EnvironmentControl environmentId={props.environmentId} threads={props.threads} />;
 }
 
+export function CacheWarmingToolbarControl(props: { readonly environmentId: EnvironmentId }) {
+  const threads = useAtomValue(environmentThreadShells.threadShellsAtom);
+  return <CacheWarmingEnvironmentControl {...props} threads={threads} />;
+}
+
 function EnvironmentControl(props: {
   readonly environmentId: EnvironmentId;
   readonly threads: ReadonlyArray<EnvironmentThreadShell>;

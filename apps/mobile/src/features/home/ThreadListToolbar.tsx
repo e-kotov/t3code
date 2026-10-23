@@ -17,6 +17,7 @@ import { SearchField } from "../../components/ui/SearchField";
 import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
 import type { EnvironmentId } from "@t3tools/contracts";
 import type { ConversationListControls } from "./conversationListOptions";
+import { CacheWarmingToolbarControl } from "../threads/CacheWarmingControls";
 import { ConversationListToolbarButtons } from "./ConversationListToolbarButtons";
 import { WorkspaceListToolbarRow } from "../workspace/WorkspaceListToolbarRow";
 import { useWorkspaceConnectionState } from "../../state/workspace";
@@ -128,6 +129,11 @@ export function ThreadListToolbar(props: {
           </>
         }
       />
+      {props.cacheWarmingEnvironmentId ? (
+        <View className="items-end pb-1">
+          <CacheWarmingToolbarControl environmentId={props.cacheWarmingEnvironmentId} />
+        </View>
+      ) : null}
     </View>
   );
 }

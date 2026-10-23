@@ -72,6 +72,9 @@ case "$cmd" in
     # Git hooks put a relative node_modules/.bin on PATH, which breaks after cd into a package.
     PATH="$(git rev-parse --show-toplevel)/node_modules/.bin:$PATH"
     status=0
+    if [ -n "${FORK_CHANGED_CHECKS_BASE:-}" ]; then
+      vp run check:changed "$FORK_CHANGED_CHECKS_BASE" || status=1
+    fi
     for package in packages/contracts packages/shared packages/client-runtime apps/server apps/web apps/mobile apps/desktop; do
       echo "::group::$package typecheck"
       (cd "$package" && vp run typecheck) || status=1
@@ -86,11 +89,10 @@ case "$cmd" in
     cat >> "$RUNNER_TEMP/fork-tests.txt" <<'TESTS'
 apps/desktop src/electron/ElectronShell.test.ts
 apps/mobile src/reactCompilerCoverage.test.ts
-apps/mobile src/features/home/homeThreadList.test.ts
 apps/mobile src/features/settings/SettingsRouteScreen.logic.test.ts
 apps/mobile src/features/threads/threadListV2.test.ts
 apps/mobile src/features/workspace/workspace-tabs-state.test.ts
-apps/mobile src/lib/composerCitationChipPresentation.test.ts
+apps/server src/orchestration-v2/Adapters/ClaudeAdapterV2.test.ts
 apps/server src/process/externalLauncher.test.ts
 apps/server src/ws.test.ts
 apps/web src/components/chat/OpenInPicker.browser.test.tsx
@@ -103,8 +105,12 @@ apps/web src/editorPreferences.test.ts
 apps/web src/lib/threadSort.test.ts
 packages/client-runtime src/rpc/session.test.ts
 packages/client-runtime src/state/threadSort.test.ts
+packages/shared src/serverSettings.test.ts
 packages/shared src/composerInlineTokens.test.ts
 TESTS
+    while read -r package test; do
+      [ -f "$package/$test" ] || { echo "Missing selected test: $package/$test" >&2; exit 1; }
+    done < "$RUNNER_TEMP/fork-tests.txt"
     sort -u -o "$RUNNER_TEMP/fork-tests.txt" "$RUNNER_TEMP/fork-tests.txt"
     for package in $(cut -d' ' -f1 "$RUNNER_TEMP/fork-tests.txt" | uniq); do
       tests=()

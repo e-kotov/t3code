@@ -1,7 +1,7 @@
 import { arrangeMobileConversationList } from "../threads/machineGroupedThreadList";
 import { renderMachineGroupHeader } from "../threads/MachineGroupHeader";
 import { useConversationMachineOrder } from "../threads/useConversationMachineOrder";
-import type { ConversationListOptions } from "./conversationListOptions";
+import type { ConversationListControls } from "./conversationListOptions";
 import { useActiveNewTask } from "../../state/active-new-task";
 import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
@@ -95,9 +95,9 @@ import { createSwipeRowActivation } from "./swipe-row-activation";
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-swipe-actions";
 import { useFabScroll } from "./FabScrollContext";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
-import { ThreadListFilters } from "./ThreadListFilters";
+import { ConversationThreadListFilters as ThreadListFilters } from "./ConversationThreadListFilters";
 
-interface HomeScreenProps extends ConversationListOptions {
+interface HomeScreenProps extends ConversationListControls {
   readonly projects: ReadonlyArray<EnvironmentProject>;
   readonly threads: ReadonlyArray<EnvironmentThreadShell>;
   readonly pendingTasks: ReadonlyArray<PendingNewTask>;
@@ -811,8 +811,9 @@ export function HomeScreen(props: HomeScreenProps) {
   const v2ListHeader = (
     <View>
       {listHeader}
-      {Platform.OS === "ios" && workspace ? (
+      {Platform.OS === "ios" ? (
         <ThreadListFilters
+          conversationList={props}
           environments={props.environments}
           projects={projectScopes.map((scope) => ({ key: scope.key, label: scope.title }))}
           selectedEnvironmentId={props.selectedEnvironmentId}

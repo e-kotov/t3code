@@ -175,7 +175,7 @@ export function ComposerEditor({
           presentation,
           token.type === "mention" ? token.value : contextRecordFileName(record),
         );
-        return {
+        return assistantCitationEditorToken(token, {
           type: token.type,
           source: token.source,
           start: token.start,
@@ -188,10 +188,9 @@ export function ComposerEditor({
                 ? `${token.label}${props.context?.records.some((record) => record.contextId === token.contextId) ? "" : " · unavailable"}`
                 : basename(token.value),
           detail: token.type === "context" ? composerChipSizeSuffix(record) : "",
-          ...assistantCitationEditorToken(token),
           iconUri: contextChipIconUri(icon),
           tintsIcon: icon.kind === "chip",
-        };
+        });
       }),
     );
   }, [props.value, props.context, skillLabels]);

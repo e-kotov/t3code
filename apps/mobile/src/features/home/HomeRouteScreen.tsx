@@ -302,8 +302,7 @@ export function HomeRouteScreen() {
           projectGroupingMode={listOptions.projectGroupingMode}
           projects={projects}
           projectSortOrder={listOptions.projectSortOrder}
-          conversationSortOrder={listOptions.conversationSortOrder}
-          conversationGrouping={listOptions.conversationGrouping}
+          {...conversationList}
           savedConnectionsById={savedConnectionsById}
           searchQuery={searchQuery}
           selectedEnvironmentId={selectedEnvironmentId}

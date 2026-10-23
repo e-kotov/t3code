@@ -22,14 +22,17 @@ function quote(text: string, comment?: string) {
 }
 
 it("collapses quote whitespace and marks a comment without changing native icons", () => {
-  expect(assistantCitationEditorToken(quote("one\n  two", "explain"))).toEqual({
+  expect(assistantCitationEditorToken(quote("one\n  two", "explain"), { label: "upstream label", detail: "upstream detail", iconUri: "review-comment.svg", tintsIcon: true, futureNativeField: 7 })).toEqual({
+    iconUri: "review-comment.svg",
+    tintsIcon: true,
+    futureNativeField: 7,
     label: "“one two”",
     detail: "comment",
   });
 });
 
 it("truncates a long quote and leaves an uncommented quote detail empty", () => {
-  expect(assistantCitationEditorToken(quote("a".repeat(31)))).toEqual({
+  expect(assistantCitationEditorToken(quote("a".repeat(31)), { label: "upstream", detail: "upstream" })).toEqual({
     label: `“${"a".repeat(30)}…”`,
     detail: "",
   });
@@ -38,5 +41,6 @@ it("truncates a long quote and leaves an uncommented quote detail empty", () => 
 it("leaves upstream mention presentation intact", () => {
   const [token] = collectComposerInlineTokens('@"src/main.ts" ');
   if (!token) throw new Error("Missing mention token");
-  expect(assistantCitationEditorToken(token)).toEqual({});
+  const payload = { label: "main.ts", detail: "file", iconUri: "typescript.svg", tintsIcon: false };
+  expect(assistantCitationEditorToken(token, payload)).toBe(payload);
 });

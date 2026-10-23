@@ -1,7 +1,5 @@
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { sidebarListItemId, animateSidebarLayoutChanges } from "../Sidebar.logic";
-import { SIDEBAR_SORTABLE_DRAG_DISABLED } from "./SidebarThreadRow";
+import { sidebarListItemId } from "../Sidebar.logic";
+import { SortableSidebarMarker } from "./SidebarListMarkers";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import type { EnvironmentId } from "@t3tools/contracts";
 import { ArrowDownIcon, ArrowUpIcon } from "lucide-react";
@@ -91,23 +89,9 @@ export function SidebarMachineGroupHeader(props: {
 }
 
 export function SortableMachineGroupHeader(props: Parameters<typeof SidebarMachineGroupHeader>[0]) {
-  const { setNodeRef, transform, transition } = useSortable({
-    id: sidebarListItemId(props.item),
-    disabled: SIDEBAR_SORTABLE_DRAG_DISABLED,
-    animateLayoutChanges: animateSidebarLayoutChanges,
-  });
   return (
-    <li
-      ref={setNodeRef}
-      data-thread-selection-safe
-      className="list-none"
-      style={{
-        transform: CSS.Translate.toString(transform),
-        transition,
-        visibility: transform?.scaleY === 0 ? "hidden" : undefined,
-      }}
-    >
+    <SortableSidebarMarker id={sidebarListItemId(props.item)} marker={props.item.marker}>
       <SidebarMachineGroupHeader {...props} />
-    </li>
+    </SortableSidebarMarker>
   );
 }
