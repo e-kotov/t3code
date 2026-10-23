@@ -1,3 +1,4 @@
+import { assistantCitationTokens, type AssistantCitationToken } from "./assistantCitationTokens.ts";
 import { markdownMathRanges } from "./markdownMath.ts";
 
 export type ComposerInlineToken =
@@ -14,7 +15,8 @@ export type ComposerInlineToken =
       readonly source: string;
       readonly start: number;
       readonly end: number;
-    };
+    }
+  | AssistantCitationToken;
 
 export interface CollectComposerInlineTokensOptions {
   readonly preserveTrailingFrom?: ReadonlyArray<ComposerInlineToken>;
@@ -130,6 +132,8 @@ export function collectComposerInlineTokens(
   options: CollectComposerInlineTokensOptions = {},
 ): ReadonlyArray<ComposerInlineToken> {
   const matches = collectMentionTokens(text);
+
+  matches.push(...assistantCitationTokens(text));
 
   for (const match of text.matchAll(SKILL_TOKEN_REGEX)) {
     const fullMatch = match[0];

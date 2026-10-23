@@ -22,6 +22,7 @@ import type { SelectableMarkdownTextProps } from "./SelectableMarkdownText.types
 import { useAppearancePreferences } from "../features/settings/appearance/AppearancePreferencesProvider";
 import { Menu } from "../components/ui/Menu";
 import { useEnrichedLinkVariants } from "./useEnrichedLinkVariants";
+import { useAssistantCitationMenu } from "./useAssistantCitationMenu";
 import { copyTextWithHaptic } from "../lib/copyTextWithHaptic";
 import {
   ENRICHED_INLINE_FILE_LINK_REGEX,
@@ -164,6 +165,7 @@ export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
       ),
     [props.markdown],
   );
+  const contextMenuItems = useAssistantCitationMenu(props.assistantCitationSource);
   const [documentAssets, setDocumentAssets] = useState<DocumentAssetsEvent["assets"]>([]);
   const onDocumentAssets = useCallback(({ assets }: DocumentAssetsEvent) => {
     setDocumentAssets((previous) =>
@@ -335,6 +337,7 @@ export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
           spoilerOverlay="solid"
           onLinkPress={props.onLinkPress ? ({ url }) => props.onLinkPress?.(url) : undefined}
           onLinkLongPress={onLinkLongPress}
+          contextMenuItems={contextMenuItems}
           linkContextMenuItems={linkContextMenuItems}
           linkPillContent={linkPillContent}
         />

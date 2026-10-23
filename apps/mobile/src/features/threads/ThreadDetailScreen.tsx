@@ -113,6 +113,7 @@ import {
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { collectProviderUsageLimits } from "@t3tools/shared/usageLimits";
 import type { ComposerEditorHandle } from "../../components/ComposerEditor";
+import { useAssistantCitationSheet } from "./useAssistantCitationSheet";
 import type { StatusTone } from "../../components/StatusPill";
 import { getComposerDraftSnapshot } from "../../state/use-composer-drafts";
 import { RenderErrorBoundary, RenderFailureView } from "../../components/RenderErrorBoundary";
@@ -536,6 +537,13 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
   const agentsSegment = resolveSubagentPillSegment(turnSubagents);
   const defaultComposerEditorRef = useRef<ComposerEditorHandle>(null);
   const composerEditorRef = props.draftMode?.editorRef ?? defaultComposerEditorRef;
+  const assistantCitationSheet = useAssistantCitationSheet({
+    environmentId: props.environmentId,
+    threadId: props.selectedThread.id,
+    composerDraftKey: props.composerDraftKey,
+    onChangeDraftMessage: props.onChangeDraftMessage,
+    composerEditorRef,
+  });
   const isProviderSubagent = isProviderNativeSubagentThread(props.selectedThread.source);
   const editingRunId = props.queuedRunEdit?.runId ?? null;
   useEffect(() => {
@@ -1742,6 +1750,7 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
           </ComposerPopoverHost>
         </KeyboardStickyView>
       ) : null}
+      {assistantCitationSheet}
     </View>
   );
 };

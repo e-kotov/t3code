@@ -71,6 +71,7 @@ export function contextChipPresentation(
     };
   },
 ): ContextChipPresentation {
+  if (kind === "assistantCitation") return CONTEXT_CHIP_PRESENTATIONS["review-comment"];
   const presentationKind =
     kind === "file" &&
     videoMimeType({

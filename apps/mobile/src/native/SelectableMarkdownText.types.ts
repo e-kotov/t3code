@@ -33,6 +33,13 @@ export interface MarkdownImageRequest {
   readonly title: string | null;
 }
 
+/** Source identity needed when Android's native selection menu creates a quote. */
+export interface AssistantCitationSource {
+  readonly environmentId: string;
+  readonly threadId: string;
+  readonly messageId: string;
+}
+
 /**
  * The module cannot load workspace-relative image paths itself — the host app
  * resolves them (for example through a signed asset URL) and returns the
@@ -68,6 +75,7 @@ export interface MarkdownLinkCustomization {
 
 export interface SelectableMarkdownTextProps {
   readonly markdown: string;
+  readonly assistantCitationSource?: AssistantCitationSource;
   readonly textStyle: NativeMarkdownTextStyle;
   readonly skills?: ReadonlyArray<SelectableMarkdownSkill>;
   readonly preserveSoftBreaks?: boolean;

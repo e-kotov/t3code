@@ -129,8 +129,11 @@ delete it like other inline context. Copying, reloading, and restoring a
 with its quote, and sending tells the agent which words were quoted and which comment you wrote.
 The quoted text and comment count toward the message limit.
 
-Mobile displays saved quotes and comments, but does not create citations or
-navigate to their sources.
+On Android, select assistant text and choose **Cite** in the native selection menu.
+Add an optional comment in the sheet to insert the quote chip into the prompt.
+Saved quotes in sent messages remain readable as text; tapping one does not yet
+navigate to its source. iOS displays saved quotes and comments but does not create
+citations yet.
 
 ## Recall a sent prompt
 

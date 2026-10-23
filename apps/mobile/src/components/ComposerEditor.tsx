@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import type { EnvironmentId } from "@t3tools/contracts";
 import { encodeComposerContextFragment } from "@t3tools/shared/composerContextClipboard";
 import { collectComposerContextReferences } from "@t3tools/shared/composerContextReferences";
+import { parseAssistantCitationHref } from "@t3tools/shared/assistantCitations";
 import { ComposerEditor as NativeComposerEditor } from "../native/T3ComposerEditor";
 import type { ComposerEditorProps as NativeComposerEditorProps } from "../native/T3ComposerEditor";
 import {
@@ -179,6 +180,7 @@ export function ComposerEditor({
         onPasteContext={(clipboard) => void pasteContext(clipboard)}
         context={draft.context}
         onContextPress={(selection) => {
+          if (parseAssistantCitationHref(selection.source)) return;
           if (chipsInert) {
             onInertChipPress?.();
             return;
