@@ -11,6 +11,10 @@ function quote(text: string, comment?: string) {
     threadId: ThreadId.make("thread-1"),
     messageId: MessageId.make("message-1"),
     text,
+    start: 0,
+    end: text.length,
+    prefix: "",
+    suffix: "",
     ...(comment ? { comment } : {}),
   }));
   if (!token) throw new Error("Missing citation token");
