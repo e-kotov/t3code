@@ -401,6 +401,7 @@ export function applyServerSettingsPatch(
     sourceControlHosts: sourceControlHostsPatch,
     usagePriceOverrides: usagePriceOverridesPatch,
     usageModelAliases: usageModelAliasesPatch,
+    threadCachePolicies: _threadCachePolicies,
     cacheWarmingSessions: cacheWarmingSessionsPatch,
     cacheWarmingLastWindows: cacheWarmingLastWindowsPatch,
     // Entry replacement: deepMerge would keep keys the client meant to clear.

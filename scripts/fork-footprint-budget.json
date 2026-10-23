@@ -119,7 +119,7 @@
     "packages/shared/package.json": 16,
     "packages/shared/src/composerInlineTokens.ts": 6,
     "packages/shared/src/editor.ts": 2,
-    "packages/shared/src/serverSettings.ts": 20,
+    "packages/shared/src/serverSettings.ts": 21,
     "packages/ssh/src/tunnel.ts": 2,
     "scripts/build-desktop-artifact.ts": 5
   }

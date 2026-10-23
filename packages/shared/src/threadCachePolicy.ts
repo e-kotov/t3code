@@ -63,7 +63,7 @@ export function threadCachePolicySettingsPatch(
   patch: ServerSettingsPatch,
 ) {
   if (patch.cacheWarmingSessions === undefined && patch.threadCachePolicies === undefined)
-    return current;
+    return { threadCachePolicies: current.threadCachePolicies, cacheWarmingSessions: current.cacheWarmingSessions };
   const policies: Record<string, ThreadCachePolicy> = { ...current.threadCachePolicies };
   const warming: Record<string, boolean> = { ...current.cacheWarmingSessions };
   for (const [id, enabled] of Object.entries(patch.cacheWarmingSessions ?? {})) {
@@ -108,14 +108,26 @@ export function cachePolicyDriver(
   );
 }
 
-export function legacyCacheWarmingMigration(settings: Pick<ServerSettings, "cacheWarmingInitialized" | "cacheWarmingEnabled" | "cacheWarmingSessions" | "threadCachePolicies">): ServerSettingsPatch | null {
+export function legacyCacheWarmingMigration(
+  settings: Pick<
+    ServerSettings,
+    | "cacheWarmingInitialized"
+    | "cacheWarmingEnabled"
+    | "cacheWarmingSessions"
+    | "threadCachePolicies"
+  >,
+): ServerSettingsPatch | null {
   if (settings.cacheWarmingInitialized) return null;
   return {
     cacheWarmingInitialized: true,
-    ...(!settings.cacheWarmingEnabled ? {
-      cacheWarmingSessions: Object.fromEntries(Object.keys(settings.cacheWarmingSessions)
-        .filter((id) => settings.threadCachePolicies[id as ThreadId] === undefined)
-        .map((id) => [id, false])),
-    } : {}),
+    ...(!settings.cacheWarmingEnabled
+      ? {
+          cacheWarmingSessions: Object.fromEntries(
+            Object.keys(settings.cacheWarmingSessions)
+              .filter((id) => settings.threadCachePolicies[id as ThreadId] === undefined)
+              .map((id) => [id, false]),
+          ),
+        }
+      : {}),
   };
 }

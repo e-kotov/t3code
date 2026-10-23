@@ -103,8 +103,13 @@ it("rejects unknown policies and does not offer Claude compaction to Codex", () 
 });
 
 it("migrates a legacy master pause once without discarding a new explicit warm policy", () => {
-  const current = { ...DEFAULT_SERVER_SETTINGS, cacheWarmingInitialized: false, cacheWarmingEnabled: false,
-    cacheWarmingSessions: { [id]: true, [other]: true }, threadCachePolicies: { [id]: "warm" as const } };
+  const current = {
+    ...DEFAULT_SERVER_SETTINGS,
+    cacheWarmingInitialized: false,
+    cacheWarmingEnabled: false,
+    cacheWarmingSessions: { [id]: true, [other]: true },
+    threadCachePolicies: { [id]: "warm" as const },
+  };
   const migration = legacyCacheWarmingMigration(current);
   expect(migration).not.toBeNull();
   const next = applyServerSettingsPatch(current, migration!);
