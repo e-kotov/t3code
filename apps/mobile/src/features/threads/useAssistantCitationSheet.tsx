@@ -1,5 +1,5 @@
 import { MessageId, type AssistantCitation, type EnvironmentId } from "@t3tools/contracts";
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { Platform } from "react-native";
 
 import type { ComposerEditorHandle } from "../../components/ComposerEditor";
@@ -26,7 +26,9 @@ export function useAssistantCitationSheet(input: {
 }) {
   const { environmentId, threadId, composerDraftKey, canInsert } = input;
   const latestInput = useRef(input);
-  latestInput.current = input;
+  useLayoutEffect(() => {
+    latestInput.current = input;
+  }, [input]);
   const [pending, setPending] = useState<PendingAssistantCitation | null>(null);
   useEffect(() => {
     if (Platform.OS !== "android") return;
