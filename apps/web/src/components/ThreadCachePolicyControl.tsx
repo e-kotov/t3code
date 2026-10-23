@@ -136,6 +136,7 @@ export function ThreadCachePolicyControl(props: {
   const canWrite = useEnvironmentScope(props.environmentId, AuthSettingsWriteScope);
   return (
     <ThreadCachePolicyMenu
+      key={`${props.environmentId}:${props.threadId}`}
       policy={policy}
       driver={driver}
       canWrite={canWrite}

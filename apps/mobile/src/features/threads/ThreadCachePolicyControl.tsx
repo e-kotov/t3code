@@ -71,6 +71,7 @@ export function ThreadCachePolicyControl({ thread }: { readonly thread: CacheThr
       ?.label ?? "Compact before expiry";
   return (
     <Menu
+      key={`${thread.environmentId}:${thread.id}`}
       title="Idle cache policy"
       actions={menu.actions}
       onPressAction={({ nativeEvent }) => {
