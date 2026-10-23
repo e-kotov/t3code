@@ -14,7 +14,7 @@ import {
 } from "@t3tools/contracts";
 import { useRouter } from "@tanstack/react-router";
 
-import { resolveSnoozePresets } from "../components/Sidebar.snooze";
+import { resolveSnoozePresets, selectSnoozePreset } from "../components/recentCustomSnoozeHistory";
 import {
   buildThreadActionMenuItems,
   threadActionRequiresOperate,
@@ -159,7 +159,7 @@ export function useThreadActionMenu(input: {
         const preset =
           action === "snooze:custom"
             ? await requestCustomSnooze()
-            : snoozePresets.find((candidate) => `snooze:${candidate.id}` === action);
+            : selectSnoozePreset(snoozePresets, action);
         if (!preset) return;
         const result = await snoozeThread(threadRef, preset.snoozedUntil);
         if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {

@@ -1,5 +1,5 @@
 import type { ContextMenuItem } from "@t3tools/contracts";
-import type { SnoozePreset } from "@t3tools/client-runtime/state/thread-settled";
+import type { ForkSnoozePreset as SnoozePreset } from "./recentCustomSnoozeHistory";
 
 export type ThreadActionMenuId =
   | "new-thread-on-branch"

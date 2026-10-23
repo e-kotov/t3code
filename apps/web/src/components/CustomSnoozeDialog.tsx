@@ -31,7 +31,7 @@ import {
   DialogFooter,
 } from "./ui/dialog";
 
-import { resolveCustomSnooze } from "./recentCustomSnoozes";
+import { resolveCustomSnooze } from "./recentCustomSnoozeHistory";
 
 type SnoozeChoice = { readonly snoozedUntil: string };
 type Request = { readonly resolve: (choice: SnoozeChoice | null) => void };

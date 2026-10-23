@@ -99,6 +99,8 @@ apps/server src/ws.test.ts
 apps/web src/components/chat/OpenInPicker.browser.test.tsx
 apps/web src/components/ChatMarkdown.browser.test.tsx
 apps/web src/components/ChatMarkdown.permissions.browser.test.tsx
+apps/web src/hooks/useThreadActionMenu.test.ts
+apps/web src/components/threadActionMenu.logic.test.ts
 apps/web src/components/Sidebar.logic.test.ts
 apps/web src/components/Sidebar.drag.test.ts
 apps/web src/components/Sidebar.pointer.browser.test.tsx
