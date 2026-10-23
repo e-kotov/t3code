@@ -67,6 +67,7 @@ import {
   ThreadListV2WorkingShelfHeader,
 } from "../threads/thread-list-v2-items";
 import { CacheWarmingEnvironmentControl } from "../threads/CacheWarmingControls";
+import { resolveCacheWarmingEnvironmentId } from "../threads/cacheWarmingTarget";
 import { useThreadRowProviderInstanceResolver } from "../threads/thread-provider-instance";
 import { useOpenThreadPullRequests } from "../threads/use-open-thread-pull-requests";
 import type { ThreadPrPresentation } from "../../state/thread-pr-presentation";
@@ -824,9 +825,10 @@ export function HomeScreen(props: HomeScreenProps) {
       ) : null}
       <View className="px-3 py-1">
         <CacheWarmingEnvironmentControl
-          environmentId={
-            props.selectedEnvironmentId ?? props.environments[0]?.environmentId ?? null
-          }
+          environmentId={resolveCacheWarmingEnvironmentId(
+            props.selectedEnvironmentId,
+            props.environments,
+          )}
           threads={props.threads}
         />
       </View>

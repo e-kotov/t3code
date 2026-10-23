@@ -9,6 +9,7 @@ import { useEnvironmentScope } from "../../state/session";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import { cacheWarmingState, hotCacheThreadIds } from "@t3tools/shared/cacheHud";
 import { environmentThreadShells } from "../../state/threads";
+import { useSavedRemoteConnection } from "../../state/use-remote-environment-registry";
 
 const EXPLANATION =
   "May send a short visible, billable cache-warm turn near cache expiry when enabled for this conversation.";
@@ -35,6 +36,9 @@ function EnvironmentControl(props: {
     label: "prompt cache warming setting",
   });
   const canWrite = useEnvironmentScope(props.environmentId, AuthSettingsWriteScope);
+  // Name the machine: with several connected, "this server" does not say which one it is.
+  const machineLabel =
+    useSavedRemoteConnection(props.environmentId)?.environmentLabel ?? "this server";
   const hotThreadIds = props.threads
     .filter((thread) => {
       const hud = thread.cacheHud;
@@ -57,12 +61,12 @@ function EnvironmentControl(props: {
       <View className="min-w-0">
         <Text className="text-xs">Warm cache</Text>
         <Text className="text-[9px] text-muted-foreground">
-          This server · Codex/Claude · billable turns
+          {machineLabel} · Codex/Claude · billable turns
         </Text>
       </View>
       <Pressable
         accessibilityRole="switch"
-        accessibilityLabel={`${enabled ? "Disable" : "Enable"} warming for all hot conversations`}
+        accessibilityLabel={`${enabled ? "Disable" : "Enable"} warming for all hot conversations on ${machineLabel}`}
         accessibilityHint={`${EXPLANATION} Updates each hot conversation's toggle.`}
         accessibilityState={{ checked: enabled, disabled: !canWrite || hotThreadIds.length === 0 }}
         disabled={!canWrite || hotThreadIds.length === 0}

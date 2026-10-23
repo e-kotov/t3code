@@ -12,7 +12,7 @@ import { useCacheHudView } from "./chat/CacheHud";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { useThreadRouteTarget } from "../hooks/useThreadRouteTarget";
 import { useThreadShells } from "../state/entities";
-import { usePrimaryEnvironmentId } from "../state/environments";
+import { useEnvironment, usePrimaryEnvironmentId } from "../state/environments";
 import { useEnvironmentScope } from "../state/session";
 import { resolveActiveThreadRouteRef } from "../threadRoutes";
 import { Button } from "./ui/button";
@@ -137,12 +137,14 @@ function EnvironmentToggle(props: {
   );
   const isOn = enabled === "on";
   const isMixed = enabled === "mixed";
+  // Name the machine: with several connected, "this server" does not say which one it is.
+  const machineLabel = useEnvironment(props.environmentId)?.label ?? "this server";
   return (
     <div className="flex min-h-8 items-center gap-2 px-2 text-2xs text-sidebar-muted-foreground">
       <span className="min-w-0 flex-1 truncate">
         <span className="block">Warm prompt cache</span>
         <span className="block text-3xs opacity-75">
-          This server · Codex/Claude · billable turns
+          {machineLabel} · Codex/Claude · billable turns
         </span>
       </span>
       <Button
@@ -151,8 +153,8 @@ function EnvironmentToggle(props: {
         disabled={!canWrite || activeIds.length === 0}
         aria-label={
           isMixed
-            ? "Warming is enabled for some hot conversations; enable it for all"
-            : `${isOn ? "Disable" : "Enable"} warming for all hot conversations`
+            ? `Warming is enabled for some hot conversations on ${machineLabel}; enable it for all`
+            : `${isOn ? "Disable" : "Enable"} warming for all hot conversations on ${machineLabel}`
         }
         aria-pressed={isMixed ? "mixed" : isOn}
         onClick={toggleAll}

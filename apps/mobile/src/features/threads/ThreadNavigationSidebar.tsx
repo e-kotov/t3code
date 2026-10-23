@@ -13,6 +13,7 @@ import { resolveScratchProjectScopeKey } from "@t3tools/client-runtime/state/pro
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { computeThreadMoveAvailability } from "./threadOrder";
 import { CacheWarmingEnvironmentControl } from "./CacheWarmingControls";
+import { resolveCacheWarmingEnvironmentId } from "./cacheWarmingTarget";
 import type {
   EnvironmentProject,
   EnvironmentThreadShell,
@@ -182,8 +183,10 @@ function ThreadNavigationSidebarPane(
   );
   const { options, setSelectedEnvironmentId, setSelectedProjectKey, conversationList } =
     useHomeListOptions(availableEnvironmentIds);
-  const cacheWarmingEnvironmentId =
-    options.selectedEnvironmentId ?? environments[0]?.environmentId ?? null;
+  const cacheWarmingEnvironmentId = resolveCacheWarmingEnvironmentId(
+    options.selectedEnvironmentId,
+    environments,
+  );
   const searchEnvironmentIds =
     options.selectedEnvironmentId === null
       ? workspaceEnvironments
