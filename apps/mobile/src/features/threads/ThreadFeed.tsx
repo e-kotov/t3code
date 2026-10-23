@@ -841,7 +841,7 @@ const AssistantMarkdownContent = memo(function AssistantMarkdownContent(props: {
   readonly environmentId: EnvironmentId;
   readonly markdownStyles: MarkdownStyleSet;
   readonly linkHandlers: MarkdownLinkHandlers;
-  readonly citationThreadId: ThreadId;
+  readonly citationThreadId?: ThreadId;
   readonly citationMessageId?: MessageId;
   readonly onUseArtifactTemplate?: ((template: CodexArtifactTemplate) => void) | undefined;
   readonly renderImage: MarkdownImageRenderer;
@@ -850,11 +850,14 @@ const AssistantMarkdownContent = memo(function AssistantMarkdownContent(props: {
   const liveMarkdown = useLiveThreadLinkLabels(props.markdown, props.environmentId);
   const segments = useMemo(() => splitCodexArtifactTemplateMarkdown(liveMarkdown), [liveMarkdown]);
   const assistantCitationSource = useMemo(
-    () => props.citationMessageId === undefined ? undefined : ({
-      environmentId: props.environmentId,
-      threadId: props.citationThreadId,
-      messageId: props.citationMessageId,
-    }),
+    () =>
+      props.citationMessageId === undefined || props.citationThreadId === undefined
+        ? undefined
+        : {
+            environmentId: props.environmentId,
+            threadId: props.citationThreadId,
+            messageId: props.citationMessageId,
+          },
     [props.environmentId, props.citationThreadId, props.citationMessageId],
   );
 
@@ -2486,6 +2489,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   // Include turn completion so unchanged message rows reveal their footer and spacing
   // even when the final message update arrives before the turn settles.
   const listAppearanceData = {
+    canCiteAssistantText: props.canCiteAssistantText,
     worktreeSetup: props.worktreeSetup,
     setupWorkingStartedAt: props.setupWorkingStartedAt,
     dispatchingMessageId: props.dispatchingMessageId,

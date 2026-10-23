@@ -36,11 +36,15 @@ describe("assistant citation selection", () => {
     const listener = vi.fn();
     const subscription = addAssistantCitationSelectionListener(listener);
     try {
-      expect(emitAssistantCitationSelection(source, " \n\t", { start: 0, end: 3 })).toBe("Select some assistant text to quote.");
-      expect(emitAssistantCitationSelection(source, "a".repeat(ASSISTANT_CITATION_MAX_TEXT_LENGTH + 1), {
-        start: 0,
-        end: ASSISTANT_CITATION_MAX_TEXT_LENGTH + 1,
-      })).toContain("8,000");
+      expect(emitAssistantCitationSelection(source, " \n\t", { start: 0, end: 3 })).toBe(
+        "Select some assistant text to quote.",
+      );
+      expect(
+        emitAssistantCitationSelection(source, "a".repeat(ASSISTANT_CITATION_MAX_TEXT_LENGTH + 1), {
+          start: 0,
+          end: ASSISTANT_CITATION_MAX_TEXT_LENGTH + 1,
+        }),
+      ).toContain("8,000");
 
       expect(listener).not.toHaveBeenCalled();
     } finally {

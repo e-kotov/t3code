@@ -172,9 +172,11 @@ export function composerContextEditorTokens(
   const quotes = collectAssistantCitations(text);
   const math = quotes.length > 0 ? composerMathRanges(text, tokens) : [];
   const citations = quotes
-    .filter((quote) =>
-      !references.some((ref) => quote.start < ref.end && quote.end > ref.start) &&
-      !math.some((range) => quote.start < range.end && quote.end > range.start))
+    .filter(
+      (quote) =>
+        !references.some((ref) => quote.start < ref.end && quote.end > ref.start) &&
+        !math.some((range) => quote.start < range.end && quote.end > range.start),
+    )
     .map((quote) => ({ ...quote, type: "assistantCitation" as const, value: quote.citation.text }));
   return [
     ...tokens.filter(

@@ -21,8 +21,21 @@ describe("mobile citation tokens", () => {
   it("keeps a quote atomic without an overlapping file mention", () => {
     const marker = serializeAssistantCitation(citation);
     const draft = `ask @${marker} now`;
-    const tokens = composerContextEditorTokens(draft, collectComposerInlineTokens(draft), new Map());
-    expect(tokens).toEqual([{ type: "assistantCitation", value: citation.text, source: marker, start: 5, end: 5 + marker.length, citation }]);
+    const tokens = composerContextEditorTokens(
+      draft,
+      collectComposerInlineTokens(draft),
+      new Map(),
+    );
+    expect(tokens).toEqual([
+      {
+        type: "assistantCitation",
+        value: citation.text,
+        source: marker,
+        start: 5,
+        end: 5 + marker.length,
+        citation,
+      },
+    ]);
   });
 
   it("does not add mobile-only citation tokens to the shared parser", () => {

@@ -49,9 +49,7 @@ export function AssistantCitationSheet(props: {
             }}
           />
           {error ? (
-            <AppText className="-mt-2 text-xs text-danger-foreground">
-              {error}
-            </AppText>
+            <AppText className="-mt-2 text-xs text-danger-foreground">{error}</AppText>
           ) : null}
           <View className="flex-row justify-end gap-3">
             <Pressable

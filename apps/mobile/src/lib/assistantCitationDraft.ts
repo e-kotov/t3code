@@ -48,17 +48,27 @@ export function prepareAssistantCitationInsertion(input: {
   const marker = serializeAssistantCitation(
     withAssistantCitationComment(input.pending.citation, input.comment),
   );
-  const selection = input.pending.insertion.text === input.draft
-    ? input.pending.insertion
-    : { start: input.draft.length, end: input.draft.length };
+  const selection =
+    input.pending.insertion.text === input.draft
+      ? input.pending.insertion
+      : { start: input.draft.length, end: input.draft.length };
   const before = input.draft.slice(0, selection.start);
   const after = input.draft.slice(selection.end);
   const leading = before.length > 0 && !/\s$/.test(before) ? " " : "";
   const trailing = after.length > 0 && !/^\s/.test(after) ? " " : "";
-  const insertion = replaceTextSelection({ value: input.draft, selection, text: `${leading}${marker}${trailing}` });
-  const length = Math.max(insertion.value.length, expandAssistantCitationsForProvider(insertion.value).length);
+  const insertion = replaceTextSelection({
+    value: input.draft,
+    selection,
+    text: `${leading}${marker}${trailing}`,
+  });
+  const length = Math.max(
+    insertion.value.length,
+    expandAssistantCitationsForProvider(insertion.value).length,
+  );
   if (length > PROVIDER_SEND_TURN_MAX_INPUT_CHARS) {
-    return { error: `The quote would exceed the ${PROVIDER_SEND_TURN_MAX_INPUT_CHARS.toLocaleString("en-US")}-character prompt limit. Shorten the quote, comment or prompt and try again.` };
+    return {
+      error: `The quote would exceed the ${PROVIDER_SEND_TURN_MAX_INPUT_CHARS.toLocaleString("en-US")}-character prompt limit. Shorten the quote, comment or prompt and try again.`,
+    };
   }
   return insertion;
 }

@@ -33,7 +33,10 @@ export function useAssistantCitationSheet(input: {
     const subscription = addAssistantCitationSelectionListener((selection) => {
       if (selection.environmentId !== environmentId || selection.threadId !== threadId) return;
       if (!canInsert || composerDraftKey === null) {
-        Dialog.alert("Cannot add quote", "The composer is not ready. Return to an editable prompt and try again.");
+        Dialog.alert(
+          "Cannot add quote",
+          "The composer is not ready. Return to an editable prompt and try again.",
+        );
         return;
       }
       setPending({
@@ -88,7 +91,8 @@ export function useAssistantCitationSheet(input: {
         target.environmentId !== current.environmentId ||
         target.threadId !== current.threadId ||
         target.composerDraftKey !== draftKey
-      ) return;
+      )
+        return;
       target.composerEditorRef.current?.focus();
       target.composerEditorRef.current?.setSelection(selection);
     });
