@@ -1,15 +1,18 @@
-import { ASSISTANT_CITATION_MAX_COMMENT_LENGTH, type AssistantCitation } from "@t3tools/contracts";
+import type { AssistantCitation } from "@t3tools/contracts";
 import { useState } from "react";
 import { KeyboardAvoidingView, Modal, Pressable, ScrollView, View } from "react-native";
 import { AppText, AppTextInput } from "../../components/ui/AppText";
+import { assistantCitationCommentError } from "../../lib/assistantCitationDraft";
 
 export function AssistantCitationSheet(props: {
   readonly citation: AssistantCitation;
   readonly onCancel: () => void;
-  readonly onAdd: (comment: string) => void;
+  readonly onAdd: (comment: string) => string | null;
 }) {
   const [comment, setComment] = useState("");
-  const tooLong = comment.length > ASSISTANT_CITATION_MAX_COMMENT_LENGTH;
+  const [insertionError, setInsertionError] = useState<string | null>(null);
+  const commentError = assistantCitationCommentError(comment);
+  const error = commentError ?? insertionError;
   return (
     <Modal visible transparent animationType="slide" onRequestClose={props.onCancel}>
       <KeyboardAvoidingView className="flex-1 justify-end bg-backdrop" behavior="padding">
@@ -40,13 +43,13 @@ export function AssistantCitationSheet(props: {
             textAlignVertical="top"
             placeholder="Add an optional comment…"
             value={comment}
-            onChangeText={setComment}
-            maxLength={ASSISTANT_CITATION_MAX_COMMENT_LENGTH + 1}
+            onChangeText={(value) => {
+              setComment(value);
+              setInsertionError(null);
+            }}
           />
-          {tooLong ? (
-            <AppText className="-mt-2 text-xs text-danger-foreground">
-              The comment is too long.
-            </AppText>
+          {error ? (
+            <AppText className="-mt-2 text-xs text-danger-foreground">{error}</AppText>
           ) : null}
           <View className="flex-row justify-end gap-3">
             <Pressable
@@ -58,10 +61,10 @@ export function AssistantCitationSheet(props: {
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityState={{ disabled: tooLong }}
+              accessibilityState={{ disabled: commentError !== null }}
               className="min-h-11 justify-center rounded-xl bg-primary px-4"
-              disabled={tooLong}
-              onPress={() => props.onAdd(comment)}
+              disabled={commentError !== null}
+              onPress={() => setInsertionError(props.onAdd(comment))}
             >
               <AppText className="font-t3-semibold text-primary-foreground">Add to prompt</AppText>
             </Pressable>

@@ -1,0 +1,218 @@
+import {
+  ASSISTANT_CITATION_MAX_COMMENT_LENGTH,
+  ASSISTANT_CITATION_MAX_TEXT_LENGTH,
+  EnvironmentId,
+  MessageId,
+  PROVIDER_SEND_TURN_MAX_INPUT_CHARS,
+  ThreadId,
+} from "@t3tools/contracts";
+import {
+  collectAssistantCitations,
+  expandAssistantCitationsForProvider,
+  serializeAssistantCitation,
+} from "@t3tools/shared/assistantCitations";
+import { describe, expect, it, vi } from "vite-plus/test";
+import {
+  assistantCitationPromptLengthError,
+  assistantCitationComposerReady,
+  prepareAssistantCitationInsertion,
+  rejectOversizedAssistantCitationPrompt,
+} from "./assistantCitationDraft";
+
+const citation = {
+  version: 1 as const,
+  environmentId: EnvironmentId.make("environment-1"),
+  threadId: ThreadId.make("thread-1"),
+  messageId: MessageId.make("message-1"),
+  text: "quoted text",
+  start: 0,
+  end: 11,
+  prefix: "",
+  suffix: "",
+};
+
+const input = {
+  pending: { citation, draftKey: "draft-1", insertion: { text: "", start: 0, end: 0 } },
+  environmentId: citation.environmentId,
+  threadId: citation.threadId,
+  draftKey: "draft-1",
+  canInsert: true,
+  draft: "",
+  comment: "",
+};
+
+describe("citation composer readiness", () => {
+  const props = { composerDraftKey: "draft-1" };
+  const state = {
+    platform: "android",
+    isProviderSubagent: false,
+    composerSlotHidden: false,
+    voiceInput: { isBusy: false, ownerKey: null as string | null },
+  };
+
+  it("allows an editable Android composer and ignores another draft's voice input", () => {
+    expect(assistantCitationComposerReady(props, state)).toBe(true);
+    expect(
+      assistantCitationComposerReady(props, {
+        ...state,
+        voiceInput: { isBusy: true, ownerKey: "another-draft" },
+      }),
+    ).toBe(true);
+  });
+
+  it.each([
+    { showContent: false },
+    { composerDraftKey: null },
+    { isSavingQueuedEdit: true },
+    { draftMode: { interactionLocked: true } },
+  ])("blocks a hidden or locked draft: %j", (locked) => {
+    expect(assistantCitationComposerReady({ ...props, ...locked }, state)).toBe(false);
+  });
+
+  it.each([
+    { platform: "ios" },
+    { isProviderSubagent: true },
+    { composerSlotHidden: true },
+    { voiceInput: { isBusy: true, ownerKey: "draft-1" } },
+  ])("blocks a non-citable screen state: %j", (locked) => {
+    expect(assistantCitationComposerReady(props, { ...state, ...locked })).toBe(false);
+  });
+
+  it("alerts before submission only for an oversized prompt", () => {
+    const alert = vi.fn();
+    expect(rejectOversizedAssistantCitationPrompt("ordinary draft", alert)).toBe(false);
+    expect(alert).not.toHaveBeenCalled();
+    expect(
+      rejectOversizedAssistantCitationPrompt(
+        "x".repeat(PROVIDER_SEND_TURN_MAX_INPUT_CHARS + 1),
+        alert,
+      ),
+    ).toBe(true);
+    expect(alert).toHaveBeenCalledExactlyOnceWith("Prompt too long", expect.any(String));
+  });
+});
+
+describe("assistant citation draft insertion", () => {
+  it("refuses to write while the composer is hidden or locked", () => {
+    expect(prepareAssistantCitationInsertion({ ...input, canInsert: false })).toHaveProperty(
+      "error",
+    );
+  });
+
+  it.each([
+    { draftKey: null },
+    { draftKey: "queued-edit-2" },
+    { environmentId: EnvironmentId.make("environment-2") },
+    { threadId: ThreadId.make("thread-2") },
+  ])("does not move a pending quote to another composer: %j", (target) => {
+    expect(prepareAssistantCitationInsertion({ ...input, ...target })).toHaveProperty("error");
+  });
+
+  it("inserts at the captured caret with text boundaries", () => {
+    const draft = "beforeafter";
+    const result = prepareAssistantCitationInsertion({
+      ...input,
+      draft,
+      pending: { ...input.pending, insertion: { text: draft, start: 6, end: 6 } },
+    });
+    const marker = serializeAssistantCitation(citation);
+    expect(result).toEqual({ value: `before ${marker} after`, cursor: 8 + marker.length });
+  });
+
+  it("preserves a draft changed while the comment sheet was open", () => {
+    const result = prepareAssistantCitationInsertion({
+      ...input,
+      draft: "new draft",
+      pending: { ...input.pending, insertion: { text: "old draft", start: 0, end: 9 } },
+    });
+    expect(result).toEqual({
+      value: `new draft ${serializeAssistantCitation(citation)}`,
+      cursor: 10 + serializeAssistantCitation(citation).length,
+    });
+  });
+
+  it("preserves selected draft text when adding a quote", () => {
+    const draft = "abc def";
+    const marker = serializeAssistantCitation(citation);
+    expect(
+      prepareAssistantCitationInsertion({
+        ...input,
+        draft,
+        pending: { ...input.pending, insertion: { text: draft, start: 4, end: 7 } },
+      }),
+    ).toEqual({ value: `abc def ${marker}`, cursor: 8 + marker.length });
+  });
+
+  it("rejects an encoded CJK quote and comment that exceed the prompt cap", () => {
+    expect(
+      prepareAssistantCitationInsertion({
+        ...input,
+        pending: {
+          ...input.pending,
+          citation: {
+            ...citation,
+            text: "語".repeat(ASSISTANT_CITATION_MAX_TEXT_LENGTH),
+            end: ASSISTANT_CITATION_MAX_TEXT_LENGTH,
+          },
+        },
+        comment: "語".repeat(ASSISTANT_CITATION_MAX_COMMENT_LENGTH),
+      }),
+    ).toHaveProperty("error");
+  });
+
+  it("rejects a quote that would overflow an existing draft", () => {
+    expect(
+      prepareAssistantCitationInsertion({
+        ...input,
+        draft: "x".repeat(PROVIDER_SEND_TURN_MAX_INPUT_CHARS),
+      }),
+    ).toHaveProperty("error");
+  });
+
+  it("allows the exact expanded limit and refuses one more character", () => {
+    const marker = serializeAssistantCitation(citation);
+    const expandedLength = expandAssistantCitationsForProvider(marker).length;
+    expect(expandedLength).toBeGreaterThan(marker.length);
+    const draft = "x".repeat(PROVIDER_SEND_TURN_MAX_INPUT_CHARS - expandedLength - 1);
+    const accepted = prepareAssistantCitationInsertion({ ...input, draft });
+    if ("error" in accepted) throw new Error(accepted.error);
+    expect(accepted.value.length).toBeLessThan(PROVIDER_SEND_TURN_MAX_INPUT_CHARS);
+    expect(expandAssistantCitationsForProvider(accepted.value).length).toBe(
+      PROVIDER_SEND_TURN_MAX_INPUT_CHARS,
+    );
+    expect(prepareAssistantCitationInsertion({ ...input, draft: `${draft}x` })).toHaveProperty(
+      "error",
+    );
+  });
+
+  it("checks the trimmed comment without silently truncating it", () => {
+    const comment = "a".repeat(ASSISTANT_CITATION_MAX_COMMENT_LENGTH);
+    const accepted = prepareAssistantCitationInsertion({ ...input, comment: `   ${comment}   ` });
+    if ("error" in accepted) throw new Error(accepted.error);
+    expect(collectAssistantCitations(accepted.value)[0]?.citation.comment).toBe(comment);
+    expect(prepareAssistantCitationInsertion({ ...input, comment: `${comment}a` })).toHaveProperty(
+      "error",
+    );
+  });
+
+  it("rechecks expanded length after typing more text around an inserted quote", () => {
+    const inserted = prepareAssistantCitationInsertion({
+      ...input,
+      pending: {
+        ...input.pending,
+        citation: { ...citation, text: "<>".repeat(4_000), end: 8_000 },
+      },
+      comment: "<>".repeat(4_000),
+    });
+    if ("error" in inserted) throw new Error(inserted.error);
+    expect(assistantCitationPromptLengthError(inserted.value)).toBeNull();
+    const padding = "x".repeat(
+      PROVIDER_SEND_TURN_MAX_INPUT_CHARS -
+        expandAssistantCitationsForProvider(inserted.value).length,
+    );
+    const atLimit = `${inserted.value}${padding}`;
+    expect(assistantCitationPromptLengthError(atLimit)).toBeNull();
+    expect(`${atLimit}x`.length).toBeLessThan(PROVIDER_SEND_TURN_MAX_INPUT_CHARS);
+    expect(assistantCitationPromptLengthError(`${atLimit}x`)).toContain("120,000");
+  });
+});

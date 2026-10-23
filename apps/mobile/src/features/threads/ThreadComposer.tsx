@@ -1,6 +1,7 @@
 import { useSidebarWorkspaceTabs } from "../workspace/useSystemWorkspaceTabBar";
 import { Button } from "../../components/ui/Button";
 import * as Dialog from "../../components/ui/Dialog";
+import { rejectOversizedAssistantCitationPrompt } from "../../lib/assistantCitationDraft";
 import type { ComposerTextPaste } from "../../native/T3ComposerEditor.types";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
@@ -684,8 +685,9 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
     }
     const threadKey = scopedThreadKey(props.environmentId, props.selectedThread.id);
     if (inFlightThreadIdsRef.current.has(threadKey)) return;
-    inFlightThreadIdsRef.current.add(threadKey);
     const draftAtSend = getComposerDraftSnapshot(composerDraftKey);
+    if (rejectOversizedAssistantCitationPrompt(draftAtSend.text.trim(), Dialog.alert)) return;
+    inFlightThreadIdsRef.current.add(threadKey);
     const stillSendable = () => {
       const draft = getComposerDraftSnapshot(composerDraftKey);
       return (

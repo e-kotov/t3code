@@ -1,7 +1,7 @@
 import { ASSISTANT_CITATION_MAX_TEXT_LENGTH } from "@t3tools/contracts";
 import type { AssistantCitationSource } from "./SelectableMarkdownText.types";
 
-export interface AssistantCitationSelectionEvent extends AssistantCitationSource {
+interface AssistantCitationSelectionEvent extends AssistantCitationSource {
   readonly text: string;
   readonly start: number;
   readonly end: number;
@@ -13,24 +13,28 @@ type Listener = (event: AssistantCitationSelectionEvent) => void;
 
 const listeners = new Set<Listener>();
 
-/** Thread screens subscribe here; markdown views emit from their "Cite" selection action. */
 export function addAssistantCitationSelectionListener(listener: Listener): { remove(): void } {
   listeners.add(listener);
   return { remove: () => listeners.delete(listener) };
 }
 
 /**
- * Enriched reports offsets into the rendered text of one markdown view, but not the
- * surrounding characters, so the context selectors stay empty.
+ * Enriched supplies fragment-local offsets, not the whole-message text stream used by web.
+ * Leave context empty rather than inventing selectors: source navigation then requires a
+ * unique text match and may be unavailable for repeated phrases.
  */
 export function emitAssistantCitationSelection(
   source: AssistantCitationSource,
   text: string,
   selection: { readonly start: number; readonly end: number },
-): void {
-  if (text.trim().length === 0 || text.length > ASSISTANT_CITATION_MAX_TEXT_LENGTH) return;
+): string | null {
+  if (text.trim().length === 0) return "Select some assistant text to quote.";
+  if (text.length > ASSISTANT_CITATION_MAX_TEXT_LENGTH) {
+    return `Select at most ${ASSISTANT_CITATION_MAX_TEXT_LENGTH.toLocaleString("en-US")} characters to quote.`;
+  }
   const start = Math.max(0, Math.min(selection.start, selection.end));
   const end = Math.max(start + text.length, selection.end);
   const event = { ...source, text, start, end, prefix: "", suffix: "" };
   for (const listener of listeners) listener(event);
+  return null;
 }

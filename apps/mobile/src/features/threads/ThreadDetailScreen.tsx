@@ -114,6 +114,7 @@ import { useAppearancePreferences } from "../settings/appearance/AppearancePrefe
 import { collectProviderUsageLimits } from "@t3tools/shared/usageLimits";
 import type { ComposerEditorHandle } from "../../components/ComposerEditor";
 import { useAssistantCitationSheet } from "./useAssistantCitationSheet";
+import { assistantCitationComposerReady } from "../../lib/assistantCitationDraft";
 import type { StatusTone } from "../../components/StatusPill";
 import { getComposerDraftSnapshot } from "../../state/use-composer-drafts";
 import { RenderErrorBoundary, RenderFailureView } from "../../components/RenderErrorBoundary";
@@ -457,7 +458,8 @@ function ThreadVisitWatermark(props: {
 export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetailScreenProps) {
   const usesNativeWorkspaceColumns = useNativeWorkspaceColumnsSupported();
   const navigation = useNavigation();
-  const { session: voiceInputSession } = useGlobalVoiceInput();
+  const globalVoiceInput = useGlobalVoiceInput();
+  const voiceInputSession = globalVoiceInput.session;
   const reportedModelSelection = useThreadReportedModelSelection(props.selectedThreadDetailRef);
   const deviceState = useEnvironmentQuery(
     deviceEnvironment.state({ environmentId: props.environmentId, input: {} }),
@@ -537,13 +539,6 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
   const agentsSegment = resolveSubagentPillSegment(turnSubagents);
   const defaultComposerEditorRef = useRef<ComposerEditorHandle>(null);
   const composerEditorRef = props.draftMode?.editorRef ?? defaultComposerEditorRef;
-  const assistantCitationSheet = useAssistantCitationSheet({
-    environmentId: props.environmentId,
-    threadId: props.selectedThread.id,
-    composerDraftKey: props.composerDraftKey,
-    onChangeDraftMessage: props.onChangeDraftMessage,
-    composerEditorRef,
-  });
   const isProviderSubagent = isProviderNativeSubagentThread(props.selectedThread.source);
   const editingRunId = props.queuedRunEdit?.runId ?? null;
   useEffect(() => {
@@ -826,6 +821,20 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
   const activeUserInputRequestId = props.activePendingUserInput?.requestId ?? null;
   const composerSlotHidden =
     activeUserInputRequestId !== null || props.creationState?.kind === "failed";
+  const canInsertAssistantCitation = assistantCitationComposerReady(props, {
+    platform: Platform.OS,
+    isProviderSubagent,
+    composerSlotHidden,
+    voiceInput: globalVoiceInput,
+  });
+  const assistantCitationSheet = useAssistantCitationSheet({
+    environmentId: props.environmentId,
+    threadId: props.selectedThread.id,
+    composerDraftKey: props.composerDraftKey,
+    canInsert: canInsertAssistantCitation,
+    onChangeDraftMessage: props.onChangeDraftMessage,
+    composerEditorRef,
+  });
   const [usageLimitsPanel, setUsageLimitsPanel] = useState<{
     readonly key: string;
     readonly threadKey: string;
@@ -1391,6 +1400,7 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
             <ThreadFeed
               environmentId={props.environmentId}
               threadId={props.selectedThread.id}
+              canCiteAssistantText={canInsertAssistantCitation}
               workspaceRoot={props.threadCwd}
               feed={props.selectedThreadFeed}
               pendingHandoff={props.pendingHandoff}
