@@ -166,43 +166,45 @@ export function withBuiltInTailnet(
       concurrency: "unbounded",
     }).pipe(Effect.map((checks) => checks.some((check) => check !== "silent")));
 
-  const connect: Connect = (entry, reportProgress) =>
-    Effect.gen(function* () {
-      const mode = tailnet.mode();
-      const environmentId = entry.target.environmentId;
-      const targets = builtInTargets(entry);
-      onBuiltIn.delete(environmentId);
-      if (mode === "off" || targets.length === 0) {
-        return yield* driver.connect(entry, reportProgress);
-      }
-      const { before, after } = splitAtBuiltIn(connectionRoutes(entry), mode);
-      let failure: ConnectionAttemptError | undefined;
-      // Saved routes ahead of the node are tried only if one answers: waiting
-      // out silent ones would delay the node. They get a last chance below.
-      let deferred: ReadonlyArray<ConnectionRoute> = [];
-      if (before.length > 0) {
-        const ahead = entryWithRoutes(entry, before);
-        if (yield* anyAnswers(ahead)) {
-          const result = yield* driver.connect(ahead, reportProgress).pipe(Effect.result);
-          if (result._tag === "Success") return result.success;
-          // An incompatible server is the same server on every route.
-          if (result.failure.reason === "unsupported") return yield* result.failure;
-          failure = result.failure;
-        } else {
-          deferred = before;
-        }
-      }
-      const builtIn = yield* connectBuiltIn(entry, reportProgress, targets);
-      if (Option.isSome(builtIn)) {
-        const result = builtIn.value;
-        if (result._tag === "Success") {
-          onBuiltIn.add(environmentId);
-          return result.success;
-        }
+  const connect: Connect = Effect.fn("BuiltInTailnet.connect")(function* (
+    entry: Parameters<Connect>[0],
+    reportProgress: Parameters<Connect>[1],
+  ) {
+    const mode = tailnet.mode();
+    const environmentId = entry.target.environmentId;
+    const targets = builtInTargets(entry);
+    onBuiltIn.delete(environmentId);
+    if (mode === "off" || targets.length === 0) {
+      return yield* driver.connect(entry, reportProgress);
+    }
+    const { before, after } = splitAtBuiltIn(connectionRoutes(entry), mode);
+    let failure: ConnectionAttemptError | undefined;
+    // Saved routes ahead of the node are tried only if one answers: waiting
+    // out silent ones would delay the node. They get a last chance below.
+    let deferred: ReadonlyArray<ConnectionRoute> = [];
+    if (before.length > 0) {
+      const ahead = entryWithRoutes(entry, before);
+      if (yield* anyAnswers(ahead)) {
+        const result = yield* driver.connect(ahead, reportProgress).pipe(Effect.result);
+        if (result._tag === "Success") return result.success;
+        // An incompatible server is the same server on every route.
         if (result.failure.reason === "unsupported") return yield* result.failure;
-        yield* Effect.logInfo("Built-in Tailscale route did not connect.", {
-          detail: result.failure.detail,
-        });
+        failure = result.failure;
+      } else {
+        deferred = before;
+      }
+    }
+    const builtIn = yield* connectBuiltIn(entry, reportProgress, targets);
+    if (Option.isSome(builtIn)) {
+      const result = builtIn.value;
+      if (result._tag === "Success") {
+        onBuiltIn.add(environmentId);
+        return result.success;
+      }
+      if (result.failure.reason === "unsupported") return yield* result.failure;
+      yield* Effect.logInfo("Built-in Tailscale route did not connect.", {
+        detail: result.failure.detail,
+    });
         failure ??= result.failure;
       }
       const rest = [...after, ...deferred];

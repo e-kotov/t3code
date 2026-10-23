@@ -75,7 +75,7 @@ jobs:
       - if: steps.merge.outputs.changed == 'true'
         env:
           UPSTREAM_SHA: ${{ steps.merge.outputs.upstream }}
-          FORK_CHANGED_CHECKS_BASE: ${{ inputs.promote_only && inputs.branch != '' && 'refs/remotes/origin/main' || '' }}
+          FORK_CHANGED_CHECKS_BASE: refs/remotes/origin/main
         run: scripts/fork-upstream-sync.sh checks
       - name: Capture formatting fixes for a failed manual promotion
         if: failure() && inputs.promote_only && inputs.branch != ''

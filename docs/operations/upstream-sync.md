@@ -45,9 +45,9 @@ When the run is green, `git pull` on `main`. The same path checks any other fork
 without local dependencies. `VP_GIT_HOOKS=0` also skips `vp fmt`, and the checks do not run
 the formatter, so keep resolutions in the surrounding style.
 
-Manual `promote_only=true` branch checks also run `vp run check:changed` against
+Changed syncs also run `vp run check:changed` against
 `origin/main`, including formatting, lint, knip, affected-package typechecks and adjacent
-tests. Formatting runs before browser setup. Failed manual checks upload a
+tests. Manual promotions check formatting before browser setup. Failed manual checks upload a
 `fork-format-fixes` patch artifact; apply any needed formatter changes locally and rerun.
 The runner never promotes uncommitted formatter changes.
 

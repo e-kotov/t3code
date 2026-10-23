@@ -60,7 +60,9 @@ it("keeps built-in editor precedence in the displayed menu", async () => {
     />,
   );
   await screen.getByRole("button", { name: "Choose editor" }).click();
-  await expect.element(page.getByRole("menuitem").nth(0)).toHaveTextContent(/^VS Code/);
+  await expect
+    .element(page.getByRole("menuitem").nth(0).getByText("VS Code", { exact: true }))
+    .toBeVisible();
   await expect.element(page.getByRole("menuitem").nth(1)).toHaveTextContent("Gram");
 });
 it("shows an empty state without offering absent editors", async () => {
@@ -74,6 +76,6 @@ it("shows an empty state without offering absent editors", async () => {
   );
   await expect.element(screen.getByRole("button", { name: "Open", exact: true })).toBeDisabled();
   await screen.getByRole("button", { name: "Choose editor" }).click();
-  await expect.element(page.getByRole("menuitem")).toHaveTextContent(/^No editors enabled/);
+  await expect.element(page.getByRole("menuitem", { name: /^No editors enabled/ })).toBeVisible();
   await expect.element(page.getByRole("menuitem")).toBeDisabled();
 });

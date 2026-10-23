@@ -585,7 +585,8 @@ function useChatMarkdownState({
     environmentId,
   );
   const preferredEditorMenuLabel =
-    configuredEditorMenuLabel ?? openInEditorMenuLabel(preferredEditor);
+    configuredEditorMenuLabel ??
+    openInEditorMenuLabel(availableEditors.find((editor) => editor === preferredEditor) ?? null);
   const openInPreferredEditor = useOpenInPreferredEditor(environmentId, availableEditors);
   const openInEditor = useAtomCommand(shellEnvironment.openInEditor, {
     reportFailure: false,
