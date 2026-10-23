@@ -47,13 +47,13 @@ it.each(["MacIntel", "Win32", "Linux x86_64"])("offers detected fork editors on 
 it("keeps built-in editor precedence in the displayed menu", async () => {
   await using screen = await render(<OpenInPicker environmentId={EnvironmentId.make("test-host")} keybindings={DEFAULT_RESOLVED_KEYBINDINGS} availableEditors={["vscode", "gram"]} openInCwd="/project" />);
   await screen.getByRole("button", { name: "Choose editor" }).click();
-  await expect.element(page.getByRole("menuitem").nth(0)).toHaveTextContent("VS Code");
+  await expect.element(page.getByRole("menuitem").nth(0)).toHaveTextContent(/^VS Code/);
   await expect.element(page.getByRole("menuitem").nth(1)).toHaveTextContent("Gram");
 });
 it("shows an empty state without offering absent editors", async () => {
   await using screen = await render(<OpenInPicker environmentId={EnvironmentId.make("test-host")} keybindings={DEFAULT_RESOLVED_KEYBINDINGS} availableEditors={[]} openInCwd="/project" />);
   await expect.element(screen.getByRole("button", { name: "Open", exact: true })).toBeDisabled();
   await screen.getByRole("button", { name: "Choose editor" }).click();
-  await expect.element(page.getByRole("menuitem")).toHaveTextContent("No editors enabled");
+  await expect.element(page.getByRole("menuitem")).toHaveTextContent(/^No editors enabled/);
   await expect.element(page.getByRole("menuitem")).toBeDisabled();
 });

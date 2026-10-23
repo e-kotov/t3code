@@ -64,6 +64,11 @@ jobs:
           run-install: false
       - if: steps.merge.outputs.changed == 'true'
         run: vp install
+      - name: Check formatting before browser setup
+        if: steps.merge.outputs.changed == 'true' && inputs.promote_only && inputs.branch != ''
+        run: |
+          git diff --name-only --diff-filter=AM -z refs/remotes/origin/main HEAD |
+            xargs -0 -r vp fmt --check --no-error-on-unmatched-pattern
       - name: Install headless Chromium for web tests
         if: steps.merge.outputs.changed == 'true'
         run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium

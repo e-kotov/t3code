@@ -1,5 +1,5 @@
 /** Custom editor substitutions are argv values, never shell source. */
-export function editorTarget(target: string) {
+function editorTarget(target: string) {
   const match = /^(.*?):(\d+)(?::(\d+))?$/.exec(target);
   return { path: match?.[1] ?? target, line: match?.[2] ?? "1", column: match?.[3] ?? "1" };
 }

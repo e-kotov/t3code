@@ -230,7 +230,9 @@ export const OpenInPicker = memo(function OpenInPicker({
 
   const openInEditor = (editorId: string | null) => {
     if (!openInCwd) return;
-    return reportEditorOpenFailure(open(openInCwd, editorId, { revealFileManager, isFile: openInCwdIsFile }));
+    return reportEditorOpenFailure(
+      open(openInCwd, editorId, { revealFileManager, isFile: openInCwdIsFile }),
+    );
   };
 
   const openFavoriteEditorShortcutLabel = shortcutLabelForCommand(

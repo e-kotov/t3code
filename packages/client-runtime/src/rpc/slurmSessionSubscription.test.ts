@@ -52,6 +52,7 @@ const SERVER_CONFIG: ServerConfigType = {
 
 const Request = Schema.TaggedStruct("Request", { id: Schema.Union([Schema.String, Schema.Number]), tag: Schema.String, payload: Schema.Unknown });
 type Request = typeof Request.Type;
+const isRequest = Schema.is(Request);
 const decodeRequest = Schema.decodeUnknownSync(Schema.fromJsonString(Request));
 const encodeConfig = Schema.encodeSync(ServerConfig);
 type Event = { readonly data?: unknown; readonly code?: number; readonly reason?: string };
@@ -63,10 +64,12 @@ class TestSocket {
   static readonly CLOSED = 3;
   readyState = TestSocket.CONNECTING;
   private readonly listeners = new Map<string, Set<(event: Event) => void>>();
-  constructor(readonly url: string, private readonly requests: Queue.Queue<Request>) {}
+  readonly url: string;
+  private readonly requests: Queue.Queue<Request>;
+  constructor(url: string, requests: Queue.Queue<Request>) { this.url = url; this.requests = requests; }
   addEventListener(type: string, listener: (event: Event) => void) { const listeners = this.listeners.get(type) ?? new Set(); listeners.add(listener); this.listeners.set(type, listeners); }
   removeEventListener(type: string, listener: (event: Event) => void) { this.listeners.get(type)?.delete(listener); }
-  send(data: string) { const message: unknown = JSON.parse(data); if (Schema.is(Request)(message)) Effect.runSync(Queue.offer(this.requests, decodeRequest(data))); }
+  send(data: string) { const message: unknown = JSON.parse(data); if (isRequest(message)) Queue.offerUnsafe(this.requests, decodeRequest(data)); }
   open() { this.readyState = TestSocket.OPEN; this.emit("open", {}); }
   close(code = 1000, reason = "") { this.readyState = TestSocket.CLOSED; this.emit("close", { code, reason }); }
   serverMessage(message: unknown) { this.emit("message", { data: JSON.stringify(message) }); }
@@ -78,7 +81,7 @@ it.effect("shares the Slurm opt-in stream, preserves allocation state in late re
   const sockets = yield* Queue.unbounded<TestSocket>();
   const socketLayer = Layer.succeed(Socket.WebSocketConstructor, (url) => {
     const socket = new TestSocket(url, requests);
-    Effect.runSync(Queue.offer(sockets, socket));
+    Queue.offerUnsafe(sockets, socket);
     return socket as unknown as globalThis.WebSocket;
   });
   const factory = yield* RpcSession.RpcSessionFactory.pipe(Effect.provide(RpcSession.layer({ slurmJobStatus: true }).pipe(Layer.provide(socketLayer))));

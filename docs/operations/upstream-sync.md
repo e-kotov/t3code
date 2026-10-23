@@ -45,6 +45,12 @@ When the run is green, `git pull` on `main`. The same path checks any other fork
 without local dependencies. `VP_GIT_HOOKS=0` also skips `vp fmt`, and the checks do not run
 the formatter, so keep resolutions in the surrounding style.
 
+Manual `promote_only=true` branch checks also run `vp run check:changed` against
+`origin/main`, including formatting, lint, knip, affected-package typechecks and adjacent
+tests. Formatting runs before browser setup. Failed manual checks upload a
+`fork-format-fixes` patch artifact; apply any needed formatter changes locally and rerun.
+The runner never promotes uncommitted formatter changes.
+
 Keep fork logic in fork-owned files with small mount points in upstream files; this keeps
 future conflicts small. When the fork history needs tidying (to drop or upstream a feature),
 rebase it onto `upstream/main` with a backup branch `ek/pre-sync-<date>` and force-push once.

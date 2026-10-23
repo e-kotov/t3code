@@ -99,7 +99,7 @@ export function forwardedRoute(route: ConnectionRoute, port: number): Connection
 }
 
 /** The entry's tailnet routes addressed through `ports`, or none if no route has a port. */
-export function forwardedEntry(
+function forwardedEntry(
   entry: ConnectionCatalogEntry,
   ports: ReadonlyMap<string, number>,
 ): Option.Option<ConnectionCatalogEntry> {

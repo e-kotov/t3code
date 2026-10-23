@@ -3,7 +3,6 @@ import { presentCacheHud } from "@t3tools/shared/cacheHud";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Schedule from "effect/Schedule";
 import type * as Scope from "effect/Scope";
 
@@ -106,7 +105,7 @@ export function cacheWarmingWindow(input: CacheWarmingCandidate): CacheWarmingWi
   return { fingerprint, marginMs };
 }
 
-export class CacheWarmingService extends Context.Service<
+class CacheWarmingService extends Context.Service<
   CacheWarmingService,
   { readonly start: () => Effect.Effect<void, never, Scope.Scope> }
 >()("t3/orchestration-v2/CacheWarmingService") {}
@@ -207,5 +206,3 @@ export const make = Effect.gen(function* () {
     ).pipe(Effect.asVoid);
   return { start } satisfies CacheWarmingService["Service"];
 });
-
-export const layer = Layer.effect(CacheWarmingService, make);

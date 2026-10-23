@@ -48,7 +48,7 @@ export function deriveCacheHud(
   return { driver, usage, basis: "unknown" };
 }
 
-export function formatHudTokens(value: number) {
+function formatHudTokens(value: number) {
   if (value < 1000) return String(Math.round(value));
   if (value < 1_000_000) return `${Math.round(value / 1000)}k`;
   return `${Math.round(value / 1_000_000)}m`;

@@ -1,8 +1,5 @@
-import type { DeviceCommandIcon, DeviceCommandRun } from "@t3tools/contracts";
+import type { DeviceCommandIcon } from "@t3tools/contracts";
 import {
-  CircleCheckIcon,
-  CircleSlashIcon,
-  CircleXIcon,
   PlayIcon,
   PlugIcon,
   PowerIcon,
@@ -15,8 +12,6 @@ import {
 } from "lucide-react";
 
 import { cn } from "../lib/utils";
-import { Spinner } from "../components/ui/spinner";
-import { formatRunAge } from "./deviceCommandsFormat";
 
 export const DEVICE_COMMAND_ICON_OPTIONS: ReadonlyArray<{
   readonly id: DeviceCommandIcon;
@@ -38,32 +33,4 @@ export function DeviceCommandGlyph(props: { icon: DeviceCommandIcon; className?:
     DEVICE_COMMAND_ICON_OPTIONS.find((option) => option.id === props.icon)?.Icon ??
     SquareTerminalIcon;
   return <Icon aria-hidden className={cn("size-4", props.className)} />;
-}
-
-/** Spinner while running, otherwise the outcome and how long ago it finished. */
-export function DeviceCommandRunBadge(props: { run: DeviceCommandRun | undefined; now: number }) {
-  const { run } = props;
-  if (!run) return null;
-  if (run.status === "running") {
-    return <Spinner size="xs" tone="muted" aria-label="Running" />;
-  }
-  const Icon =
-    run.status === "succeeded"
-      ? CircleCheckIcon
-      : run.status === "stopped"
-        ? CircleSlashIcon
-        : CircleXIcon;
-  return (
-    <span className="flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
-      <Icon
-        aria-label={run.status}
-        className={cn(
-          "size-3.5",
-          run.status === "succeeded" && "text-success-foreground",
-          run.status === "failed" && "text-destructive-foreground",
-        )}
-      />
-      {formatRunAge(run.finishedAt ?? run.startedAt, props.now)}
-    </span>
-  );
 }

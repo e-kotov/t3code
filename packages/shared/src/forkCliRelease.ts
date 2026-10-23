@@ -10,7 +10,7 @@ export {
 } from "./cliRelease.ts";
 
 export const FORK_RELEASE_REPOSITORY = "e-kotov/t3code";
-export const FORK_RELEASE_DOWNLOAD_BASE_URL = `https://github.com/${FORK_RELEASE_REPOSITORY}/releases/download`;
+const FORK_RELEASE_DOWNLOAD_BASE_URL = `https://github.com/${FORK_RELEASE_REPOSITORY}/releases/download`;
 export const DEFAULT_FORK_RELEASE_CHANNEL = "ek";
 export type CliReleaseChannel = UpstreamRelease.CliReleaseChannel | "ek";
 export const CLI_RELEASE_CHANNELS: ReadonlyArray<CliReleaseChannel> = [

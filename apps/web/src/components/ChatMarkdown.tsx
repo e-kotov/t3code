@@ -1,3 +1,4 @@
+import { openInEditorMenuLabel } from "../editorLabels";
 import { buildFileLinkParentSuffixByPath, fileLinkLabel } from "@t3tools/shared/fileLinks";
 import {
   isWindowsDrivePathHref,
@@ -579,8 +580,8 @@ function useChatMarkdownState({
     markdownServerConfigFieldsAtom(environmentId),
   );
   const projects = useProjects();
-  const [, , configuredEditorMenuLabel] = usePreferredEditor(availableEditors, environmentId);
-  const preferredEditorMenuLabel = configuredEditorMenuLabel ?? "Open in editor";
+  const [preferredEditor, , configuredEditorMenuLabel] = usePreferredEditor(availableEditors, environmentId);
+  const preferredEditorMenuLabel = configuredEditorMenuLabel ?? openInEditorMenuLabel(preferredEditor);
   const openInPreferredEditor = useOpenInPreferredEditor(environmentId, availableEditors);
   const openInEditor = useAtomCommand(shellEnvironment.openInEditor, {
     reportFailure: false,

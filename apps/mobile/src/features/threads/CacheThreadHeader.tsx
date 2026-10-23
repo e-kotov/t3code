@@ -8,13 +8,12 @@ export function CacheThreadHeader({
   cacheThread,
   cacheServerConfig,
   ...props
-}: ComponentProps<typeof ThreadHeader> & {
+}: Omit<ComponentProps<typeof ThreadHeader>, "children"> & {
   readonly cacheThread: Pick<EnvironmentThreadShell, "cacheHud" | "modelSelection">;
   readonly cacheServerConfig: ServerConfig | null;
 }) {
   return (
-    <>
-      <ThreadHeader {...props} />
+    <ThreadHeader {...props}>
       <CacheHud
         hud={cacheThread.cacheHud}
         modelLabel={cacheThread.modelSelection.model}
@@ -24,6 +23,6 @@ export function CacheThreadHeader({
           )?.usageLimits?.windows
         }
       />
-    </>
+    </ThreadHeader>
   );
 }

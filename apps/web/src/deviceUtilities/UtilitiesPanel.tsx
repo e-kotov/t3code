@@ -156,7 +156,7 @@ function ServiceRow({
     </details>
   );
 }
-export function UtilitiesContent() {
+function UtilitiesContent() {
   const { snapshot, error, now, statuses } = useDeviceUtilities();
   const commands = useDeviceCommandsStore((s) => s.commands);
   useEffect(() => {

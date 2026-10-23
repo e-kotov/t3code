@@ -20,7 +20,7 @@ import {
 } from "./deviceCommandsFile.ts";
 import { DeviceCommandsRunner } from "./DeviceCommandsRunner.ts";
 
-export const DEVICE_COMMANDS_FILE_NAME = "device-commands.json";
+const DEVICE_COMMANDS_FILE_NAME = "device-commands.json";
 
 export class DeviceCommandsError extends Schema.TaggedError<DeviceCommandsError>()(
   "DeviceCommandsError",
@@ -56,7 +56,7 @@ const readState = Effect.fn("desktop.deviceCommands.read")(function* () {
   return { commands: document.commands, storagePath: filePath };
 });
 
-export const getState = DesktopIpc.makeIpcMethod({
+const getState = DesktopIpc.makeIpcMethod({
   channel: Channels.DEVICE_COMMANDS_GET_STATE_CHANNEL,
   payload: Schema.Void,
   result: DeviceCommandsState,
@@ -65,7 +65,7 @@ export const getState = DesktopIpc.makeIpcMethod({
   }),
 });
 
-export const save = DesktopIpc.makeIpcMethod({
+const save = DesktopIpc.makeIpcMethod({
   channel: Channels.DEVICE_COMMANDS_SAVE_CHANNEL,
   payload: DeviceCommandsDocument,
   result: DeviceCommandsState,
@@ -84,7 +84,7 @@ export const save = DesktopIpc.makeIpcMethod({
   }),
 });
 
-export const run = DesktopIpc.makeIpcMethod({
+const run = DesktopIpc.makeIpcMethod({
   channel: Channels.DEVICE_COMMANDS_RUN_CHANNEL,
   payload: DeviceCommandRunInput,
   result: DeviceCommandRun,
@@ -102,7 +102,7 @@ export const run = DesktopIpc.makeIpcMethod({
   }),
 });
 
-export const stop = DesktopIpc.makeIpcMethod({
+const stop = DesktopIpc.makeIpcMethod({
   channel: Channels.DEVICE_COMMANDS_STOP_CHANNEL,
   payload: DeviceCommandStopInput,
   result: Schema.Void,
@@ -111,7 +111,7 @@ export const stop = DesktopIpc.makeIpcMethod({
   ),
 });
 
-export const listRuns = DesktopIpc.makeIpcMethod({
+const listRuns = DesktopIpc.makeIpcMethod({
   channel: Channels.DEVICE_COMMANDS_LIST_RUNS_CHANNEL,
   payload: Schema.Void,
   result: Schema.Array(DeviceCommandRun),

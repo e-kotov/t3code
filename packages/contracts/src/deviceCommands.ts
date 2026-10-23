@@ -12,7 +12,7 @@ import { NonNegativeInt, TrimmedNonEmptyString } from "./baseSchemas.ts";
  */
 
 /** Combined stdout/stderr kept per run; older output is dropped from the start. */
-export const DEVICE_COMMAND_OUTPUT_LIMIT = 100_000;
+const DEVICE_COMMAND_OUTPUT_LIMIT = 100_000;
 export const DEVICE_COMMANDS_MAX_COUNT = 50;
 
 export const DeviceCommandIcon = Schema.Literals([

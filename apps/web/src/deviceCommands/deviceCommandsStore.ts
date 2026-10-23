@@ -1,5 +1,5 @@
 import { applyRunUpdate, type RunsByCommandId } from "./deviceCommands.logic";
-export { findRun, newDeviceCommandId, moveDeviceCommand } from "./deviceCommands.logic";
+export { newDeviceCommandId, moveDeviceCommand } from "./deviceCommands.logic";
 import type { DeviceCommand, DeviceCommandRun, DeviceCommandsBridge } from "@t3tools/contracts";
 import { create } from "zustand";
 
@@ -136,7 +136,7 @@ export async function stopDeviceCommandRun(runId: string): Promise<void> {
   await getDeviceCommandsBridge()?.stop(runId);
 }
 
-export function openDeviceCommandOutput(runId: string): void {
+function openDeviceCommandOutput(runId: string): void {
   useDeviceCommandsStore.setState({ outputRunId: runId });
 }
 
