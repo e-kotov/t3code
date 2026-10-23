@@ -1,5 +1,5 @@
 import type { ExpoConfig } from "expo/config";
-import { withForkAppIdentity } from "./fork-app-identity";
+import { withForkAppIdentity } from "./fork-app-identity.ts";
 
 import { BRAND_ASSET_PATHS } from "../../scripts/lib/brand-assets.ts";
 import { loadRepoEnv } from "../../scripts/lib/public-config.ts";

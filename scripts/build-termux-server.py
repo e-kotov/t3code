@@ -11,6 +11,21 @@ import tarfile
 import tempfile
 
 
+def application_lockfile(text):
+    import yaml
+
+    matches = []
+    for document in yaml.safe_load_all(text):
+        if not isinstance(document, dict):
+            continue
+        importers = document.get("importers")
+        if isinstance(importers, dict) and {"apps/server", "apps/desktop"} <= importers.keys():
+            matches.append(document)
+    if len(matches) != 1:
+        raise ValueError("Expected exactly one lockfile document containing apps/server and apps/desktop.")
+    return matches[0]
+
+
 def runtime_recipe(lock, workspace, names):
     dependencies = {}
     # ffi-rs is also used through fff; pin it to the desktop's tested version.
@@ -37,7 +52,7 @@ def build(repo, bundle, output, version):
         raise ValueError("Expected MAJOR.MINOR.PATCH-ek.NUMBER")
     if not (bundle / "bin.mjs").is_file() or not (bundle / "client/index.html").is_file():
         raise ValueError("Expected built server and web UI")
-    lock = yaml.safe_load((repo / "pnpm-lock.yaml").read_text())
+    lock = application_lockfile((repo / "pnpm-lock.yaml").read_text())
     workspace = yaml.safe_load((repo / "pnpm-workspace.yaml").read_text())
     candidates = dict(lock["importers"]["apps/server"]["dependencies"])
     candidates["ffi-rs"] = lock["importers"]["apps/desktop"]["dependencies"]["ffi-rs"]
@@ -70,7 +85,8 @@ def build(repo, bundle, output, version):
         with tarfile.open(archive, "w:gz") as stream:
             for child in sorted(stage.iterdir()):
                 stream.add(child, arcname=child.name)
-        digest = hashlib.file_digest(archive.open("rb"), "sha256").hexdigest()
+        with archive.open("rb") as contents:
+            digest = hashlib.file_digest(contents, "sha256").hexdigest()
         archive.with_name(archive.name + ".sha256").write_text(f"{digest}  {archive.name}\n")
         print(archive)
 

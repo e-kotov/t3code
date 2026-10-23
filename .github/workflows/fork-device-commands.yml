@@ -61,7 +61,7 @@ jobs:
         run: |
           status=0
           for package in packages/contracts apps/desktop apps/web apps/mobile; do
-            (cd "$package" && vp exec tsc-rs --noEmit) || status=1
+            (cd "$package" && vp run typecheck) || status=1
           done
           exit "$status"
       - name: Focused tests

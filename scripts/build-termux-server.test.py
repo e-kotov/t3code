@@ -51,12 +51,20 @@ importers:
                         bundle.build(root, source, output, "0.0.0-ek.1")
                     archive = output / "t3-0.0.0-ek.1-termux-arm64.tar.gz"
                     with tarfile.open(archive) as contents:
-                        package = json.load(contents.extractfile("package.json"))
+                        with contents.extractfile("package.json") as metadata_file:
+                            package = json.load(metadata_file)
                         self.assertEqual(package["dependencies"], {
                             "node-pty": "1.2.0-beta.15", "ffi-rs": "1.3.2",
                         })
                         self.assertIn("dist/client/index.html", contents.getnames())
                     self.assertTrue(archive.with_name(archive.name + ".sha256").is_file())
+
+    def test_rejects_missing_or_ambiguous_application_documents(self):
+        application = "importers:\n  apps/server: {}\n  apps/desktop: {}\n"
+        for lockfile in ("", "importers: {'.': {}}", application + "---\n" + application):
+            with self.subTest(lockfile=lockfile):
+                with self.assertRaisesRegex(ValueError, "exactly one lockfile document"):
+                    bundle.application_lockfile(lockfile)
 
     def test_locked_versions_and_only_applicable_patches(self):
         lock = {"importers": {
