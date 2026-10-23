@@ -6,7 +6,10 @@ import {
   type CustomSnoozeInput,
   type SnoozePreset,
 } from "@t3tools/client-runtime/state/thread-settled";
-import { createRecentCustomSnoozeStore, recentCustomSnoozes } from "@t3tools/shared/recentCustomSnoozes";
+import {
+  createRecentCustomSnoozeStore,
+  recentCustomSnoozes,
+} from "@t3tools/shared/recentCustomSnoozes";
 import { resolveThreadListV2SnoozeMenuSelection as resolveUpstreamSelection } from "./threadListV2";
 
 const history = createRecentCustomSnoozeStore({
@@ -31,7 +34,10 @@ export function useSnoozePresets(enabled: boolean, minute: string): ReadonlyArra
       ...recentCustomSnoozes(stored, now).map((snoozedUntil) => ({
         id: `recent:${snoozedUntil}`,
         label: `Recent: ${new Date(snoozedUntil).toLocaleDateString()}`,
-        whenLabel: new Date(snoozedUntil).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+        whenLabel: new Date(snoozedUntil).toLocaleTimeString([], {
+          hour: "numeric",
+          minute: "2-digit",
+        }),
         snoozedUntil,
       })),
     ];
@@ -45,12 +51,15 @@ export function resolveThreadListV2SnoozeMenuSelection(input: {
 }) {
   if (input.event.startsWith("snooze:recent:")) {
     const preset = input.displayedPresets.find((choice) => input.event === `snooze:${choice.id}`);
-    if (!preset || Date.parse(preset.snoozedUntil) <= input.now.getTime()) return { _tag: "expired" } as const;
+    if (!preset || Date.parse(preset.snoozedUntil) <= input.now.getTime())
+      return { _tag: "expired" } as const;
     void history.remember(preset.snoozedUntil, input.now);
     return { _tag: "selected", preset } as const;
   }
   return resolveUpstreamSelection({
     ...input,
-    displayedPresets: input.displayedPresets.filter((choice): choice is SnoozePreset => !choice.id.startsWith("recent:")),
+    displayedPresets: input.displayedPresets.filter(
+      (choice): choice is SnoozePreset => !choice.id.startsWith("recent:"),
+    ),
   });
 }

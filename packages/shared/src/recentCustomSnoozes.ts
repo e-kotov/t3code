@@ -25,10 +25,14 @@ export function createRecentCustomSnoozeStore(storage: {
       .then(() => storage.getItem(RECENT_CUSTOM_SNOOZES_KEY))
       .then((raw) => {
         const parsed: unknown = raw ? JSON.parse(raw) : [];
-        current = Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+        current = Array.isArray(parsed)
+          ? parsed.filter((v): v is string => typeof v === "string")
+          : [];
         notify();
       })
-      .catch(() => { /* Unavailable/corrupt storage must not block snoozing. */ });
+      .catch(() => {
+        /* Unavailable/corrupt storage must not block snoozing. */
+      });
     return loading;
   };
   return {
@@ -37,7 +41,9 @@ export function createRecentCustomSnoozeStore(storage: {
     subscribe: (listener: () => void) => {
       listeners.add(listener);
       void load();
-      return () => { listeners.delete(listener); };
+      return () => {
+        listeners.delete(listener);
+      };
     },
     async remember(snoozedUntil: string, now: Date) {
       await load();
@@ -46,7 +52,10 @@ export function createRecentCustomSnoozeStore(storage: {
       const serialized = JSON.stringify(current);
       notify();
       // Keep hydration and writes ordered, including two selections made in quick succession.
-      writes = writes.then(() => storage.setItem(RECENT_CUSTOM_SNOOZES_KEY, serialized)).then(() => {}).catch(() => {});
+      writes = writes
+        .then(() => storage.setItem(RECENT_CUSTOM_SNOOZES_KEY, serialized))
+        .then(() => {})
+        .catch(() => {});
       await writes;
     },
   };

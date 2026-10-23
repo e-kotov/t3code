@@ -3,7 +3,10 @@ import {
   resolveCustomSnooze as resolveUpstreamCustomSnooze,
   type CustomSnoozeInput,
 } from "@t3tools/client-runtime/state/thread-settled";
-import { createRecentCustomSnoozeStore, recentCustomSnoozes } from "@t3tools/shared/recentCustomSnoozes";
+import {
+  createRecentCustomSnoozeStore,
+  recentCustomSnoozes,
+} from "@t3tools/shared/recentCustomSnoozes";
 import { MenuItem, MenuSeparator, MenuShortcut } from "./ui/menu";
 import { formatShortTimestamp } from "../timestampFormat";
 import type { TimestampFormat } from "@t3tools/contracts/settings";
@@ -26,17 +29,29 @@ export function RecentCustomSnoozeMenuItems(props: {
   const stored = useSyncExternalStore(history.subscribe, history.getSnapshot, history.getSnapshot);
   const choices = recentCustomSnoozes(stored, new Date());
   if (choices.length === 0) return null;
-  return <>
-    <MenuSeparator />
-    {choices.map((snoozedUntil) => <MenuItem key={snoozedUntil} onClick={(event) => {
-      event.stopPropagation();
-      const now = new Date();
-      if (Date.parse(snoozedUntil) <= now.getTime()) return;
-      void history.remember(snoozedUntil, now);
-      props.onSnooze({ snoozedUntil });
-    }}>
-      Recent: {new Date(snoozedUntil).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-      <MenuShortcut>{formatShortTimestamp(snoozedUntil, props.timestampFormat)}</MenuShortcut>
-    </MenuItem>)}
-  </>;
+  return (
+    <>
+      <MenuSeparator />
+      {choices.map((snoozedUntil) => (
+        <MenuItem
+          key={snoozedUntil}
+          onClick={(event) => {
+            event.stopPropagation();
+            const now = new Date();
+            if (Date.parse(snoozedUntil) <= now.getTime()) return;
+            void history.remember(snoozedUntil, now);
+            props.onSnooze({ snoozedUntil });
+          }}
+        >
+          Recent:{" "}
+          {new Date(snoozedUntil).toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
+          <MenuShortcut>{formatShortTimestamp(snoozedUntil, props.timestampFormat)}</MenuShortcut>
+        </MenuItem>
+      ))}
+    </>
+  );
 }

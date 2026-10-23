@@ -726,7 +726,10 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
     snoozable: canSnooze(thread, { now: snoozeGateNow }),
     snoozed: snoozedRow,
   });
-  const snoozePresets = useSnoozePresets(swipeActions.secondary === "snooze", props.snoozePresetMinute);
+  const snoozePresets = useSnoozePresets(
+    swipeActions.secondary === "snooze",
+    props.snoozePresetMinute,
+  );
   const snoozePresetActions = useMemo<MenuAction[]>(
     () => [
       ...snoozePresets.map((preset) => ({
