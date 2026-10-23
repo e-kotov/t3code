@@ -1,8 +1,5 @@
 import { collectAssistantCitations } from "@t3tools/shared/assistantCitations";
-import {
-  composerMathRanges,
-  type ComposerInlineToken,
-} from "@t3tools/shared/composerInlineTokens";
+import { composerMathRanges, type ComposerInlineToken } from "@t3tools/shared/composerInlineTokens";
 
 export function assistantCitationEditorTokens(
   text: string,
