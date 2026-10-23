@@ -1,3 +1,5 @@
+import * as DateTime from "effect/DateTime";
+
 export const RECENT_CUSTOM_SNOOZES_KEY = "t3code.ek.recent-custom-snoozes";
 
 /** Exact instants, newest selection first. Presets and durations never enter this history. */
@@ -6,7 +8,9 @@ export function recentCustomSnoozes(value: unknown, now: Date): ReadonlyArray<st
   const dates = value.flatMap((entry: unknown) => {
     if (typeof entry !== "string") return [];
     const ms = Date.parse(entry);
-    return Number.isFinite(ms) && ms > now.getTime() ? [new Date(ms).toISOString()] : [];
+    return Number.isFinite(ms) && ms > now.getTime()
+      ? [DateTime.formatIso(DateTime.makeUnsafe(ms))]
+      : [];
   });
   return [...new Set(dates)].slice(0, 3);
 }

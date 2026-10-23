@@ -1,7 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import { createRecentCustomSnoozeStore, recentCustomSnoozes } from "./recentCustomSnoozes.ts";
 
-const NOW = new Date("2026-10-23T12:00:00Z");
+const NOW = DateTime.toDate(DateTime.makeUnsafe("2026-10-23T12:00:00Z"));
 const dates = [
   "2026-10-24T12:00:00.000Z",
   "2026-10-25T12:00:00.000Z",
@@ -26,7 +27,7 @@ describe("recent custom snooze dates", () => {
       ),
     ).toEqual(dates.slice(0, 3));
     expect(recentCustomSnoozes({ dates }, NOW)).toEqual([]);
-    expect(recentCustomSnoozes(dates, new Date(dates[2]!))).toEqual([dates[3]]);
+    expect(recentCustomSnoozes(dates, DateTime.toDate(DateTime.makeUnsafe(dates[2]!)))).toEqual([dates[3]]);
   });
 
   it("hydrates before recording, promotes reused dates, and persists across store instances", async () => {
