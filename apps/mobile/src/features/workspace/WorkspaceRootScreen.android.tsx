@@ -21,7 +21,7 @@ import type { WorkspaceTab } from "./workspace-tabs-state";
 const TABS: readonly WorkspaceTab[] = ["threads", "pullRequests", "commands"];
 
 export function WorkspaceRootScreen() {
-  const { layout } = useAdaptiveWorkspaceLayout();
+  const { layout, startNewTask } = useAdaptiveWorkspaceLayout();
   const workspace = useWorkspaceTabs()!;
   const insets = useSafeAreaInsets();
   const { fabClearance } = useAndroidControlSizing();
@@ -88,7 +88,7 @@ export function WorkspaceRootScreen() {
             }
           />
         </SafeAreaInsetsContext>
-        <AndroidWorkspaceNavigation />
+        <AndroidWorkspaceNavigation onNewThread={startNewTask} />
       </View>
     </WorkspaceTabsContext>
   );

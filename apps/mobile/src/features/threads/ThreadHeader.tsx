@@ -1,5 +1,3 @@
-import { CacheHud } from "./CacheHud";
-import type { OrchestrationV2CacheHud, ServerProviderUsageWindow } from "@t3tools/contracts";
 import { useMemo } from "react";
 import { AppBar } from "../../components/ui/AppBar";
 import { ScreenHeaderButton } from "../../components/ui/ScreenHeaderButton";
@@ -12,9 +10,6 @@ import { PullRequestGlyph } from "../pull-requests/pullRequestGlyphs";
 
 export function ThreadHeader(
   props: Parameters<typeof useThreadHeaderOptions>[0] & {
-    readonly cacheHud?: OrchestrationV2CacheHud | null;
-    readonly usageWindows?: readonly ServerProviderUsageWindow[];
-    readonly modelLabel?: string;
     readonly hasThreadCwd: boolean;
     readonly hasWorkspaceRoot: boolean;
     readonly fileInspectorSupported: boolean;
@@ -25,7 +20,8 @@ export function ThreadHeader(
   },
 ) {
   const goBack = useWorkspaceBackNavigation("threads");
-  const { layout, panes, toggleAuxiliaryPane } = useAdaptiveWorkspaceLayout();
+  const { layout, panes, toggleAuxiliaryPane, composerKeyboardActive } =
+    useAdaptiveWorkspaceLayout();
   const { onOpenTerminal, onMergeBack } = props.gitControls;
   const native = useThreadHeaderOptions(props);
   const androidHeaderActions = useMemo<ReadonlyArray<AppBarAction>>(() => {
@@ -105,11 +101,7 @@ export function ThreadHeader(
         onBack={layout.usesSplitView ? undefined : goBack}
         actions={androidHeaderActions}
         hideBottomBorder
-      />
-      <CacheHud
-        hud={props.cacheHud}
-        usageWindows={props.usageWindows}
-        modelLabel={props.modelLabel}
+        compact={composerKeyboardActive}
       />
       {native.fallback}
     </>

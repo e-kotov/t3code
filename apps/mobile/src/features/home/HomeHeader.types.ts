@@ -8,7 +8,6 @@ import type { ConversationListControls } from "./conversationListOptions";
 export type HomeHeaderEnvironment = HomeListFilterMenuEnvironment;
 
 export interface HomeHeaderProps extends ConversationListControls {
-  readonly usesWorkspaceToolbar?: boolean;
   readonly environments: ReadonlyArray<HomeHeaderEnvironment>;
   readonly projects: ReadonlyArray<HomeListFilterMenuProject>;
   readonly searchQuery: string;

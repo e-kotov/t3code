@@ -127,7 +127,7 @@ export interface EnvironmentSupervisorOptions {
   readonly learnLabel?: (label: string) => Effect.Effect<Option.Option<ConnectionCatalogEntry>>;
 }
 
-export function retryDelayMs(failureCount: number, random: number): number {
+function retryDelayMs(failureCount: number, random: number): number {
   const ceiling = Math.min(RETRY_MAX_DELAY_MS, RETRY_BASE_DELAY_MS * 2 ** (failureCount + 1));
   return Math.round(ceiling / 2 + (ceiling / 2) * random);
 }
