@@ -249,8 +249,9 @@ it.effect(
       const threadId = ThreadId.make("thread:cache-policy-recheck");
       yield* orchestrator.dispatch(createThread(threadId));
       const stale = warmCommand(threadId, "command:cache-warm:old-opt-in");
-      const result = yield* Effect.exit(orchestrator.dispatch(stale));
-      assert.equal(result._tag, "Failure");
+      const result = yield* Effect.flip(orchestrator.dispatch(stale));
+      assert.equal(result._tag, "OrchestratorDispatchError");
+      assert.propertyVal(result.cause, "_tag", "ThreadCachePolicyChanged");
       assert.isEmpty((yield* projections.getThreadProjection(threadId)).messages);
       yield* orchestrator.dispatch({
         ...warmCommand(threadId, "manual:user-message"),

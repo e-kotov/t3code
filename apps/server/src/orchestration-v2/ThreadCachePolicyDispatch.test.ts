@@ -142,7 +142,6 @@ function records(
   };
 }
 
-
 function compactCommand(): Extract<OrchestrationV2Command, { type: "message.dispatch" }> {
   return {
     type: "message.dispatch",

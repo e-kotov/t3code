@@ -40,7 +40,6 @@ export function backgroundCacheCommandAllowed(
   );
 }
 
-
 class ThreadCachePolicyChanged extends Schema.TaggedError<ThreadCachePolicyChanged>()(
   "ThreadCachePolicyChanged",
   {},

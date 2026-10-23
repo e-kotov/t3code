@@ -4818,7 +4818,10 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
     effects: Ref.Ref<Array<PendingOrchestrationEffectV2>>,
   ) {
     let projection = yield* getProjectionWithPendingEvents(command.threadId, events);
-    yield* checkBackgroundCachePolicy(command, projection).pipe(mapDispatchError(command));
+    yield* checkBackgroundCachePolicy(command, projection).pipe(
+      Effect.provideService(ServerSettings.ServerSettingsService, serverSettings),
+      mapDispatchError(command),
+    );
     if (
       command.dispatchMode.type === "start_if_idle" &&
       unsafeCacheWarmingDispatch({
