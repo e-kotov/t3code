@@ -64,7 +64,7 @@
     "apps/server/src/server.ts": 7,
     "apps/server/src/telemetry/AnalyticsService.ts": 7,
     "apps/server/src/ws.ts": 15,
-    "apps/web/src/components/ChatMarkdown.tsx": 10,
+    "apps/web/src/components/ChatMarkdown.tsx": 11,
     "apps/web/src/components/ChatView.tsx": 3,
     "apps/web/src/components/CommandPalette.tsx": 5,
     "apps/web/src/components/LegacySidebar.tsx": 13,
