@@ -99,17 +99,17 @@ export function ThreadCachePolicyControl({ thread }: { readonly thread: CacheThr
           strokeLinejoin="round"
         >
           <Defs>
-          <ClipPath id={maskId}>
-            <Path
-              d={CACHE_CHIP_CLIPS[menu.policy]}
-              clipRule="evenodd"
-              fillRule="evenodd"
-              fill={color}
-            />
-          </ClipPath>
-        </Defs>
-        <Path d={CACHE_CHIP_PATH} clipPath={`url(#${maskId})`} />
-        <Path d={CACHE_CHIP_MODIFIERS[menu.policy]} />
+            <ClipPath id={maskId}>
+              <Path
+                d={CACHE_CHIP_CLIPS[menu.policy]}
+                clipRule="evenodd"
+                fillRule="evenodd"
+                fill={color}
+              />
+            </ClipPath>
+          </Defs>
+          <Path d={CACHE_CHIP_PATH} clipPath={`url(#${maskId})`} />
+          <Path d={CACHE_CHIP_MODIFIERS[menu.policy]} />
         </Svg>
       </Pressable>
     </Menu>

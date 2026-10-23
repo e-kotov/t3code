@@ -108,11 +108,7 @@ export function ThreadCachePolicyMenu(props: {
         >
           <MenuGroupLabel>Idle cache policy</MenuGroupLabel>
           {cachePolicyChoices(props.driver).map((choice) => (
-            <MenuRadioItem
-              key={choice.value}
-              value={choice.value}
-              onClick={() => setOpen(false)}
-            >
+            <MenuRadioItem key={choice.value} value={choice.value} onClick={() => setOpen(false)}>
               <span className="flex max-w-72 flex-col">
                 <span>{choice.label}</span>
                 <span className="text-xs text-muted-foreground">{choice.description}</span>
