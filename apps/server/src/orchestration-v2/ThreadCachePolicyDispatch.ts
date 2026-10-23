@@ -2,6 +2,11 @@ import type { OrchestrationV2Command, ServerSettings as Settings } from "@t3tool
 import { resolveThreadIdleCompaction, threadCachePolicy } from "@t3tools/shared/threadCachePolicy";
 import { idleCompactionWindow, type IdleCompactionRecords } from "./IdleCompaction.ts";
 
+import * as DateTime from "effect/DateTime";
+import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
+import * as ServerSettings from "../serverSettings.ts";
+
 type MessageDispatch = Extract<OrchestrationV2Command, { readonly type: "message.dispatch" }>;
 
 export function isBackgroundCacheCommand(command: MessageDispatch) {
@@ -35,10 +40,6 @@ export function backgroundCacheCommandAllowed(
   );
 }
 
-import * as DateTime from "effect/DateTime";
-import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
-import * as ServerSettings from "../serverSettings.ts";
 
 class ThreadCachePolicyChanged extends Schema.TaggedError<ThreadCachePolicyChanged>()(
   "ThreadCachePolicyChanged",

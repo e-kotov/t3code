@@ -17,6 +17,12 @@ import * as DateTime from "effect/DateTime";
 
 import { type IdleCompactionRecords } from "./IdleCompaction.ts";
 
+import { applyServerSettingsPatch } from "@t3tools/shared/serverSettings";
+import {
+  backgroundCacheCommandAllowed,
+  isBackgroundCacheCommand,
+} from "./ThreadCachePolicyDispatch.ts";
+
 const NOW_MS = Date.parse("2026-10-19T12:00:00.000Z");
 const MINUTE_MS = 60_000;
 const at = (offset = 0) => DateTime.makeUnsafe(NOW_MS + offset);
@@ -136,11 +142,6 @@ function records(
   };
 }
 
-import { applyServerSettingsPatch } from "@t3tools/shared/serverSettings";
-import {
-  backgroundCacheCommandAllowed,
-  isBackgroundCacheCommand,
-} from "./ThreadCachePolicyDispatch.ts";
 
 function compactCommand(): Extract<OrchestrationV2Command, { type: "message.dispatch" }> {
   return {
