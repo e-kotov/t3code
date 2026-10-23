@@ -1,6 +1,6 @@
 import { expect, it } from "vite-plus/test";
 import { DEFAULT_SERVER_SETTINGS } from "@t3tools/contracts";
-import { applyServerSettingsPatch } from "./serverSettings";
+import { applyServerSettingsPatch } from "./serverSettings.ts";
 
 it("keeps cache warming off by default and merges per-thread opt-ins", () => {
     expect(DEFAULT_SERVER_SETTINGS.cacheWarmingEnabled).toBe(false);

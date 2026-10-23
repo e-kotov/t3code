@@ -1,4 +1,4 @@
-import type { EnvironmentServerConfig } from "@t3tools/client-runtime/connection";
+import type { ServerConfig } from "@t3tools/contracts";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import type { ComponentProps } from "react";
 import { CacheHud } from "./CacheHud";
@@ -10,7 +10,7 @@ export function CacheThreadHeader({
   ...props
 }: ComponentProps<typeof ThreadHeader> & {
   readonly cacheThread: Pick<EnvironmentThreadShell, "cacheHud" | "modelSelection">;
-  readonly cacheServerConfig: EnvironmentServerConfig | null;
+  readonly cacheServerConfig: ServerConfig | null;
 }) {
   return (
     <>

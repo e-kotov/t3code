@@ -436,8 +436,8 @@ export interface ChatComposerProps {
   activeTasksProgress: ComposerTasksProgress | null;
   activeTaskSteps: readonly ComposerTaskStep[] | null;
   threadSyncPhase: ThreadSyncPhase | null;
-  cacheHud?: ComponentProps<typeof CacheHud>["hud"];
-  usageWindows?: ComponentProps<typeof CacheHud>["usageWindows"];
+  cacheHud?: Parameters<typeof CacheHud>[0]["hud"];
+  usageWindows?: Parameters<typeof CacheHud>[0]["usageWindows"];
 
   runtimeMode: RuntimeMode;
   interactionMode: ProviderInteractionMode;

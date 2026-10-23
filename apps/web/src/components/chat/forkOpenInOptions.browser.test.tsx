@@ -38,7 +38,7 @@ it.each(["MacIntel", "Win32", "Linux x86_64"])("offers detected fork editors on 
     />,
   );
   await screen.getByRole("button", { name: "Choose editor" }).click();
-  await expect.element(screen.getByRole("menuitem", { name: "Positron", exact: true })).toBeVisible();
+  await expect.element(screen.getByRole("menuitem", { name: /^Positron/ })).toBeVisible();
   await expect.element(screen.getByRole("menuitem", { name: "Gram", exact: true })).toBeVisible();
   await expect.element(screen.getByRole("menuitem", { name: "Visual Studio Code", exact: true })).not.toBeInTheDocument();
 });

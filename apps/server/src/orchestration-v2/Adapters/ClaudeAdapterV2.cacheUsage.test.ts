@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import { ProviderInstanceId, type ModelSelection } from "@t3tools/contracts";
-import * as ClaudeAdapterV2 from "./ClaudeAdapterV2";
+import * as ClaudeAdapterV2 from "./ClaudeAdapterV2.ts";
 
 const CLAUDE_TEST_MODEL_SELECTION: ModelSelection = {
   instanceId: ProviderInstanceId.make("claude-test"),
