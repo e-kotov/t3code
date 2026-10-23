@@ -74,7 +74,7 @@ case "$cmd" in
     status=0
     for package in packages/contracts packages/shared packages/client-runtime apps/server apps/web apps/mobile apps/desktop; do
       echo "::group::$package typecheck"
-      (cd "$package" && vp exec tsc-rs --noEmit) || status=1
+      (cd "$package" && vp run typecheck) || status=1
       echo "::endgroup::"
     done
     # Tests the fork added or changed, run from each package so its own Vitest config applies.

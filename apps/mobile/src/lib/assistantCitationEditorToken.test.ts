@@ -36,7 +36,7 @@ it("truncates a long quote and leaves an uncommented quote detail empty", () => 
 });
 
 it("leaves upstream mention presentation intact", () => {
-  const [token] = collectComposerInlineTokens("@src/main.ts ");
+  const [token] = collectComposerInlineTokens('@"src/main.ts" ');
   if (!token) throw new Error("Missing mention token");
   expect(assistantCitationEditorToken(token)).toEqual({});
 });
