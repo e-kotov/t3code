@@ -1,4 +1,3 @@
-import { useDeviceCommandPaletteItems } from "../deviceCommands/useDeviceCommandPaletteItems";
 import { threadPullRequestLinkMode } from "@t3tools/client-runtime/thread-pull-request-compatibility";
 import { visibleThreadPullRequests } from "@t3tools/shared/threadPullRequests";
 
@@ -205,6 +204,7 @@ import {
   sourceControlHostIcon,
 } from "./CommandPaletteAddProject";
 import { useCommandPaletteThreadItems } from "./CommandPaletteThreadItems";
+import { useDeviceCommandPaletteItems } from "../deviceCommands/useDeviceCommandPaletteItems";
 import {
   APPEARANCE_OPTIONS,
   notifyThemeSaveFailure,
@@ -1184,9 +1184,8 @@ function OpenCommandPaletteDialog(props: {
     if (firstOption) startNewProject(firstOption.environmentId, null);
   };
 
-  const actionItems: Array<CommandPaletteActionItem | CommandPaletteSubmenuItem> = [
-    ...useDeviceCommandPaletteItems(),
-  ];
+  const actionItems: Array<CommandPaletteActionItem | CommandPaletteSubmenuItem> =
+    useDeviceCommandPaletteItems();
 
   if (projects.length > 0) {
     const activeProjectTitle =

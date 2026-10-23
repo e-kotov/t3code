@@ -5,12 +5,16 @@ import {
   ProjectId,
   ProviderDriverKind,
   ProviderInstanceId,
+  ProviderThreadId,
+  type OrchestrationV2ThreadProjection,
   ThreadId,
 } from "@t3tools/contracts";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import { CodexProviderCapabilitiesV2 } from "./Adapters/CodexAdapterV2.ts";
+import { unsafeCacheWarmingDispatch } from "./CacheWarmingDispatchGuard.ts";
 import * as Orchestrator from "./Orchestrator.ts";
 import * as ProjectionStore from "./ProjectionStore.ts";
 import * as ProviderAdapterRegistry from "./ProviderAdapterRegistry.ts";
@@ -95,6 +99,9 @@ it.effect(
         orchestrator.dispatch(warmCommand(threadId, "cache-warm-active-race")),
       );
       assert.equal(activeRace._tag, "Failure");
+      const afterRejection = yield* projections.getThreadProjection(threadId);
+      assert.deepEqual(afterRejection.messages, projection.messages);
+      assert.deepEqual(afterRejection.runs, projection.runs);
 
       const switchedThread = ThreadId.make("thread:cache-warm-model-race");
       yield* orchestrator.dispatch(createThread(switchedThread));
@@ -108,6 +115,15 @@ it.effect(
       );
       assert.equal(modelRace._tag, "Failure");
 
+      const providerRace = yield* Effect.exit(
+        orchestrator.dispatch({
+          ...warmCommand(switchedThread, "cache-warm-provider-race"),
+          expectedActiveProviderThreadId: ProviderThreadId.make("stale-provider-thread"),
+        }),
+      );
+      assert.equal(providerRace._tag, "Failure");
+      assert.isEmpty((yield* projections.getThreadProjection(switchedThread)).messages);
+
       const archivedThread = ThreadId.make("thread:cache-warm-archived-race");
       yield* orchestrator.dispatch(createThread(archivedThread));
       yield* orchestrator.dispatch({
@@ -120,4 +136,47 @@ it.effect(
       );
       assert.equal(archivedRace._tag, "Failure");
     }).pipe(Effect.provide(layerTest)),
+);
+
+it.effect("rechecks queued runs, run failures and background work from the current projection", () =>
+  Effect.gen(function* () {
+    const orchestrator = yield* Orchestrator.OrchestratorV2;
+    const projections = yield* ProjectionStore.ProjectionStoreV2;
+    const threadId = ThreadId.make("thread:cache-warm-projection-guard");
+    yield* orchestrator.dispatch(createThread(threadId));
+    yield* orchestrator.dispatch(warmCommand(threadId, "cache-warm-projection-fixture"));
+    const projection = yield* projections.getThreadProjection(threadId);
+    const run = projection.runs[0]!;
+    const item = projection.turnItems[0]!;
+    const now = DateTime.makeUnsafe(0);
+    const completedRun = { ...run, status: "completed" as const, completedAt: now };
+    const idle = { ...projection, runs: [completedRun] };
+    const rejects = (current: OrchestrationV2ThreadProjection) =>
+      unsafeCacheWarmingDispatch({
+        projection: current,
+        command: warmCommand(threadId, "cache-warm-projection-recheck"),
+        activeRun: undefined,
+      });
+    assert.isFalse(rejects(idle));
+    assert.isTrue(rejects({ ...idle, runs: [{ ...completedRun, status: "failed" }] }));
+    assert.isTrue(rejects({ ...idle, runs: [{ ...completedRun, status: "interrupted" }] }));
+    assert.isTrue(rejects({ ...idle, runs: [{ ...completedRun, status: "queued" }] }));
+
+    const background = {
+      ...item,
+      type: "command_execution" as const,
+      input: "background work",
+      status: "running" as const,
+      runId: run.id,
+    };
+    assert.isTrue(rejects({ ...idle, turnItems: [background] }));
+    // Upstream excludes rolled-back work from its pending-work policy.
+    assert.isFalse(
+      rejects({
+        ...idle,
+        runs: [{ ...completedRun, status: "rolled_back" }],
+        turnItems: [background],
+      }),
+    );
+  }).pipe(Effect.provide(layerTest)),
 );

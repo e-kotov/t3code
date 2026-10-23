@@ -1,4 +1,3 @@
-import { unsafeCacheWarmingDispatch } from "./CacheWarmingDispatchGuard.ts";
 import type {
   OrchestrationV2SearchThreadInput,
   OrchestrationV2SearchThreadResult,
@@ -82,6 +81,7 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
 import * as ProjectStore from "./ProjectStore.ts";
+import { unsafeCacheWarmingDispatch } from "./CacheWarmingDispatchGuard.ts";
 import {
   isCheckpointRestoreIsolated,
   SHARED_WORKSPACE_RESTORE_MESSAGE,
@@ -5238,17 +5238,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
     const activeRun = projection.runs.find(isBlockingRun);
     if (
       dispatchMode.type === "start_if_idle" &&
-      unsafeCacheWarmingDispatch({
-        projection,
-        command,
-        activeRun,
-        latestRun: latestExecutedRun(projection.runs),
-        hasPendingBackgroundWork:
-          pendingBackgroundTurnItems({ turnItems: projection.turnItems, runs: projection.runs })
-            .length > 0,
-        hasProviderFailure:
-          latestRootProviderFailure(latestExecutedRun(projection.runs) ?? null, projection.turnItems) !== null,
-      })
+      unsafeCacheWarmingDispatch({ projection, command, activeRun })
     ) {
       return yield* new OrchestratorDispatchError({
         commandId: command.commandId,

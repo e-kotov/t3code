@@ -1,7 +1,3 @@
-import { arrangeMobileConversationList } from "../threads/machineGroupedThreadList";
-import { renderMachineGroupHeader } from "../threads/MachineGroupHeader";
-import { useConversationMachineOrder } from "../threads/useConversationMachineOrder";
-import type { ConversationListControls } from "./conversationListOptions";
 import { useActiveNewTask } from "../../state/active-new-task";
 import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
@@ -96,6 +92,10 @@ import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-sw
 import { useFabScroll } from "./FabScrollContext";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { ConversationThreadListFilters as ThreadListFilters } from "./ConversationThreadListFilters";
+import { arrangeMobileConversationList } from "../threads/machineGroupedThreadList";
+import { renderMachineGroupHeader } from "../threads/MachineGroupHeader";
+import { useConversationMachineOrder } from "../threads/useConversationMachineOrder";
+import type { ConversationListControls } from "./conversationListOptions";
 
 interface HomeScreenProps extends ConversationListControls {
   readonly projects: ReadonlyArray<EnvironmentProject>;

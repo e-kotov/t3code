@@ -42,13 +42,14 @@ gh workflow run upstream-sync.yml -R e-kotov/t3code -f branch=sync/upstream-$(da
 ```
 
 When the run is green, `git pull` on `main`. The same path checks any other fork commit made
-without local dependencies. `VP_GIT_HOOKS=0` also skips `vp fmt`, and the checks do not run
-the formatter, so keep resolutions in the surrounding style.
+without local dependencies. `VP_GIT_HOOKS=0` skips local formatting; GitHub checks the
+committed files with the repository formatter.
 
 Changed syncs also run `vp run check:changed` against
 `origin/main`, including formatting, lint, knip, affected-package typechecks and adjacent
-tests. Manual promotions check formatting before browser setup. Failed manual checks upload a
-`fork-format-fixes` patch artifact; apply any needed formatter changes locally and rerun.
+tests. All changed syncs check formatting before browser setup. Failed changed syncs upload a
+`fork-format-fixes` patch artifact when the formatter is available; apply any needed changes
+locally, review the diff and rerun.
 The runner never promotes uncommitted formatter changes.
 
 Keep fork logic in fork-owned files with small mount points in upstream files; this keeps

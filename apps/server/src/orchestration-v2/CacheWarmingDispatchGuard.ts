@@ -4,23 +4,23 @@ import type {
   OrchestrationV2ThreadProjection,
 } from "@t3tools/contracts";
 import { modelSelectionsEqual } from "@t3tools/shared/model";
+import {
+  latestExecutedRun,
+  latestRootProviderFailure,
+} from "@t3tools/shared/orchestrationV2ThreadError";
+import { pendingBackgroundTurnItems } from "@t3tools/shared/orchestrationV2PendingBackgroundWork";
 
 /** Recheck the warmer's snapshot inside serialized dispatch, after other commands ran. */
 export function unsafeCacheWarmingDispatch({
   projection,
   command,
   activeRun,
-  latestRun,
-  hasPendingBackgroundWork,
-  hasProviderFailure,
 }: {
   readonly projection: OrchestrationV2ThreadProjection;
   readonly command: Extract<OrchestrationV2Command, { readonly type: "message.dispatch" }>;
   readonly activeRun: OrchestrationV2Run | undefined;
-  readonly latestRun: OrchestrationV2Run | null | undefined;
-  readonly hasPendingBackgroundWork: boolean;
-  readonly hasProviderFailure: boolean;
 }): boolean {
+  const latestRun = latestExecutedRun(projection.runs);
   return (
     activeRun !== undefined ||
     projection.thread.settledOverride === "settled" ||
@@ -32,8 +32,8 @@ export function unsafeCacheWarmingDispatch({
     projection.providerThreads.some(
       (providerThread) => (providerThread.pendingBackgroundTasks?.length ?? 0) > 0,
     ) ||
-    hasPendingBackgroundWork ||
-    hasProviderFailure ||
+    pendingBackgroundTurnItems(projection).length > 0 ||
+    latestRootProviderFailure(latestRun, projection.turnItems) !== null ||
     latestRun?.status === "failed" ||
     latestRun?.status === "interrupted" ||
     (command.expectedActiveProviderThreadId !== undefined &&
