@@ -86,8 +86,7 @@ case "$cmd" in
     cat >> "$RUNNER_TEMP/fork-tests.txt" <<'TESTS'
 apps/desktop src/electron/ElectronShell.test.ts
 apps/mobile src/reactCompilerCoverage.test.ts
-apps/mobile src/features/home/home-list-filter-menu.test.ts
-apps/mobile src/features/home/home-list-options.test.ts
+apps/mobile src/features/home/homeThreadList.test.ts
 apps/mobile src/features/settings/SettingsRouteScreen.logic.test.ts
 apps/mobile src/features/threads/threadListV2.test.ts
 apps/mobile src/features/workspace/workspace-tabs-state.test.ts
@@ -102,6 +101,7 @@ apps/web src/components/Sidebar.drag.test.ts
 apps/web src/components/Sidebar.pointer.browser.test.tsx
 apps/web src/editorPreferences.test.ts
 apps/web src/lib/threadSort.test.ts
+packages/client-runtime src/rpc/session.test.ts
 packages/client-runtime src/state/threadSort.test.ts
 packages/shared src/composerInlineTokens.test.ts
 TESTS
