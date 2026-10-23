@@ -21,3 +21,21 @@ export function backgroundCacheCommandAllowed(settings: ServerSettings, projecti
     !projection.runs.some((run) => run.status === "queued") &&
     command.commandId === `server:idle-compact:${command.threadId}:${window.runId}`;
 }
+
+import * as DateTime from "effect/DateTime";
+import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
+import * as ServerSettings from "../serverSettings.ts";
+
+class ThreadCachePolicyChanged extends Schema.TaggedError<ThreadCachePolicyChanged>()("ThreadCachePolicyChanged", {}) {}
+
+export const checkBackgroundCachePolicy = Effect.fn("ThreadCachePolicyDispatch.check")(
+  function* (command: MessageDispatch, projection: IdleCompactionRecords) {
+    if (!isBackgroundCacheCommand(command)) return;
+    const settings = yield* ServerSettings.ServerSettingsService;
+    const current = yield* settings.getSettings;
+    if (!backgroundCacheCommandAllowed(current, projection, command, DateTime.toEpochMillis(yield* DateTime.now))) {
+      return yield* new ThreadCachePolicyChanged();
+    }
+  },
+);
