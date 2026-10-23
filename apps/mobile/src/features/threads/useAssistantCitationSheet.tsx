@@ -121,11 +121,20 @@ export function useAssistantCitationSheet(input: {
       draft: draftKey === null ? "" : getComposerDraftSnapshot(draftKey).text,
       comment,
     };
-    const result = pending.mode === "create"
-      ? prepareAssistantCitationInsertion({ ...currentDraft, pending, canInsert: current.canInsert })
-      : action === "remove"
-        ? prepareAssistantCitationRemoval({ ...currentDraft, pending, canEdit: current.canInsert })
-        : prepareAssistantCitationEdit({ ...currentDraft, pending, canEdit: current.canInsert });
+    const result =
+      pending.mode === "create"
+        ? prepareAssistantCitationInsertion({
+            ...currentDraft,
+            pending,
+            canInsert: current.canInsert,
+          })
+        : action === "remove"
+          ? prepareAssistantCitationRemoval({
+              ...currentDraft,
+              pending,
+              canEdit: current.canInsert,
+            })
+          : prepareAssistantCitationEdit({ ...currentDraft, pending, canEdit: current.canInsert });
     if ("error" in result) return result.error;
     current.onChangeDraftMessage(result.value);
     const selection = { start: result.cursor, end: result.cursor };

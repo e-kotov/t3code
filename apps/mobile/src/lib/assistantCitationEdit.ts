@@ -37,11 +37,14 @@ export function captureAssistantCitationEdit(input: {
     end <= start ||
     end > input.draft.length ||
     input.draft.slice(start, end) !== source
-  ) return null;
+  )
+    return null;
   return { ...input, selection: { ...input.selection }, citation } as const;
 }
 
-export type PendingAssistantCitationEdit = NonNullable<ReturnType<typeof captureAssistantCitationEdit>>;
+export type PendingAssistantCitationEdit = NonNullable<
+  ReturnType<typeof captureAssistantCitationEdit>
+>;
 
 interface AssistantCitationEditInput {
   readonly pending: PendingAssistantCitationEdit;
@@ -69,15 +72,19 @@ function editTargetError(input: AssistantCitationEditInput): string | null {
   return null;
 }
 
-export function prepareAssistantCitationEdit(input: AssistantCitationEditInput & {
-  readonly comment: string;
-}): { readonly error: string } | { readonly value: string; readonly cursor: number } {
+export function prepareAssistantCitationEdit(
+  input: AssistantCitationEditInput & {
+    readonly comment: string;
+  },
+): { readonly error: string } | { readonly value: string; readonly cursor: number } {
   const targetError = editTargetError(input);
   if (targetError) return { error: targetError };
   const { pending } = input;
   const commentError = assistantCitationCommentError(input.comment);
   if (commentError) return { error: commentError };
-  const marker = serializeAssistantCitation(withAssistantCitationComment(pending.citation, input.comment));
+  const marker = serializeAssistantCitation(
+    withAssistantCitationComment(pending.citation, input.comment),
+  );
   const { start, end } = pending.selection;
   const value = `${input.draft.slice(0, start)}${marker}${input.draft.slice(end)}`;
   const lengthError = assistantCitationPromptLengthError(value);

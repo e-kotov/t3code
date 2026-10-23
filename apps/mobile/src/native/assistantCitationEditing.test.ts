@@ -1,14 +1,21 @@
 import { EnvironmentId, MessageId, ThreadId } from "@t3tools/contracts";
 import { serializeAssistantCitation } from "@t3tools/shared/assistantCitations";
 import { expect, it, vi } from "vite-plus/test";
-import { addAssistantCitationEditListener, requestAssistantCitationEdit } from "./assistantCitationEditing";
+import {
+  addAssistantCitationEditListener,
+  requestAssistantCitationEdit,
+} from "./assistantCitationEditing";
 
 const source = serializeAssistantCitation({
   version: 1,
   environmentId: EnvironmentId.make("source-environment"),
   threadId: ThreadId.make("source-thread"),
   messageId: MessageId.make("message-1"),
-  text: "quoted text", start: 0, end: 11, prefix: "", suffix: "",
+  text: "quoted text",
+  start: 0,
+  end: 11,
+  prefix: "",
+  suffix: "",
 });
 const selection = { source, start: 5, end: 5 + source.length };
 
@@ -21,7 +28,9 @@ it("opens editing only for the composer that owns the tap", () => {
     expect(listener).not.toHaveBeenCalled();
     expect(requestAssistantCitationEdit("draft-1", selection, {}, false)).toBe(true);
     expect(listener).toHaveBeenCalledExactlyOnceWith(selection);
-  } finally { subscription.remove(); }
+  } finally {
+    subscription.remove();
+  }
 });
 
 it.each([
@@ -34,16 +43,22 @@ it.each([
   try {
     expect(requestAssistantCitationEdit("draft-1", selection, editor, importing)).toBe(true);
     expect(listener).not.toHaveBeenCalled();
-  } finally { subscription.remove(); }
+  } finally {
+    subscription.remove();
+  }
 });
 
 it("leaves other chip types to the existing context handler", () => {
   const listener = vi.fn();
   const subscription = addAssistantCitationEditListener("draft-1", listener);
   try {
-    expect(requestAssistantCitationEdit("draft-1", { source: "@file.ts", start: 0, end: 8 }, {}, false)).toBe(false);
+    expect(
+      requestAssistantCitationEdit("draft-1", { source: "@file.ts", start: 0, end: 8 }, {}, false),
+    ).toBe(false);
     expect(listener).not.toHaveBeenCalled();
-  } finally { subscription.remove(); }
+  } finally {
+    subscription.remove();
+  }
 });
 
 it("does not let a stale cleanup remove a replacement composer subscription", () => {
@@ -55,6 +70,8 @@ it("does not let a stale cleanup remove a replacement composer subscription", ()
     old.remove();
     expect(requestAssistantCitationEdit("draft-1", selection, {}, false)).toBe(true);
     expect(listener).toHaveBeenCalledExactlyOnceWith(selection);
-  } finally { next.remove(); }
+  } finally {
+    next.remove();
+  }
   expect(requestAssistantCitationEdit("draft-1", selection, {}, false)).toBe(false);
 });

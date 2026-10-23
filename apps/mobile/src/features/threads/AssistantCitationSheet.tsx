@@ -11,7 +11,9 @@ export function AssistantCitationSheet(props: {
   readonly onSubmit: (comment: string) => string | null;
   readonly onRemove?: () => string | null;
 }) {
-  const [comment, setComment] = useState(props.mode === "edit" ? props.citation.comment ?? "" : "");
+  const [comment, setComment] = useState(
+    props.mode === "edit" ? (props.citation.comment ?? "") : "",
+  );
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const commentError = assistantCitationCommentError(comment);
   const error = submissionError ?? commentError;

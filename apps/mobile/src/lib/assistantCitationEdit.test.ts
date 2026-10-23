@@ -49,9 +49,14 @@ function fixture(quote = citation, prefix = "before 💡 ", suffix = " after") {
 describe("editing a citation comment", () => {
   it("updates the comment in place and preserves the quote, source and surrounding text", () => {
     const input = fixture();
-    const marker = serializeAssistantCitation(withAssistantCitationComment(citation, input.comment));
+    const marker = serializeAssistantCitation(
+      withAssistantCitationComment(citation, input.comment),
+    );
     const result = prepareAssistantCitationEdit(input);
-    expect(result).toEqual({ value: `before 💡 ${marker} after`, cursor: "before 💡 ".length + marker.length });
+    expect(result).toEqual({
+      value: `before 💡 ${marker} after`,
+      cursor: "before 💡 ".length + marker.length,
+    });
     if ("error" in result) throw new Error(result.error);
     expect(collectAssistantCitations(result.value).map((quote) => quote.citation)).toEqual([
       { ...citation, comment: "New comment" },
@@ -79,7 +84,8 @@ describe("editing a citation comment", () => {
     const result = prepareAssistantCitationEdit(input);
     if ("error" in result) throw new Error(result.error);
     expect(collectAssistantCitations(result.value).map((quote) => quote.citation.comment)).toEqual([
-      "Old comment", "New comment",
+      "Old comment",
+      "New comment",
     ]);
     expect(result.value.startsWith(`${original} between `)).toBe(true);
   });
@@ -94,14 +100,18 @@ describe("editing a citation comment", () => {
     expect(prepareAssistantCitationEdit({ ...fixture(), ...change })).toHaveProperty("error");
   });
 
-  it.each(["prefix", "suffix", "deleted", "duplicate"]) (
+  it.each(["prefix", "suffix", "deleted", "duplicate"])(
     "refuses to overwrite a draft changed in the background: %s",
     (change) => {
       const input = fixture();
-      const draft = change === "prefix" ? `new ${input.draft}`
-        : change === "suffix" ? `${input.draft} new`
-        : change === "deleted" ? ""
-        : input.draft + input.pending.selection.source;
+      const draft =
+        change === "prefix"
+          ? `new ${input.draft}`
+          : change === "suffix"
+            ? `${input.draft} new`
+            : change === "deleted"
+              ? ""
+              : input.draft + input.pending.selection.source;
       expect(prepareAssistantCitationEdit({ ...input, draft })).toEqual({
         error: "The draft changed. Close this sheet and tap the quote again.",
       });
@@ -109,26 +119,38 @@ describe("editing a citation comment", () => {
   );
 
   it("checks the trimmed comment limit", () => {
-    expect(prepareAssistantCitationEdit({
-      ...fixture(), comment: "x".repeat(ASSISTANT_CITATION_MAX_COMMENT_LENGTH + 1),
-    })).toHaveProperty("error");
-    expect(prepareAssistantCitationEdit({
-      ...fixture(), comment: `  ${"x".repeat(ASSISTANT_CITATION_MAX_COMMENT_LENGTH)}  `,
-    })).toHaveProperty("value");
+    expect(
+      prepareAssistantCitationEdit({
+        ...fixture(),
+        comment: "x".repeat(ASSISTANT_CITATION_MAX_COMMENT_LENGTH + 1),
+      }),
+    ).toHaveProperty("error");
+    expect(
+      prepareAssistantCitationEdit({
+        ...fixture(),
+        comment: `  ${"x".repeat(ASSISTANT_CITATION_MAX_COMMENT_LENGTH)}  `,
+      }),
+    ).toHaveProperty("value");
   });
 
   it("rejects an edit whose encoded marker exceeds the prompt cap", () => {
     const quote = { ...citation, text: "漢".repeat(8000), end: 8007, comment: "" };
-    expect(prepareAssistantCitationEdit({ ...fixture(quote), comment: "漢".repeat(8000) })).toHaveProperty("error");
+    expect(
+      prepareAssistantCitationEdit({ ...fixture(quote), comment: "漢".repeat(8000) }),
+    ).toHaveProperty("error");
   });
 
   it("checks expanded length even when the raw edited draft is below the cap", () => {
     const quote = { ...citation, text: "<>".repeat(4000), end: 8007, comment: "" };
     const comment = "<>".repeat(4000);
     const marker = serializeAssistantCitation(withAssistantCitationComment(quote, comment));
-    const prefix = "x".repeat(PROVIDER_SEND_TURN_MAX_INPUT_CHARS - expandAssistantCitationsForProvider(marker).length + 1);
+    const prefix = "x".repeat(
+      PROVIDER_SEND_TURN_MAX_INPUT_CHARS - expandAssistantCitationsForProvider(marker).length + 1,
+    );
     expect(prefix.length + marker.length).toBeLessThan(PROVIDER_SEND_TURN_MAX_INPUT_CHARS);
-    expect(prepareAssistantCitationEdit({ ...fixture(quote, prefix, ""), comment })).toHaveProperty("error");
+    expect(prepareAssistantCitationEdit({ ...fixture(quote, prefix, ""), comment })).toHaveProperty(
+      "error",
+    );
   });
 });
 
@@ -151,9 +173,13 @@ describe("capturing the tapped citation", () => {
     { source: "not a citation" },
   ])("rejects invalid or stale native ranges: %j", (change) => {
     const input = fixture();
-    expect(captureAssistantCitationEdit({
-      ...owner, draft: input.draft, selection: { ...input.pending.selection, ...change },
-    })).toBeNull();
+    expect(
+      captureAssistantCitationEdit({
+        ...owner,
+        draft: input.draft,
+        selection: { ...input.pending.selection, ...change },
+      }),
+    ).toBeNull();
   });
 });
 
@@ -162,12 +188,16 @@ describe("removing a citation", () => {
     const marker = serializeAssistantCitation(citation);
     const input = fixture(citation, `${marker} before 💡 `, " after");
     expect(prepareAssistantCitationRemoval(input)).toEqual({
-      value: `${marker} before 💡  after`, cursor: `${marker} before 💡 `.length,
+      value: `${marker} before 💡  after`,
+      cursor: `${marker} before 💡 `.length,
     });
   });
 
   it("can empty a draft that contains only the quote", () => {
-    expect(prepareAssistantCitationRemoval(fixture(citation, "", ""))).toEqual({ value: "", cursor: 0 });
+    expect(prepareAssistantCitationRemoval(fixture(citation, "", ""))).toEqual({
+      value: "",
+      cursor: 0,
+    });
   });
 
   it.each([
@@ -184,6 +214,9 @@ describe("removing a citation", () => {
   it("allows removing a quote from an already oversized draft", () => {
     const prefix = "x".repeat(PROVIDER_SEND_TURN_MAX_INPUT_CHARS + 1);
     const input = fixture(citation, prefix, "");
-    expect(prepareAssistantCitationRemoval(input)).toEqual({ value: prefix, cursor: prefix.length });
+    expect(prepareAssistantCitationRemoval(input)).toEqual({
+      value: prefix,
+      cursor: prefix.length,
+    });
   });
 });
