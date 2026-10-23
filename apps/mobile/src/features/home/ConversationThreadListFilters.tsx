@@ -22,9 +22,15 @@ export function ConversationThreadListFilters({
             key={kind}
             label={actions.find((action) => action.state === "on")?.title ?? kind}
             accessibilityLabel={kind === "sort" ? "Sort conversations" : "Group conversations"}
-            active={kind === "sort" ? conversationList.conversationSortOrder !== "updated_at" : conversationList.conversationGrouping !== "none"}
+            active={
+              kind === "sort"
+                ? conversationList.conversationSortOrder !== "updated_at"
+                : conversationList.conversationGrouping !== "none"
+            }
             actions={actions}
-            onSelect={(id) => { applyConversationListMenuEvent(id, conversationList); }}
+            onSelect={(id) => {
+              applyConversationListMenuEvent(id, conversationList);
+            }}
           />
         );
       })}

@@ -1,10 +1,9 @@
 import type { composerContextEditorTokens } from "./composerContext";
 
 /** Keep citation display overrides outside the platform editors' native token protocol. */
-export function assistantCitationEditorToken<T extends { readonly label: string; readonly detail: string }>(
-  token: ReturnType<typeof composerContextEditorTokens>[number],
-  nativeToken: T,
-) {
+export function assistantCitationEditorToken<
+  T extends { readonly label: string; readonly detail: string },
+>(token: ReturnType<typeof composerContextEditorTokens>[number], nativeToken: T) {
   if (token.type !== "assistantCitation") return nativeToken;
   return {
     ...nativeToken,

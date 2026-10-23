@@ -580,8 +580,12 @@ function useChatMarkdownState({
     markdownServerConfigFieldsAtom(environmentId),
   );
   const projects = useProjects();
-  const [preferredEditor, , configuredEditorMenuLabel] = usePreferredEditor(availableEditors, environmentId);
-  const preferredEditorMenuLabel = configuredEditorMenuLabel ?? openInEditorMenuLabel(preferredEditor);
+  const [preferredEditor, , configuredEditorMenuLabel] = usePreferredEditor(
+    availableEditors,
+    environmentId,
+  );
+  const preferredEditorMenuLabel =
+    configuredEditorMenuLabel ?? openInEditorMenuLabel(preferredEditor);
   const openInPreferredEditor = useOpenInPreferredEditor(environmentId, availableEditors);
   const openInEditor = useAtomCommand(shellEnvironment.openInEditor, {
     reportFailure: false,

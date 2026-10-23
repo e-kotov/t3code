@@ -43,8 +43,7 @@ export function deriveCacheHud(
       ? { driver, usage, basis: "unknown" }
       : { driver, usage, ttlMs: reported, basis: "reported" };
   }
-  if (driver === "codex")
-    return { driver, usage, ttlMs: CODEX_BASELINE_MS, basis: "estimated" };
+  if (driver === "codex") return { driver, usage, ttlMs: CODEX_BASELINE_MS, basis: "estimated" };
   return { driver, usage, basis: "unknown" };
 }
 
