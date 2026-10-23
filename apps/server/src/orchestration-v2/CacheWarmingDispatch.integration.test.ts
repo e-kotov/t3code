@@ -252,6 +252,9 @@ it.effect(
       const result = yield* Effect.flip(orchestrator.dispatch(stale));
       assert.equal(result._tag, "OrchestratorDispatchError");
       assert.propertyVal(result.cause, "_tag", "ThreadCachePolicyChanged");
+      const retried = yield* Effect.flip(orchestrator.dispatch(stale));
+      assert.equal(retried._tag, "OrchestratorDispatchError");
+      assert.propertyVal(retried.cause, "_tag", "ThreadCachePolicyChanged");
       assert.isEmpty((yield* projections.getThreadProjection(threadId)).messages);
       yield* orchestrator.dispatch({
         ...warmCommand(threadId, "manual:user-message"),
