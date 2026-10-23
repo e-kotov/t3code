@@ -12,7 +12,10 @@ import {
   serializeAssistantCitation,
 } from "@t3tools/shared/assistantCitations";
 import { describe, expect, it } from "vite-plus/test";
-import { prepareAssistantCitationInsertion } from "./assistantCitationDraft";
+import {
+  assistantCitationPromptLengthError,
+  prepareAssistantCitationInsertion,
+} from "./assistantCitationDraft";
 
 const citation = {
   version: 1 as const,
@@ -75,6 +78,18 @@ describe("assistant citation draft insertion", () => {
     });
   });
 
+  it("preserves selected draft text when adding a quote", () => {
+    const draft = "abc def";
+    const marker = serializeAssistantCitation(citation);
+    expect(
+      prepareAssistantCitationInsertion({
+        ...input,
+        draft,
+        pending: { ...input.pending, insertion: { text: draft, start: 4, end: 7 } },
+      }),
+    ).toEqual({ value: `abc def ${marker}`, cursor: 8 + marker.length });
+  });
+
   it("rejects an encoded CJK quote and comment that exceed the prompt cap", () => {
     expect(
       prepareAssistantCitationInsertion({
@@ -125,5 +140,25 @@ describe("assistant citation draft insertion", () => {
     expect(prepareAssistantCitationInsertion({ ...input, comment: `${comment}a` })).toHaveProperty(
       "error",
     );
+  });
+
+  it("rechecks expanded length after typing more text around an inserted quote", () => {
+    const inserted = prepareAssistantCitationInsertion({
+      ...input,
+      pending: {
+        ...input.pending,
+        citation: { ...citation, text: "<>".repeat(4_000), end: 8_000 },
+      },
+      comment: "<>".repeat(4_000),
+    });
+    if ("error" in inserted) throw new Error(inserted.error);
+    expect(assistantCitationPromptLengthError(inserted.value)).toBeNull();
+    const padding = "x".repeat(
+      PROVIDER_SEND_TURN_MAX_INPUT_CHARS - expandAssistantCitationsForProvider(inserted.value).length,
+    );
+    const atLimit = `${inserted.value}${padding}`;
+    expect(assistantCitationPromptLengthError(atLimit)).toBeNull();
+    expect(`${atLimit}x`.length).toBeLessThan(PROVIDER_SEND_TURN_MAX_INPUT_CHARS);
+    expect(assistantCitationPromptLengthError(`${atLimit}x`)).toContain("120,000");
   });
 });

@@ -54,7 +54,7 @@ it("truncates a long quote and leaves an uncommented quote detail empty", () => 
   });
 });
 
-it("does not split emoji or truncate a short quote with repeated whitespace", () => {
+it("preserves surrogate pairs and does not truncate a short quote with repeated whitespace", () => {
   expect(
     assistantCitationEditorToken(quote(`${"a".repeat(29)}🚀tail`), {
       label: "upstream",

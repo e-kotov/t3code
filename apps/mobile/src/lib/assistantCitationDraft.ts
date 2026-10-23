@@ -25,6 +25,13 @@ export function assistantCitationCommentError(comment: string): string | null {
     : null;
 }
 
+export function assistantCitationPromptLengthError(prompt: string): string | null {
+  const length = Math.max(prompt.length, expandAssistantCitationsForProvider(prompt).length);
+  return length > PROVIDER_SEND_TURN_MAX_INPUT_CHARS
+    ? `The prompt exceeds the ${PROVIDER_SEND_TURN_MAX_INPUT_CHARS.toLocaleString("en-US")}-character limit. Shorten the quote, comment or prompt and try again.`
+    : null;
+}
+
 export function prepareAssistantCitationInsertion(input: {
   readonly pending: PendingAssistantCitation;
   readonly environmentId: EnvironmentId;
@@ -48,10 +55,13 @@ export function prepareAssistantCitationInsertion(input: {
   const marker = serializeAssistantCitation(
     withAssistantCitationComment(input.pending.citation, input.comment),
   );
-  const selection =
-    input.pending.insertion.text === input.draft
-      ? input.pending.insertion
-      : { start: input.draft.length, end: input.draft.length };
+  // Citing assistant text must not replace a range left selected in the composer.
+  const captured = input.pending.insertion;
+  const cursor =
+    captured.text === input.draft
+      ? Math.max(0, Math.min(input.draft.length, Math.max(captured.start, captured.end)))
+      : input.draft.length;
+  const selection = { start: cursor, end: cursor };
   const before = input.draft.slice(0, selection.start);
   const after = input.draft.slice(selection.end);
   const leading = before.length > 0 && !/\s$/.test(before) ? " " : "";
@@ -61,14 +71,7 @@ export function prepareAssistantCitationInsertion(input: {
     selection,
     text: `${leading}${marker}${trailing}`,
   });
-  const length = Math.max(
-    insertion.value.length,
-    expandAssistantCitationsForProvider(insertion.value).length,
-  );
-  if (length > PROVIDER_SEND_TURN_MAX_INPUT_CHARS) {
-    return {
-      error: `The quote would exceed the ${PROVIDER_SEND_TURN_MAX_INPUT_CHARS.toLocaleString("en-US")}-character prompt limit. Shorten the quote, comment or prompt and try again.`,
-    };
-  }
+  const lengthError = assistantCitationPromptLengthError(insertion.value);
+  if (lengthError) return { error: lengthError };
   return insertion;
 }

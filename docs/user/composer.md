@@ -134,7 +134,8 @@ Add an optional comment in the sheet to insert the quote chip into the prompt.
 The chip shows a preview of your comment, or of the quote when no comment was added.
 Android does not yet offer editing a comment after insertion; delete and recreate the
 quote to change it. Adding a quote is refused with an explanation if the selection
-is too long or the resulting prompt would exceed the message limit.
+is too long or the resulting prompt would exceed the message limit. The limit is
+checked again when sending, including text added after inserting the quote.
 Saved quotes in sent messages remain readable as text; tapping one does not yet
 navigate to its source. Quotes created on Android may also fail to navigate back
 from web or desktop when the quoted phrase appears more than once in the original message.
