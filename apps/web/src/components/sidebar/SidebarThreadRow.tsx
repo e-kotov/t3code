@@ -4,6 +4,7 @@ import { ThreadHoverCard, ThreadHoverCardPopup } from "../ThreadHoverCard";
 import { ThreadTerminalStatusButton } from "../ThreadStatusIndicators";
 import { discardComposerDraft } from "../../lib/discardComposerDraft";
 import { requestCustomSnooze } from "../CustomSnoozeDialog";
+import { RecentCustomSnoozeMenuItems } from "../recentCustomSnoozes";
 import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
 import { resolveThreadCurrentPullRequestLink } from "@t3tools/shared/threadPullRequests";
 import { useSortable } from "@dnd-kit/sortable";
@@ -408,6 +409,7 @@ function SnoozeMenuButton(props: {
             <MenuShortcut>{preset.whenLabel}</MenuShortcut>
           </MenuItem>
         ))}
+        <RecentCustomSnoozeMenuItems onSnooze={onSnooze} timestampFormat={timestampFormat} />
         <MenuSeparator />
         <MenuItem
           onClick={async (event) => {

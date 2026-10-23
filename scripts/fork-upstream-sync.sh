@@ -49,7 +49,7 @@ case "$cmd" in
       exit 0
     fi
     behind=$(git rev-list --count HEAD.."$upstream")
-    if ! git merge --no-edit -m "Merge upstream main ${upstream:0:10}" "$upstream"; then
+    if ! bash scripts/fork-merge-upstream.sh "$upstream" "Merge upstream main ${upstream:0:10}"; then
       summary "## Upstream sync blocked by conflicts"
       summary ""
       summary "Upstream ${upstream:0:10} ($behind new commits) does not merge cleanly. Fork main was not changed."
@@ -64,6 +64,7 @@ case "$cmd" in
     ;;
   checks)
     upstream=$(fork_base)
+    python3 scripts/fork-merge-upstream.test.py
     python3 scripts/fork-footprint-budget.test.py
     python3 scripts/fork-nightly-release.test.py
     python3 scripts/build-termux-server.test.py

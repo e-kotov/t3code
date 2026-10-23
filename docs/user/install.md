@@ -1,3 +1,6 @@
+> **T3 Code EK:** use the [fork installation guide](fork-install.md) for EK builds and platform limits.
+> The installation commands below describe upstream T3 Code.
+
 # Install T3 Code
 
 T3 Code runs coding agents on your computer and lets you control them from its

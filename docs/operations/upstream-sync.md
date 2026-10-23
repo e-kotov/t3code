@@ -10,6 +10,9 @@ they are not tied to upstream stable releases.
 `scripts/fork-upstream-sync.sh`:
 
 1. `merge` merges upstream `main` into fork `main`. If upstream is already contained, it stops.
+   `fork-merge-upstream.sh` preserves the fork-owned README, including when upstream edits
+   would otherwise merge cleanly. All other paths keep normal Git conflict detection;
+   upstream documentation remains linked from the fork landing page.
 2. `checks` first rejects any growth beyond the reviewed per-file upstream-edit budget, then typechecks contracts, shared, client-runtime, server, web, mobile and desktop, then
    runs every test file the fork added or changed relative to upstream, plus the upstream tests
    beside upstream files the fork mounts into (listed in the script) and the mobile React
@@ -35,7 +38,8 @@ deletes the branch. The branch must contain fork `main`.
 ```sh
 git fetch upstream && git fetch origin
 git switch main && git merge --ff-only origin/main
-git merge upstream/main          # resolve conflicts; rerere replays earlier resolutions
+bash scripts/fork-merge-upstream.sh upstream/main "Merge upstream main"
+# If source conflicts remain, resolve them; rerere replays earlier resolutions.
 VP_GIT_HOOKS=0 git commit --no-edit   # the upstream pre-commit hook needs vp
 git push origin HEAD:refs/heads/sync/upstream-$(date +%F)
 gh workflow run upstream-sync.yml -R e-kotov/t3code -f branch=sync/upstream-$(date +%F)

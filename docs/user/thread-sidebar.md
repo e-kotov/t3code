@@ -233,6 +233,10 @@ finishes; the call's own result shows its status.
 
 ## Snooze until later
 
+In T3 Code EK, the snooze menu also keeps your three most recently selected custom
+**dates and times** on this device. Reuse one for another thread until that exact
+instant passes. Presets and custom durations do not enter this history.
+
 Choose **Snooze → Custom…** from a thread's menu to pick a date and time in your
 local time zone, or a duration in minutes, hours, or days. Durations start when
 you confirm; one day means 24 hours. On web and desktop, you can also snooze

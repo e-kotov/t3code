@@ -1,5 +1,7 @@
 # Fork releases
 
+For installation, signing and platform testing limits, see [Install T3 Code EK](../user/fork-install.md).
+
 This fork publishes installers from `.github/workflows/release-fork.yml` using
 GitHub-hosted runners. No upstream Blacksmith, Expo/EAS, Cloudflare or npm
 publishing account is required.

@@ -415,6 +415,10 @@
       "types": "./src/dateTime.ts",
       "import": "./src/dateTime.ts"
     },
+    "./recentCustomSnoozes": {
+      "types": "./src/recentCustomSnoozes.ts",
+      "import": "./src/recentCustomSnoozes.ts"
+    },
     "./forkCliRelease": {
       "types": "./src/forkCliRelease.ts",
       "import": "./src/forkCliRelease.ts"

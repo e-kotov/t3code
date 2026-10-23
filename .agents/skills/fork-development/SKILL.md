@@ -25,6 +25,15 @@ This checkout is Egor Kotov's fork. Upstream will not merge fork features, and
   fork edits; your change should not grow it beyond the mount lines. If a feature needs a
   large edit inside an upstream file, extract the fork part into a new file first.
 
+- Reducing automatic upstream merge conflicts is a requirement for every fork change. Reuse
+  upstream APIs and components through small adapters; do not copy their private internals.
+- Keep fork installation, platform support and signing guidance in `docs/user/fork-install.md`.
+  The README is a short fork-owned entry point; link to the upstream README rather than
+  maintaining or rewriting a second copy of upstream's installation instructions.
+- Share fork behavior across clients when practical, with platform storage and UI adapters.
+  Keep fork imports alongside the relevant integration rather than repeatedly editing the
+  beginning of an upstream import block.
+
 ## Tests
 
 - Add or extend a test file for every behavior you add or change. The daily sync runs every
@@ -88,8 +97,7 @@ store afterwards.
 
 ## Resolving a blocked upstream sync
 
-When the daily run fails with conflicts, merge locally (`git fetch upstream && git merge
-upstream/main`) and keep both sides' intent; `rerere` is enabled, so resolutions are reused.
+When the daily run fails with conflicts, merge locally (`git fetch upstream`, then `bash scripts/fork-merge-upstream.sh upstream/main "Merge upstream main"`) and keep both sides' intent; `rerere` is enabled, so resolutions are reused.
 Do not install dependencies for this: Egor keeps no `node_modules` on the Mac. Commit with
 `VP_GIT_HOOKS=0`, push the merge to a `sync/<name>` branch and run
 `gh workflow run upstream-sync.yml -f branch=sync/<name>`; it checks the branch on GitHub and

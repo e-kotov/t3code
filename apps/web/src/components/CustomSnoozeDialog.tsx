@@ -3,7 +3,6 @@ import { create } from "zustand";
 import {
   localSnoozeDate,
   localSnoozeTime,
-  resolveCustomSnooze,
   type CustomSnoozeInput,
 } from "@t3tools/client-runtime/state/thread-settled";
 import { Button } from "./ui/button";
@@ -31,6 +30,8 @@ import {
   DialogPanel,
   DialogFooter,
 } from "./ui/dialog";
+
+import { resolveCustomSnooze } from "./recentCustomSnoozes";
 
 type SnoozeChoice = { readonly snoozedUntil: string };
 type Request = { readonly resolve: (choice: SnoozeChoice | null) => void };
