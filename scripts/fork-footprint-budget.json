@@ -33,7 +33,7 @@
     "apps/mobile/src/features/threads/ThreadFeed.tsx": 8,
     "apps/mobile/src/features/threads/ThreadNavigationSidebar.tsx": 43,
     "apps/mobile/src/features/threads/ThreadRouteScreen.tsx": 4,
-    "apps/mobile/src/features/threads/thread-list-v2-items.tsx": 43,
+    "apps/mobile/src/features/threads/thread-list-v2-items.tsx": 29,
     "apps/mobile/src/features/threads/threadListV2.ts": 27,
     "apps/mobile/src/features/workspace/AndroidWorkspaceNavigation.android.tsx": 7,
     "apps/mobile/src/features/workspace/AndroidWorkspaceSidebar.android.tsx": 2,
