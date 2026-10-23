@@ -10,10 +10,13 @@ export function addAssistantCitationEditListener(draftKey: string, listener: Lis
   const subscribers = listeners.get(draftKey) ?? new Set<Listener>();
   subscribers.add(listener);
   listeners.set(draftKey, subscribers);
-  return { remove: () => {
-    subscribers.delete(listener);
-    if (subscribers.size === 0 && listeners.get(draftKey) === subscribers) listeners.delete(draftKey);
-  } };
+  return {
+    remove: () => {
+      subscribers.delete(listener);
+      if (subscribers.size === 0 && listeners.get(draftKey) === subscribers)
+        listeners.delete(draftKey);
+    },
+  };
 }
 
 export function requestAssistantCitationEdit(
