@@ -154,7 +154,8 @@ describe("assistant citation draft insertion", () => {
     if ("error" in inserted) throw new Error(inserted.error);
     expect(assistantCitationPromptLengthError(inserted.value)).toBeNull();
     const padding = "x".repeat(
-      PROVIDER_SEND_TURN_MAX_INPUT_CHARS - expandAssistantCitationsForProvider(inserted.value).length,
+      PROVIDER_SEND_TURN_MAX_INPUT_CHARS -
+        expandAssistantCitationsForProvider(inserted.value).length,
     );
     const atLimit = `${inserted.value}${padding}`;
     expect(assistantCitationPromptLengthError(atLimit)).toBeNull();
