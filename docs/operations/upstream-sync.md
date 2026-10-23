@@ -77,6 +77,8 @@ rebase it onto `upstream/main` with a backup branch `ek/pre-sync-<date>` and for
 
 `scripts/fork-footprint-budget.json` caps changed lines in each upstream-owned file.
 Newly touched or deleted upstream files have a zero budget. Fork-owned files do not consume it.
+The explicit exception is `README.md`: it is now the fork's own landing page, preserved by
+the merge helper and excluded from the mount budget. Its upstream counterpart remains linked.
 The sync and pre-push checks reject growth before typechecking; reductions pass.
 This catches expanding integration points before they become recurring conflicts.
 

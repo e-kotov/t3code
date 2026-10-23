@@ -130,7 +130,7 @@ TESTS
   footprint)
     # Fork edits inside upstream files are where merge conflicts come from; keep this list short.
     upstream=$(fork_base)
-    git diff --numstat --diff-filter=MD "$upstream" "$@" |
+    git diff --numstat --diff-filter=MD "$upstream" "$@" -- . ':!README.md' |
       awk '{ printf "%6d  %s\n", $1 + $2, $3; total += $1 + $2 } END { printf "%6d  total lines in %d upstream files\n", total, NR }' |
       sort -rn
     ;;

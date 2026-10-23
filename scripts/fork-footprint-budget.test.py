@@ -26,6 +26,7 @@ class FootprintBudgetTest(unittest.TestCase):
             git("init", "-q")
             (root / "mount.ts").write_text("upstream\n")
             (root / "untouched.ts").write_text("upstream\n")
+            (root / "README.md").write_text("upstream installation\n")
             commit()
             upstream = git("rev-parse", "HEAD")
             git("update-ref", "refs/remotes/upstream/main", upstream)
@@ -33,6 +34,7 @@ class FootprintBudgetTest(unittest.TestCase):
             (root / "scripts").mkdir()
             shutil.copyfile(SCRIPT, root / "scripts/fork-footprint-budget.py")
             (root / "fork-owned.ts").write_text("independent fork implementation\n")
+            (root / "README.md").write_text("fork installation\n")
             commit()
             env = {k: v for k, v in os.environ.items() if k != "UPSTREAM_SHA"}
 
@@ -45,6 +47,10 @@ class FootprintBudgetTest(unittest.TestCase):
             gate("--write")
             self.assertEqual(json.loads((root / "scripts/fork-footprint-budget.json").read_text()),
                              {"files": {"mount.ts": 1}})
+            gate()
+            # README is deliberately fork-owned; source mounts remain budgeted below.
+            (root / "README.md").write_text("fork guide\n" * 100)
+            commit()
             gate()
             # A fetched upstream-only change must not consume the fork's budget.
             tree = git("rev-parse", upstream + "^{tree}")

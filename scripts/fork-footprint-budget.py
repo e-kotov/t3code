@@ -24,6 +24,10 @@ def main():
     counts = {}
     for row in rows.splitlines():
         added, removed, path = row.split("\t", 2)
+        # The fork owns its landing page; fork-merge-upstream.sh preserves it.
+        # Counting upstream README churn would otherwise block unrelated syncs.
+        if path == "README.md":
+            continue
         # A binary modification still consumes a slot and cannot disappear from the guard.
         counts[path] = int(added) + int(removed) if added != "-" else 1
     if args.write:
