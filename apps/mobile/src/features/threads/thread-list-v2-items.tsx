@@ -1,5 +1,5 @@
 import { CacheHud } from "./CacheHud";
-import { CacheWarmingThreadControl } from "./CacheWarmingControls";
+import { CacheThreadTitle } from "./CacheThreadTitle";
 import * as Dialog from "../../components/ui/Dialog";
 import type { ThreadRowProviderInstance } from "./thread-provider-instance";
 import {
@@ -31,7 +31,6 @@ import { AuthOrchestrationOperateScope, type EnvironmentMachineKind } from "@t3t
 import { canSnooze, resolveSnoozePresets } from "@t3tools/client-runtime/state/thread-settled";
 import type { MenuAction } from "@react-native-menu/menu";
 import { memo, useCallback, useEffect, useMemo, useState, type ComponentProps } from "react";
-import type { ReactNode } from "react";
 import { Pressable, useWindowDimensions, View } from "react-native";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 
@@ -149,8 +148,8 @@ const LEGACY_MENU_ACTIONS: MenuAction[] = [
   { id: "delete", title: "Delete", image: "trash", attributes: { destructive: true } },
 ];
 
-export function ThreadListV2Section(props: {
-  readonly label: ReactNode;
+function ThreadListV2Section(props: {
+  readonly label: string;
   readonly pane?: "screen" | "sidebar";
   readonly tone?: "default" | "snoozed";
   readonly disclosure?: {
@@ -160,8 +159,6 @@ export function ThreadListV2Section(props: {
     readonly accessibilityLabel: string;
     readonly accessibilityHint: string;
   };
-  /** Trailing controls after the rule (fork machine group headers). */
-  readonly accessory?: ReactNode;
 }) {
   const snoozed = props.tone === "snoozed";
   const sidebarPane = props.pane === "sidebar";
@@ -204,7 +201,6 @@ export function ThreadListV2Section(props: {
           style={{ transform: [{ rotate: props.disclosure.expanded ? "180deg" : "0deg" }] }}
         />
       ) : null}
-      {props.accessory}
     </>
   );
 
@@ -1084,10 +1080,10 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
           </Text>
         )}
       </View>
-      <View className="mt-1 flex-row items-center">
+      <CacheThreadTitle thread={thread}>
         <Text
           className={cn(
-            "min-w-0 flex-1 text-base",
+            "text-base",
             !recede && "font-t3-medium",
             selected
               ? selectedThreadRowColors.foregroundClassName
@@ -1097,13 +1093,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         >
           {thread.title}
         </Text>
-        <CacheWarmingThreadControl
-          environmentId={thread.environmentId}
-          threadId={thread.id}
-          driver={thread.cacheHud?.driver}
-        />
-      </View>
-      <CacheHud hud={thread.cacheHud} compact />
+      </CacheThreadTitle>
       {props.searchMatch ? (
         <View className="mt-1">
           <ThreadSearchMatchExcerpt

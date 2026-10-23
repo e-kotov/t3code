@@ -9,7 +9,8 @@ import { CacheWarmingMachineControl } from "./CacheWarmingControls";
 import type { ThreadListV2MachineHeaderListItem } from "./conversationListOrder";
 import { MachineGroupConnectionStatus } from "./MachineGroupConnectionStatus";
 import { MachineGroupSlurmTime } from "./MachineGroupSlurmTime";
-import { ThreadListV2Section } from "./thread-list-v2-items";
+import { AppText as Text } from "../../components/ui/AppText";
+import type { ReactNode } from "react";
 
 type MoveMachine = (environmentId: string, delta: -1 | 1) => void;
 
@@ -53,7 +54,7 @@ const ThreadListV2MachineHeader = memo(function ThreadListV2MachineHeader(props:
         />
       ) : null}
       <View className="flex-1">
-        <ThreadListV2Section
+        <MachineGroupSection
           label={
             <>
               {props.label}
@@ -96,3 +97,20 @@ const ThreadListV2MachineHeader = memo(function ThreadListV2MachineHeader(props:
     </View>
   );
 });
+
+function MachineGroupSection(props: {
+  readonly label: ReactNode;
+  readonly pane?: "screen" | "sidebar";
+  readonly accessory: ReactNode;
+}) {
+  const sidebar = props.pane === "sidebar";
+  return (
+    <View className={cn("mb-1.5 mt-4 flex-row items-center gap-2.5", sidebar ? "px-3" : "px-5")}>
+      <Text className={cn("text-xs font-t3-medium", sidebar ? "text-drawer-foreground-muted" : "text-foreground-tertiary")}>
+        {props.label}
+      </Text>
+      <View className={cn("h-px flex-1", sidebar ? "bg-drawer-border" : "bg-border")} />
+      {props.accessory}
+    </View>
+  );
+}
