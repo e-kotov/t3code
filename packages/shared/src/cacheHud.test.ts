@@ -41,7 +41,7 @@ function hud(overrides: Partial<OrchestrationV2CacheHud> = {}): OrchestrationV2C
 }
 
 describe("deriveCacheHud", () => {
-  it("keeps Codex's one-hour estimate despite earlier misses and expires at that boundary", () => {
+  it("keeps Codex's one-hour estimate despite earlier misses and becomes unknown at that boundary", () => {
     const selection = { instanceId: ProviderInstanceId.make("codex"), model: "gpt-6.1-sol" };
     const reports = ["00", "05", "10", "15", "20", "25", "30"].map((minute, i) => ({
       updatedAt: `2026-10-13T08:${minute}:00.000Z`,
@@ -56,7 +56,13 @@ describe("deriveCacheHud", () => {
     const lastReport = Date.parse(reports.at(-1)!.updatedAt);
     expect(presentCacheHud(result, lastReport + 40 * 60_000).state).toBe("hot");
     expect(presentCacheHud(result, lastReport + 55 * 60_000).state).toBe("expiring");
-    expect(presentCacheHud(result, lastReport + 60 * 60_000).state).toBe("cold");
+    expect(presentCacheHud(result, lastReport + 60 * 60_000).state).toBe("unknown");
+    expect(describeCacheHud(result, lastReport + 60 * 60_000).cache).toBe(
+      "Cache status unknown · estimate elapsed",
+    );
+    expect(describeCacheHud(result, lastReport + 60 * 60_000).lastRequest).toBe(
+      "Last request: 83% from cache (10k)",
+    );
     expect(presentCacheHud(result, lastReport).description).toContain("assumed one-hour window");
   });
 });
@@ -111,6 +117,17 @@ describe("describeCacheHud", () => {
     expect(describeCacheHud(hud({ ttlMs: 90 * 60_000 }), start).cache).toContain(
       "· 1 h 30 min left",
     );
+  });
+
+  it("keeps a reported Codex miss cold after its estimate passes", () => {
+    const missed = hud({
+      driver: ProviderDriverKind.make("codex"),
+      basis: "estimated",
+      usage: { ...hud().usage, cachedInputTokens: 0 },
+    });
+    const details = describeCacheHud(missed, start + 2 * 3_600_000);
+    expect(details.state).toBe("cold");
+    expect(details.cache).toBe("Cache missed on the last request");
   });
 });
 
