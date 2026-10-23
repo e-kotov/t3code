@@ -57,7 +57,7 @@
     "apps/server/src/environment/ServerEnvironmentLabel.ts": 8,
     "apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts": 17,
     "apps/server/src/orchestration-v2/Adapters/CodexAdapterV2.ts": 5,
-    "apps/server/src/orchestration-v2/Orchestrator.ts": 11,
+    "apps/server/src/orchestration-v2/Orchestrator.ts": 12,
     "apps/server/src/orchestration-v2/ProjectionStore.ts": 10,
     "apps/server/src/orchestration-v2/ThreadManagementService.ts": 9,
     "apps/server/src/process/externalLauncher.ts": 4,
