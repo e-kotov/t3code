@@ -1,5 +1,5 @@
 import { CommandId, MessageId, type OrchestrationV2ThreadShell } from "@t3tools/contracts";
-import { threadCachePolicy } from "@t3tools/shared/threadCachePolicy";
+import { threadCachePolicy, legacyCacheWarmingMigration } from "@t3tools/shared/threadCachePolicy";
 import { presentCacheHud } from "@t3tools/shared/cacheHud";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
@@ -102,25 +102,8 @@ export const make = Effect.gen(function* () {
   const settingsService = yield* ServerSettings.ServerSettingsService;
   const threads = yield* ThreadManagement.ThreadManagementService;
 
-  // The previous UI had a master pause that preserved per-thread opt-ins.
-  // Convert a paused legacy configuration to explicit off choices once before
-  // the new all-conversations control starts using those choices directly.
-  const initialSettings = yield* settingsService.getSettings;
-  if (!initialSettings.cacheWarmingInitialized) {
-    yield* settingsService.updateSettings({
-      cacheWarmingInitialized: true,
-      ...(!initialSettings.cacheWarmingEnabled
-        ? {
-            cacheWarmingSessions: Object.fromEntries(
-              Object.keys(initialSettings.cacheWarmingSessions).map((threadId) => [
-                threadId,
-                false,
-              ]),
-            ),
-          }
-        : {}),
-    });
-  }
+  const migration = legacyCacheWarmingMigration(yield* settingsService.getSettings);
+  if (migration !== null) yield* settingsService.updateSettings(migration);
 
   const sweep = Effect.gen(function* () {
     const snapshot = yield* threads.getShellSnapshot();

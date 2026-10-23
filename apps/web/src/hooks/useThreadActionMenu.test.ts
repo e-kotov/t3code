@@ -35,7 +35,11 @@ function recordEffect(action: string) {
 }
 
 vi.mock("../components/threadCachePolicyContextMenu", () => ({
-  showThreadCachePolicyMenu: (_thread: unknown, items: ReadonlyArray<ContextMenuItem<ThreadActionMenuId>>, position: { x: number; y: number }) => state.show(items, position),
+  showThreadCachePolicyMenu: (
+    _thread: unknown,
+    items: ReadonlyArray<ContextMenuItem<ThreadActionMenuId>>,
+    position: { x: number; y: number },
+  ) => state.show(items, position),
 }));
 vi.mock("../components/CustomSnoozeDialog", () => ({ requestCustomSnooze: vi.fn() }));
 vi.mock("react", () => ({

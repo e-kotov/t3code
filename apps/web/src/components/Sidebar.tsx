@@ -2338,7 +2338,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
             ),
           ) ?? null;
         const clicked = await settlePromise(() =>
-          showThreadCachePolicyMenu(thread,
+          showThreadCachePolicyMenu(
+            thread,
             buildThreadActionMenuItems({
               canOperate: readEnvironmentScope(
                 threadRef.environmentId,

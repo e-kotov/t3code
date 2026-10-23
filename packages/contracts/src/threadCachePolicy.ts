@@ -11,5 +11,7 @@ export const threadCachePolicySettings = {
 };
 
 export const threadCachePolicyPatch = {
-  threadCachePolicies: Schema.optionalKey(Schema.Record(ThreadId, Schema.NullOr(ThreadCachePolicy))),
+  threadCachePolicies: Schema.optionalKey(
+    Schema.Record(ThreadId, Schema.NullOr(ThreadCachePolicy)),
+  ),
 };

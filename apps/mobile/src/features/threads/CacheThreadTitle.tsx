@@ -5,7 +5,10 @@ import { CacheHud } from "./CacheHud";
 import { ThreadCachePolicyControl } from "./ThreadCachePolicyControl";
 
 export function CacheThreadTitle(props: {
-  readonly thread: Pick<EnvironmentThreadShell, "environmentId" | "id" | "cacheHud" | "modelSelection">;
+  readonly thread: Pick<
+    EnvironmentThreadShell,
+    "environmentId" | "id" | "cacheHud" | "modelSelection"
+  >;
   readonly children: ReactNode;
 }) {
   return (

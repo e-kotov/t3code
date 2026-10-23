@@ -1,5 +1,9 @@
 import { ThreadCacheHoverDetails } from "../ThreadCacheHoverDetails";
-import { SidebarCacheHudSlot, SidebarThreadCacheTitle, SidebarThreadCachePolicy } from "./SidebarThreadCache";
+import {
+  SidebarCacheHudSlot,
+  SidebarThreadCacheTitle,
+  SidebarThreadCachePolicy,
+} from "./SidebarThreadCache";
 import { ThreadHoverCard, ThreadHoverCardPopup } from "../ThreadHoverCard";
 import { ThreadTerminalStatusButton } from "../ThreadStatusIndicators";
 import { discardComposerDraft } from "../../lib/discardComposerDraft";

@@ -1,8 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  AuthSettingsWriteScope,
-  type EnvironmentId,
-} from "@t3tools/contracts";
+import { AuthSettingsWriteScope, type EnvironmentId } from "@t3tools/contracts";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import { useEnvironmentSettings, useUpdateEnvironmentSettings } from "~/hooks/useSettings";
 import { cacheWarmingState, hotCacheThreadIds } from "@t3tools/shared/cacheHud";

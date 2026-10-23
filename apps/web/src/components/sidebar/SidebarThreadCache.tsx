@@ -5,7 +5,10 @@ import { CACHE_WARMING_EXPLANATION } from "../CacheWarmingToggle";
 import { ThreadCachePolicyControl } from "../ThreadCachePolicyControl";
 import { CacheHud } from "../chat/CacheHud";
 
-type CacheThread = Pick<EnvironmentThreadShell, "environmentId" | "id" | "cacheHud" | "modelSelection">;
+type CacheThread = Pick<
+  EnvironmentThreadShell,
+  "environmentId" | "id" | "cacheHud" | "modelSelection"
+>;
 
 /** The compact readout, outside any truncating title so it stays on its line. */
 export function SidebarCacheHudSlot(props: { readonly hud: CacheThread["cacheHud"] }) {
@@ -41,7 +44,12 @@ export function SidebarThreadCacheTitle(props: {
       }
     >
       {props.children}
-      {props.variant === "slim" ? <><SidebarCacheHudSlot hud={props.thread.cacheHud} /><SidebarThreadCachePolicy thread={props.thread} /></> : null}
+      {props.variant === "slim" ? (
+        <>
+          <SidebarCacheHudSlot hud={props.thread.cacheHud} />
+          <SidebarThreadCachePolicy thread={props.thread} />
+        </>
+      ) : null}
     </span>
   );
 }
@@ -68,6 +76,13 @@ export function CacheWarmingTitleHint(props: { readonly thread: CacheThread }) {
 }
 
 export function SidebarThreadCachePolicy(props: { readonly thread: CacheThread }) {
-  return <ThreadCachePolicyControl environmentId={props.thread.environmentId} threadId={props.thread.id}
-    instanceId={props.thread.modelSelection.instanceId} driver={props.thread.cacheHud?.driver} reveal />;
+  return (
+    <ThreadCachePolicyControl
+      environmentId={props.thread.environmentId}
+      threadId={props.thread.id}
+      instanceId={props.thread.modelSelection.instanceId}
+      driver={props.thread.cacheHud?.driver}
+      reveal
+    />
+  );
 }

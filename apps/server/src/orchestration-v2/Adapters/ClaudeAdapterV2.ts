@@ -9078,7 +9078,11 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               const idleCompaction = Option.isSome(serverSettings)
                 ? yield* serverSettings.value.getSettings.pipe(
                     Effect.map((settings) =>
-                      resolveThreadIdleCompaction(settings, dialogTurn.input.threadId, adapterOptions.instanceId),
+                      resolveThreadIdleCompaction(
+                        settings,
+                        dialogTurn.input.threadId,
+                        adapterOptions.instanceId,
+                      ),
                     ),
                     Effect.orElseSucceed(() => adapterOptions.settings.idleCompaction),
                   )

@@ -913,7 +913,8 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         );
       }
     },
-    [cachePolicyMenu,
+    [
+      cachePolicyMenu,
       onNewThreadOnBranch,
       thread,
       handleArchive,
@@ -1397,7 +1398,15 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         {(close) => (
           <Menu
             actions={[
-              ...(cachePolicyMenu.supported ? [{ id: "cache-policy", title: "Idle cache policy", subactions: cachePolicyMenu.actions }] : []),
+              ...(cachePolicyMenu.supported
+                ? [
+                    {
+                      id: "cache-policy",
+                      title: "Idle cache policy",
+                      subactions: cachePolicyMenu.actions,
+                    },
+                  ]
+                : []),
               ...(thread.branch
                 ? [
                     {

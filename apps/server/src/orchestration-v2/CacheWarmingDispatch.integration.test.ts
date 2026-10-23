@@ -240,15 +240,25 @@ it.effect.each([
     }).pipe(Effect.provide(layerTest)),
 );
 
-it.effect("rejects a stale background warm command after its opt-in is gone without affecting a manual message", () => Effect.gen(function* () {
-  const orchestrator = yield* Orchestrator.OrchestratorV2;
-  const projections = yield* ProjectionStore.ProjectionStoreV2;
-  const threadId = ThreadId.make("thread:cache-policy-recheck");
-  yield* orchestrator.dispatch(createThread(threadId));
-  const stale = warmCommand(threadId, "command:cache-warm:old-opt-in");
-  const result = yield* Effect.exit(orchestrator.dispatch(stale));
-  assert.equal(result._tag, "Failure");
-  assert.isEmpty((yield* projections.getThreadProjection(threadId)).messages);
-  yield* orchestrator.dispatch({ ...warmCommand(threadId, "manual:user-message"), text: "Hello", createdBy: "user", creationSource: "web", dispatchMode: { type: "start_immediately" } });
-  assert.equal((yield* projections.getThreadProjection(threadId)).messages.length, 1);
-}).pipe(Effect.provide(layerTest)));
+it.effect(
+  "rejects a stale background warm command after its opt-in is gone without affecting a manual message",
+  () =>
+    Effect.gen(function* () {
+      const orchestrator = yield* Orchestrator.OrchestratorV2;
+      const projections = yield* ProjectionStore.ProjectionStoreV2;
+      const threadId = ThreadId.make("thread:cache-policy-recheck");
+      yield* orchestrator.dispatch(createThread(threadId));
+      const stale = warmCommand(threadId, "command:cache-warm:old-opt-in");
+      const result = yield* Effect.exit(orchestrator.dispatch(stale));
+      assert.equal(result._tag, "Failure");
+      assert.isEmpty((yield* projections.getThreadProjection(threadId)).messages);
+      yield* orchestrator.dispatch({
+        ...warmCommand(threadId, "manual:user-message"),
+        text: "Hello",
+        createdBy: "user",
+        creationSource: "web",
+        dispatchMode: { type: "start_immediately" },
+      });
+      assert.equal((yield* projections.getThreadProjection(threadId)).messages.length, 1);
+    }).pipe(Effect.provide(layerTest)),
+);

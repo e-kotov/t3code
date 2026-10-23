@@ -136,46 +136,98 @@ function records(
   };
 }
 
-
 import { applyServerSettingsPatch } from "@t3tools/shared/serverSettings";
-import { backgroundCacheCommandAllowed, isBackgroundCacheCommand } from "./ThreadCachePolicyDispatch.ts";
+import {
+  backgroundCacheCommandAllowed,
+  isBackgroundCacheCommand,
+} from "./ThreadCachePolicyDispatch.ts";
 
 function compactCommand(): Extract<OrchestrationV2Command, { type: "message.dispatch" }> {
-  return { type: "message.dispatch", commandId: CommandId.make(`server:idle-compact:${threadId}:${runId}`), threadId,
-    messageId: MessageId.make("compact"), text: "/compact", attachments: [], createdBy: "agent", creationSource: "server", dispatchMode: { type: "start_immediately" } };
+  return {
+    type: "message.dispatch",
+    commandId: CommandId.make(`server:idle-compact:${threadId}:${runId}`),
+    threadId,
+    messageId: MessageId.make("compact"),
+    text: "/compact",
+    attachments: [],
+    createdBy: "agent",
+    creationSource: "server",
+    dispatchMode: { type: "start_immediately" },
+  };
 }
 
 it("rejects an already armed compaction after switching to Warm or Off, and accepts it when Compact overrides global Off", () => {
   const projection = records({ cacheExpiresInMs: MINUTE_MS });
   const command = compactCommand();
-  for (const [policy, allowed] of [["default", false], ["warm", false], ["compact", true], ["off", false]] as const) {
-    const settings = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, { idleCompaction: "off", threadCachePolicies: { [threadId]: policy } });
+  for (const [policy, allowed] of [
+    ["default", false],
+    ["warm", false],
+    ["compact", true],
+    ["off", false],
+  ] as const) {
+    const settings = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
+      idleCompaction: "off",
+      threadCachePolicies: { [threadId]: policy },
+    });
     expect(backgroundCacheCommandAllowed(settings, projection, command, NOW_MS)).toBe(allowed);
   }
 });
 
 it("rejects stale compaction windows, pending user messages, settled or snoozed threads and different providers", () => {
-  const settings = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, { threadCachePolicies: { [threadId]: "compact" } });
+  const settings = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
+    threadCachePolicies: { [threadId]: "compact" },
+  });
   const command = compactCommand();
   const projection = records({ cacheExpiresInMs: MINUTE_MS });
   expect(backgroundCacheCommandAllowed(settings, projection, command, NOW_MS)).toBe(true);
-  expect(backgroundCacheCommandAllowed(settings, projection, command, NOW_MS + 2 * MINUTE_MS)).toBe(false);
-  expect(backgroundCacheCommandAllowed(settings, records({ cacheExpiresInMs: 10 * MINUTE_MS }), command, NOW_MS)).toBe(false);
+  expect(backgroundCacheCommandAllowed(settings, projection, command, NOW_MS + 2 * MINUTE_MS)).toBe(
+    false,
+  );
+  expect(
+    backgroundCacheCommandAllowed(
+      settings,
+      records({ cacheExpiresInMs: 10 * MINUTE_MS }),
+      command,
+      NOW_MS,
+    ),
+  ).toBe(false);
   for (const changed of [
-    { ...projection, runs: [...projection.runs, { ...projection.runs[0]!, status: "queued" as const, ordinal: 2 }] },
+    {
+      ...projection,
+      runs: [...projection.runs, { ...projection.runs[0]!, status: "queued" as const, ordinal: 2 }],
+    },
     { ...projection, thread: { ...projection.thread, settledOverride: "settled" as const } },
     { ...projection, thread: { ...projection.thread, snoozedUntil: at(MINUTE_MS) } },
-    { ...projection, providerThreads: [{ ...projection.providerThreads[0]!, driver: ProviderDriverKind.make("codex") }] },
-  ]) expect(backgroundCacheCommandAllowed(settings, changed, command, NOW_MS)).toBe(false);
+    {
+      ...projection,
+      providerThreads: [
+        { ...projection.providerThreads[0]!, driver: ProviderDriverKind.make("codex") },
+      ],
+    },
+  ])
+    expect(backgroundCacheCommandAllowed(settings, changed, command, NOW_MS)).toBe(false);
 });
 
 it("blocks a warm action queued before a policy change, while leaving ordinary user messages alone", () => {
   const projection = records({ cacheExpiresInMs: MINUTE_MS });
-  const command = { ...compactCommand(), commandId: CommandId.make(`command:cache-warm:${threadId}:window`) };
+  const command = {
+    ...compactCommand(),
+    commandId: CommandId.make(`command:cache-warm:${threadId}:window`),
+  };
   expect(isBackgroundCacheCommand(command)).toBe(true);
   for (const policy of ["default", "warm", "compact", "off"] as const) {
-    const settings = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, { threadCachePolicies: { [threadId]: policy } });
-    expect(backgroundCacheCommandAllowed(settings, projection, command, NOW_MS)).toBe(policy === "warm");
+    const settings = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
+      threadCachePolicies: { [threadId]: policy },
+    });
+    expect(backgroundCacheCommandAllowed(settings, projection, command, NOW_MS)).toBe(
+      policy === "warm",
+    );
   }
-  expect(isBackgroundCacheCommand({ ...command, commandId: CommandId.make("manual:compact"), creationSource: "web" })).toBe(false);
+  expect(
+    isBackgroundCacheCommand({
+      ...command,
+      commandId: CommandId.make("manual:compact"),
+      creationSource: "web",
+    }),
+  ).toBe(false);
 });
