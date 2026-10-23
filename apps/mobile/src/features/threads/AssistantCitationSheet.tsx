@@ -9,11 +9,12 @@ export function AssistantCitationSheet(props: {
   readonly mode?: "create" | "edit";
   readonly onCancel: () => void;
   readonly onSubmit: (comment: string) => string | null;
+  readonly onRemove?: () => string | null;
 }) {
   const [comment, setComment] = useState(props.mode === "edit" ? props.citation.comment ?? "" : "");
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const commentError = assistantCitationCommentError(comment);
-  const error = commentError ?? submissionError;
+  const error = submissionError ?? commentError;
   return (
     <Modal visible transparent animationType="slide" onRequestClose={props.onCancel}>
       <KeyboardAvoidingView className="flex-1 justify-end bg-backdrop" behavior="padding">
@@ -52,7 +53,16 @@ export function AssistantCitationSheet(props: {
           {error ? (
             <AppText className="-mt-2 text-xs text-danger-foreground">{error}</AppText>
           ) : null}
-          <View className="flex-row justify-end gap-3">
+          <View className="flex-row flex-wrap items-center justify-end gap-3">
+            {props.mode === "edit" && props.onRemove ? (
+              <Pressable
+                accessibilityRole="button"
+                className="mr-auto min-h-11 justify-center rounded-xl px-4"
+                onPress={() => setSubmissionError(props.onRemove?.() ?? null)}
+              >
+                <AppText className="font-t3-medium text-danger-foreground">Remove quote</AppText>
+              </Pressable>
+            ) : null}
             <Pressable
               accessibilityRole="button"
               className="min-h-11 justify-center rounded-xl px-4"

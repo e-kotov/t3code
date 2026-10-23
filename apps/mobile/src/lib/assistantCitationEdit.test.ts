@@ -16,6 +16,7 @@ import {
   assistantCitationFromChip,
   captureAssistantCitationEdit,
   prepareAssistantCitationEdit,
+  prepareAssistantCitationRemoval,
 } from "./assistantCitationEdit";
 
 const citation = {
@@ -117,12 +118,12 @@ describe("editing a citation comment", () => {
   });
 
   it("rejects an edit whose encoded marker exceeds the prompt cap", () => {
-    const quote = { ...citation, text: "漢".repeat(8000), comment: "" };
+    const quote = { ...citation, text: "漢".repeat(8000), end: 8007, comment: "" };
     expect(prepareAssistantCitationEdit({ ...fixture(quote), comment: "漢".repeat(8000) })).toHaveProperty("error");
   });
 
   it("checks expanded length even when the raw edited draft is below the cap", () => {
-    const quote = { ...citation, text: "<>".repeat(4000), comment: "" };
+    const quote = { ...citation, text: "<>".repeat(4000), end: 8007, comment: "" };
     const comment = "<>".repeat(4000);
     const marker = serializeAssistantCitation(withAssistantCitationComment(quote, comment));
     const prefix = "x".repeat(PROVIDER_SEND_TURN_MAX_INPUT_CHARS - expandAssistantCitationsForProvider(marker).length + 1);
@@ -153,5 +154,36 @@ describe("capturing the tapped citation", () => {
     expect(captureAssistantCitationEdit({
       ...owner, draft: input.draft, selection: { ...input.pending.selection, ...change },
     })).toBeNull();
+  });
+});
+
+describe("removing a citation", () => {
+  it("removes only the tapped chip and preserves all surrounding draft text", () => {
+    const marker = serializeAssistantCitation(citation);
+    const input = fixture(citation, `${marker} before 💡 `, " after");
+    expect(prepareAssistantCitationRemoval(input)).toEqual({
+      value: `${marker} before 💡  after`, cursor: `${marker} before 💡 `.length,
+    });
+  });
+
+  it("can empty a draft that contains only the quote", () => {
+    expect(prepareAssistantCitationRemoval(fixture(citation, "", ""))).toEqual({ value: "", cursor: 0 });
+  });
+
+  it.each([
+    { canEdit: false },
+    { draftKey: null },
+    { draftKey: "another-draft" },
+    { environmentId: EnvironmentId.make("another-environment") },
+    { threadId: ThreadId.make("another-thread") },
+    { draft: "new draft" },
+  ])("refuses to remove from a locked, replaced or changed draft: %j", (change) => {
+    expect(prepareAssistantCitationRemoval({ ...fixture(), ...change })).toHaveProperty("error");
+  });
+
+  it("allows removing a quote from an already oversized draft", () => {
+    const prefix = "x".repeat(PROVIDER_SEND_TURN_MAX_INPUT_CHARS + 1);
+    const input = fixture(citation, prefix, "");
+    expect(prepareAssistantCitationRemoval(input)).toEqual({ value: prefix, cursor: prefix.length });
   });
 });

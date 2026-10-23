@@ -13,6 +13,7 @@ import { addAssistantCitationEditListener } from "../../native/assistantCitation
 import {
   captureAssistantCitationEdit,
   prepareAssistantCitationEdit,
+  prepareAssistantCitationRemoval,
   type PendingAssistantCitationEdit,
 } from "../../lib/assistantCitationEdit";
 import {
@@ -110,7 +111,7 @@ export function useAssistantCitationSheet(input: {
     setPending(null);
     return null;
   }
-  const submitCitation = (comment: string): string | null => {
+  const submitCitation = (comment: string, action: "save" | "remove" = "save"): string | null => {
     const current = latestInput.current;
     const draftKey = current.composerDraftKey;
     const currentDraft = {
@@ -120,9 +121,11 @@ export function useAssistantCitationSheet(input: {
       draft: draftKey === null ? "" : getComposerDraftSnapshot(draftKey).text,
       comment,
     };
-    const result = pending.mode === "edit"
-      ? prepareAssistantCitationEdit({ ...currentDraft, pending, canEdit: current.canInsert })
-      : prepareAssistantCitationInsertion({ ...currentDraft, pending, canInsert: current.canInsert });
+    const result = pending.mode === "create"
+      ? prepareAssistantCitationInsertion({ ...currentDraft, pending, canInsert: current.canInsert })
+      : action === "remove"
+        ? prepareAssistantCitationRemoval({ ...currentDraft, pending, canEdit: current.canInsert })
+        : prepareAssistantCitationEdit({ ...currentDraft, pending, canEdit: current.canInsert });
     if ("error" in result) return result.error;
     current.onChangeDraftMessage(result.value);
     const selection = { start: result.cursor, end: result.cursor };
@@ -149,6 +152,7 @@ export function useAssistantCitationSheet(input: {
       mode={pending.mode}
       onCancel={() => setPending(null)}
       onSubmit={submitCitation}
+      onRemove={pending.mode === "edit" ? () => submitCitation("", "remove") : undefined}
     />
   );
 }

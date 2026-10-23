@@ -132,8 +132,9 @@ The quoted text and comment count toward the message limit.
 On Android, select assistant text and choose **Cite** in the native selection menu.
 Add an optional comment in the sheet to insert the quote chip into the prompt.
 The chip shows a preview of your comment, or of the quote when no comment was added.
-Tap a quote chip in the editable prompt to change its comment, then save. The original
-quoted text stays unchanged. If the draft changes while the sheet is open, close the
+Tap a quote chip in the editable prompt to change its comment, then save, or choose
+**Remove quote** to delete that chip. The original quoted text stays unchanged when
+editing a comment. If the draft changes while the sheet is open, close the
 sheet and tap the quote again before editing. Adding a quote is refused with an explanation if the selection
 is too long or the resulting prompt would exceed the message limit. The limit is
 checked again when sending, including text added after inserting the quote.
