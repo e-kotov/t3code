@@ -81,7 +81,10 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
 import * as ProjectStore from "./ProjectStore.ts";
-import { checkBackgroundCachePolicy } from "./ThreadCachePolicyDispatch.ts";
+import {
+  checkBackgroundCachePolicy,
+  retryableCachePolicyRejection,
+} from "./ThreadCachePolicyDispatch.ts";
 import { unsafeCacheWarmingDispatch } from "./CacheWarmingDispatchGuard.ts";
 import {
   isCheckpointRestoreIsolated,
@@ -11774,6 +11777,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       Effect.catch((cause) =>
         Effect.gen(function* () {
           if (cause._tag === "OrchestratorThreadAboveModeLimitError") return yield* cause;
+          if (retryableCachePolicyRejection(cause)) return yield* cause;
           const rejectedAt = yield* DateTime.now;
           const receipt = yield* eventSink
             .commitRejectedCommand({

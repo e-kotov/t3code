@@ -45,6 +45,16 @@ class ThreadCachePolicyChanged extends Schema.TaggedError<ThreadCachePolicyChang
   {},
 ) {}
 
+const isThreadCachePolicyChanged = Schema.is(ThreadCachePolicyChanged);
+
+/** A settings change can make the same idle window eligible again. */
+export function retryableCachePolicyRejection(cause: {
+  readonly _tag: string;
+  readonly cause?: unknown;
+}) {
+  return cause._tag === "OrchestratorDispatchError" && isThreadCachePolicyChanged(cause.cause);
+}
+
 export const checkBackgroundCachePolicy = Effect.fn("ThreadCachePolicyDispatch.check")(function* (
   command: MessageDispatch,
   projection: IdleCompactionRecords,

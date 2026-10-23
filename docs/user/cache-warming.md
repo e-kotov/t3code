@@ -3,6 +3,7 @@
 Choose an idle cache policy from a conversation’s cache control or context menu.
 On mobile, tap the memory-chip icon; no hover is needed. Choices are saved on the
 connected server and shared across devices.
+Update both the client and connected server to a build with per-thread cache policies.
 
 - **Default** follows the Claude instance’s settings, including its override of
   **Settings → General → Compact idle threads**. It sends no warming turns.
