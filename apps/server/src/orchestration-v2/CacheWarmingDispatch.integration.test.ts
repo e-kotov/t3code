@@ -7,6 +7,7 @@ import {
   ProviderInstanceId,
   ProviderThreadId,
   type OrchestrationV2ThreadProjection,
+  type OrchestrationV2TurnItem,
   ThreadId,
 } from "@t3tools/contracts";
 import * as DateTime from "effect/DateTime";
@@ -156,7 +157,10 @@ it.effect(
       const rejects = (current: OrchestrationV2ThreadProjection) =>
         unsafeCacheWarmingDispatch({
           projection: current,
-          command: warmCommand(threadId, "cache-warm-projection-recheck"),
+          command: {
+            ...warmCommand(threadId, "cache-warm-projection-recheck"),
+            expectedActiveProviderThreadId: current.thread.activeProviderThreadId,
+          },
           activeRun: undefined,
         });
       assert.isFalse(rejects(idle));
@@ -164,12 +168,23 @@ it.effect(
       assert.isTrue(rejects({ ...idle, runs: [{ ...completedRun, status: "interrupted" }] }));
       assert.isTrue(rejects({ ...idle, runs: [{ ...completedRun, status: "queued" }] }));
 
-      const background = {
-        ...item,
-        type: "command_execution" as const,
-        input: "background work",
-        status: "running" as const,
+      const background: Extract<OrchestrationV2TurnItem, { type: "command_execution" }> = {
+        id: item.id,
+        threadId,
         runId: run.id,
+        nodeId: run.rootNodeId,
+        providerThreadId: idle.thread.activeProviderThreadId,
+        providerTurnId: null,
+        nativeItemRef: null,
+        parentItemId: null,
+        ordinal: item.ordinal + 1,
+        type: "command_execution",
+        input: "background work",
+        status: "running",
+        title: "Background work",
+        startedAt: now,
+        completedAt: null,
+        updatedAt: now,
       };
       assert.isTrue(rejects({ ...idle, turnItems: [background] }));
       // Upstream excludes rolled-back work from its pending-work policy.
