@@ -60,16 +60,17 @@ export function presentCacheHud(hud: OrchestrationV2CacheHud, nowMs: number) {
     hud.ttlMs === undefined ? null : Math.max(0, Date.parse(usage.updatedAt) + hud.ttlMs - nowMs);
   const observedCold = cached === 0 && (usage.cacheCreationTokens ?? 0) === 0;
   const estimateElapsed = hud.driver === "codex" && hud.basis === "estimated" && remainingMs === 0;
-  const state =
-    observedCold
-      ? "cold"
-      : estimateElapsed || remainingMs === null || (cached === undefined && !usage.cacheCreationTokens)
-        ? "unknown"
-        : remainingMs === 0
-          ? "cold"
-          : remainingMs <= 300_000
-            ? "expiring"
-            : "hot";
+  const state = observedCold
+    ? "cold"
+    : estimateElapsed ||
+        remainingMs === null ||
+        (cached === undefined && !usage.cacheCreationTokens)
+      ? "unknown"
+      : remainingMs === 0
+        ? "cold"
+        : remainingMs <= 300_000
+          ? "expiring"
+          : "hot";
   const percentage =
     usage.inputTokens && cached !== undefined
       ? Math.min(100, Math.round((cached / usage.inputTokens) * 100))
