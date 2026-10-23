@@ -25,11 +25,10 @@ import {
   toKindScopedComposerContextId,
 } from "@t3tools/shared/composerContextReferences";
 import {
-  composerMathRanges,
   collectComposerInlineTokens,
   type ComposerInlineToken,
 } from "@t3tools/shared/composerInlineTokens";
-import { collectAssistantCitations } from "@t3tools/shared/assistantCitations";
+import { assistantCitationEditorTokens } from "./assistantCitationEditorTokens";
 
 const isMessageContext = Schema.is(OrchestrationMessageContext);
 const decodeMessageContext = Schema.decodeUnknownOption(OrchestrationMessageContext);
@@ -169,24 +168,14 @@ export function composerContextEditorTokens(
   knownSkills: { has(name: string): boolean },
 ) {
   const references = collectComposerContextReferences(text);
-  const quotes = collectAssistantCitations(text);
-  const math = quotes.length > 0 ? composerMathRanges(text, tokens) : [];
-  const citations = quotes
-    .filter(
-      (quote) =>
-        !references.some((ref) => quote.start < ref.end && quote.end > ref.start) &&
-        !math.some((range) => quote.start < range.end && quote.end > range.start),
-    )
-    .map((quote) => ({ ...quote, type: "assistantCitation" as const, value: quote.citation.text }));
+  const editorTokens = assistantCitationEditorTokens(text, tokens, references);
   return [
-    ...tokens.filter(
+    ...editorTokens.filter(
       (token) =>
         // `$HOME` and other `$name` text that is not one of the provider's skills stays prose.
         (token.type !== "skill" || knownSkills.has(token.value)) &&
-        !references.some((ref) => token.start < ref.end && token.end > ref.start) &&
-        !citations.some((quote) => token.start < quote.end && token.end > quote.start),
+        !references.some((ref) => token.start < ref.end && token.end > ref.start),
     ),
-    ...citations,
     ...references.map((ref) => ({
       type: "context" as const,
       value: ref.label,
