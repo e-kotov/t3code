@@ -105,6 +105,7 @@ apps/web src/components/Sidebar.pointer.browser.test.tsx
 apps/web src/editorPreferences.test.ts
 apps/web src/lib/threadSort.test.ts
 packages/client-runtime src/rpc/session.test.ts
+packages/client-runtime src/state/customSnooze.test.ts
 packages/client-runtime src/state/threadSort.test.ts
 packages/ssh src/tunnel.test.ts
 packages/shared src/serverSettings.test.ts
