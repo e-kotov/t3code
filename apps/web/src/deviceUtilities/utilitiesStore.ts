@@ -52,27 +52,30 @@ function visibilityChanged() {
   heartbeatAt = 0;
   heartbeat();
 }
+/** Shares one heartbeat between all mounted views; returns the matching unsubscribe. */
+function subscribeUtilities() {
+  if (!getUtilitiesBridge()) return undefined;
+  subscribers += 1;
+  if (subscribers === 1) {
+    heartbeatAt = 0;
+    document.addEventListener("visibilitychange", visibilityChanged);
+    timer = setInterval(heartbeat, 3000);
+    heartbeat();
+  }
+  return () => {
+    subscribers -= 1;
+    if (subscribers === 0) {
+      if (timer) clearInterval(timer);
+      document.removeEventListener("visibilitychange", visibilityChanged);
+      void getUtilitiesBridge()
+        ?.active(false)
+        .catch(() => undefined);
+    }
+  };
+}
 export function useDeviceUtilities() {
   const state = useUtilitiesStore();
-  useEffect(() => {
-    if (!getUtilitiesBridge()) return;
-    subscribers++;
-    if (subscribers === 1) {
-      heartbeatAt = 0;
-      document.addEventListener("visibilitychange", visibilityChanged);
-      timer = setInterval(heartbeat, 3000);
-      heartbeat();
-    }
-    return () => {
-      if (--subscribers === 0) {
-        if (timer) clearInterval(timer);
-        document.removeEventListener("visibilitychange", visibilityChanged);
-        void getUtilitiesBridge()
-          ?.active(false)
-          .catch(() => undefined);
-      }
-    };
-  }, []);
+  useEffect(() => subscribeUtilities(), []);
   const statuses = state.snapshot ? utilityStatuses(state.snapshot, state.now) : [];
   return {
     ...state,

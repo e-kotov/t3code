@@ -25,6 +25,43 @@ import { readEnvironmentScope } from "./state/session";
 import { shellEnvironment } from "./state/shell";
 import { useAtomCommand } from "./state/use-atom-command";
 
+type ConfiguredEditorEntry = ReturnType<typeof configuredEditorEntries>[number];
+
+/**
+ * Opens an editor link on the viewing device. It returns the failure rather than throwing, so
+ * the hook that calls it stays free of throw-in-try, which the React Compiler cannot compile.
+ */
+async function openRemoteEditorLink(
+  entry: ConfiguredEditorEntry,
+  host: string,
+  target: string,
+  isFile: boolean,
+): Promise<Error | undefined> {
+  try {
+    let opened = false;
+    if (entry.custom) {
+      const input = { template: entry.custom.remoteUrl, host, target };
+      const url = buildCustomEditorUrl(input.template, input.host, input.target);
+      if (url === undefined) throw new Error("Invalid editor URL template.");
+      if (window.desktopBridge) {
+        if (!window.desktopBridge.openCustomEditor)
+          throw new Error("Update the desktop app to use custom editor links.");
+        opened = await window.desktopBridge.openCustomEditor(input);
+      } else {
+        window.location.assign(url);
+        opened = true;
+      }
+    } else if (entry.builtIn) {
+      const url = buildRemoteOpenUrl({ editor: entry.builtIn, host, absolutePath: target, isFile });
+      if (url !== undefined) opened = await openRemoteEditorUrl(url);
+    }
+    if (!opened) throw new Error("The editor link could not be opened.");
+    return undefined;
+  } catch (cause) {
+    return cause instanceof Error ? cause : new Error("Could not open the editor.");
+  }
+}
+
 export function useConfiguredEditors(
   environmentId: EnvironmentId | null,
   availableEditors: readonly EditorId[],
@@ -60,38 +97,16 @@ export function useConfiguredEditors(
       );
     }
     if (remote.mode === "remote-links") {
-      try {
-        let opened = false;
-        if (entry.custom) {
-          const input = { template: entry.custom.remoteUrl, host: remote.host.host, target };
-          const url = buildCustomEditorUrl(input.template, input.host, input.target);
-          if (url === undefined) throw new Error("Invalid editor URL template.");
-          if (window.desktopBridge) {
-            if (!window.desktopBridge.openCustomEditor)
-              throw new Error("Update the desktop app to use custom editor links.");
-            opened = await window.desktopBridge.openCustomEditor(input);
-          } else {
-            window.location.assign(url);
-            opened = true;
-          }
-        } else if (entry.builtIn) {
-          const url = buildRemoteOpenUrl({
-            editor: entry.builtIn,
-            host: remote.host.host,
-            absolutePath: target,
-            isFile: options?.isFile ?? false,
-          });
-          if (url !== undefined) opened = await openRemoteEditorUrl(url);
-        }
-        if (!opened) throw new Error("The editor link could not be opened.");
-        setPreferredEditor(entry.id);
-        markRemoteHintSeen();
-        return AsyncResult.success(entry.id);
-      } catch (cause) {
-        return AsyncResult.failure(
-          Cause.fail(cause instanceof Error ? cause : new Error("Could not open the editor.")),
-        );
-      }
+      const failure = await openRemoteEditorLink(
+        entry,
+        remote.host.host,
+        target,
+        options?.isFile ?? false,
+      );
+      if (failure) return AsyncResult.failure(Cause.fail(failure));
+      setPreferredEditor(entry.id);
+      markRemoteHintSeen();
+      return AsyncResult.success(entry.id);
     }
     if (!readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) {
       return AsyncResult.failure(

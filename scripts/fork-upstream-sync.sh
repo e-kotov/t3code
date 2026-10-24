@@ -106,7 +106,6 @@ apps/web src/components/Sidebar.logic.test.ts
 apps/web src/components/Sidebar.drag.test.ts
 apps/web src/components/Sidebar.pointer.browser.test.tsx
 apps/web src/editorPreferences.test.ts
-apps/web src/lib/threadSort.test.ts
 packages/client-runtime src/rpc/session.test.ts
 packages/client-runtime src/state/customSnooze.test.ts
 packages/client-runtime src/state/threadSort.test.ts

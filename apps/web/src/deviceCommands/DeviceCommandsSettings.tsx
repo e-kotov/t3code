@@ -36,16 +36,18 @@ export function DeviceCommandsSettings() {
   async function persist(next = items) {
     setSaving(true);
     setError(null);
-    try {
-      await saveDeviceCommands(next);
-      setDraft(null);
-      return true;
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+    // A promise handler instead of try/finally, which the React Compiler cannot compile.
+    const failure = await saveDeviceCommands(next).then(
+      () => null,
+      (cause: unknown) => (cause instanceof Error ? cause.message : String(cause)),
+    );
+    setSaving(false);
+    if (failure !== null) {
+      setError(failure);
       return false;
-    } finally {
-      setSaving(false);
     }
+    setDraft(null);
+    return true;
   }
   function update(id: string, patch: Partial<DeviceCommand>) {
     setDraft(items.map((item) => (item.id === id ? { ...item, ...patch } : item)));
