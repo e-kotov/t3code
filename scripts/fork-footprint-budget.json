@@ -43,6 +43,7 @@
     "apps/mobile/src/features/workspace/AndroidWorkspaceNavigation.android.tsx": 10,
     "apps/mobile/src/features/workspace/AndroidWorkspaceSidebar.android.tsx": 2,
     "apps/mobile/src/features/workspace/WorkspaceExtraTab.tsx": 4,
+    "apps/mobile/src/features/workspace/WorkspaceNativeTabs.ios.tsx": 3,
     "apps/mobile/src/features/workspace/WorkspaceRootScreen.android.tsx": 2,
     "apps/mobile/src/features/workspace/WorkspaceRootScreen.tsx": 2,
     "apps/mobile/src/features/workspace/WorkspaceSectionToolbar.tsx": 3,
