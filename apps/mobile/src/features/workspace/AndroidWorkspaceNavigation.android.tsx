@@ -1,5 +1,4 @@
-import { useDeviceUtilities } from "../device-utilities/utilitiesStore";
-import { utilityColor } from "../device-utilities/utilityColors";
+import { selectedNavigationTab, visibleNavigationTabs } from "./navigation-tab-order";
 import { requireNativeView } from "expo";
 import { CommonActions, useNavigation } from "@react-navigation/native";
 import {
@@ -22,15 +21,17 @@ import {
 } from "./android-workspace-tabs";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { useAndroidWorkspaceRoot } from "./AndroidWorkspaceTabsProvider";
+import { useNavigationTabOrder, useHiddenNavigationTabs } from "./navigation-tabs";
 import { useWorkspaceTabs } from "./WorkspaceTabsContext";
+import { highlightUtilities } from "../device-commands/utilitiesWorkspaceTab";
+import { useUtilitiesNavigation, type UtilitiesNavigation } from "../device-utilities/navigation";
 
 // Matches RAIL_WIDTH in the native rail.
 export const ANDROID_WORKSPACE_RAIL_WIDTH = 72;
 
-interface NativeNavigationProps extends ViewProps {
-  readonly utilitiesLabel: string;
-  readonly utilitiesColor: number;
+interface NativeNavigationProps extends ViewProps, UtilitiesNavigation {
   readonly rail: boolean;
+  readonly tabs: readonly string[];
   readonly selectedTab: AndroidWorkspaceNavigationTab;
   readonly dark: boolean;
   readonly textScale: number;
@@ -65,8 +66,9 @@ export function AndroidWorkspaceNavigation(props: {
   /** The rail needs the whole workspace while it widens over the list. */
   readonly onOverlayChange?: (overlay: boolean) => void;
 }) {
-  const utilities = useDeviceUtilities();
   const workspace = useWorkspaceTabs()!;
+  const order = useNavigationTabOrder();
+  const hidden = useHiddenNavigationTabs();
   const root = useAndroidWorkspaceRoot();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -74,13 +76,18 @@ export function AndroidWorkspaceNavigation(props: {
   const connectionState = useWorkspaceConnectionState();
   const keyboardVisible = useKeyboardState((state) => state.isVisible);
   const { themeAppearance, themeVariables: colors } = useAppearancePreferences();
+  const utilities = useUtilitiesNavigation(themeAppearance === "dark");
   const { scale } = useAndroidControlSizing();
   const rail = Boolean(props.rail);
   const { containerColor, indicatorColor, selectedColor, unselectedColor } =
     androidWorkspaceNavigationColors(colors, rail);
-  const selectedTab: AndroidWorkspaceNavigationTab = root?.settingsOpen
-    ? "settings"
-    : workspace.state.selectedTab;
+  const selectedTab = highlightUtilities(selectedNavigationTab)(
+    order,
+    workspace.state.selectedTab,
+    root?.settingsOpen ?? false,
+    hidden,
+    rail ? 5 : 4,
+  );
   if (!rail && keyboardVisible) return null;
 
   return (
@@ -92,9 +99,9 @@ export function AndroidWorkspaceNavigation(props: {
       }
     >
       <NativeNavigation
-        utilitiesLabel={`Utilities, ${utilities.aggregate}, ${utilities.statuses.filter((s) => s === "down").length} down`}
-        utilitiesColor={nativeColor(utilityColor(utilities.aggregate, themeAppearance === "dark"))}
+        {...utilities}
         rail={rail}
+        tabs={[...visibleNavigationTabs(order, hidden, rail ? 5 : 4), "commands", "settings"]}
         selectedTab={selectedTab}
         dark={themeAppearance === "dark"}
         textScale={scale}
@@ -111,15 +118,13 @@ export function AndroidWorkspaceNavigation(props: {
         onTabSelected={(event) => {
           Keyboard.dismiss();
           const tab = event.nativeEvent.tab;
-          if (tab !== selectedTab) {
-            if (tab !== "settings") workspace.dispatch({ type: "select", tab });
-            // Reset the root stack even when a nested settings navigator has focus.
-            if (root) {
-              navigation.dispatch({
-                ...CommonActions.reset(androidWorkspaceTabNavigationState(root.getState(), tab)),
-                target: root.key,
-              });
-            }
+          if (tab !== "settings") workspace.dispatch({ type: "select", tab });
+          // Reset the root stack even when a nested settings navigator has focus.
+          if (root) {
+            navigation.dispatch({
+              ...CommonActions.reset(androidWorkspaceTabNavigationState(root.getState(), tab)),
+              target: root.key,
+            });
           }
           props.onSelect?.();
         }}

@@ -1,4 +1,5 @@
 import { useConfiguredEditors } from "../../useConfiguredEditors";
+import { configuredEditorLabel } from "../../forkEditorPreferences";
 import { configuredOpenInOptions, reportEditorOpenFailure } from "./configuredOpenInOptions";
 import { ThreadDetailsControl } from "./ThreadDetailsControl";
 import { FORK_OPEN_IN_OPTIONS } from "./forkOpenInOptions";
@@ -53,6 +54,7 @@ import {
   RustRoverIcon,
   WebStormIcon,
 } from "../JetBrainsIcons";
+import { announce } from "~/lib/announce";
 import { cn, isMacPlatform, isWindowsPlatform } from "~/lib/utils";
 import {
   THREAD_DETAILS_PANEL_CHEVRON_CLASS,
@@ -228,8 +230,8 @@ export const OpenInPicker = memo(function OpenInPicker({
   const [menuOpen, setMenuOpen] = useComposerMenuState(isHostEditorDenied);
   const environmentLabel = useEnvironment(environmentId)?.label ?? "this machine";
 
-  const openInEditor = (editorId: string | null) => {
-    if (!openInCwd) return;
+  const openInEditor = async (editorId: string | null): Promise<boolean> => {
+    if (!openInCwd) return false;
     return reportEditorOpenFailure(
       open(openInCwd, editorId, { revealFileManager, isFile: openInCwdIsFile }),
     );
@@ -253,7 +255,10 @@ export const OpenInPicker = memo(function OpenInPicker({
         return;
 
       e.preventDefault();
-      void openInEditor(preferredEditor);
+      const label = configuredEditorLabel(preferredEditor, navigator.platform);
+      void openInEditor(preferredEditor).then((opened) => {
+        if (opened) announce(`Opened in ${label}`);
+      });
     };
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);

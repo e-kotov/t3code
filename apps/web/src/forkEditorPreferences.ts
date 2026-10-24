@@ -1,5 +1,6 @@
 import { EDITORS, EditorId, REMOTE_CAPABLE_EDITOR_IDS } from "@t3tools/contracts";
 import * as Schema from "effect/Schema";
+import { editorLabelForPlatform } from "./editorLabels";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 
 export const EditorVisibility = Schema.Literals(["auto", "show", "hide"]);
@@ -77,6 +78,12 @@ export function preferredConfiguredEditor(
     entries[0] ??
     null
   );
+}
+
+/** Spoken name after opening; custom editors are named generically outside the picker. */
+export function configuredEditorLabel(id: string, platform: string): string {
+  const editor = EDITORS.find((candidate) => candidate.id === id);
+  return editor ? editorLabelForPlatform(editor.id, platform) : "editor";
 }
 
 export function setEditorVisibility(

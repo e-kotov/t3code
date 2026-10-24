@@ -37,13 +37,14 @@ export function configuredOpenInOptions(
 
 export async function reportEditorOpenFailure(
   pending: ReturnType<ReturnType<typeof useConfiguredEditors>["open"]>,
-): Promise<void> {
+): Promise<boolean> {
   const result = await pending;
-  if (result._tag !== "Failure") return;
+  if (result._tag !== "Failure") return result._tag === "Success";
   const error = Cause.squash(result.cause);
   toastManager.add({
     type: "error",
     title: "Could not open editor",
     description: error instanceof Error ? error.message : undefined,
   });
+  return false;
 }
