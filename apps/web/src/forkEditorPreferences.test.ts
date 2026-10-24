@@ -20,11 +20,16 @@ const custom: CustomEditor = {
 };
 
 describe("configured editors", () => {
-  it.each(["vscode", null, {}])("retains detected editors with legacy or missing preferences: %j", (saved) => {
-    const preferences = resolveEditorPreferences(saved);
-    const entries = configuredEditorEntries(preferences, ["vscode"], false);
-    expect(preferredConfiguredEditor(entries, preferences.preferred, "vscode")?.id).toBe("vscode");
-  });
+  it.each(["vscode", null, {}])(
+    "retains detected editors with legacy or missing preferences: %j",
+    (saved) => {
+      const preferences = resolveEditorPreferences(saved);
+      const entries = configuredEditorEntries(preferences, ["vscode"], false);
+      expect(preferredConfiguredEditor(entries, preferences.preferred, "vscode")?.id).toBe(
+        "vscode",
+      );
+    },
+  );
   it("names opened editors for screen reader announcements", () => {
     expect(configuredEditorLabel("vscode", "MacIntel")).toBe("VS Code");
     expect(configuredEditorLabel("file-manager", "MacIntel")).toBe("Finder");

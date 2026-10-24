@@ -597,6 +597,8 @@ export function buildThreadListV2Items(input: {
   readonly snoozeEnvironmentIds?: ReadonlySet<EnvironmentId>;
   readonly settledLimit?: number;
   readonly now: string;
+  readonly conversationSortOrder?: ConversationShelfSortInput["conversationSortOrder"];
+  readonly conversationGrouping?: ConversationShelfSortInput["conversationGrouping"];
   readonly workingShelfEnabled?: boolean;
   readonly workingShelfExpanded?: boolean;
   readonly inboxReturnAt?: (thread: EnvironmentThreadShell) => number | undefined;
@@ -604,7 +606,7 @@ export function buildThreadListV2Items(input: {
   readonly settledShelfExpanded?: boolean;
   readonly selectedThreadKey?: string | null;
   readonly queuedThreadKeys?: ReadonlySet<string>;
-} & ConversationShelfSortInput): ThreadListV2Layout {
+}): ThreadListV2Layout {
   const now = input.now;
   const pending =
     input.pendingOrder == null
