@@ -26,6 +26,7 @@ import { useControlTheme } from "../../components/ui/useControlTheme";
 import { useDeviceType } from "../../native/native-layout-metrics";
 import { WorkspaceSidebarTabs } from "./WorkspaceSidebarTabs";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
+import { withoutUtilities } from "../device-commands/utilitiesWorkspaceTab";
 
 const PULL_REQUEST_ICON = require("../../../assets/icons/pull-request.png");
 
@@ -75,7 +76,7 @@ export function WorkspaceNativeTabs(props: {
   const compactSidebarTabs = deviceType === "phone" || !layout.usesSplitView;
   const { width } = useWindowDimensions();
   const { colors } = useControlTheme();
-  const selectedTab = workspace.state.selectedTab;
+  const selectedTab = withoutUtilities(workspace.state.selectedTab);
   const selectedSlot = workspace.settingsOpen ? -1 : primaryTabs.indexOf(selectedTab);
   const request = useMemo(
     () => ({

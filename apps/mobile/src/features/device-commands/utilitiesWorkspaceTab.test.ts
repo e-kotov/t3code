@@ -3,7 +3,7 @@ import {
   resolveSelectedNavigationTab,
   selectedNavigationTab,
 } from "../workspace/navigation-tab-order";
-import { highlightUtilities, keepUtilities } from "./utilitiesWorkspaceTab";
+import { highlightUtilities, keepUtilities, withoutUtilities } from "./utilitiesWorkspaceTab";
 
 describe("Utilities workspace tab", () => {
   it("stays selected although upstream does not register it as a section", () => {
@@ -19,5 +19,10 @@ describe("Utilities workspace tab", () => {
     expect(select(undefined, "commands", true, [], 4)).toBe("settings");
     expect(select(undefined, "usage", false, [], 4)).toBe("usage");
     expect(select(undefined, "threads", true)).toBe("settings");
+  });
+
+  it("falls back to Threads where the platform has no Utilities section", () => {
+    expect(withoutUtilities("commands")).toBe("threads");
+    expect(withoutUtilities("usage")).toBe("usage");
   });
 });
