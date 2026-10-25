@@ -2945,6 +2945,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
     <AssistantCitationPassage
       rowId={info.item.id}
       target={citationSource.passage}
+      onLocated={citationSource.onPassageLocated}
       key={info.item.id}
       className={
         citationSource.rowId === info.item.id ? "rounded-xl border border-foreground/30" : undefined

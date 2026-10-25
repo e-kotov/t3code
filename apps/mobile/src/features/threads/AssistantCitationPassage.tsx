@@ -1,8 +1,9 @@
 import type { AssistantCitation } from "@t3tools/contracts";
 import { requireNativeView, requireOptionalNativeModule } from "expo";
 import type { ComponentProps } from "react";
-import { Platform, type ViewProps } from "react-native";
+import { Platform, type NativeSyntheticEvent, type ViewProps } from "react-native";
 import Animated from "react-native-reanimated";
+import type { AssistantCitationPassageLocation } from "../../lib/assistantCitationPassage";
 
 export interface AssistantCitationPassageTarget {
   readonly requestId: number;
@@ -13,22 +14,29 @@ export interface AssistantCitationPassageTarget {
 
 const NativePassage =
   Platform.OS === "android" && requireOptionalNativeModule("T3CitationPassage")
-    ? requireNativeView<ViewProps & { readonly targetJson: string }>("T3CitationPassage")
+    ? requireNativeView<ViewProps & {
+        readonly targetJson: string;
+        readonly onLocated: (event: NativeSyntheticEvent<AssistantCitationPassageLocation>) => void;
+      }>("T3CitationPassage")
     : null;
 
-export function AssistantCitationPassage({ rowId, target: requested, children, ...props }: ComponentProps<typeof Animated.View> & {
+export function AssistantCitationPassage({ rowId, target: requested, onLocated, children, ...props }: ComponentProps<typeof Animated.View> & {
   readonly rowId: string;
   readonly target: AssistantCitationPassageTarget | null;
+  readonly onLocated: (location: AssistantCitationPassageLocation) => void;
 }) {
   const target = requested?.rowId === rowId ? requested : null;
   return (
-    <Animated.View {...props}>
-    {NativePassage ? <NativePassage
-      style={{ minWidth: 0, flexShrink: 1 }}
-      targetJson={target ? JSON.stringify({ ...target.citation, requestId: target.requestId, topInset: target.topInset }) : ""}
-    >
+    <Animated.View {...props} collapsable={false}>
       {children}
-    </NativePassage> : children}
+      {NativePassage && target ? (
+        <NativePassage
+          pointerEvents="none"
+          style={{ position: "absolute", width: 0, height: 0 }}
+          targetJson={JSON.stringify({ ...target.citation, requestId: target.requestId, topInset: target.topInset })}
+          onLocated={({ nativeEvent }) => onLocated(nativeEvent)}
+        />
+      ) : null}
     </Animated.View>
   );
 }

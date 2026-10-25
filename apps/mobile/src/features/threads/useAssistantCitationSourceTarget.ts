@@ -1,3 +1,4 @@
+import { createAssistantCitationPassageActivation, type AssistantCitationPassageLocation } from "../../lib/assistantCitationPassage";
 import type { LegendListRef } from "@legendapp/list/react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { EnvironmentId, RunId, ThreadId } from "@t3tools/contracts";
@@ -59,6 +60,7 @@ export function useAssistantCitationSourceTarget(input: {
     runtime?.connectionState,
     synchronizationError,
   );
+  const passageActivation = useRef(createAssistantCitationPassageActivation());
   const [historyCompletion, setHistoryCompletion] = useState(0);
   const pendingRequest = useSyncExternalStore(
     subscribeAssistantCitationNavigation,
@@ -81,16 +83,20 @@ export function useAssistantCitationSourceTarget(input: {
   } | null>(null);
   const scope = JSON.stringify([input.environmentId, input.threadId]);
   const cancel = () => {
+    passageActivation.current.cancel();
     if (request) finishAssistantCitationNavigation(request.id);
     setSource(null);
   };
   const navigate = useEffectEvent(() => {
-    if (!request) return;
     if (!focused) {
-      if (progress.current?.id === request.id) finishAssistantCitationNavigation(request.id);
+      passageActivation.current.cancel();
+      setSource(null);
+      if (request && progress.current?.id === request.id) finishAssistantCitationNavigation(request.id);
       return;
     }
+    if (!request) return;
     if (progress.current?.id !== request.id) {
+      passageActivation.current.cancel();
       progress.current = {
         id: request.id,
         pages: new Set(),
@@ -184,6 +190,7 @@ export function useAssistantCitationSourceTarget(input: {
       })
       .then(() => {
         if (readAssistantCitationNavigation()?.id !== request.id) return;
+        passageActivation.current.begin(request.id);
         setSource({ scope, rowId: step.rowId, passage: {
           requestId: request.id, rowId: step.rowId, citation: request.citation, topInset: input.topInset,
         } });
@@ -219,6 +226,13 @@ export function useAssistantCitationSourceTarget(input: {
   return {
     rowId: source?.scope === scope ? source.rowId : null,
     passage: source?.scope === scope ? source.passage : null,
+    onPassageLocated: (location: AssistantCitationPassageLocation) => {
+      if (!focused) return;
+      const delta = passageActivation.current.consume(location);
+      const list = input.listRef.current;
+      if (delta === null || !list) return;
+      void list.scrollToOffset({ offset: Math.max(0, list.getState().scroll + delta), animated: true });
+    },
     onLoad: () => setLoadedKey(input.listKey),
     cancel,
   };
