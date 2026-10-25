@@ -133,6 +133,7 @@
   "apps/mobile/src/features/threads/use-thread-settings-sheet-presentation.ts": 2,
   "apps/mobile/src/features/threads/use-visible-second-clock.ts": 2,
   "apps/mobile/src/features/threads/use-worktree-setup.ts": 1,
+  "apps/mobile/src/features/threads/useAssistantCitationSourceTarget.ts": 1,
   "apps/mobile/src/features/threads/useFileChipShare.ts": 2,
   "apps/mobile/src/features/usage/UsageLimitsSection.tsx": 1,
   "apps/mobile/src/features/usage/UsageRouteScreen.tsx": 1,
