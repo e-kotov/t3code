@@ -62,7 +62,7 @@
     "apps/mobile/src/persistence/mobile-preferences.ts": 7,
     "apps/mobile/src/state/server.ts": 1,
     "apps/mobile/vite.config.ts": 2,
-    "apps/server/src/cli/update.ts": 5,
+    "apps/server/src/cli/update.ts": 11,
     "apps/server/src/cloud/pinnedRuntime.ts": 2,
     "apps/server/src/environment/ServerEnvironmentLabel.ts": 8,
     "apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts": 27,
@@ -127,6 +127,6 @@
     "packages/shared/src/editor.ts": 2,
     "packages/shared/src/serverSettings.ts": 21,
     "packages/ssh/src/tunnel.ts": 2,
-    "scripts/build-desktop-artifact.ts": 5
+    "scripts/build-desktop-artifact.ts": 14
   }
 }
