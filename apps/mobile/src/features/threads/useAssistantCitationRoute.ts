@@ -14,6 +14,7 @@ export function useAssistantCitationRoute(environmentId: string | null, threadId
   const focused = useIsFocused();
   const routeKey = useRoute().key;
   useEffect(() => {
-    if (request) reconcileAssistantCitationRoute(request.id, environmentId, threadId, focused, routeKey);
+    if (request)
+      reconcileAssistantCitationRoute(request.id, environmentId, threadId, focused, routeKey);
   }, [request, environmentId, threadId, focused, routeKey]);
 }
