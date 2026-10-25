@@ -1,6 +1,9 @@
 import { EnvironmentId, MessageId, ThreadId, type AssistantCitation } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
-import { assistantCitationSourceReadiness, assistantCitationSourceStep } from "./assistantCitationMessage";
+import {
+  assistantCitationSourceReadiness,
+  assistantCitationSourceStep,
+} from "./assistantCitationMessage";
 
 const citation: AssistantCitation = {
   version: 1,
@@ -69,18 +72,49 @@ describe("citation source navigation", () => {
   it("waits for a cached source to synchronize before declaring a response missing", () => {
     const input = { ...ready, citation, feed: [], visible: [], requestedPages: new Set<string>() };
     for (const status of ["cached", "synchronizing"]) {
-      expect(assistantCitationSourceStep({ ...input, synchronization: assistantCitationSourceReadiness(status, "connected", null) })).toEqual({ kind: "wait" });
+      expect(
+        assistantCitationSourceStep({
+          ...input,
+          synchronization: assistantCitationSourceReadiness(status, "connected", null),
+        }),
+      ).toEqual({ kind: "wait" });
     }
     const offline = assistantCitationSourceReadiness("cached", "disconnected", null);
-    expect(assistantCitationSourceStep({ ...input, synchronization: offline })).toEqual({ kind: "unavailable", reason: "Reconnect this environment to load the cited response." });
-    expect(assistantCitationSourceStep({ ...input, synchronization: offline, feed: [source], visible: [source] })).toEqual({ kind: "scroll", index: 0, rowId: "source-row" });
-    expect(assistantCitationSourceStep({ ...input, synchronization: assistantCitationSourceReadiness("live", "connected", null), feed: [source], visible: [source] })).toEqual({ kind: "scroll", index: 0, rowId: "source-row" });
+    expect(assistantCitationSourceStep({ ...input, synchronization: offline })).toEqual({
+      kind: "unavailable",
+      reason: "Reconnect this environment to load the cited response.",
+    });
+    expect(
+      assistantCitationSourceStep({
+        ...input,
+        synchronization: offline,
+        feed: [source],
+        visible: [source],
+      }),
+    ).toEqual({ kind: "scroll", index: 0, rowId: "source-row" });
+    expect(
+      assistantCitationSourceStep({
+        ...input,
+        synchronization: assistantCitationSourceReadiness("live", "connected", null),
+        feed: [source],
+        visible: [source],
+      }),
+    ).toEqual({ kind: "scroll", index: 0, rowId: "source-row" });
   });
 
   it("waits for an asynchronous history command to finish before failing an unchanged cursor", () => {
-    const input = { ...ready, citation, feed: [], visible: [], requestedPages: new Set(["initial"]), history: { hasMoreHistory: true, loading: false, error: null } };
+    const input = {
+      ...ready,
+      citation,
+      feed: [],
+      visible: [],
+      requestedPages: new Set(["initial"]),
+      history: { hasMoreHistory: true, loading: false, error: null },
+    };
     expect(assistantCitationSourceStep(input)).toEqual({ kind: "wait" });
-    expect(assistantCitationSourceStep({ ...input, completedPages: new Set(["initial"]) }).kind).toBe("unavailable");
+    expect(
+      assistantCitationSourceStep({ ...input, completedPages: new Set(["initial"]) }).kind,
+    ).toBe("unavailable");
   });
 
   it("locates the original response by message identity rather than a repeated quote", () => {

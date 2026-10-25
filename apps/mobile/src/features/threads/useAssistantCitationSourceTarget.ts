@@ -17,7 +17,10 @@ import {
   readAssistantCitationNavigation,
   subscribeAssistantCitationNavigation,
 } from "../../lib/assistantCitationNavigation";
-import { assistantCitationSourceReadiness, assistantCitationSourceStep } from "../../lib/assistantCitationMessage";
+import {
+  assistantCitationSourceReadiness,
+  assistantCitationSourceStep,
+} from "../../lib/assistantCitationMessage";
 import { useThreadDetail } from "../../state/use-thread-detail";
 import { useRemoteEnvironmentRuntime } from "../../state/use-remote-environment-registry";
 import {
@@ -50,7 +53,11 @@ export function useAssistantCitationSourceTarget(input: {
   const detail = useThreadDetail({ environmentId, threadId: ThreadId.make(input.threadId) });
   const runtime = useRemoteEnvironmentRuntime(environmentId);
   const synchronizationError = Option.getOrNull(detail.error);
-  const synchronization = assistantCitationSourceReadiness(detail.status, runtime?.connectionState, synchronizationError);
+  const synchronization = assistantCitationSourceReadiness(
+    detail.status,
+    runtime?.connectionState,
+    synchronizationError,
+  );
   const [historyCompletion, setHistoryCompletion] = useState(0);
   const pendingRequest = useSyncExternalStore(
     subscribeAssistantCitationNavigation,
@@ -103,9 +110,15 @@ export function useAssistantCitationSourceTarget(input: {
       presentation: input.contentPresentation,
       synchronization,
       foldRunId: (entryId) => {
-        const retained = input.feed.filter((entry) => entry.type !== "run-fold" && entry.type !== "work-toggle" && entry.type !== "thinking");
-        const sourceFeed = retained.map((entry, index) => settleSupersededReasoning(entry, index === retained.length - 1));
-        const isWorking = input.activeWorkStartedAt !== null && input.latestRun?.status !== "preparing";
+        const retained = input.feed.filter(
+          (entry) =>
+            entry.type !== "run-fold" && entry.type !== "work-toggle" && entry.type !== "thinking",
+        );
+        const sourceFeed = retained.map((entry, index) =>
+          settleSupersededReasoning(entry, index === retained.length - 1),
+        );
+        const isWorking =
+          input.activeWorkStartedAt !== null && input.latestRun?.status !== "preparing";
         const folds = deriveThreadFeedRunFolds(
           sourceFeed,
           input.latestRun,
@@ -130,18 +143,21 @@ export function useAssistantCitationSourceTarget(input: {
       current.pages.add(step.page);
       const loading = input.history?.onLoadEarlier(request.citation.messageId);
       if (!loading) return fail("Could not load the cited response. Try again.");
-      void loading.then((result) => {
-        if (readAssistantCitationNavigation()?.id !== request.id) return;
-        if (result._tag === "error") return fail(result.message);
-        if (result._tag === "busy") {
-          current.pages.delete(step.page);
-          return;
-        }
-        current.completedPages.add(step.page);
-        setHistoryCompletion((revision) => revision + 1);
-      }).catch(() => {
-        if (readAssistantCitationNavigation()?.id === request.id) fail("Could not load the cited response. Try again.");
-      });
+      void loading
+        .then((result) => {
+          if (readAssistantCitationNavigation()?.id !== request.id) return;
+          if (result._tag === "error") return fail(result.message);
+          if (result._tag === "busy") {
+            current.pages.delete(step.page);
+            return;
+          }
+          current.completedPages.add(step.page);
+          setHistoryCompletion((revision) => revision + 1);
+        })
+        .catch(() => {
+          if (readAssistantCitationNavigation()?.id === request.id)
+            fail("Could not load the cited response. Try again.");
+        });
       return;
     }
     if (step.kind === "expand") {
