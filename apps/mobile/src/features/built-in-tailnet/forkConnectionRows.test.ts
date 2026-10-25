@@ -1,6 +1,10 @@
 import { expect, it } from "vite-plus/test";
 import { filterSettingsSections } from "../settings/settings-search";
 import { forkConnectionRows } from "./forkConnectionRows";
+import {
+  rememberedSettingsPage,
+  workspaceSelectionsIn,
+} from "../workspace/workspace-tab-navigation";
 
 const enabled = {
   android: true,
@@ -47,4 +51,13 @@ it("hides an unavailable engine and distinguishes disabled and unsigned-in state
   expect(forkConnectionRows([], { ...enabled, signedIn: false }).at(-1)?.value).toBe(
     "Not signed in",
   );
+});
+
+it("reopens the tailnet page when returning to Settings", () => {
+  const selections = workspaceSelectionsIn(
+    [{ name: "Home" }, { name: "Settings" }, { name: "SettingsBuiltInTailscale", key: "tailnet" }],
+    {},
+  );
+  expect(selections.settings).toBe("SettingsBuiltInTailscale");
+  expect(rememberedSettingsPage(selections)).toBe("SettingsBuiltInTailscale");
 });

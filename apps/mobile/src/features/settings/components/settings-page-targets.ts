@@ -1,3 +1,5 @@
+import { FORK_SETTINGS_PAGE_TARGETS } from "../../built-in-tailnet/forkSettingsTargets";
+
 /** Settings pages a Settings row opens. */
 export const SETTINGS_PAGE_TARGETS = [
   "SettingsEnvironments",
@@ -23,10 +25,9 @@ export const SETTINGS_PAGE_TARGETS = [
   "SettingsDiagnostics",
   "SettingsOpenSourceLicenses",
   "SettingsUsage",
+  ...FORK_SETTINGS_PAGE_TARGETS,
 ] as const;
 
-export type SettingsPageTarget =
-  | (typeof SETTINGS_PAGE_TARGETS)[number]
-  | "SettingsBuiltInTailscale";
+export type SettingsPageTarget = (typeof SETTINGS_PAGE_TARGETS)[number];
 
 export type SettingsLegalDocumentTarget = "SettingsLegal";
