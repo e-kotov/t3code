@@ -17,7 +17,12 @@ import {
   subscribeAssistantCitationNavigation,
 } from "../../lib/assistantCitationNavigation";
 import { assistantCitationSourceStep } from "../../lib/assistantCitationMessage";
-import { deriveThreadFeedRunFolds, failedFeedRunIds, type ThreadFeedEntry, type ThreadFeedLatestRun } from "../../lib/threadActivity";
+import {
+  deriveThreadFeedRunFolds,
+  failedFeedRunIds,
+  type ThreadFeedEntry,
+  type ThreadFeedLatestRun,
+} from "../../lib/threadActivity";
 import type { ThreadFeedHistoryControls } from "./ThreadFeed";
 import type { ThreadContentPresentation } from "./threadContentPresentation";
 
@@ -84,7 +89,12 @@ export function useAssistantCitationSourceTarget(input: {
     const step = assistantCitationSourceStep({
       presentation: input.contentPresentation,
       foldRunId: (entryId) => {
-        const folds = deriveThreadFeedRunFolds(input.feed, input.latestRun, input.runlessWorkActive, failedFeedRunIds(input.feed, input.latestRun));
+        const folds = deriveThreadFeedRunFolds(
+          input.feed,
+          input.latestRun,
+          input.runlessWorkActive,
+          failedFeedRunIds(input.feed, input.latestRun),
+        );
         for (const fold of folds.values()) {
           if (fold.hiddenEntryIds.has(entryId)) return fold.runId;
         }
@@ -132,7 +142,18 @@ export function useAssistantCitationSourceTarget(input: {
   });
   useEffect(() => {
     navigate();
-  }, [request, focused, input.feed, input.visible, input.history, input.listKey, input.contentPresentation, input.latestRun, input.runlessWorkActive, loadedKey]);
+  }, [
+    request,
+    focused,
+    input.feed,
+    input.visible,
+    input.history,
+    input.listKey,
+    input.contentPresentation,
+    input.latestRun,
+    input.runlessWorkActive,
+    loadedKey,
+  ]);
   return {
     rowId: source?.scope === scope ? source.rowId : null,
     onLoad: () => setLoadedKey(input.listKey),

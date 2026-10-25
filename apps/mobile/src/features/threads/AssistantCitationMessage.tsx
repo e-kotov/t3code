@@ -29,59 +29,65 @@ function AssistantCitationPreviewProvider(props: { readonly children: ReactNode 
     <CitationPreviewContext value={setSelected}>
       {props.children}
       {selected ? (
-<Modal visible transparent animationType="slide" onRequestClose={() => setSelected(null)}>
-        <View className="flex-1 justify-end bg-backdrop">
-          <Pressable
-            className="absolute inset-0"
-            accessibilityLabel="Close quote preview"
-            onPress={() => setSelected(null)}
-          />
-          <View
-            className="gap-4 rounded-t-3xl bg-screen px-5 pt-5"
-            style={{ maxHeight: "85%", paddingBottom: Math.max(insets.bottom, 20) }}
-          >
-            <AppText accessibilityRole="header" className="text-lg font-t3-semibold">
-              Quoted assistant text
-            </AppText>
-            <ScrollView
-              style={{ flexShrink: 1 }}
-              contentContainerClassName="gap-4"
-              nestedScrollEnabled
-            >
-              <View className="border-l-2 border-foreground/30 pl-3">
-                <AppText selectable className="text-base text-foreground-secondary">
-                  {selected.text}
-                </AppText>
-              </View>
-              {selected.comment ? (
-                <AppText selectable className="text-base text-foreground">
-                  {selected.comment}
-                </AppText>
-              ) : null}
-            </ScrollView>
-            <Button
-              label="Go to source"
-              icon="arrow.up.right"
-              tone="secondary"
-              onPress={() => {
-                setSelected(null);
-                requestAssistantCitationNavigation(selected);
-                navigation.navigate("Thread", {
-                  environmentId: String(selected.environmentId),
-                  threadId: String(selected.threadId),
-                });
-              }}
+        <Modal visible transparent animationType="slide" onRequestClose={() => setSelected(null)}>
+          <View className="flex-1 justify-end bg-backdrop">
+            <Pressable
+              className="absolute inset-0"
+              accessibilityLabel="Close quote preview"
+              onPress={() => setSelected(null)}
             />
+            <View
+              className="gap-4 rounded-t-3xl bg-screen px-5 pt-5"
+              style={{ maxHeight: "85%", paddingBottom: Math.max(insets.bottom, 20) }}
+            >
+              <AppText accessibilityRole="header" className="text-lg font-t3-semibold">
+                Quoted assistant text
+              </AppText>
+              <ScrollView
+                style={{ flexShrink: 1 }}
+                contentContainerClassName="gap-4"
+                nestedScrollEnabled
+              >
+                <View className="border-l-2 border-foreground/30 pl-3">
+                  <AppText selectable className="text-base text-foreground-secondary">
+                    {selected.text}
+                  </AppText>
+                </View>
+                {selected.comment ? (
+                  <AppText selectable className="text-base text-foreground">
+                    {selected.comment}
+                  </AppText>
+                ) : null}
+              </ScrollView>
+              <Button
+                label="Go to source"
+                icon="arrow.up.right"
+                tone="secondary"
+                onPress={() => {
+                  setSelected(null);
+                  requestAssistantCitationNavigation(selected);
+                  navigation.navigate("Thread", {
+                    environmentId: String(selected.environmentId),
+                    threadId: String(selected.threadId),
+                  });
+                }}
+              />
+            </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
       ) : null}
     </CitationPreviewContext>
   );
 }
 
-export function AssistantCitationPresentationSource(props: ComponentProps<typeof PresentationSource>) {
-  return <AssistantCitationPreviewProvider><PresentationSource {...props} /></AssistantCitationPreviewProvider>;
+export function AssistantCitationPresentationSource(
+  props: ComponentProps<typeof PresentationSource>,
+) {
+  return (
+    <AssistantCitationPreviewProvider>
+      <PresentationSource {...props} />
+    </AssistantCitationPreviewProvider>
+  );
 }
 
 export function useAssistantCitationMessagePreview() {
@@ -108,13 +114,15 @@ export function useAssistantCitationMessagePreview() {
       };
     },
     contextMenu: (href: string): MarkdownFileContextMenu | undefined =>
-      parseAssistantCitationHref(href) ? {
-        title: "Assistant quote",
-        actions: [
-          { id: "view-assistant-quote", title: "View quote" },
-          { id: "copy-assistant-quote", title: "Copy quote text" },
-        ],
-      } : undefined,
+      parseAssistantCitationHref(href)
+        ? {
+            title: "Assistant quote",
+            actions: [
+              { id: "view-assistant-quote", title: "View quote" },
+              { id: "copy-assistant-quote", title: "Copy quote text" },
+            ],
+          }
+        : undefined,
     onMenuAction: (href: string, actionId: string) => {
       const citation = parseAssistantCitationHref(href);
       if (!citation) return false;

@@ -43,7 +43,10 @@ import {
   type ScheduledTaskId,
 } from "@t3tools/contracts";
 import { renderAssistantCitationsAsText } from "@t3tools/shared/assistantCitations";
-import { AssistantCitationPresentationSource, useAssistantCitationMessagePreview } from "./AssistantCitationMessage";
+import {
+  AssistantCitationPresentationSource,
+  useAssistantCitationMessagePreview,
+} from "./AssistantCitationMessage";
 import { useAssistantCitationSourceTarget } from "./useAssistantCitationSourceTarget";
 import { encodeComposerContextFragment } from "@t3tools/shared/composerContextClipboard";
 import { parseThreadLinkHref, resolveThreadLinkRef } from "@t3tools/shared/threadLinks";
