@@ -61,6 +61,8 @@ jobs:
           fi
           cat "$RUNNER_TEMP/citation-regression.log"
           python3 -c 'import os, pathlib; assert "AssertionError" in (pathlib.Path(os.environ["RUNNER_TEMP"]) / "citation-regression.log").read_text()'
+      - name: Install headless Chromium for changed web tests
+        run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
       - name: Check changed code and citation behavior
         run: |
           base=$(git merge-base refs/remotes/origin/main HEAD)

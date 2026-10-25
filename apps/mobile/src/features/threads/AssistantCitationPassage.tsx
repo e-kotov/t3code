@@ -12,17 +12,22 @@ export interface AssistantCitationPassageTarget {
   readonly topInset: number;
 }
 
-const NativePassage =
-  Platform.OS === "android" && requireOptionalNativeModule("T3CitationPassage")
-    ? requireNativeView<
-        ViewProps & {
-          readonly targetJson: string;
-          readonly onLocated: (
-            event: NativeSyntheticEvent<AssistantCitationPassageLocation>,
-          ) => void;
-        }
-      >("T3CitationPassage")
-    : null;
+function resolveNativePassage() {
+  if (Platform.OS !== "android") return null;
+  try {
+    if (!requireOptionalNativeModule("T3CitationPassage")) return null;
+    return requireNativeView<
+      ViewProps & {
+        readonly targetJson: string;
+        readonly onLocated: (event: NativeSyntheticEvent<AssistantCitationPassageLocation>) => void;
+      }
+    >("T3CitationPassage");
+  } catch {
+    return null;
+  }
+}
+
+const NativePassage = resolveNativePassage();
 
 export function AssistantCitationPassage({
   rowId,
