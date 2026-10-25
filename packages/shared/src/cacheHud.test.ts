@@ -1,6 +1,7 @@
 import {
   ProviderDriverKind,
   ProviderInstanceId,
+  ProviderThreadId,
   ThreadId,
   type OrchestrationV2CacheHud,
 } from "@t3tools/contracts";
@@ -9,6 +10,7 @@ import { describe, expect, it } from "@effect/vitest";
 import {
   cacheWarmingState,
   deriveCacheHud,
+  focusedCacheHud,
   describeCacheHud,
   describeUsageWindows,
   hotCacheThreadIds,
@@ -267,5 +269,69 @@ describe("cacheWarmingState", () => {
     expect(cacheWarmingState(ids, { c: true })).toBe("off");
     expect(cacheWarmingState(ids, undefined)).toBe("off");
     expect(cacheWarmingState([], {})).toBe("off");
+  });
+});
+
+
+describe("focusedCacheHud", () => {
+  const providerThreadId = ProviderThreadId.make("pi-child");
+  const otherProviderThreadId = ProviderThreadId.make("old-provider");
+  const selection = { instanceId: ProviderInstanceId.make("pi"), model: "saia/glm-5.3-flash" };
+  const report = (usedTokens: number, timestamp: string) => ({
+    usedTokens,
+    maxTokens: 1_048_576,
+    inputTokens: usedTokens - 298,
+    cachedInputTokens: 0,
+    outputTokens: 298,
+    updatedAt: timestamp,
+  });
+  const stale = deriveCacheHud(
+    ProviderDriverKind.make("pi"),
+    [report(52_958, updatedAt)],
+    selection,
+  )!;
+  const liveReport = report(210_460, "2026-10-13T11:15:52.165Z");
+  const projection = {
+    thread: { activeProviderThreadId: providerThreadId, modelSelection: selection },
+    providerThreads: [{ id: providerThreadId, driver: ProviderDriverKind.make("pi") }],
+    providerTurns: [{ providerThreadId, tokenUsage: liveReport }],
+  };
+
+  it("refreshes a focused subagent from 53k to 210k without a shell update", () => {
+    expect(presentCacheHud(stale, start).contextText).toBe("53k/1m");
+    const result = focusedCacheHud(stale, projection)!;
+    expect(result.usage).toEqual(liveReport);
+    expect(presentCacheHud(result, start).contextText).toBe("210k/1m");
+    expect(stale.usage.usedTokens).toBe(52_958);
+  });
+
+  it("uses only the active provider thread, regardless of report order", () => {
+    const result = focusedCacheHud(stale, {
+      ...projection,
+      providerThreads: [
+        ...projection.providerThreads,
+        { id: otherProviderThreadId, driver: ProviderDriverKind.make("codex") },
+      ],
+      providerTurns: [
+        ...projection.providerTurns,
+        { providerThreadId: otherProviderThreadId, tokenUsage: report(900_000, "2026-10-13T12:00:00Z") },
+      ],
+    });
+    expect(result?.usage).toEqual(liveReport);
+  });
+
+  it("keeps the shell fallback while detail loads, including an empty shell", () => {
+    expect(focusedCacheHud(stale, null)).toBe(stale);
+    expect(focusedCacheHud(undefined, undefined)).toBeNull();
+  });
+
+  it("clears stale usage when the active provider has no applicable reports", () => {
+    expect(focusedCacheHud(stale, { ...projection, providerTurns: [] })).toBeNull();
+    expect(focusedCacheHud(stale, { ...projection, providerThreads: [] })).toBeNull();
+    expect(focusedCacheHud(stale, {
+      ...projection,
+      thread: { ...projection.thread, modelSelection: { ...selection, model: "different-model" } },
+      providerTurns: [{ providerThreadId, tokenUsage: { ...liveReport, cacheScopeKey: "pi:saia/glm-5.3-flash" } }],
+    })).toBeNull();
   });
 });

@@ -1,0 +1,81 @@
+name: Fork cache HUD
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, "sync/subagent-context-*"]
+    paths:
+      - ".github/workflows/fork-cache-hud.yml"
+      - "packages/shared/src/cacheHud*"
+      - "apps/web/src/components/ChatView.tsx"
+      - "apps/mobile/src/features/threads/CacheThreadHeader.tsx"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cache-hud-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.sha }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch --no-tags origin main "$CHECKOUT_REF"
+          git checkout --detach "$CHECKOUT_REF"
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          node-version-file: package.json
+          run-install: false
+          cache: true
+      - run: vp install
+      - name: Prove stale shell usage fails the regression
+        run: |
+          source=packages/shared/src/cacheHud.ts
+          cp "$source" "$RUNNER_TEMP/cacheHud.ts"
+          trap 'cp "$RUNNER_TEMP/cacheHud.ts" "$source"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('packages/shared/src/cacheHud.ts')
+          source = path.read_text()
+          start = source.index('export function focusedCacheHud(')
+          end = source.index('\nfunction formatHudTokens', start)
+          source = source[:start] + 'export function focusedCacheHud(fallback) { return fallback ?? null; }\n' + source[end:]
+          path.write_text(source)
+          PY
+          if vp test run packages/shared/src/cacheHud.test.ts -t 'refreshes a focused subagent' > "$RUNNER_TEMP/cache-regression.log" 2>&1; then
+            cat "$RUNNER_TEMP/cache-regression.log"
+            echo 'The regression must fail when the HUD uses only the stale shell.'
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/cache-regression.log"
+          python3 -c 'import os, pathlib; assert "AssertionError" in (pathlib.Path(os.environ["RUNNER_TEMP"]) / "cache-regression.log").read_text()'
+      - name: Check changed code and cache behavior
+        run: |
+          base=$(git merge-base refs/remotes/origin/main HEAD)
+          if [ "$base" = "$(git rev-parse HEAD)" ]; then base=HEAD^; fi
+          vp run check:changed "$base"
+          vp test run packages/shared/src/cacheHud.test.ts packages/shared/src/cacheHudClock.test.ts
+      - name: Capture formatting fixes
+        if: failure()
+        run: |
+          git diff --name-only --diff-filter=AM -z refs/remotes/origin/main HEAD |
+            xargs -0 -r vp fmt --no-error-on-unmatched-pattern
+          git diff --binary > "$RUNNER_TEMP/cache-format.patch"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: failure()
+        with:
+          name: cache-format-fixes
+          path: ${{ runner.temp }}/cache-format.patch
+          retention-days: 3

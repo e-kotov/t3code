@@ -1,3 +1,4 @@
+import { focusedCacheHud } from "@t3tools/shared/cacheHud";
 import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
 import { ScrollToEndButton, WorkspaceFileDropOverlay } from "./chat/TimelineOverlays";
 import { usePasteToFocusComposer } from "./chat/usePasteToFocusComposer";
@@ -1406,7 +1407,7 @@ export default function ChatView(props: ChatViewProps) {
     isConnecting ||
     isCompacting ||
     runlessWorkStartedAt !== null;
-  const activeCacheHud = activeThreadShell?.cacheHud;
+  const activeCacheHud = focusedCacheHud(activeThreadShell?.cacheHud, serverProjection);
   const activeContextWindow = deriveLatestContextWindowSnapshot(
     serverVisibleTurnItems ?? [],
     activeThreadLiveTokenUsage,

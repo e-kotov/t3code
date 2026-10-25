@@ -2,6 +2,7 @@ import type {
   ModelSelection,
   OrchestrationV2CacheHud,
   OrchestrationV2ProviderTurnTokenUsage,
+  OrchestrationV2ThreadProjection,
   ProviderDriverKind,
   ServerProviderUsageWindow,
   ThreadId,
@@ -70,6 +71,36 @@ export function deriveCacheHud(
   }
   if (driver === "codex") return { driver, usage, ttlMs: CODEX_BASELINE_MS, basis: "estimated" };
   return { driver, usage, basis: "unknown" };
+}
+
+// Focused subagent usage arrives through the detail stream, bypassing shell refreshes.
+export function focusedCacheHud(
+  fallback: OrchestrationV2CacheHud | null | undefined,
+  projection: {
+    readonly thread: Pick<
+      OrchestrationV2ThreadProjection["thread"],
+      "activeProviderThreadId" | "modelSelection"
+    >;
+    readonly providerThreads: ReadonlyArray<
+      Pick<OrchestrationV2ThreadProjection["providerThreads"][number], "id" | "driver">
+    >;
+    readonly providerTurns: ReadonlyArray<
+      Pick<OrchestrationV2ThreadProjection["providerTurns"][number], "providerThreadId" | "tokenUsage">
+    >;
+  } | null | undefined,
+): OrchestrationV2CacheHud | null {
+  if (!projection) return fallback ?? null;
+  const provider = projection.providerThreads.find(
+    (entry) => entry.id === projection.thread.activeProviderThreadId,
+  );
+  if (!provider) return null;
+  return deriveCacheHud(
+    provider.driver,
+    projection.providerTurns
+      .filter((turn) => turn.providerThreadId === provider.id)
+      .flatMap((turn) => (turn.tokenUsage ? [turn.tokenUsage] : [])),
+    projection.thread.modelSelection,
+  );
 }
 
 function formatHudTokens(value: number) {

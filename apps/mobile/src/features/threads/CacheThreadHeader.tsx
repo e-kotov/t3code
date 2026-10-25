@@ -1,3 +1,5 @@
+import { focusedCacheHud } from "@t3tools/shared/cacheHud";
+import { useSelectedThreadProjection } from "../../state/use-thread-detail";
 import type { ServerConfig } from "@t3tools/contracts";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import type { ComponentProps } from "react";
@@ -12,10 +14,12 @@ export function CacheThreadHeader({
   readonly cacheThread: Pick<EnvironmentThreadShell, "cacheHud" | "modelSelection">;
   readonly cacheServerConfig: ServerConfig | null;
 }) {
+  const detail = useSelectedThreadProjection();
+  const hud = focusedCacheHud(cacheThread.cacheHud, detail?.projection);
   return (
     <ThreadHeader {...props}>
       <CacheHud
-        hud={cacheThread.cacheHud}
+        hud={hud}
         modelLabel={cacheThread.modelSelection.model}
         usageWindows={
           cacheServerConfig?.providers.find(
