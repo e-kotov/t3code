@@ -76,18 +76,24 @@ export function deriveCacheHud(
 // Focused subagent usage arrives through the detail stream, bypassing shell refreshes.
 export function focusedCacheHud(
   fallback: OrchestrationV2CacheHud | null | undefined,
-  projection: {
-    readonly thread: Pick<
-      OrchestrationV2ThreadProjection["thread"],
-      "activeProviderThreadId" | "modelSelection"
-    >;
-    readonly providerThreads: ReadonlyArray<
-      Pick<OrchestrationV2ThreadProjection["providerThreads"][number], "id" | "driver">
-    >;
-    readonly providerTurns: ReadonlyArray<
-      Pick<OrchestrationV2ThreadProjection["providerTurns"][number], "providerThreadId" | "tokenUsage">
-    >;
-  } | null | undefined,
+  projection:
+    | {
+        readonly thread: Pick<
+          OrchestrationV2ThreadProjection["thread"],
+          "activeProviderThreadId" | "modelSelection"
+        >;
+        readonly providerThreads: ReadonlyArray<
+          Pick<OrchestrationV2ThreadProjection["providerThreads"][number], "id" | "driver">
+        >;
+        readonly providerTurns: ReadonlyArray<
+          Pick<
+            OrchestrationV2ThreadProjection["providerTurns"][number],
+            "providerThreadId" | "tokenUsage"
+          >
+        >;
+      }
+    | null
+    | undefined,
 ): OrchestrationV2CacheHud | null {
   if (!projection) return fallback ?? null;
   const provider = projection.providerThreads.find(

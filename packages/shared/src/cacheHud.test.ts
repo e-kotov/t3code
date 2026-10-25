@@ -272,7 +272,6 @@ describe("cacheWarmingState", () => {
   });
 });
 
-
 describe("focusedCacheHud", () => {
   const providerThreadId = ProviderThreadId.make("pi-child");
   const otherProviderThreadId = ProviderThreadId.make("old-provider");
@@ -314,7 +313,10 @@ describe("focusedCacheHud", () => {
       ],
       providerTurns: [
         ...projection.providerTurns,
-        { providerThreadId: otherProviderThreadId, tokenUsage: report(900_000, "2026-10-13T12:00:00Z") },
+        {
+          providerThreadId: otherProviderThreadId,
+          tokenUsage: report(900_000, "2026-10-13T12:00:00Z"),
+        },
       ],
     });
     expect(result?.usage).toEqual(liveReport);
@@ -328,10 +330,20 @@ describe("focusedCacheHud", () => {
   it("clears stale usage when the active provider has no applicable reports", () => {
     expect(focusedCacheHud(stale, { ...projection, providerTurns: [] })).toBeNull();
     expect(focusedCacheHud(stale, { ...projection, providerThreads: [] })).toBeNull();
-    expect(focusedCacheHud(stale, {
-      ...projection,
-      thread: { ...projection.thread, modelSelection: { ...selection, model: "different-model" } },
-      providerTurns: [{ providerThreadId, tokenUsage: { ...liveReport, cacheScopeKey: "pi:saia/glm-5.3-flash" } }],
-    })).toBeNull();
+    expect(
+      focusedCacheHud(stale, {
+        ...projection,
+        thread: {
+          ...projection.thread,
+          modelSelection: { ...selection, model: "different-model" },
+        },
+        providerTurns: [
+          {
+            providerThreadId,
+            tokenUsage: { ...liveReport, cacheScopeKey: "pi:saia/glm-5.3-flash" },
+          },
+        ],
+      }),
+    ).toBeNull();
   });
 });
