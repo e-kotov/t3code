@@ -1,12 +1,13 @@
+import { AssistantCitationSynchronization } from "./AssistantCitationSynchronization";
 import {
   createAssistantCitationPassageActivation,
   type AssistantCitationPassageLocation,
 } from "../../lib/assistantCitationPassage";
 import type { LegendListRef } from "@legendapp/list/react-native";
 import { useIsFocused } from "@react-navigation/native";
-import { EnvironmentId, RunId, ThreadId } from "@t3tools/contracts";
-import * as Option from "effect/Option";
+import { RunId } from "@t3tools/contracts";
 import {
+  useContext,
   useEffect,
   useEffectEvent,
   useRef,
@@ -22,11 +23,8 @@ import {
   subscribeAssistantCitationNavigation,
 } from "../../lib/assistantCitationNavigation";
 import {
-  assistantCitationSourceReadiness,
   assistantCitationSourceStep,
 } from "../../lib/assistantCitationMessage";
-import { useThreadDetail } from "../../state/use-thread-detail";
-import { useRemoteEnvironmentRuntime } from "../../state/use-remote-environment-registry";
 import {
   deriveThreadFeedRunFolds,
   failedFeedRunIds,
@@ -54,15 +52,7 @@ export function useAssistantCitationSourceTarget(input: {
   readonly onManualNavigation: () => void;
   readonly onExpandTurn: (runId: RunId) => void;
 }) {
-  const environmentId = EnvironmentId.make(input.environmentId);
-  const detail = useThreadDetail({ environmentId, threadId: ThreadId.make(input.threadId) });
-  const runtime = useRemoteEnvironmentRuntime(environmentId);
-  const synchronizationError = Option.getOrNull(detail.error);
-  const synchronization = assistantCitationSourceReadiness(
-    detail.status,
-    runtime?.connectionState,
-    synchronizationError,
-  );
+  const synchronization = useContext(AssistantCitationSynchronization);
   const passageActivation = useRef(createAssistantCitationPassageActivation());
   const [historyCompletion, setHistoryCompletion] = useState(0);
   const pendingRequest = useSyncExternalStore(
@@ -232,9 +222,7 @@ export function useAssistantCitationSourceTarget(input: {
     input.latestRun,
     input.runlessWorkActive,
     input.activeWorkStartedAt,
-    detail.status,
-    runtime?.connectionState,
-    synchronizationError,
+    synchronization,
     historyCompletion,
     loadedKey,
   ]);
