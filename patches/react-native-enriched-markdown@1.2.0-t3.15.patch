@@ -1,8 +1,8 @@
 diff --git a/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdown.kt b/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdown.kt
-index 3a2c517..ae0af35 100644
+index eb25319..20e7441 100644
 --- a/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdown.kt
 +++ b/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdown.kt
-@@ -156,7 +156,7 @@ class EnrichedMarkdown(
+@@ -227,7 +227,7 @@ class EnrichedMarkdown(
        }
      }
    private var contextMenuItemTexts: List<String> = emptyList()
@@ -11,7 +11,7 @@ index 3a2c517..ae0af35 100644
    var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES
      set(value) {
        if (field == value) return
-@@ -499,8 +499,10 @@ class EnrichedMarkdown(
+@@ -518,8 +518,10 @@ class EnrichedMarkdown(
      selectedText: String,
      selectionStart: Int,
      selectionEnd: Int,
@@ -24,10 +24,10 @@ index 3a2c517..ae0af35 100644
  
    private fun recreateStyleConfig() {
 diff --git a/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownInternalText.kt b/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownInternalText.kt
-index d71ea3b..2df2558 100644
+index 0c27211..c8feb8c 100644
 --- a/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownInternalText.kt
 +++ b/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownInternalText.kt
-@@ -52,7 +52,7 @@ class EnrichedMarkdownInternalText
+@@ -53,7 +53,7 @@ class EnrichedMarkdownInternalText
        private set
      var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES
      private var contextMenuItemTexts: List<String> = emptyList()
@@ -36,7 +36,7 @@ index d71ea3b..2df2558 100644
      var selectionMenuConfig: SelectionMenuConfig = SelectionMenuConfig()
      var accessibilityLabels: AccessibilityLabels = AccessibilityLabels()
        set(value) {
-@@ -68,7 +68,10 @@ class EnrichedMarkdownInternalText
+@@ -69,7 +69,10 @@ class EnrichedMarkdownInternalText
            getCustomItemTexts = { contextMenuItemTexts },
            getSelectionMenuConfig = { selectionMenuConfig },
            onCustomItemPress = { itemText, selectedText, start, end ->
@@ -48,7 +48,7 @@ index d71ea3b..2df2558 100644
            },
          )
      }
-@@ -101,7 +104,7 @@ class EnrichedMarkdownInternalText
+@@ -102,7 +105,7 @@ class EnrichedMarkdownInternalText
  
      fun setContextMenuItems(
        items: List<String>,
@@ -58,10 +58,10 @@ index d71ea3b..2df2558 100644
        contextMenuItemTexts = items
        onContextMenuItemPress = onPress
 diff --git a/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownManager.kt b/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownManager.kt
-index c95c971..33a0c27 100644
+index d195323..eb69bc4 100644
 --- a/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownManager.kt
 +++ b/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownManager.kt
-@@ -51,8 +51,8 @@ class EnrichedMarkdownManager :
+@@ -48,8 +48,8 @@ class EnrichedMarkdownManager :
  
    override fun createViewInstance(reactContext: ThemedReactContext): EnrichedMarkdown {
      val view = EnrichedMarkdown(reactContext)
@@ -73,10 +73,10 @@ index c95c971..33a0c27 100644
  
      view.setOnLinkPressCallback { url ->
 diff --git a/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownText.kt b/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownText.kt
-index 3e00d90..ed191d1 100644
+index cd05d91..c31a988 100644
 --- a/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownText.kt
 +++ b/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownText.kt
-@@ -93,7 +93,7 @@ class EnrichedMarkdownText
+@@ -94,7 +94,7 @@ class EnrichedMarkdownText
      var stateWrapper: StateWrapper? = null
  
      private var contextMenuItemTexts: List<String> = emptyList()
@@ -85,7 +85,7 @@ index 3e00d90..ed191d1 100644
  
      var selectionClipboardConfig =
        com.swmansion.enriched.markdown.utils.text.view
-@@ -156,7 +156,10 @@ class EnrichedMarkdownText
+@@ -157,7 +157,10 @@ class EnrichedMarkdownText
            getCustomItemTexts = { contextMenuItemTexts },
            getSelectionMenuConfig = { selectionMenuConfig },
            onCustomItemPress = { itemText, selectedText, start, end ->
@@ -135,10 +135,10 @@ index 6ef2697..1c18ab1 100644
  
    companion object {
 diff --git a/android/src/main/java/com/swmansion/enriched/markdown/segments/SegmentViewCreators.kt b/android/src/main/java/com/swmansion/enriched/markdown/segments/SegmentViewCreators.kt
-index 6d8f987..e228b0f 100644
+index f677c50..3528079 100644
 --- a/android/src/main/java/com/swmansion/enriched/markdown/segments/SegmentViewCreators.kt
 +++ b/android/src/main/java/com/swmansion/enriched/markdown/segments/SegmentViewCreators.kt
-@@ -70,7 +70,7 @@ data class SegmentViewConfig(
+@@ -71,7 +71,7 @@ data class SegmentViewConfig(
    val onLinkPress: ((String) -> Unit)?,
    val onLinkLongPress: ((String) -> Unit)?,
    val onTaskListItemPress: ((taskIndex: Int, checked: Boolean, itemText: String) -> Unit)?,
@@ -147,7 +147,7 @@ index 6d8f987..e228b0f 100644
    val onLatexError: LatexErrorReporter? = null,
  )
  
-@@ -109,8 +109,8 @@ object SegmentViewCreators {
+@@ -110,8 +110,8 @@ object SegmentViewCreators {
        if (config.contextMenuItemTexts.isNotEmpty()) {
          val onPress = config.onContextMenuItemPress
          if (onPress != null) {
@@ -159,10 +159,10 @@ index 6d8f987..e228b0f 100644
          }
        }
 diff --git a/android/src/main/java/com/swmansion/enriched/markdown/utils/common/MarkdownViewManagerUtils.kt b/android/src/main/java/com/swmansion/enriched/markdown/utils/common/MarkdownViewManagerUtils.kt
-index 6614fe3..8c692e4 100644
+index 40ef07b..cedaf37 100644
 --- a/android/src/main/java/com/swmansion/enriched/markdown/utils/common/MarkdownViewManagerUtils.kt
 +++ b/android/src/main/java/com/swmansion/enriched/markdown/utils/common/MarkdownViewManagerUtils.kt
-@@ -115,6 +115,8 @@ fun emitContextMenuItemPress(
+@@ -114,6 +114,8 @@ fun emitContextMenuItemPress(
    selectedText: String,
    selectionStart: Int,
    selectionEnd: Int,
@@ -171,7 +171,7 @@ index 6614fe3..8c692e4 100644
  ) {
    val context = view.context as com.facebook.react.bridge.ReactContext
    val surfaceId = UIManagerHelper.getSurfaceId(context)
-@@ -127,6 +129,8 @@ fun emitContextMenuItemPress(
+@@ -126,6 +128,8 @@ fun emitContextMenuItemPress(
        selectedText,
        selectionStart,
        selectionEnd,
@@ -233,10 +233,10 @@ index 0000000..4ef96ef
 +  }
 +}
 diff --git a/lib/module/native/EnrichedMarkdownText.js b/lib/module/native/EnrichedMarkdownText.js
-index 48423ee..cf8023f 100644
+index bb01154..0819bbc 100644
 --- a/lib/module/native/EnrichedMarkdownText.js
 +++ b/lib/module/native/EnrichedMarkdownText.js
-@@ -213,7 +213,9 @@ export const EnrichedMarkdownText = ({
+@@ -199,7 +199,9 @@ export const EnrichedMarkdownText = ({
        itemText,
        selectedText,
        selectionStart,
@@ -247,7 +247,7 @@ index 48423ee..cf8023f 100644
      } = e.nativeEvent;
      const callback = contextMenuCallbacksRef.current.get(itemText);
      callback?.({
-@@ -221,7 +223,8 @@ export const EnrichedMarkdownText = ({
+@@ -207,7 +209,8 @@ export const EnrichedMarkdownText = ({
        selection: {
          start: selectionStart,
          end: selectionEnd
@@ -258,10 +258,10 @@ index 48423ee..cf8023f 100644
    }, []);
    const handleLinkPress = useCallback(e => {
 diff --git a/lib/typescript/src/EnrichedMarkdownNativeComponent.d.ts b/lib/typescript/src/EnrichedMarkdownNativeComponent.d.ts
-index 360ae49..bfbc710 100644
+index 76d8f23..ae5b8f1 100644
 --- a/lib/typescript/src/EnrichedMarkdownNativeComponent.d.ts
 +++ b/lib/typescript/src/EnrichedMarkdownNativeComponent.d.ts
-@@ -294,6 +294,8 @@ export interface OnContextMenuItemPressEvent {
+@@ -289,6 +289,8 @@ export interface OnContextMenuItemPressEvent {
      selectedText: string;
      selectionStart: CodegenTypes.Int32;
      selectionEnd: CodegenTypes.Int32;
@@ -271,7 +271,7 @@ index 360ae49..bfbc710 100644
  export interface AccessibilityLabelsListProps {
      bulletPoint: string;
 diff --git a/lib/typescript/src/EnrichedMarkdownTextNativeComponent.d.ts b/lib/typescript/src/EnrichedMarkdownTextNativeComponent.d.ts
-index d79d050..372e38a 100644
+index 3e938ec..77ea693 100644
 --- a/lib/typescript/src/EnrichedMarkdownTextNativeComponent.d.ts
 +++ b/lib/typescript/src/EnrichedMarkdownTextNativeComponent.d.ts
 @@ -289,6 +289,8 @@ export interface OnContextMenuItemPressEvent {
@@ -284,10 +284,10 @@ index d79d050..372e38a 100644
  export interface AccessibilityLabelsListProps {
      bulletPoint: string;
 diff --git a/lib/typescript/src/types/MarkdownTextProps.d.ts b/lib/typescript/src/types/MarkdownTextProps.d.ts
-index b44bedb..d9d063b 100644
+index e8d441a..099e405 100644
 --- a/lib/typescript/src/types/MarkdownTextProps.d.ts
 +++ b/lib/typescript/src/types/MarkdownTextProps.d.ts
-@@ -28,6 +28,7 @@ export interface ContextMenuItem {
+@@ -41,6 +41,7 @@ export interface ContextMenuItem {
      text: string;
      onPress: (event: {
          text: string;
@@ -309,10 +309,10 @@ index 135693c..f6227ff 100644
  //# sourceMappingURL=events.d.ts.map
 \ No newline at end of file
 diff --git a/src/EnrichedMarkdownNativeComponent.ts b/src/EnrichedMarkdownNativeComponent.ts
-index af6574c..ddcb7cb 100644
+index 955cb94..8dd4873 100644
 --- a/src/EnrichedMarkdownNativeComponent.ts
 +++ b/src/EnrichedMarkdownNativeComponent.ts
-@@ -348,6 +348,8 @@ export interface OnContextMenuItemPressEvent {
+@@ -342,6 +342,8 @@ export interface OnContextMenuItemPressEvent {
    selectedText: string;
    selectionStart: CodegenTypes.Int32;
    selectionEnd: CodegenTypes.Int32;
@@ -322,7 +322,7 @@ index af6574c..ddcb7cb 100644
  
  export interface AccessibilityLabelsListProps {
 diff --git a/src/EnrichedMarkdownTextNativeComponent.ts b/src/EnrichedMarkdownTextNativeComponent.ts
-index ba0dc96..a76f321 100644
+index 1a75908..07d5fc5 100644
 --- a/src/EnrichedMarkdownTextNativeComponent.ts
 +++ b/src/EnrichedMarkdownTextNativeComponent.ts
 @@ -343,6 +343,8 @@ export interface OnContextMenuItemPressEvent {
@@ -335,10 +335,10 @@ index ba0dc96..a76f321 100644
  
  export interface AccessibilityLabelsListProps {
 diff --git a/src/native/EnrichedMarkdownText.tsx b/src/native/EnrichedMarkdownText.tsx
-index f435648..824b249 100644
+index 0111a59..057e0a7 100644
 --- a/src/native/EnrichedMarkdownText.tsx
 +++ b/src/native/EnrichedMarkdownText.tsx
-@@ -339,12 +339,13 @@ export const EnrichedMarkdownText = ({
+@@ -292,12 +292,13 @@ export const EnrichedMarkdownText = ({
  
    const handleContextMenuItemPress = useCallback(
      (e: NativeSyntheticEvent<OnContextMenuItemPressEvent>) => {
@@ -354,10 +354,10 @@ index f435648..824b249 100644
      },
      []
 diff --git a/src/types/MarkdownTextProps.ts b/src/types/MarkdownTextProps.ts
-index b6b179b..3a23774 100644
+index 425d8e4..8bc51fc 100644
 --- a/src/types/MarkdownTextProps.ts
 +++ b/src/types/MarkdownTextProps.ts
-@@ -60,6 +60,7 @@ export interface ContextMenuItem {
+@@ -58,6 +58,7 @@ export interface ContextMenuItem {
    onPress: (event: {
      text: string;
      selection: { start: number; end: number };
