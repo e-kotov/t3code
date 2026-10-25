@@ -274,7 +274,7 @@ jobs:
       # test stops the build.
       - name: Test native notification handling and build a standalone release APK
         working-directory: apps/mobile/android
-        run: ./gradlew :t3-agent-notifications:testDebugUnitTest assembleRelease -PreactNativeArchitectures=arm64-v8a --build-cache --no-daemon --max-workers=4
+        run: ./gradlew :t3-agent-notifications:testDebugUnitTest :t3-citation-passage:testDebugUnitTest assembleRelease -PreactNativeArchitectures=arm64-v8a --build-cache --no-daemon --max-workers=4
       - name: Report native compiler cache hits
         if: always() && steps.ccache_install.outcome == 'success'
         run: ccache --show-stats | tee -a "$GITHUB_STEP_SUMMARY"
