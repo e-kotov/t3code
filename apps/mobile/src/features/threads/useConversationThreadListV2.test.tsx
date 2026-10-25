@@ -1,9 +1,18 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
-import { expect, it } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 import { makeThreadShellFixture } from "../../test-fixtures";
 import { useConversationThreadListV2 } from "./useConversationThreadListV2";
+
+// These fixtures are already loaded; paging uses the native runtime outside this test.
+vi.mock("../../state/olderSettledShelf", () => ({
+  useOlderSettledShelf: () => ({
+    isListed: () => true,
+    unloadedCount: () => 0,
+  }),
+  useOlderSettledShelfGrowth: () => {},
+}));
 
 it("updates sort and machine grouping while retaining upstream pinned ordering and search", () => {
   const a = EnvironmentId.make("a");
