@@ -15,11 +15,13 @@ export function useAssistantCitationMenu(source: AssistantCitationSource | undef
               onPress: ({
                 text,
                 selection,
+                context,
               }: {
                 text: string;
                 selection: { start: number; end: number };
+                context?: { prefix: string; suffix: string };
               }) => {
-                const error = emitAssistantCitationSelection(source, text, selection);
+                const error = emitAssistantCitationSelection(source, text, selection, context);
                 if (error) Dialog.alert("Cannot cite selection", error);
               },
             },
