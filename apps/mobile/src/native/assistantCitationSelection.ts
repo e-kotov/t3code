@@ -1,5 +1,9 @@
 import { ASSISTANT_CITATION_MAX_TEXT_LENGTH } from "@t3tools/contracts";
-import type { AssistantCitationSource } from "./SelectableMarkdownText.types";
+export interface AssistantCitationSource {
+  readonly environmentId: string;
+  readonly threadId: string;
+  readonly messageId: string;
+}
 
 interface AssistantCitationSelectionEvent extends AssistantCitationSource {
   readonly text: string;

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Platform } from "react-native";
 import * as Dialog from "../components/ui/Dialog";
-import type { AssistantCitationSource } from "./SelectableMarkdownText.types";
+import type { AssistantCitationSource } from "./assistantCitationSelection";
 import { emitAssistantCitationSelection } from "./assistantCitationSelection";
 
 export function useAssistantCitationMenu(source: AssistantCitationSource | undefined) {

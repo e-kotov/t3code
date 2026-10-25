@@ -1,3 +1,5 @@
+import type { AssistantCitationSource } from "./assistantCitationSelection";
+
 export interface NativeMarkdownTextStyle {
   readonly selectionColor?: string;
   readonly selectionHandleColor?: string;
@@ -33,18 +35,7 @@ export interface MarkdownImageRequest {
   readonly title: string | null;
 }
 
-/** Source identity needed when Android's native selection menu creates a quote. */
-export interface AssistantCitationSource {
-  readonly environmentId: string;
-  readonly threadId: string;
-  readonly messageId: string;
-}
-
-/**
- * The module cannot load workspace-relative image paths itself — the host app
- * resolves them (for example through a signed asset URL) and returns the
- * element to show. Returning null keeps Enriched's native media rendering.
- */
+/** Host apps resolve workspace-relative images. Return null to retain Enriched's native media rendering. */
 export type MarkdownImageRenderer = (image: MarkdownImageRequest) => import("react").ReactNode;
 
 export type MarkdownImageSourceResolver = (

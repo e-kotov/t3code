@@ -1,6 +1,6 @@
 import type { EnvironmentId, MessageId, ThreadId } from "@t3tools/contracts";
 import { useMemo } from "react";
-import type { AssistantCitationSource } from "./SelectableMarkdownText.types";
+import type { AssistantCitationSource } from "./assistantCitationSelection";
 
 export function useAssistantCitationSource(
   environmentId: EnvironmentId,

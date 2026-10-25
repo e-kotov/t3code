@@ -21,3 +21,12 @@ describe("Utilities workspace tab", () => {
     expect(select(undefined, "threads", true)).toBe("settings");
   });
 });
+
+it("retains Settings search when Utilities is selected", async () => {
+  const { initialWorkspaceTabsState, workspaceTabsReducer } = await import("../workspace/workspace-tabs-state");
+  let state = workspaceTabsReducer(initialWorkspaceTabsState(), { type: "query", tab: "settings", query: "tail" });
+  state = workspaceTabsReducer(state, { type: "select", tab: "commands" });
+  expect(state.selectedTab).toBe("commands");
+  expect(workspaceTabsReducer(state, { type: "search" })).toBe(state);
+  expect(state.tabs.settings.query).toBe("tail");
+});

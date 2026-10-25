@@ -37,3 +37,5 @@ export function highlightUtilities(select: typeof selectedNavigationTab) {
     return settingsOpen ? "settings" : selected;
   };
 }
+
+export const utilitiesScrollOffsets = { commands: 0 };

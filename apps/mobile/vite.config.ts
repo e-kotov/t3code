@@ -2,8 +2,8 @@ import { defineConfig } from "vite-plus";
 import "vite-plus/test/config";
 
 const reactTests = [
-  "src/features/home/ThreadListToolbar.cacheWarming.test.tsx",
-  "src/features/home/ConversationThreadListFilters.test.tsx",
+  "src/features/diffs/nativeReviewDiffSurface.test.tsx",
+  "src/features/pull-requests/usePullRequestDiff.test.tsx",
   "src/components/ui/Dialog.android.test.tsx",
   "src/features/settings/SettingsServerControlsRouteScreen.test.tsx",
   "src/features/settings/components/BranchNamingSettings.test.tsx",
