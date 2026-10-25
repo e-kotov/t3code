@@ -30,6 +30,7 @@ import { KeyboardAwareLegendList } from "@legendapp/list/keyboard";
 import { useViewabilityAmount, type LegendListRef } from "@legendapp/list/react-native";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import type { HandoffEndpoints } from "@t3tools/client-runtime/handoff";
+import type { ThreadHistoryLoadEarlierResult } from "@t3tools/client-runtime/state/threads";
 import {
   IDLE_COMPACTING_LABELS,
   resolveUserMessagePresentation,
@@ -53,6 +54,11 @@ import {
   type ScheduledTaskId,
 } from "@t3tools/contracts";
 import { renderAssistantCitationsAsText } from "@t3tools/shared/assistantCitations";
+import {
+  AssistantCitationPresentationSource,
+  useAssistantCitationMessagePreview,
+} from "./AssistantCitationMessage";
+import { useAssistantCitationSourceTarget } from "./useAssistantCitationSourceTarget";
 import { encodeComposerContextFragment } from "@t3tools/shared/composerContextClipboard";
 import { parseThreadLinkHref, resolveThreadLinkRef } from "@t3tools/shared/threadLinks";
 import { PROMPT_LINK_MAX_PROMPT_LENGTH } from "@t3tools/shared/promptLinks";
@@ -336,7 +342,8 @@ export interface ThreadFeedHistoryControls {
   readonly hasMoreHistory: boolean;
   readonly loading: boolean;
   readonly error: string | null;
-  readonly onLoadEarlier: () => void;
+  readonly cursor?: string | null;
+  readonly onLoadEarlier: (throughEntryId?: string) => Promise<ThreadHistoryLoadEarlierResult>;
   /** Loads earlier history down to the entry, in one request. */
   readonly onLoadThrough: (entryId: string) => void;
 }
@@ -1199,7 +1206,7 @@ function ThreadAutomationMessageRow(props: {
           <View className="px-3.5 pb-2.5">
             <MarkdownImageAvailableWidthContext value={props.contentMaxWidth}>
               <UserMessageContent
-                text={renderAssistantCitationsAsText(props.text)}
+                text={props.text}
                 environmentId={props.environmentId}
                 context={props.context}
                 markdownStyles={props.markdownStyles}
@@ -1467,7 +1474,9 @@ function renderFeedEntry(
     const { message } = entry;
     const isUser = message.role === "user";
     const presentation = resolveUserMessagePresentation(message);
-    const renderedText = renderAssistantCitationsAsText(presentation.text);
+    const renderedText = isUser
+      ? presentation.text
+      : renderAssistantCitationsAsText(presentation.text);
     const styles = isUser ? markdownStyles.user : markdownStyles.assistant;
     const timestampLabel = formatMessageTime(isUser ? message.createdAt : message.updatedAt);
     const attachments = message.attachments ?? [];
@@ -1888,6 +1897,7 @@ type UserMessageContentProps = {
 };
 
 function UserMessageContent(props: UserMessageContentProps) {
+  const citationPreview = useAssistantCitationMessagePreview();
   const [selected, setSelected] = useState<{ contextId: string; label: string } | null>(null);
   const navigation = useNavigation();
   const openLinkedThread = useOpenLinkedThread();
@@ -1899,6 +1909,7 @@ function UserMessageContent(props: UserMessageContentProps) {
     return `[${ref.label}${available ? "" : " (unavailable)"}](t3-context://v1/${ref.kind}/${ref.contextId})`;
   });
   const onLinkPress = (href: string) => {
+    if (citationPreview.open(href)) return;
     const reference = parseComposerContextHref(href);
     if (!reference) return props.linkHandlers.onLinkPress?.(href);
     const record = props.context?.records.find(
@@ -1938,6 +1949,8 @@ function UserMessageContent(props: UserMessageContentProps) {
           ...props.linkHandlers,
           onLinkPress,
           fileContextMenu: (href) => {
+            const citationMenu = citationPreview.contextMenu(href);
+            if (citationMenu) return citationMenu;
             const reference = parseComposerContextHref(href);
             if (!reference) return props.linkHandlers.fileContextMenu(href);
             const record = props.context?.records.find(
@@ -1952,6 +1965,7 @@ function UserMessageContent(props: UserMessageContentProps) {
             };
           },
           onFileContextMenuAction: (href, actionId) => {
+            if (citationPreview.onMenuAction(href, actionId)) return;
             const reference = parseComposerContextHref(href);
             if (!reference) return props.linkHandlers.onFileContextMenuAction(href, actionId);
             if (actionId === "open-context") return onLinkPress(href);
@@ -1977,6 +1991,7 @@ function UserMessageContent(props: UserMessageContentProps) {
             }
           },
           linkCustomization: (href) =>
+            citationPreview.linkCustomization(href) ??
             withChipIcon(
               enrichedContextLinkCustomization(href, props.context?.records ?? []) ??
                 props.linkHandlers.linkCustomization?.(href),
@@ -2707,6 +2722,26 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   );
   // Empty/filled remounts reset imperative insets; seed the overlay first. Android uses a declarative inset floor.
   const listMountKey = `${feedThreadKey}:${presentedFeed.some((entry) => entry.type !== "thinking") ? "filled" : "empty"}`;
+  const citationSource = useAssistantCitationSourceTarget({
+    environmentId: props.environmentId,
+    threadId: props.threadId,
+    contentPresentation: props.contentPresentation,
+    latestRun: props.latestRun,
+    runlessWorkActive: props.runlessWorkActive ?? false,
+    activeWorkStartedAt: props.activeWorkStartedAt,
+    feed: props.feed,
+    visible: presentedFeed,
+    history: props.historyControls,
+    listRef,
+    listKey: listMountKey,
+    topInset: anchorTopInset + CHAT_LIST_ANCHOR_OFFSET,
+    onManualNavigation: () => setEndFollow(false),
+    onExpandTurn: (runId) =>
+      setInteractionState((current) => ({
+        ...current,
+        expandedTurnIds: new Set([...current.expandedTurnIds, runId]),
+      })),
+  });
   useLayoutEffect(() => {
     const bottom = props.contentInsetEndAdjustment.value;
     if (bottom > 0) {
@@ -3046,6 +3081,9 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   const renderItem = (info: { item: ThreadFeedRow; index: number }) => (
     <Animated.View
       key={info.item.id}
+      className={
+        citationSource.rowId === info.item.id ? "rounded-xl border border-foreground/30" : undefined
+      }
       entering={disclosureToggleSettling ? THREAD_FEED_DISCLOSURE_ENTER_TRANSITION : undefined}
     >
       <MessageImageGalleryScope
@@ -3120,7 +3158,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   }
 
   return (
-    <PresentationSource identifier={fileShareSourceIdentifier} style={{ flex: 1 }}>
+    <AssistantCitationPresentationSource identifier={fileShareSourceIdentifier} style={{ flex: 1 }}>
       <View className="flex-1" onLayout={handleViewportLayout}>
         <View className="flex-1">
           {/* oxlint-disable-next-line t3code/require-registered-list-scroll -- ThreadFeedScrollView is passed through the iOS-only spread below; the prop rejects undefined. */}
@@ -3180,7 +3218,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
               endFollowEnabled && !disclosureToggleSettling ? false : maintainVisibleContentPosition
             }
             data={presentedFeed}
-            extraData={listAppearanceData}
+            extraData={{ ...listAppearanceData, citationSourceRowId: citationSource.rowId }}
             renderItem={renderItem}
             viewabilityConfig={THREAD_MEDIA_VIEWABILITY_CONFIG}
             keyExtractor={(entry) => entry.id}
@@ -3211,13 +3249,17 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
             onLoad={() => {
               loadedListKeyRef.current = listMountKey;
               setLoadedListKey(listMountKey);
+              citationSource.onLoad();
             }}
             // Row positions start below the header; the reflow anchor converts between them.
             onMetricsChange={(metrics) => {
               listHeaderSizeRef.current = metrics.headerSize;
             }}
             onScroll={handleScroll}
-            onScrollBeginDrag={handleScrollBeginDrag}
+            onScrollBeginDrag={() => {
+              citationSource.cancel();
+              handleScrollBeginDrag();
+            }}
             onScrollEndDrag={handleScrollEndDrag}
             onMomentumScrollBegin={handleMomentumScrollBegin}
             onMomentumScrollEnd={handleMomentumScrollEnd}
@@ -3271,7 +3313,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
         <VideoPreviewModal source={expandedVideo} onRequestClose={() => setExpandedVideo(null)} />
         <FilePreviewModal source={expandedFile} onRequestClose={() => setExpandedFile(null)} />
       </View>
-    </PresentationSource>
+    </AssistantCitationPresentationSource>
   );
 });
 

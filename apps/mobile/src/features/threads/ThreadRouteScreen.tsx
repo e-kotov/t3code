@@ -1,4 +1,5 @@
 import * as Dialog from "../../components/ui/Dialog";
+import { useAssistantCitationRoute } from "./useAssistantCitationRoute";
 import { useOpenPullRequest } from "../../native/useOpenPullRequest";
 import { makeTurnCommandMetadata } from "../../lib/commandMetadata";
 import { buildProjectThreadStartTurnInput } from "../../lib/projectThreadStartTurn";
@@ -13,6 +14,7 @@ import {
 } from "@react-navigation/native";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as Option from "effect/Option";
+import { AsyncResult } from "effect/reactivity";
 import {
   AuthOrchestrationOperateScope,
   AuthTerminalOperateScope,
@@ -188,6 +190,10 @@ function ThreadUnavailableScreen(props: {
 }
 
 export function ThreadRouteScreen(props: ThreadRouteScreenProps) {
+  useAssistantCitationRoute(
+    props.route.params?.environmentId ?? null,
+    props.route.params?.threadId ?? null,
+  );
   return (
     <ThreadScreenHost>
       {props.route.params?.draft ? (
@@ -326,11 +332,18 @@ function ThreadRouteContent(
       hasMoreHistory: history.hasMoreHistory,
       loading: history.loading,
       error: history.error,
-      onLoadEarlier: () => {
-        void loadEarlierHistory({
+      cursor: history.historyCursor,
+      onLoadEarlier: async (throughEntryId?: string) => {
+        const result = await loadEarlierHistory({
           environmentId: selectedThread.environmentId,
-          input: { threadId: selectedThread.id },
+          input: {
+            threadId: selectedThread.id,
+            ...(typeof throughEntryId === "string" ? { throughEntryId } : {}),
+          },
         });
+        return AsyncResult.isFailure(result)
+          ? { _tag: "error" as const, message: "Could not load earlier messages. Try again." }
+          : result.value;
       },
       onLoadThrough: (throughEntryId: string) => {
         void loadEarlierHistory({
