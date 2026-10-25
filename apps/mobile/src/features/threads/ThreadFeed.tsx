@@ -43,6 +43,8 @@ import {
   type ScheduledTaskId,
 } from "@t3tools/contracts";
 import { renderAssistantCitationsAsText } from "@t3tools/shared/assistantCitations";
+import { AssistantCitationMessage } from "./AssistantCitationMessage";
+import { useAssistantCitationSourceTarget } from "./useAssistantCitationSourceTarget";
 import { encodeComposerContextFragment } from "@t3tools/shared/composerContextClipboard";
 import { parseThreadLinkHref, resolveThreadLinkRef } from "@t3tools/shared/threadLinks";
 import { PROMPT_LINK_MAX_PROMPT_LENGTH } from "@t3tools/shared/promptLinks";
@@ -1131,7 +1133,7 @@ function ThreadAutomationMessageRow(props: {
           <View className="px-3.5 pb-2.5">
             <MarkdownImageAvailableWidthContext value={props.contentMaxWidth}>
               <UserMessageContent
-                text={renderAssistantCitationsAsText(props.text)}
+                text={props.text}
                 environmentId={props.environmentId}
                 context={props.context}
                 markdownStyles={props.markdownStyles}
@@ -1364,7 +1366,7 @@ function renderFeedEntry(
     const { message } = entry;
     const isUser = message.role === "user";
     const presentation = resolveUserMessagePresentation(message);
-    const renderedText = renderAssistantCitationsAsText(presentation.text);
+    const renderedText = isUser ? presentation.text : renderAssistantCitationsAsText(presentation.text);
     const styles = isUser ? markdownStyles.user : markdownStyles.assistant;
     const timestampLabel = formatMessageTime(isUser ? message.createdAt : message.updatedAt);
     const attachments = message.attachments ?? [];
@@ -1824,7 +1826,8 @@ function UserMessageContent(props: UserMessageContentProps) {
   };
   return (
     <>
-      <UserMessageMarkdownContent
+      <AssistantCitationMessage text={text}>
+        {(text) => <UserMessageMarkdownContent
         {...props}
         text={text}
         linkHandlers={{
@@ -1873,7 +1876,8 @@ function UserMessageContent(props: UserMessageContentProps) {
             enrichedContextLinkCustomization(href, props.context?.records ?? []) ??
             props.linkHandlers.linkCustomization?.(href),
         }}
-      />
+      />}
+      </AssistantCitationMessage>
       {selected ? (
         <ComposerContextSheet
           label={selected.label}
@@ -2605,6 +2609,20 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   // current overlay height before the scroll integration's next reaction;
   // on Android the declarative contentInset floor covers this same window.
   const listMountKey = `${feedThreadKey}:${presentedFeed.some((entry) => entry.type !== "thinking") ? "filled" : "empty"}`;
+  const citationSource = useAssistantCitationSourceTarget({
+    environmentId: props.environmentId,
+    threadId: props.threadId,
+    feed: props.feed,
+    visible: presentedFeed,
+    history: props.historyControls,
+    listRef,
+    listKey: listMountKey,
+    onManualNavigation: () => setEndFollow(false),
+    onExpandTurn: (runId) => setInteractionState((current) => ({
+      ...current,
+      expandedTurnIds: new Set([...current.expandedTurnIds, runId]),
+    })),
+  });
   useLayoutEffect(() => {
     const bottom = props.contentInsetEndAdjustment.value;
     if (bottom > 0) {
@@ -2908,6 +2926,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   const renderItem = (info: { item: PendingThreadFeedEntry; index: number }) => (
     <Animated.View
       key={info.item.id}
+      className={citationSource.rowId === info.item.id ? "rounded-xl border border-foreground/30" : undefined}
       entering={disclosureToggleSettling ? THREAD_FEED_DISCLOSURE_ENTER_TRANSITION : undefined}
     >
       <MessageImageGalleryScope
@@ -3060,7 +3079,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
               endFollowEnabled && !disclosureToggleSettling ? false : maintainVisibleContentPosition
             }
             data={presentedFeed}
-            extraData={listAppearanceData}
+            extraData={{ ...listAppearanceData, citationSourceRowId: citationSource.rowId }}
             renderItem={renderItem}
             viewabilityConfig={THREAD_MEDIA_VIEWABILITY_CONFIG}
             keyExtractor={(entry) => entry.id}
@@ -3098,13 +3117,17 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
             initialScrollAtEnd
             onLoad={() => {
               loadedListKeyRef.current = listMountKey;
+              citationSource.onLoad();
             }}
             // Row positions start below the header; the reflow anchor converts between them.
             onMetricsChange={(metrics) => {
               listHeaderSizeRef.current = metrics.headerSize;
             }}
             onScroll={handleScroll}
-            onScrollBeginDrag={handleScrollBeginDrag}
+            onScrollBeginDrag={() => {
+              citationSource.cancel();
+              handleScrollBeginDrag();
+            }}
             onScrollEndDrag={handleScrollEndDrag}
             onMomentumScrollBegin={handleMomentumScrollBegin}
             onMomentumScrollEnd={handleMomentumScrollEnd}
