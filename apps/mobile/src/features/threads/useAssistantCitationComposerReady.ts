@@ -4,7 +4,7 @@ import { useGlobalVoiceInput } from "../voice-input/VoiceInputProvider";
 
 export function useAssistantCitationComposerReady(
   props: Parameters<typeof assistantCitationComposerReady>[0],
-  state: Pick<Parameters<typeof assistantCitationComposerReady>[1], "isProviderSubagent" | "composerSlotHidden">,
+  state: Omit<Parameters<typeof assistantCitationComposerReady>[1], "platform" | "voiceInput">,
 ) {
   const voiceInput = useGlobalVoiceInput();
   return assistantCitationComposerReady(props, { ...state, platform: Platform.OS, voiceInput });
