@@ -3,6 +3,9 @@ import "vite-plus/test/config";
 import { FORK_REACT_TESTS } from "./fork-react-tests";
 
 const reactTests = [
+  "src/features/pull-requests/usePullRequestEnvironmentFallback.test.tsx",
+  "src/lib/filePreview.test.ts",
+  "src/features/threads/thread-inspector-navigation.test.tsx",
   "src/features/diffs/nativeReviewDiffSurface.test.tsx",
   "src/features/pull-requests/usePullRequestDiff.test.tsx",
   "src/components/ui/Dialog.android.test.tsx",
@@ -11,6 +14,7 @@ const reactTests = [
   "src/native/NativeHeaderToolbar.test.tsx",
   "src/native/useRestingTopOffset.test.tsx",
   "src/native/useRetryingImageSource.test.tsx",
+  "src/state/queries.debounce.test.tsx",
   "src/state/use-selected-thread-git-actions.test.tsx",
   ...FORK_REACT_TESTS,
 ];
