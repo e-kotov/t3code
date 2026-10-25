@@ -1,0 +1,356 @@
+diff --git a/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdown.kt b/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdown.kt
+--- a/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdown.kt
++++ b/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdown.kt
+@@ -156,7 +156,7 @@
+       }
+     }
+   private var contextMenuItemTexts: List<String> = emptyList()
+-  var onContextMenuItemPressCallback: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int) -> Unit)? = null
++  var onContextMenuItemPressCallback: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int, prefix: String, suffix: String) -> Unit)? = null
+   var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES
+     set(value) {
+       if (field == value) return
+@@ -499,8 +499,10 @@
+     selectedText: String,
+     selectionStart: Int,
+     selectionEnd: Int,
++    prefix: String,
++    suffix: String,
+   ) {
+-    onContextMenuItemPressCallback?.invoke(itemText, selectedText, selectionStart, selectionEnd)
++    onContextMenuItemPressCallback?.invoke(itemText, selectedText, selectionStart, selectionEnd, prefix, suffix)
+   }
+ 
+   private fun recreateStyleConfig() {
+diff --git a/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownInternalText.kt b/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownInternalText.kt
+--- a/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownInternalText.kt
++++ b/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownInternalText.kt
+@@ -52,7 +52,7 @@
+       private set
+     var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES
+     private var contextMenuItemTexts: List<String> = emptyList()
+-    private var onContextMenuItemPress: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int) -> Unit)? = null
++    private var onContextMenuItemPress: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int, prefix: String, suffix: String) -> Unit)? = null
+     var selectionMenuConfig: SelectionMenuConfig = SelectionMenuConfig()
+     var accessibilityLabels: AccessibilityLabels = AccessibilityLabels()
+       set(value) {
+@@ -68,7 +68,10 @@
+           getCustomItemTexts = { contextMenuItemTexts },
+           getSelectionMenuConfig = { selectionMenuConfig },
+           onCustomItemPress = { itemText, selectedText, start, end ->
+-            onContextMenuItemPress?.invoke(itemText, selectedText, start, end)
++            val (prefix, suffix) =
++              com.swmansion.enriched.markdown.utils.text.view
++                .citationSelectionContext(text.toString(), start, end)
++            onContextMenuItemPress?.invoke(itemText, selectedText, start, end, prefix, suffix)
+           },
+         )
+     }
+@@ -101,7 +104,7 @@
+ 
+     fun setContextMenuItems(
+       items: List<String>,
+-      onPress: (itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int) -> Unit,
++      onPress: (itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int, prefix: String, suffix: String) -> Unit,
+     ) {
+       contextMenuItemTexts = items
+       onContextMenuItemPress = onPress
+diff --git a/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownManager.kt b/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownManager.kt
+--- a/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownManager.kt
++++ b/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownManager.kt
+@@ -51,8 +51,8 @@
+ 
+   override fun createViewInstance(reactContext: ThemedReactContext): EnrichedMarkdown {
+     val view = EnrichedMarkdown(reactContext)
+-    view.onContextMenuItemPressCallback = { itemText, selectedText, selectionStart, selectionEnd ->
+-      emitContextMenuItemPress(view, itemText, selectedText, selectionStart, selectionEnd)
++    view.onContextMenuItemPressCallback = { itemText, selectedText, selectionStart, selectionEnd, prefix, suffix ->
++      emitContextMenuItemPress(view, itemText, selectedText, selectionStart, selectionEnd, prefix, suffix)
+     }
+ 
+     view.setOnLinkPressCallback { url ->
+diff --git a/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownText.kt b/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownText.kt
+--- a/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownText.kt
++++ b/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownText.kt
+@@ -93,7 +93,7 @@
+     var stateWrapper: StateWrapper? = null
+ 
+     private var contextMenuItemTexts: List<String> = emptyList()
+-    var onContextMenuItemPressCallback: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int) -> Unit)? = null
++    var onContextMenuItemPressCallback: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int, prefix: String, suffix: String) -> Unit)? = null
+ 
+     var selectionClipboardConfig =
+       com.swmansion.enriched.markdown.utils.text.view
+@@ -156,7 +156,10 @@
+           getCustomItemTexts = { contextMenuItemTexts },
+           getSelectionMenuConfig = { selectionMenuConfig },
+           onCustomItemPress = { itemText, selectedText, start, end ->
+-            onContextMenuItemPressCallback?.invoke(itemText, selectedText, start, end)
++            val (prefix, suffix) =
++              com.swmansion.enriched.markdown.utils.text.view
++                .citationSelectionContext(text.toString(), start, end)
++            onContextMenuItemPressCallback?.invoke(itemText, selectedText, start, end, prefix, suffix)
+           },
+         )
+     }
+diff --git a/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownTextManager.kt b/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownTextManager.kt
+--- a/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownTextManager.kt
++++ b/android/src/main/java/com/swmansion/enriched/markdown/EnrichedMarkdownTextManager.kt
+@@ -43,8 +43,8 @@
+ 
+   override fun createViewInstance(reactContext: ThemedReactContext): EnrichedMarkdownText {
+     val view = EnrichedMarkdownText(reactContext)
+-    view.onContextMenuItemPressCallback = { itemText, selectedText, selectionStart, selectionEnd ->
+-      emitContextMenuItemPress(view, itemText, selectedText, selectionStart, selectionEnd)
++    view.onContextMenuItemPressCallback = { itemText, selectedText, selectionStart, selectionEnd, prefix, suffix ->
++      emitContextMenuItemPress(view, itemText, selectedText, selectionStart, selectionEnd, prefix, suffix)
+     }
+ 
+     view.setOnLinkPressCallback { url ->
+diff --git a/android/src/main/java/com/swmansion/enriched/markdown/events/ContextMenuItemPressEvent.kt b/android/src/main/java/com/swmansion/enriched/markdown/events/ContextMenuItemPressEvent.kt
+--- a/android/src/main/java/com/swmansion/enriched/markdown/events/ContextMenuItemPressEvent.kt
++++ b/android/src/main/java/com/swmansion/enriched/markdown/events/ContextMenuItemPressEvent.kt
+@@ -11,6 +11,8 @@
+   private val selectedText: String,
+   private val selectionStart: Int,
+   private val selectionEnd: Int,
++  private val prefix: String = "",
++  private val suffix: String = "",
+ ) : Event<ContextMenuItemPressEvent>(surfaceId, viewId) {
+   override fun getEventName(): String = EVENT_NAME
+ 
+@@ -20,6 +22,8 @@
+       putString("selectedText", selectedText)
+       putInt("selectionStart", selectionStart)
+       putInt("selectionEnd", selectionEnd)
++      putString("selectionPrefix", prefix)
++      putString("selectionSuffix", suffix)
+     }
+ 
+   companion object {
+diff --git a/android/src/main/java/com/swmansion/enriched/markdown/segments/SegmentViewCreators.kt b/android/src/main/java/com/swmansion/enriched/markdown/segments/SegmentViewCreators.kt
+--- a/android/src/main/java/com/swmansion/enriched/markdown/segments/SegmentViewCreators.kt
++++ b/android/src/main/java/com/swmansion/enriched/markdown/segments/SegmentViewCreators.kt
+@@ -70,7 +70,7 @@
+   val onLinkPress: ((String) -> Unit)?,
+   val onLinkLongPress: ((String) -> Unit)?,
+   val onTaskListItemPress: ((taskIndex: Int, checked: Boolean, itemText: String) -> Unit)?,
+-  val onContextMenuItemPress: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int) -> Unit)?,
++  val onContextMenuItemPress: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int, prefix: String, suffix: String) -> Unit)?,
+   val onLatexError: LatexErrorReporter? = null,
+ )
+ 
+@@ -109,8 +109,8 @@
+       if (config.contextMenuItemTexts.isNotEmpty()) {
+         val onPress = config.onContextMenuItemPress
+         if (onPress != null) {
+-          setContextMenuItems(config.contextMenuItemTexts) { itemText, selectedText, start, end ->
+-            onPress(itemText, selectedText, start, end)
++          setContextMenuItems(config.contextMenuItemTexts) { itemText, selectedText, start, end, prefix, suffix ->
++            onPress(itemText, selectedText, start, end, prefix, suffix)
+           }
+         }
+       }
+diff --git a/android/src/main/java/com/swmansion/enriched/markdown/utils/common/MarkdownViewManagerUtils.kt b/android/src/main/java/com/swmansion/enriched/markdown/utils/common/MarkdownViewManagerUtils.kt
+--- a/android/src/main/java/com/swmansion/enriched/markdown/utils/common/MarkdownViewManagerUtils.kt
++++ b/android/src/main/java/com/swmansion/enriched/markdown/utils/common/MarkdownViewManagerUtils.kt
+@@ -115,6 +115,8 @@
+   selectedText: String,
+   selectionStart: Int,
+   selectionEnd: Int,
++  prefix: String = "",
++  suffix: String = "",
+ ) {
+   val context = view.context as com.facebook.react.bridge.ReactContext
+   val surfaceId = UIManagerHelper.getSurfaceId(context)
+@@ -127,6 +129,8 @@
+       selectedText,
+       selectionStart,
+       selectionEnd,
++      prefix,
++      suffix,
+     ),
+   )
+ }
+diff --git a/android/src/main/java/com/swmansion/enriched/markdown/utils/text/view/CitationSelectionContext.kt b/android/src/main/java/com/swmansion/enriched/markdown/utils/text/view/CitationSelectionContext.kt
+new file mode 100644
+--- /dev/null
++++ b/android/src/main/java/com/swmansion/enriched/markdown/utils/text/view/CitationSelectionContext.kt
+@@ -0,0 +1,13 @@
++package com.swmansion.enriched.markdown.utils.text.view
++
++private val citationWhitespace = Regex("[\\s\\p{Z}\\uFEFF]+")
++
++/** Context uses the desktop selector's normalized whitespace and UTF-16 limit. */
++internal fun citationSelectionContext(text: String, start: Int, end: Int): Pair<String, String> {
++  if (start < 0 || end < start || end > text.length) return "" to ""
++  var prefix = text.substring(0, start).replace(citationWhitespace, " ").takeLast(32)
++  var suffix = text.substring(end).replace(citationWhitespace, " ").take(32)
++  if (prefix.firstOrNull()?.isLowSurrogate() == true) prefix = prefix.drop(1)
++  if (suffix.lastOrNull()?.isHighSurrogate() == true) suffix = suffix.dropLast(1)
++  return prefix to suffix
++}
+diff --git a/android/src/test/java/com/swmansion/enriched/markdown/utils/text/view/CitationSelectionContextTest.kt b/android/src/test/java/com/swmansion/enriched/markdown/utils/text/view/CitationSelectionContextTest.kt
+new file mode 100644
+--- /dev/null
++++ b/android/src/test/java/com/swmansion/enriched/markdown/utils/text/view/CitationSelectionContextTest.kt
+@@ -0,0 +1,27 @@
++package com.swmansion.enriched.markdown.utils.text.view
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++
++class CitationSelectionContextTest {
++  @Test fun repeatedPhrasesKeepTheirOwnContext() {
++    val text = "First quote ends. Second quote belongs here."
++    val start = text.lastIndexOf("quote")
++    assertEquals("First quote ends. Second " to " belongs here.", citationSelectionContext(text, start, start + 5))
++  }
++
++  @Test fun matchesDesktopWhitespace() {
++    assertEquals("before " to " after", citationSelectionContext("before\n\tquote\u00a0 after", 8, 13))
++  }
++
++  @Test fun boundsContextWithoutBreakingEmoji() {
++    val text = "😀" + "a".repeat(31) + "quote" + "b".repeat(31) + "😀"
++    assertEquals("a".repeat(31) to "b".repeat(31), citationSelectionContext(text, 33, 38))
++  }
++
++  @Test fun handlesFragmentEdgesAndInvalidBounds() {
++    assertEquals("" to "", citationSelectionContext("quote", 0, 5))
++    assertEquals("" to "", citationSelectionContext("quote", -1, 5))
++    assertEquals("" to "", citationSelectionContext("quote", 0, 6))
++  }
++}
+diff --git a/lib/module/native/EnrichedMarkdownText.js b/lib/module/native/EnrichedMarkdownText.js
+--- a/lib/module/native/EnrichedMarkdownText.js
++++ b/lib/module/native/EnrichedMarkdownText.js
+@@ -213,7 +213,9 @@
+       itemText,
+       selectedText,
+       selectionStart,
+-      selectionEnd
++      selectionEnd,
++      selectionPrefix,
++      selectionSuffix
+     } = e.nativeEvent;
+     const callback = contextMenuCallbacksRef.current.get(itemText);
+     callback?.({
+@@ -221,7 +223,8 @@
+       selection: {
+         start: selectionStart,
+         end: selectionEnd
+-      }
++      },
++      context: { prefix: selectionPrefix ?? "", suffix: selectionSuffix ?? "" }
+     });
+   }, []);
+   const handleLinkPress = useCallback(e => {
+diff --git a/lib/typescript/src/EnrichedMarkdownNativeComponent.d.ts b/lib/typescript/src/EnrichedMarkdownNativeComponent.d.ts
+--- a/lib/typescript/src/EnrichedMarkdownNativeComponent.d.ts
++++ b/lib/typescript/src/EnrichedMarkdownNativeComponent.d.ts
+@@ -294,6 +294,8 @@
+     selectedText: string;
+     selectionStart: CodegenTypes.Int32;
+     selectionEnd: CodegenTypes.Int32;
++    selectionPrefix?: string;
++    selectionSuffix?: string;
+ }
+ export interface AccessibilityLabelsListProps {
+     bulletPoint: string;
+diff --git a/lib/typescript/src/EnrichedMarkdownTextNativeComponent.d.ts b/lib/typescript/src/EnrichedMarkdownTextNativeComponent.d.ts
+--- a/lib/typescript/src/EnrichedMarkdownTextNativeComponent.d.ts
++++ b/lib/typescript/src/EnrichedMarkdownTextNativeComponent.d.ts
+@@ -289,6 +289,8 @@
+     selectedText: string;
+     selectionStart: CodegenTypes.Int32;
+     selectionEnd: CodegenTypes.Int32;
++    selectionPrefix?: string;
++    selectionSuffix?: string;
+ }
+ export interface AccessibilityLabelsListProps {
+     bulletPoint: string;
+diff --git a/lib/typescript/src/types/MarkdownTextProps.d.ts b/lib/typescript/src/types/MarkdownTextProps.d.ts
+--- a/lib/typescript/src/types/MarkdownTextProps.d.ts
++++ b/lib/typescript/src/types/MarkdownTextProps.d.ts
+@@ -28,6 +28,7 @@
+     text: string;
+     onPress: (event: {
+         text: string;
++        context?: { prefix: string; suffix: string };
+         selection: {
+             start: number;
+             end: number;
+diff --git a/lib/typescript/src/types/events.d.ts b/lib/typescript/src/types/events.d.ts
+--- a/lib/typescript/src/types/events.d.ts
++++ b/lib/typescript/src/types/events.d.ts
+@@ -72,5 +72,7 @@
+     selectedText: string;
+     selectionStart: number;
+     selectionEnd: number;
++    selectionPrefix?: string;
++    selectionSuffix?: string;
+ }
+ //# sourceMappingURL=events.d.ts.mapdiff --git a/src/EnrichedMarkdownNativeComponent.ts b/src/EnrichedMarkdownNativeComponent.ts
+--- a/src/EnrichedMarkdownNativeComponent.ts
++++ b/src/EnrichedMarkdownNativeComponent.ts
+@@ -348,6 +348,8 @@
+   selectedText: string;
+   selectionStart: CodegenTypes.Int32;
+   selectionEnd: CodegenTypes.Int32;
++  selectionPrefix?: string;
++  selectionSuffix?: string;
+ }
+ 
+ export interface AccessibilityLabelsListProps {
+diff --git a/src/EnrichedMarkdownTextNativeComponent.ts b/src/EnrichedMarkdownTextNativeComponent.ts
+--- a/src/EnrichedMarkdownTextNativeComponent.ts
++++ b/src/EnrichedMarkdownTextNativeComponent.ts
+@@ -343,6 +343,8 @@
+   selectedText: string;
+   selectionStart: CodegenTypes.Int32;
+   selectionEnd: CodegenTypes.Int32;
++  selectionPrefix?: string;
++  selectionSuffix?: string;
+ }
+ 
+ export interface AccessibilityLabelsListProps {
+diff --git a/src/native/EnrichedMarkdownText.tsx b/src/native/EnrichedMarkdownText.tsx
+--- a/src/native/EnrichedMarkdownText.tsx
++++ b/src/native/EnrichedMarkdownText.tsx
+@@ -339,12 +339,13 @@
+ 
+   const handleContextMenuItemPress = useCallback(
+     (e: NativeSyntheticEvent<OnContextMenuItemPressEvent>) => {
+-      const { itemText, selectedText, selectionStart, selectionEnd } =
++      const { itemText, selectedText, selectionStart, selectionEnd, selectionPrefix, selectionSuffix } =
+         e.nativeEvent;
+       const callback = contextMenuCallbacksRef.current.get(itemText);
+       callback?.({
+         text: selectedText,
+         selection: { start: selectionStart, end: selectionEnd },
++        context: { prefix: selectionPrefix ?? "", suffix: selectionSuffix ?? "" },
+       });
+     },
+     []
+diff --git a/src/types/MarkdownTextProps.ts b/src/types/MarkdownTextProps.ts
+--- a/src/types/MarkdownTextProps.ts
++++ b/src/types/MarkdownTextProps.ts
+@@ -60,6 +60,7 @@
+   onPress: (event: {
+     text: string;
+     selection: { start: number; end: number };
++    context?: { prefix: string; suffix: string };
+   }) => void;
+   icon?: string;
+   visible?: boolean;
+diff --git a/src/types/events.ts b/src/types/events.ts
+--- a/src/types/events.ts
++++ b/src/types/events.ts
+@@ -83,4 +83,6 @@
+   selectedText: string;
+   selectionStart: number;
+   selectionEnd: number;
++  selectionPrefix?: string;
++  selectionSuffix?: string;
+ }

@@ -1,0 +1,78 @@
+name: Fork Android citations
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, "sync/android-citation-context-*"]
+    paths:
+      - ".github/workflows/fork-android-citations.yml"
+      - "patches/react-native-enriched-markdown@*.patch"
+      - "apps/mobile/deps/react-native-enriched-markdown-*.tgz"
+      - "apps/mobile/src/native/assistantCitation*"
+      - "apps/mobile/src/native/useAssistantCitationMenu.ts"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-citations-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+      APP_VARIANT: development
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.sha }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch --no-tags origin main "$CHECKOUT_REF"
+          git checkout --detach "$CHECKOUT_REF"
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          node-version-file: package.json
+          run-install: false
+          cache: true
+      - run: vp install
+      - name: Prove the context regression on the old implementation
+        run: |
+          source=apps/mobile/src/native/assistantCitationSelection.ts
+          old=$(git log --format=%H -S 'context?.prefix' -- "$source" | head -1)
+          test -n "$old"
+          cp "$source" "$RUNNER_TEMP/citation-selection.ts"
+          trap 'cp "$RUNNER_TEMP/citation-selection.ts" "$source"' EXIT
+          git show "$old^:$source" > "$source"
+          if vp test run apps/mobile/src/native/assistantCitationSelection.test.ts -t 'keeps native surrounding context' > "$RUNNER_TEMP/citation-regression.log" 2>&1; then
+            cat "$RUNNER_TEMP/citation-regression.log"
+            echo 'The regression must fail without native context support.'
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/citation-regression.log"
+          rg -q 'AssertionError' "$RUNNER_TEMP/citation-regression.log"
+      - name: Check changed code and citation behavior
+        run: |
+          base=$(git merge-base refs/remotes/origin/main HEAD)
+          if [ "$base" = "$(git rev-parse HEAD)" ]; then base=HEAD^; fi
+          vp run check:changed "$base"
+          vp test run apps/mobile/src/native/assistantCitationSelection.test.ts packages/shared/src/assistantCitations.test.ts
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c
+        with:
+          cache-read-only: false
+      - name: Generate isolated Android project
+        working-directory: apps/mobile
+        run: vp exec expo prebuild --platform android --no-install
+      - name: Compile the native selection bridge and test its context
+        working-directory: apps/mobile/android
+        run: ./gradlew :react-native-enriched-markdown:testDebugUnitTest --tests '*CitationSelectionContextTest' --no-daemon --max-workers=2

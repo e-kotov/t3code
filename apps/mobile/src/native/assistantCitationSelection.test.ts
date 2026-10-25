@@ -13,6 +13,30 @@ const source = {
 };
 
 describe("assistant citation selection", () => {
+  it("keeps native surrounding context to distinguish repeated phrases", () => {
+    const listener = vi.fn();
+    const subscription = addAssistantCitationSelectionListener(listener);
+    try {
+      emitAssistantCitationSelection(
+        source,
+        "quoted text",
+        { start: 7, end: 18 },
+        { prefix: "Second ", suffix: " belongs here." },
+      );
+
+      expect(listener).toHaveBeenCalledExactlyOnceWith({
+        ...source,
+        text: "quoted text",
+        start: 7,
+        end: 18,
+        prefix: "Second ",
+        suffix: " belongs here.",
+      });
+    } finally {
+      subscription.remove();
+    }
+  });
+
   it("preserves the selected text and source when native selection bounds are reversed", () => {
     const listener = vi.fn();
     const subscription = addAssistantCitationSelectionListener(listener);
