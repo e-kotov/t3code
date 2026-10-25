@@ -50,7 +50,7 @@
     "apps/mobile/src/features/workspace/WorkspaceSectionToolbar.tsx": 3,
     "apps/mobile/src/features/workspace/WorkspaceSidebarTabs.ios.tsx": 3,
     "apps/mobile/src/features/workspace/WorkspaceTabsContext.tsx": 5,
-    "apps/mobile/src/features/workspace/WorkspaceToolbar.ios.tsx": 4,
+    "apps/mobile/src/features/workspace/WorkspaceToolbar.ios.tsx": 3,
     "apps/mobile/src/features/workspace/workspace-tab-navigation.ts": 2,
     "apps/mobile/src/features/workspace/workspace-tabs-state.ts": 4,
     "apps/mobile/src/lib/composerChipPresentation.ts": 1,
