@@ -1,5 +1,6 @@
 import { defineConfig } from "vite-plus";
 import "vite-plus/test/config";
+import { FORK_REACT_TESTS } from "./fork-react-tests";
 
 const reactTests = [
   "src/features/diffs/nativeReviewDiffSurface.test.tsx",
@@ -11,6 +12,7 @@ const reactTests = [
   "src/native/useRestingTopOffset.test.tsx",
   "src/native/useRetryingImageSource.test.tsx",
   "src/state/use-selected-thread-git-actions.test.tsx",
+  ...FORK_REACT_TESTS,
 ];
 
 export default defineConfig({

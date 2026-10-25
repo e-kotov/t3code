@@ -13,13 +13,18 @@ export function ConversationListHeader(props: {
     readonly threads: readonly EnvironmentThreadShell[];
   };
 }) {
-  return <View>
-    {props.children}
-    <View className="px-3 py-1">
-      <CacheWarmingEnvironmentControl
-        environmentId={resolveCacheWarmingEnvironmentId(props.view.selectedEnvironmentId, props.view.environments)}
-        threads={props.view.threads}
-      />
+  return (
+    <View>
+      {props.children}
+      <View className="px-3 py-1">
+        <CacheWarmingEnvironmentControl
+          environmentId={resolveCacheWarmingEnvironmentId(
+            props.view.selectedEnvironmentId,
+            props.view.environments,
+          )}
+          threads={props.view.threads}
+        />
+      </View>
     </View>
-  </View>;
+  );
 }

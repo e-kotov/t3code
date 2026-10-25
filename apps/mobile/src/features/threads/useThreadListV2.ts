@@ -23,8 +23,6 @@ function useKeySet(newlineSeparatedKeys: string): ReadonlySet<string> {
   );
 }
 
-import type { ConversationShelfSortInput } from "./conversationListOrder";
-
 type LayoutInput = Parameters<typeof buildThreadListV2Items>[0];
 
 /**
@@ -32,7 +30,7 @@ type LayoutInput = Parameters<typeof buildThreadListV2Items>[0];
  * built inline, the list's inputs stayed open to mutation across the screen's other hooks, so
  * the React Compiler cached none of it and every render of the screen re-rendered every row.
  */
-export function useThreadListV2(input: ConversationShelfSortInput & {
+export function useThreadListV2(input: {
   readonly threads: LayoutInput["threads"];
   readonly pendingTasks: ReadonlyArray<PendingNewTask>;
   readonly environmentId: EnvironmentId | null;
@@ -54,6 +52,8 @@ export function useThreadListV2(input: ConversationShelfSortInput & {
   readonly snoozedShelfExpanded: boolean;
   readonly settledShelfExpanded: boolean;
   readonly selectedThreadKey: string | null;
+  readonly conversationSortOrder?: LayoutInput["conversationSortOrder"];
+  readonly conversationGrouping?: LayoutInput["conversationGrouping"];
 }) {
   const { threads, workingShelfEnabled } = input;
   // A thread can stop working when the threads change, or when its exit grace expires.

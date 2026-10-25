@@ -25,6 +25,8 @@ export const SETTINGS_PAGE_TARGETS = [
   "SettingsUsage",
 ] as const;
 
-export type SettingsPageTarget = (typeof SETTINGS_PAGE_TARGETS)[number] | "SettingsBuiltInTailscale";
+export type SettingsPageTarget =
+  | (typeof SETTINGS_PAGE_TARGETS)[number]
+  | "SettingsBuiltInTailscale";
 
 export type SettingsLegalDocumentTarget = "SettingsLegal";

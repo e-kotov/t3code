@@ -19,7 +19,7 @@ import {
   type WorkspaceTabsAction,
   type WorkspaceTabsState,
 } from "./workspace-tabs-state";
-import { keepUtilities, utilitiesScrollOffsets } from "../device-commands/utilitiesWorkspaceTab";
+import { keepUtilities } from "../device-commands/utilitiesWorkspaceTab";
 
 export const WorkspaceTabsContext = createContext<{
   readonly state: WorkspaceTabsState;
@@ -49,7 +49,7 @@ export function WorkspaceTabsProvider(props: {
     activeTab.current = state.selectedTab;
   }, [state.selectedTab]);
   const isTabActive = useCallback((tab: WorkspaceTab) => activeTab.current === tab, []);
-  const scrollOffsets = useRef({ ...utilitiesScrollOffsets, threads: 0, pullRequests: 0, usage: 0, settings: 0 });
+  const scrollOffsets = useRef({ threads: 0, pullRequests: 0, usage: 0, settings: 0, commands: 0 });
   const getScrollOffset = useCallback((tab: WorkspaceSearchTab) => scrollOffsets.current[tab], []);
   const recordScrollOffset = useCallback((tab: WorkspaceSearchTab, offset: number) => {
     scrollOffsets.current[tab] = offset;

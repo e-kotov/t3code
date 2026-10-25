@@ -15,7 +15,11 @@ export function useConversationThreadListV2(
     conversationSortOrder: conversation.view.conversationSortOrder,
     conversationGrouping: conversation.view.conversationGrouping,
   });
-  return { ...result, items: arrangeMobileConversationList(result.items, {
-    ...conversation, grouping: conversation.view.conversationGrouping ?? "none",
-  }) };
+  return {
+    ...result,
+    items: arrangeMobileConversationList(result.items, {
+      ...conversation,
+      grouping: conversation.view.conversationGrouping ?? "none",
+    }),
+  };
 }
