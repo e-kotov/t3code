@@ -14,6 +14,7 @@ import {
 } from "@react-navigation/native";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as Option from "effect/Option";
+import { AsyncResult } from "effect/reactivity";
 import {
   AuthOrchestrationOperateScope,
   AuthTerminalOperateScope,
@@ -326,14 +327,17 @@ function ThreadRouteContent(
       loading: history.loading,
       error: history.error,
       cursor: history.historyCursor,
-      onLoadEarlier: (throughEntryId?: string) => {
-        void loadEarlierHistory({
+      onLoadEarlier: async (throughEntryId?: string) => {
+        const result = await loadEarlierHistory({
           environmentId: selectedThread.environmentId,
           input: {
             threadId: selectedThread.id,
             ...(typeof throughEntryId === "string" ? { throughEntryId } : {}),
           },
         });
+        return AsyncResult.isFailure(result)
+          ? { _tag: "error" as const, message: "Could not load earlier messages. Try again." }
+          : result.value;
       },
     };
   })();

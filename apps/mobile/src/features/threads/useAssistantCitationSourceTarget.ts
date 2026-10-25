@@ -1,6 +1,7 @@
 import type { LegendListRef } from "@legendapp/list/react-native";
 import { useIsFocused } from "@react-navigation/native";
-import { RunId } from "@t3tools/contracts";
+import { EnvironmentId, RunId, ThreadId } from "@t3tools/contracts";
+import * as Option from "effect/Option";
 import {
   useEffect,
   useEffectEvent,
@@ -16,10 +17,13 @@ import {
   readAssistantCitationNavigation,
   subscribeAssistantCitationNavigation,
 } from "../../lib/assistantCitationNavigation";
-import { assistantCitationSourceStep } from "../../lib/assistantCitationMessage";
+import { assistantCitationSourceReadiness, assistantCitationSourceStep } from "../../lib/assistantCitationMessage";
+import { useThreadDetail } from "../../state/use-thread-detail";
+import { useRemoteEnvironmentRuntime } from "../../state/use-remote-environment-registry";
 import {
   deriveThreadFeedRunFolds,
   failedFeedRunIds,
+  settleSupersededReasoning,
   type ThreadFeedEntry,
   type ThreadFeedLatestRun,
 } from "../../lib/threadActivity";
@@ -32,6 +36,7 @@ export function useAssistantCitationSourceTarget(input: {
   readonly contentPresentation: ThreadContentPresentation;
   readonly latestRun: ThreadFeedLatestRun | null;
   readonly runlessWorkActive: boolean;
+  readonly activeWorkStartedAt: string | null;
   readonly feed: ReadonlyArray<ThreadFeedEntry>;
   readonly visible: ReadonlyArray<ThreadFeedEntry>;
   readonly history?: ThreadFeedHistoryControls;
@@ -41,6 +46,12 @@ export function useAssistantCitationSourceTarget(input: {
   readonly onManualNavigation: () => void;
   readonly onExpandTurn: (runId: RunId) => void;
 }) {
+  const environmentId = EnvironmentId.make(input.environmentId);
+  const detail = useThreadDetail({ environmentId, threadId: ThreadId.make(input.threadId) });
+  const runtime = useRemoteEnvironmentRuntime(environmentId);
+  const synchronizationError = Option.getOrNull(detail.error);
+  const synchronization = assistantCitationSourceReadiness(detail.status, runtime?.connectionState, synchronizationError);
+  const [historyCompletion, setHistoryCompletion] = useState(0);
   const pendingRequest = useSyncExternalStore(
     subscribeAssistantCitationNavigation,
     readAssistantCitationNavigation,
@@ -56,6 +67,7 @@ export function useAssistantCitationSourceTarget(input: {
   const progress = useRef<{
     id: number;
     pages: Set<string>;
+    completedPages: Set<string>;
     expanded: Set<string>;
     scrolling: boolean;
   } | null>(null);
@@ -74,6 +86,7 @@ export function useAssistantCitationSourceTarget(input: {
       progress.current = {
         id: request.id,
         pages: new Set(),
+        completedPages: new Set(),
         expanded: new Set(),
         scrolling: false,
       };
@@ -88,12 +101,16 @@ export function useAssistantCitationSourceTarget(input: {
     };
     const step = assistantCitationSourceStep({
       presentation: input.contentPresentation,
+      synchronization,
       foldRunId: (entryId) => {
+        const retained = input.feed.filter((entry) => entry.type !== "run-fold" && entry.type !== "work-toggle" && entry.type !== "thinking");
+        const sourceFeed = retained.map((entry, index) => settleSupersededReasoning(entry, index === retained.length - 1));
+        const isWorking = input.activeWorkStartedAt !== null && input.latestRun?.status !== "preparing";
         const folds = deriveThreadFeedRunFolds(
-          input.feed,
+          sourceFeed,
           input.latestRun,
-          input.runlessWorkActive,
-          failedFeedRunIds(input.feed, input.latestRun),
+          isWorking && input.runlessWorkActive,
+          failedFeedRunIds(sourceFeed, input.latestRun),
         );
         for (const fold of folds.values()) {
           if (fold.hiddenEntryIds.has(entryId)) return fold.runId;
@@ -105,12 +122,26 @@ export function useAssistantCitationSourceTarget(input: {
       visible: input.visible,
       history: input.history,
       requestedPages: current.pages,
+      completedPages: current.completedPages,
     });
     if (step.kind === "wait") return;
     if (step.kind === "unavailable") return fail(step.reason);
     if (step.kind === "load") {
       current.pages.add(step.page);
-      input.history?.onLoadEarlier(request.citation.messageId);
+      const loading = input.history?.onLoadEarlier(request.citation.messageId);
+      if (!loading) return fail("Could not load the cited response. Try again.");
+      void loading.then((result) => {
+        if (readAssistantCitationNavigation()?.id !== request.id) return;
+        if (result._tag === "error") return fail(result.message);
+        if (result._tag === "busy") {
+          current.pages.delete(step.page);
+          return;
+        }
+        current.completedPages.add(step.page);
+        setHistoryCompletion((revision) => revision + 1);
+      }).catch(() => {
+        if (readAssistantCitationNavigation()?.id === request.id) fail("Could not load the cited response. Try again.");
+      });
       return;
     }
     if (step.kind === "expand") {
@@ -147,11 +178,19 @@ export function useAssistantCitationSourceTarget(input: {
     focused,
     input.feed,
     input.visible,
-    input.history,
+    input.history?.cursor,
+    input.history?.hasMoreHistory,
+    input.history?.loading,
+    input.history?.error,
     input.listKey,
     input.contentPresentation,
     input.latestRun,
     input.runlessWorkActive,
+    input.activeWorkStartedAt,
+    detail.status,
+    runtime?.connectionState,
+    synchronizationError,
+    historyCompletion,
     loadedKey,
   ]);
   return {

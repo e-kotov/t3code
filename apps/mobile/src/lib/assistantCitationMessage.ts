@@ -11,8 +11,27 @@ interface CitationFeedRow {
   };
 }
 
+export function assistantCitationSourceReadiness(
+  status: string,
+  connection: string | undefined,
+  error: string | null,
+) {
+  if (status === "deleted" || (status === "live" && connection === "connected")) {
+    return { kind: "ready" } as const;
+  }
+  if (error !== null) return { kind: "unavailable", detail: error } as const;
+  if (connection === "connected" || connection === "connecting" || connection === "reconnecting") {
+    return { kind: "loading" } as const;
+  }
+  return {
+    kind: "unavailable",
+    detail: "Reconnect this environment to load the cited response.",
+  } as const;
+}
+
 export function assistantCitationSourceStep(input: {
   readonly presentation: ThreadContentPresentation;
+  readonly synchronization: ReturnType<typeof assistantCitationSourceReadiness>;
   readonly foldRunId: (entryId: string) => string | null;
   readonly citation: AssistantCitation;
   readonly feed: ReadonlyArray<CitationFeedRow>;
@@ -24,6 +43,7 @@ export function assistantCitationSourceStep(input: {
     readonly cursor?: string | null;
   };
   readonly requestedPages: ReadonlySet<string>;
+  readonly completedPages: ReadonlySet<string>;
 }) {
   if (input.presentation.kind === "loading") return { kind: "wait" } as const;
   if (input.presentation.kind === "unavailable") {
@@ -48,10 +68,17 @@ export function assistantCitationSourceStep(input: {
       reason: "The cited response is not visible in this thread.",
     } as const;
   }
+  if (input.synchronization.kind === "loading") return { kind: "wait" } as const;
+  if (input.synchronization.kind === "unavailable") {
+    return { kind: "unavailable", reason: input.synchronization.detail } as const;
+  }
   if (input.history?.loading) return { kind: "wait" } as const;
   if (input.history?.error) return { kind: "unavailable", reason: input.history.error } as const;
   if (input.history?.hasMoreHistory) {
     const page = input.history.cursor ?? input.feed[0]?.id ?? "initial";
+    if (input.requestedPages.has(page) && !input.completedPages.has(page)) {
+      return { kind: "wait" } as const;
+    }
     if (input.requestedPages.size < 20 && !input.requestedPages.has(page)) {
       return { kind: "load", page } as const;
     }

@@ -24,6 +24,7 @@ import { KeyboardAwareLegendList } from "@legendapp/list/keyboard";
 import { useViewabilityAmount, type LegendListRef } from "@legendapp/list/react-native";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import type { HandoffEndpoints } from "@t3tools/client-runtime/handoff";
+import type { ThreadHistoryLoadEarlierResult } from "@t3tools/client-runtime/state/threads";
 import { resolveUserMessagePresentation } from "@t3tools/client-runtime/user-message";
 import { canForkProjectedAssistantItem } from "@t3tools/client-runtime/state/thread-workflows";
 import type { ThreadCheckpointSummary } from "@t3tools/client-runtime/state/thread-checkpoints";
@@ -322,7 +323,7 @@ export interface ThreadFeedHistoryControls {
   readonly loading: boolean;
   readonly error: string | null;
   readonly cursor?: string | null;
-  readonly onLoadEarlier: (throughEntryId?: string) => void;
+  readonly onLoadEarlier: (throughEntryId?: string) => Promise<ThreadHistoryLoadEarlierResult>;
 }
 
 export interface ThreadFeedProps {
@@ -2625,6 +2626,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
     contentPresentation: props.contentPresentation,
     latestRun: props.latestRun,
     runlessWorkActive: props.runlessWorkActive ?? false,
+    activeWorkStartedAt: props.activeWorkStartedAt,
     feed: props.feed,
     visible: presentedFeed,
     history: props.historyControls,

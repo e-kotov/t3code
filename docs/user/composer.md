@@ -142,6 +142,8 @@ Tap a quote chip in a sent message to preview its full text and comment. Choose
 **Go to source** to open the original assistant response. Earlier turns load and
 folded turns expand when needed. If the source cannot be loaded, your saved quote
 remains readable in the preview.
+On web or desktop, an Android quote may still be unable to locate the exact passage
+when both the quoted words and their surrounding context occur more than once.
 iOS displays saved quotes and comments but does not create citations or edit their comments yet.
 
 ## Recall a sent prompt
