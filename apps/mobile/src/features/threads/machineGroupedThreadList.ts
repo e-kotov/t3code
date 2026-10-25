@@ -44,7 +44,8 @@ export function groupThreadListV2ItemsByMachine<T extends { readonly type: strin
     }
     const segment: (T & ThreadListV2ThreadListItem)[] = [];
     let row = items[cursor];
-    while (row !== undefined && isThreadRow(row)) {
+    // Pinned and active rows can be adjacent without an upstream shelf header.
+    while (row !== undefined && isThreadRow(row) && row.item.pinned === item.item.pinned) {
       segment.push(row);
       cursor += 1;
       row = items[cursor];
