@@ -35,3 +35,17 @@ it("retains Settings search when Utilities is selected", async () => {
   expect(workspaceTabsReducer(state, { type: "search" })).toBe(state);
   expect(state.tabs.settings.query).toBe("tail");
 });
+
+it("opens Utilities without restoring a chat or pull-request detail beside it", async () => {
+  const { workspaceTabNavigationState } = await import("../workspace/workspace-tab-navigation");
+  const check = { thread: () => true, pullRequest: () => true };
+  const home = { key: "home", name: "Home" };
+  const thread = { key: "chat", name: "Thread", params: { environmentId: "env", threadId: "chat" } };
+  const next = workspaceTabNavigationState(
+    { routes: [home, thread] },
+    "commands",
+    { threads: thread.params },
+    { columns: true, check },
+  );
+  expect(next.routes).toEqual([home]);
+});
