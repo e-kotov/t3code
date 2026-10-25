@@ -1,7 +1,14 @@
 import type { LegendListRef } from "@legendapp/list/react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { RunId } from "@t3tools/contracts";
-import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore, type RefObject } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type RefObject,
+} from "react";
 import * as Dialog from "../../components/ui/Dialog";
 import {
   finishAssistantCitationNavigation,
@@ -25,12 +32,24 @@ export function useAssistantCitationSourceTarget(input: {
   readonly onManualNavigation: () => void;
   readonly onExpandTurn: (runId: RunId) => void;
 }) {
-  const pendingRequest = useSyncExternalStore(subscribeAssistantCitationNavigation, readAssistantCitationNavigation);
-  const request = assistantCitationNavigationForScope(pendingRequest, input.environmentId, input.threadId);
+  const pendingRequest = useSyncExternalStore(
+    subscribeAssistantCitationNavigation,
+    readAssistantCitationNavigation,
+  );
+  const request = assistantCitationNavigationForScope(
+    pendingRequest,
+    input.environmentId,
+    input.threadId,
+  );
   const focused = useIsFocused();
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [source, setSource] = useState<{ scope: string; rowId: string } | null>(null);
-  const progress = useRef<{ id: number; pages: Set<string>; expanded: Set<string>; scrolling: boolean } | null>(null);
+  const progress = useRef<{
+    id: number;
+    pages: Set<string>;
+    expanded: Set<string>;
+    scrolling: boolean;
+  } | null>(null);
   const scope = JSON.stringify([input.environmentId, input.threadId]);
   const cancel = () => {
     if (request) finishAssistantCitationNavigation(request.id);
@@ -43,7 +62,12 @@ export function useAssistantCitationSourceTarget(input: {
       return;
     }
     if (progress.current?.id !== request.id) {
-      progress.current = { id: request.id, pages: new Set(), expanded: new Set(), scrolling: false };
+      progress.current = {
+        id: request.id,
+        pages: new Set(),
+        expanded: new Set(),
+        scrolling: false,
+      };
       setSource(null);
       input.onManualNavigation();
     }
@@ -53,7 +77,13 @@ export function useAssistantCitationSourceTarget(input: {
       finishAssistantCitationNavigation(request.id);
       Dialog.alert("Source response unavailable", `${reason}\n\nYour saved quote is unchanged.`);
     };
-    const step = assistantCitationSourceStep({ citation: request.citation, feed: input.feed, visible: input.visible, history: input.history, requestedPages: current.pages });
+    const step = assistantCitationSourceStep({
+      citation: request.citation,
+      feed: input.feed,
+      visible: input.visible,
+      history: input.history,
+      requestedPages: current.pages,
+    });
     if (step.kind === "wait") return;
     if (step.kind === "unavailable") return fail(step.reason);
     if (step.kind === "load") {
@@ -62,7 +92,8 @@ export function useAssistantCitationSourceTarget(input: {
       return;
     }
     if (step.kind === "expand") {
-      if (current.expanded.has(step.runId)) return fail("The cited response could not be expanded.");
+      if (current.expanded.has(step.runId))
+        return fail("The cited response could not be expanded.");
       current.expanded.add(step.runId);
       input.onExpandTurn(RunId.make(step.runId));
       return;
@@ -74,14 +105,22 @@ export function useAssistantCitationSourceTarget(input: {
     void Promise.resolve()
       .then(() => {
         if (readAssistantCitationNavigation()?.id !== request.id) return;
-        return list.scrollToIndex({ index: step.index, viewPosition: 0, viewOffset: input.topInset, animated: true });
+        return list.scrollToIndex({
+          index: step.index,
+          viewPosition: 0,
+          viewOffset: input.topInset,
+          animated: true,
+        });
       })
       .then(() => finishAssistantCitationNavigation(request.id))
       .catch(() => {
-        if (readAssistantCitationNavigation()?.id === request.id) fail("Could not scroll to the cited response. Try again.");
+        if (readAssistantCitationNavigation()?.id === request.id)
+          fail("Could not scroll to the cited response. Try again.");
       });
   });
-  useEffect(() => { navigate(); }, [request, focused, input.feed, input.visible, input.history, input.listKey, loadedKey]);
+  useEffect(() => {
+    navigate();
+  }, [request, focused, input.feed, input.visible, input.history, input.listKey, loadedKey]);
   return {
     rowId: source?.scope === scope ? source.rowId : null,
     onLoad: () => setLoadedKey(input.listKey),

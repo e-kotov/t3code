@@ -1366,7 +1366,9 @@ function renderFeedEntry(
     const { message } = entry;
     const isUser = message.role === "user";
     const presentation = resolveUserMessagePresentation(message);
-    const renderedText = isUser ? presentation.text : renderAssistantCitationsAsText(presentation.text);
+    const renderedText = isUser
+      ? presentation.text
+      : renderAssistantCitationsAsText(presentation.text);
     const styles = isUser ? markdownStyles.user : markdownStyles.assistant;
     const timestampLabel = formatMessageTime(isUser ? message.createdAt : message.updatedAt);
     const attachments = message.attachments ?? [];
@@ -2621,10 +2623,11 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
     listKey: listMountKey,
     topInset: anchorTopInset + CHAT_LIST_ANCHOR_OFFSET,
     onManualNavigation: () => setEndFollow(false),
-    onExpandTurn: (runId) => setInteractionState((current) => ({
-      ...current,
-      expandedTurnIds: new Set([...current.expandedTurnIds, runId]),
-    })),
+    onExpandTurn: (runId) =>
+      setInteractionState((current) => ({
+        ...current,
+        expandedTurnIds: new Set([...current.expandedTurnIds, runId]),
+      })),
   });
   useLayoutEffect(() => {
     const bottom = props.contentInsetEndAdjustment.value;
@@ -2929,7 +2932,9 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   const renderItem = (info: { item: PendingThreadFeedEntry; index: number }) => (
     <Animated.View
       key={info.item.id}
-      className={citationSource.rowId === info.item.id ? "rounded-xl border border-foreground/30" : undefined}
+      className={
+        citationSource.rowId === info.item.id ? "rounded-xl border border-foreground/30" : undefined
+      }
       entering={disclosureToggleSettling ? THREAD_FEED_DISCLOSURE_ENTER_TRANSITION : undefined}
     >
       <MessageImageGalleryScope

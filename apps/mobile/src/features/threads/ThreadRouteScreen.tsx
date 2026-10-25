@@ -1,4 +1,5 @@
 import * as Dialog from "../../components/ui/Dialog";
+import { useAssistantCitationRoute } from "./useAssistantCitationRoute";
 import { useOpenPullRequest } from "../../native/useOpenPullRequest";
 import { makeTurnCommandMetadata } from "../../lib/commandMetadata";
 import { buildProjectThreadStartTurnInput } from "../../lib/projectThreadStartTurn";
@@ -185,6 +186,10 @@ function ThreadUnavailableScreen(props: {
 }
 
 export function ThreadRouteScreen(props: ThreadRouteScreenProps) {
+  useAssistantCitationRoute(
+    props.route.params?.environmentId ?? null,
+    props.route.params?.threadId ?? null,
+  );
   return (
     <ThreadScreenHost>
       {props.route.params?.draft ? (

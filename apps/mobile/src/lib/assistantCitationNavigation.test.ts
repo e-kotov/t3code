@@ -5,6 +5,7 @@ import {
   finishAssistantCitationNavigation,
   readAssistantCitationNavigation,
   requestAssistantCitationNavigation,
+  reconcileAssistantCitationRoute,
 } from "./assistantCitationNavigation";
 
 function quote(): AssistantCitation {
@@ -23,10 +24,24 @@ function quote(): AssistantCitation {
 
 it("only targets the cited environment and thread, including when thread IDs repeat", () => {
   const citation = quote();
-  const request = { id: 1, citation };
+  const request = { id: 1, citation, routeSeen: false };
   expect(assistantCitationNavigationForScope(request, "environment", "thread")).toBe(request);
   expect(assistantCitationNavigationForScope(request, "other-environment", "thread")).toBeNull();
   expect(assistantCitationNavigationForScope(request, "environment", "other-thread")).toBeNull();
+});
+
+it("cancels when leaving a source route before its feed finishes loading", () => {
+  const request = requestAssistantCitationNavigation(quote());
+  try {
+    reconcileAssistantCitationRoute(request.id, "environment", "origin", true);
+    expect(readAssistantCitationNavigation()?.routeSeen).toBe(false);
+    reconcileAssistantCitationRoute(request.id, "environment", "thread", true);
+    expect(readAssistantCitationNavigation()?.routeSeen).toBe(true);
+    reconcileAssistantCitationRoute(request.id, "environment", "thread", false);
+    expect(readAssistantCitationNavigation()).toBeNull();
+  } finally {
+    finishAssistantCitationNavigation(request.id);
+  }
 });
 
 it("does not let an old completed scroll erase a newer source-navigation request", () => {

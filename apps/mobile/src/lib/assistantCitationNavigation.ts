@@ -3,6 +3,7 @@ import type { AssistantCitation } from "@t3tools/contracts";
 export interface AssistantCitationNavigationRequest {
   readonly id: number;
   readonly citation: AssistantCitation;
+  readonly routeSeen: boolean;
 }
 
 let nextRequest = 0;
@@ -19,7 +20,7 @@ export function subscribeAssistantCitationNavigation(listener: () => void) {
 }
 
 export function requestAssistantCitationNavigation(citation: AssistantCitation) {
-  request = { id: ++nextRequest, citation };
+  request = { id: ++nextRequest, citation, routeSeen: false };
   for (const listener of listeners) listener();
   return request;
 }
@@ -38,4 +39,23 @@ export function finishAssistantCitationNavigation(id: number) {
   if (request?.id !== id) return;
   request = null;
   for (const listener of listeners) listener();
+}
+
+export function reconcileAssistantCitationRoute(
+  id: number,
+  environmentId: string | null,
+  threadId: string | null,
+  focused: boolean,
+) {
+  if (request?.id !== id) return;
+  const target =
+    request.citation.environmentId === environmentId && request.citation.threadId === threadId;
+  if (target && focused) {
+    if (!request.routeSeen) {
+      request = { ...request, routeSeen: true };
+      for (const listener of listeners) listener();
+    }
+  } else if (request.routeSeen && (target || focused)) {
+    finishAssistantCitationNavigation(id);
+  }
 }

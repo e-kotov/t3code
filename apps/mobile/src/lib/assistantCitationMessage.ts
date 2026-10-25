@@ -26,12 +26,18 @@ export function assistantCitationSourceStep(input: {
   );
   if (source) {
     if (source.message?.role !== "assistant") {
-      return { kind: "unavailable", reason: "The citation does not refer to an assistant response." } as const;
+      return {
+        kind: "unavailable",
+        reason: "The citation does not refer to an assistant response.",
+      } as const;
     }
     const index = input.visible.findIndex((row) => row.id === source.id);
     if (index >= 0) return { kind: "scroll", index, rowId: source.id } as const;
     if (source.message.runId) return { kind: "expand", runId: source.message.runId } as const;
-    return { kind: "unavailable", reason: "The cited response is not visible in this thread." } as const;
+    return {
+      kind: "unavailable",
+      reason: "The cited response is not visible in this thread.",
+    } as const;
   }
   if (input.history?.loading) return { kind: "wait" } as const;
   if (input.history?.error) return { kind: "unavailable", reason: input.history.error } as const;
