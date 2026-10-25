@@ -37,4 +37,25 @@ class CitationPassageViewsTest {
     root.addView(EnrichedMarkdownText(context).apply { text = "hidden"; visibility = View.GONE })
     assertEquals(listOf(body, code, cell), CitationPassageViews.collect(root))
   }
+  @Test fun waitsForAllBodyFragmentsBeforeUsingTheUniqueQuoteFallback() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val root = FrameLayout(context)
+    val visible = EnrichedMarkdownText(context).apply { text = "same quote" }
+    val pending = EnrichedMarkdownText(context).apply { text = "" }
+    root.addView(visible)
+    root.addView(pending)
+    root.measure(View.MeasureSpec.makeMeasureSpec(300, View.MeasureSpec.EXACTLY),
+      View.MeasureSpec.makeMeasureSpec(200, View.MeasureSpec.EXACTLY))
+    root.layout(0, 0, 300, 200)
+    assertFalse(CitationPassageViews.ready(CitationPassageViews.collect(root)))
+    pending.text = "real source: same quote"
+    root.measure(View.MeasureSpec.makeMeasureSpec(300, View.MeasureSpec.EXACTLY),
+      View.MeasureSpec.makeMeasureSpec(200, View.MeasureSpec.EXACTLY))
+    root.layout(0, 0, 300, 200)
+    pending.alpha = 0.5f
+    assertFalse(CitationPassageViews.ready(CitationPassageViews.collect(root)))
+    pending.alpha = 1f
+    assertTrue(CitationPassageViews.ready(CitationPassageViews.collect(root)))
+  }
+
 }
