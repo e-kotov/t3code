@@ -35,7 +35,7 @@ export function assistantCitationSourceStep(input: {
   readonly foldRunId: (entryId: string) => string | null;
   readonly citation: AssistantCitation;
   readonly feed: ReadonlyArray<CitationFeedRow>;
-  readonly visible: ReadonlyArray<CitationFeedRow>;
+  readonly visible: ReadonlyArray<{ readonly id: string }>;
   readonly history?: {
     readonly hasMoreHistory: boolean;
     readonly loading: boolean;

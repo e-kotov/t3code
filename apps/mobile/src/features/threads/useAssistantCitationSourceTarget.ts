@@ -41,7 +41,7 @@ export function useAssistantCitationSourceTarget(input: {
   readonly runlessWorkActive: boolean;
   readonly activeWorkStartedAt: string | null;
   readonly feed: ReadonlyArray<ThreadFeedEntry>;
-  readonly visible: ReadonlyArray<ThreadFeedEntry>;
+  readonly visible: ReadonlyArray<{ readonly id: string }>;
   readonly history?: ThreadFeedHistoryControls;
   readonly listRef: RefObject<LegendListRef | null>;
   readonly listKey: string;
