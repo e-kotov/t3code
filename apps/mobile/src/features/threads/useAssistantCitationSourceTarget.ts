@@ -22,9 +22,7 @@ import {
   readAssistantCitationNavigation,
   subscribeAssistantCitationNavigation,
 } from "../../lib/assistantCitationNavigation";
-import {
-  assistantCitationSourceStep,
-} from "../../lib/assistantCitationMessage";
+import { assistantCitationSourceStep } from "../../lib/assistantCitationMessage";
 import {
   deriveThreadFeedRunFolds,
   failedFeedRunIds,

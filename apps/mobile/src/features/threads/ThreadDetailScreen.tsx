@@ -188,7 +188,7 @@ import {
   ThreadComposer,
 } from "./ThreadComposer";
 import { ComposerPopoverHost } from "./ComposerPopoverHost";
-import { CitationThreadFeed as ThreadFeed, type ThreadFeedHistoryControls } from "./CitationThreadFeed";
+import { ThreadFeed, type ThreadFeedHistoryControls } from "./CitationThreadFeed";
 import { useThreadTurnSubagents } from "./ThreadAgentsSheet";
 import { ComposerQueuedEditBanner } from "./ComposerQueuedEdit";
 import { useThreadQueuedCount } from "./ThreadQueueControl";

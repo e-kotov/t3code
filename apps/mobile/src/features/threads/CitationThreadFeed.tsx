@@ -4,11 +4,11 @@ import { assistantCitationSourceReadiness } from "../../lib/assistantCitationMes
 import { useThreadDetail } from "../../state/use-thread-detail";
 import { useRemoteEnvironmentRuntime } from "../../state/use-remote-environment-registry";
 import { AssistantCitationSynchronization } from "./AssistantCitationSynchronization";
-import { ThreadFeed, type ThreadFeedProps } from "./ThreadFeed";
+import { ThreadFeed as BaseThreadFeed, type ThreadFeedProps } from "./ThreadFeed";
 
 export type { ThreadFeedHistoryControls } from "./ThreadFeed";
 
-export function CitationThreadFeed(props: ThreadFeedProps) {
+export function ThreadFeed(props: ThreadFeedProps) {
   const detail = useThreadDetail(props);
   const runtime = useRemoteEnvironmentRuntime(props.environmentId);
   const error = Option.getOrNull(detail.error);
@@ -18,7 +18,7 @@ export function CitationThreadFeed(props: ThreadFeedProps) {
   );
   return (
     <AssistantCitationSynchronization value={synchronization}>
-      <ThreadFeed {...props} />
+      <BaseThreadFeed {...props} />
     </AssistantCitationSynchronization>
   );
 }

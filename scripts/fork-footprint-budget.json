@@ -33,7 +33,7 @@
     "apps/mobile/src/features/threads/CustomSnoozeSheet.ios.tsx": 2,
     "apps/mobile/src/features/threads/CustomSnoozeSheet.shared.tsx": 2,
     "apps/mobile/src/features/threads/ThreadComposer.tsx": 4,
-    "apps/mobile/src/features/threads/ThreadDetailScreen.tsx": 16,
+    "apps/mobile/src/features/threads/ThreadDetailScreen.tsx": 18,
     "apps/mobile/src/features/threads/ThreadFeed.tsx": 83,
     "apps/mobile/src/features/threads/ThreadHeader.tsx": 4,
     "apps/mobile/src/features/threads/ThreadNavigationSidebar.tsx": 44,
