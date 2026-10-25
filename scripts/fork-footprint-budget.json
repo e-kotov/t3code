@@ -130,6 +130,7 @@
     "packages/ssh/src/tunnel.ts": 2,
     "pnpm-lock.yaml": 5,
     "pnpm-workspace.yaml": 1,
-    "scripts/build-desktop-artifact.ts": 14
+    "scripts/build-desktop-artifact.ts": 14,
+    "scripts/effect-budget.json": 1
   }
 }
