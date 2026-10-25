@@ -30,6 +30,7 @@ import {
   type ThreadFeedEntry,
   type ThreadFeedLatestRun,
 } from "../../lib/threadActivity";
+import type { AssistantCitationPassageTarget } from "./AssistantCitationPassage";
 import type { ThreadFeedHistoryControls } from "./ThreadFeed";
 import type { ThreadContentPresentation } from "./threadContentPresentation";
 
@@ -70,7 +71,7 @@ export function useAssistantCitationSourceTarget(input: {
   );
   const focused = useIsFocused();
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
-  const [source, setSource] = useState<{ scope: string; rowId: string } | null>(null);
+  const [source, setSource] = useState<{ scope: string; rowId: string; passage: AssistantCitationPassageTarget | null } | null>(null);
   const progress = useRef<{
     id: number;
     pages: Set<string>;
@@ -169,7 +170,7 @@ export function useAssistantCitationSourceTarget(input: {
     }
     if (loadedKey !== input.listKey || !input.listRef.current) return;
     current.scrolling = true;
-    setSource({ scope, rowId: step.rowId });
+    setSource({ scope, rowId: step.rowId, passage: null });
     const list = input.listRef.current;
     void Promise.resolve()
       .then(() => {
@@ -181,7 +182,13 @@ export function useAssistantCitationSourceTarget(input: {
           animated: true,
         });
       })
-      .then(() => finishAssistantCitationNavigation(request.id))
+      .then(() => {
+        if (readAssistantCitationNavigation()?.id !== request.id) return;
+        setSource({ scope, rowId: step.rowId, passage: {
+          requestId: request.id, rowId: step.rowId, citation: request.citation, topInset: input.topInset,
+        } });
+        finishAssistantCitationNavigation(request.id);
+      })
       .catch(() => {
         if (readAssistantCitationNavigation()?.id === request.id)
           fail("Could not scroll to the cited response. Try again.");
@@ -211,6 +218,7 @@ export function useAssistantCitationSourceTarget(input: {
   ]);
   return {
     rowId: source?.scope === scope ? source.rowId : null,
+    passage: source?.scope === scope ? source.passage : null,
     onLoad: () => setLoadedKey(input.listKey),
     cancel,
   };

@@ -1,3 +1,4 @@
+import { AssistantCitationPassage } from "./AssistantCitationPassage";
 import { Button } from "../../components/ui/Button";
 import * as Dialog from "../../components/ui/Dialog";
 import { useOpenPullRequest } from "../../native/useOpenPullRequest";
@@ -3079,7 +3080,9 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   }, [beginReflow, contentWidth, hasHtmlRenders, listRef]);
 
   const renderItem = (info: { item: ThreadFeedRow; index: number }) => (
-    <Animated.View
+    <AssistantCitationPassage
+      rowId={info.item.id}
+      target={citationSource.passage}
       key={info.item.id}
       className={
         citationSource.rowId === info.item.id ? "rounded-xl border border-foreground/30" : undefined
@@ -3142,7 +3145,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
           ) : null}
         </ThreadMediaVisibility>
       </MessageImageGalleryScope>
-    </Animated.View>
+    </AssistantCitationPassage>
   );
 
   if (props.contentPresentation.kind === "unavailable" && props.queuedMessages.length === 0) {
@@ -3218,7 +3221,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
               endFollowEnabled && !disclosureToggleSettling ? false : maintainVisibleContentPosition
             }
             data={presentedFeed}
-            extraData={{ ...listAppearanceData, citationSourceRowId: citationSource.rowId }}
+            extraData={{ ...listAppearanceData, citationSourceRowId: citationSource.rowId, citationSourcePassage: citationSource.passage }}
             renderItem={renderItem}
             viewabilityConfig={THREAD_MEDIA_VIEWABILITY_CONFIG}
             keyExtractor={(entry) => entry.id}
