@@ -3222,7 +3222,11 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
               endFollowEnabled && !disclosureToggleSettling ? false : maintainVisibleContentPosition
             }
             data={presentedFeed}
-            extraData={{ ...listAppearanceData, citationSourceRowId: citationSource.rowId, citationSourcePassage: citationSource.passage }}
+            extraData={{
+              ...listAppearanceData,
+              citationSourceRowId: citationSource.rowId,
+              citationSourcePassage: citationSource.passage,
+            }}
             renderItem={renderItem}
             viewabilityConfig={THREAD_MEDIA_VIEWABILITY_CONFIG}
             keyExtractor={(entry) => entry.id}

@@ -1,4 +1,7 @@
-import { createAssistantCitationPassageActivation, type AssistantCitationPassageLocation } from "../../lib/assistantCitationPassage";
+import {
+  createAssistantCitationPassageActivation,
+  type AssistantCitationPassageLocation,
+} from "../../lib/assistantCitationPassage";
 import type { LegendListRef } from "@legendapp/list/react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { EnvironmentId, RunId, ThreadId } from "@t3tools/contracts";
@@ -73,7 +76,11 @@ export function useAssistantCitationSourceTarget(input: {
   );
   const focused = useIsFocused();
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
-  const [source, setSource] = useState<{ scope: string; rowId: string; passage: AssistantCitationPassageTarget | null } | null>(null);
+  const [source, setSource] = useState<{
+    scope: string;
+    rowId: string;
+    passage: AssistantCitationPassageTarget | null;
+  } | null>(null);
   const progress = useRef<{
     id: number;
     pages: Set<string>;
@@ -91,7 +98,8 @@ export function useAssistantCitationSourceTarget(input: {
     if (!focused) {
       passageActivation.current.cancel();
       setSource(null);
-      if (request && progress.current?.id === request.id) finishAssistantCitationNavigation(request.id);
+      if (request && progress.current?.id === request.id)
+        finishAssistantCitationNavigation(request.id);
       return;
     }
     if (!request) return;
@@ -191,9 +199,16 @@ export function useAssistantCitationSourceTarget(input: {
       .then(() => {
         if (readAssistantCitationNavigation()?.id !== request.id) return;
         passageActivation.current.begin(request.id);
-        setSource({ scope, rowId: step.rowId, passage: {
-          requestId: request.id, rowId: step.rowId, citation: request.citation, topInset: input.topInset,
-        } });
+        setSource({
+          scope,
+          rowId: step.rowId,
+          passage: {
+            requestId: request.id,
+            rowId: step.rowId,
+            citation: request.citation,
+            topInset: input.topInset,
+          },
+        });
         finishAssistantCitationNavigation(request.id);
       })
       .catch(() => {
@@ -231,7 +246,10 @@ export function useAssistantCitationSourceTarget(input: {
       const delta = passageActivation.current.consume(location);
       const list = input.listRef.current;
       if (delta === null || !list) return;
-      void list.scrollToOffset({ offset: Math.max(0, list.getState().scroll + delta), animated: true });
+      void list.scrollToOffset({
+        offset: Math.max(0, list.getState().scroll + delta),
+        animated: true,
+      });
     },
     onLoad: () => setLoadedKey(input.listKey),
     cancel,

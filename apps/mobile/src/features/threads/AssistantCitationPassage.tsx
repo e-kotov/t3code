@@ -14,13 +14,23 @@ export interface AssistantCitationPassageTarget {
 
 const NativePassage =
   Platform.OS === "android" && requireOptionalNativeModule("T3CitationPassage")
-    ? requireNativeView<ViewProps & {
-        readonly targetJson: string;
-        readonly onLocated: (event: NativeSyntheticEvent<AssistantCitationPassageLocation>) => void;
-      }>("T3CitationPassage")
+    ? requireNativeView<
+        ViewProps & {
+          readonly targetJson: string;
+          readonly onLocated: (
+            event: NativeSyntheticEvent<AssistantCitationPassageLocation>,
+          ) => void;
+        }
+      >("T3CitationPassage")
     : null;
 
-export function AssistantCitationPassage({ rowId, target: requested, onLocated, children, ...props }: ComponentProps<typeof Animated.View> & {
+export function AssistantCitationPassage({
+  rowId,
+  target: requested,
+  onLocated,
+  children,
+  ...props
+}: ComponentProps<typeof Animated.View> & {
   readonly rowId: string;
   readonly target: AssistantCitationPassageTarget | null;
   readonly onLocated: (location: AssistantCitationPassageLocation) => void;
@@ -33,7 +43,11 @@ export function AssistantCitationPassage({ rowId, target: requested, onLocated, 
         <NativePassage
           pointerEvents="none"
           style={{ position: "absolute", width: 0, height: 0 }}
-          targetJson={JSON.stringify({ ...target.citation, requestId: target.requestId, topInset: target.topInset })}
+          targetJson={JSON.stringify({
+            ...target.citation,
+            requestId: target.requestId,
+            topInset: target.topInset,
+          })}
           onLocated={({ nativeEvent }) => onLocated(nativeEvent)}
         />
       ) : null}
