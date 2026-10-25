@@ -1,7 +1,7 @@
 export interface AssistantCitationPassageLocation {
   readonly requestId: number;
   readonly found: boolean;
-  readonly delta: number | null;
+  readonly delta?: number;
 }
 
 export function createAssistantCitationPassageActivation() {
@@ -18,7 +18,7 @@ export function createAssistantCitationPassageActivation() {
     consume(location: AssistantCitationPassageLocation): number | null {
       if (active !== location.requestId || consumed) return null;
       consumed = true;
-      return location.found && location.delta !== null && Number.isFinite(location.delta)
+      return location.found && typeof location.delta === "number" && Number.isFinite(location.delta)
         ? location.delta
         : null;
     },

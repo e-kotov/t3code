@@ -72,8 +72,11 @@ class T3CitationPassageView(context: Context, appContext: AppContext) : ExpoView
       CitationPassageObservation.Step.Wait -> root.postInvalidateOnAnimation()
       is CitationPassageObservation.Step.Complete -> {
         stopObserving()
-        if (step.emit) onLocated(mapOf("requestId" to requestId,
-          "found" to (step.report != null), "delta" to step.report?.delta))
+        if (step.emit) {
+          val payload = mutableMapOf<String, Any>("requestId" to requestId, "found" to (step.report != null))
+          step.report?.delta?.let { payload["delta"] = it }
+          onLocated(payload)
+        }
       }
     }
     return true
