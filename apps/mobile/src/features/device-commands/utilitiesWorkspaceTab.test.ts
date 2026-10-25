@@ -4,6 +4,11 @@ import {
   selectedNavigationTab,
 } from "../workspace/navigation-tab-order";
 import { highlightUtilities, keepUtilities } from "./utilitiesWorkspaceTab";
+import {
+  initialWorkspaceTabsState,
+  workspaceTabsReducer,
+} from "../workspace/workspace-tabs-state";
+import { workspaceTabNavigationState } from "../workspace/workspace-tab-navigation";
 
 describe("Utilities workspace tab", () => {
   it("stays selected although upstream does not register it as a section", () => {
@@ -22,9 +27,7 @@ describe("Utilities workspace tab", () => {
   });
 });
 
-it("retains Settings search when Utilities is selected", async () => {
-  const { initialWorkspaceTabsState, workspaceTabsReducer } =
-    await import("../workspace/workspace-tabs-state");
+it("retains Settings search when Utilities is selected", () => {
   let state = workspaceTabsReducer(initialWorkspaceTabsState(), {
     type: "query",
     tab: "settings",
@@ -36,11 +39,14 @@ it("retains Settings search when Utilities is selected", async () => {
   expect(state.tabs.settings.query).toBe("tail");
 });
 
-it("opens Utilities without restoring a chat or pull-request detail beside it", async () => {
-  const { workspaceTabNavigationState } = await import("../workspace/workspace-tab-navigation");
+it("opens Utilities without restoring a chat or pull-request detail beside it", () => {
   const check = { thread: () => true, pullRequest: () => true };
   const home = { key: "home", name: "Home" };
-  const thread = { key: "chat", name: "Thread", params: { environmentId: "env", threadId: "chat" } };
+  const thread = {
+    key: "chat",
+    name: "Thread",
+    params: { environmentId: "env", threadId: "chat" },
+  };
   const next = workspaceTabNavigationState(
     { routes: [home, thread] },
     "commands",
