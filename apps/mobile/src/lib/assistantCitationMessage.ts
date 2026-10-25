@@ -1,22 +1,4 @@
 import type { AssistantCitation } from "@t3tools/contracts";
-import { collectAssistantCitations } from "@t3tools/shared/assistantCitations";
-
-export function assistantCitationMessageSegments(text: string) {
-  const segments: (
-    | { readonly kind: "text"; readonly key: number; readonly text: string }
-    | { readonly kind: "citation"; readonly key: number; readonly citation: AssistantCitation }
-  )[] = [];
-  let cursor = 0;
-  for (const match of collectAssistantCitations(text)) {
-    if (match.start > cursor) {
-      segments.push({ kind: "text", key: cursor, text: text.slice(cursor, match.start) });
-    }
-    segments.push({ kind: "citation", key: match.start, citation: match.citation });
-    cursor = match.end;
-  }
-  if (cursor < text.length) segments.push({ kind: "text", key: cursor, text: text.slice(cursor) });
-  return segments;
-}
 
 interface CitationFeedRow {
   readonly id: string;

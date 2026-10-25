@@ -43,7 +43,7 @@ import {
   type ScheduledTaskId,
 } from "@t3tools/contracts";
 import { renderAssistantCitationsAsText } from "@t3tools/shared/assistantCitations";
-import { AssistantCitationMessage } from "./AssistantCitationMessage";
+import { useAssistantCitationMessagePreview } from "./AssistantCitationMessage";
 import { useAssistantCitationSourceTarget } from "./useAssistantCitationSourceTarget";
 import { encodeComposerContextFragment } from "@t3tools/shared/composerContextClipboard";
 import { parseThreadLinkHref, resolveThreadLinkRef } from "@t3tools/shared/threadLinks";
@@ -1785,6 +1785,7 @@ type UserMessageContentProps = {
 };
 
 function UserMessageContent(props: UserMessageContentProps) {
+  const citationPreview = useAssistantCitationMessagePreview();
   const [selected, setSelected] = useState<{ contextId: string; label: string } | null>(null);
   const navigation = useNavigation();
   const { selectedThread } = useThreadSelection();
@@ -1794,6 +1795,7 @@ function UserMessageContent(props: UserMessageContentProps) {
     return `[${ref.label}${available ? "" : " (unavailable)"}](t3-context://v1/${ref.kind}/${ref.contextId})`;
   });
   const onLinkPress = (href: string) => {
+    if (citationPreview.open(href)) return;
     const reference = parseComposerContextHref(href);
     if (!reference) return props.linkHandlers.onLinkPress?.(href);
     const record = props.context?.records.find(
@@ -1826,8 +1828,7 @@ function UserMessageContent(props: UserMessageContentProps) {
   };
   return (
     <>
-      <AssistantCitationMessage text={text}>
-        {(text) => <UserMessageMarkdownContent
+      <UserMessageMarkdownContent
         {...props}
         text={text}
         linkHandlers={{
@@ -1873,11 +1874,12 @@ function UserMessageContent(props: UserMessageContentProps) {
             }
           },
           linkCustomization: (href) =>
+            citationPreview.linkCustomization(href) ??
             enrichedContextLinkCustomization(href, props.context?.records ?? []) ??
             props.linkHandlers.linkCustomization?.(href),
         }}
-      />}
-      </AssistantCitationMessage>
+      />
+      {citationPreview.popup}
       {selected ? (
         <ComposerContextSheet
           label={selected.label}
@@ -2617,6 +2619,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
     history: props.historyControls,
     listRef,
     listKey: listMountKey,
+    topInset: anchorTopInset + CHAT_LIST_ANCHOR_OFFSET,
     onManualNavigation: () => setEndFollow(false),
     onExpandTurn: (runId) => setInteractionState((current) => ({
       ...current,

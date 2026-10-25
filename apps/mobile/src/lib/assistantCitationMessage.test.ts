@@ -1,7 +1,6 @@
 import { EnvironmentId, MessageId, ThreadId, type AssistantCitation } from "@t3tools/contracts";
-import { serializeAssistantCitation } from "@t3tools/shared/assistantCitations";
 import { describe, expect, it } from "vite-plus/test";
-import { assistantCitationMessageSegments, assistantCitationSourceStep } from "./assistantCitationMessage";
+import { assistantCitationSourceStep } from "./assistantCitationMessage";
 
 const citation: AssistantCitation = {
   version: 1,
@@ -15,26 +14,6 @@ const citation: AssistantCitation = {
   prefix: "",
   suffix: "",
 };
-
-describe("sent assistant citations", () => {
-  it("keeps full quotes, comments and surrounding message text separate", () => {
-    const marker = serializeAssistantCitation(citation);
-    expect(assistantCitationMessageSegments(`Before ${marker} after`)).toEqual([
-      { kind: "text", key: 0, text: "Before " },
-      { kind: "citation", key: 7, citation },
-      { kind: "text", key: 7 + marker.length, text: " after" },
-    ]);
-  });
-
-  it("preserves repeated chips and leaves invalid links as ordinary message text", () => {
-    const marker = serializeAssistantCitation(citation);
-    const segments = assistantCitationMessageSegments(`${marker}\n${marker}`);
-    expect(segments.filter((segment) => segment.kind === "citation")).toHaveLength(2);
-    expect(new Set(segments.map((segment) => segment.key)).size).toBe(3);
-    const invalid = "[Assistant quote](t3-citation://v1/invalid)";
-    expect(assistantCitationMessageSegments(invalid)).toEqual([{ kind: "text", key: 0, text: invalid }]);
-  });
-});
 
 describe("citation source navigation", () => {
   const source = { id: "source-row", type: "message", message: { id: "assistant", role: "assistant", runId: "run" } };

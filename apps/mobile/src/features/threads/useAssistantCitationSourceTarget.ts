@@ -21,6 +21,7 @@ export function useAssistantCitationSourceTarget(input: {
   readonly history?: ThreadFeedHistoryControls;
   readonly listRef: RefObject<LegendListRef | null>;
   readonly listKey: string;
+  readonly topInset: number;
   readonly onManualNavigation: () => void;
   readonly onExpandTurn: (runId: RunId) => void;
 }) {
@@ -73,7 +74,7 @@ export function useAssistantCitationSourceTarget(input: {
     void Promise.resolve()
       .then(() => {
         if (readAssistantCitationNavigation()?.id !== request.id) return;
-        return list.scrollToIndex({ index: step.index, viewPosition: 0, animated: true });
+        return list.scrollToIndex({ index: step.index, viewPosition: 0, viewOffset: input.topInset, animated: true });
       })
       .then(() => finishAssistantCitationNavigation(request.id))
       .catch(() => {
