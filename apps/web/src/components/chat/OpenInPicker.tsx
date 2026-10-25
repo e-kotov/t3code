@@ -272,7 +272,7 @@ export const OpenInPicker = memo(function OpenInPicker({
     preferredEditor,
     remote.mode,
   ]);
-  // Derived after the shortcut effect so the compiler can cache the resolved editor list.
+  // Derive after the shortcut effect to preserve the editor list's compiler cache.
   const options = configuredOpenInOptions(entries, (editors) =>
     resolveOpenInOptions(navigator.platform, editors),
   );
