@@ -51,8 +51,6 @@ import {
   type EnvironmentThreadStatus,
 } from "./threadState.ts";
 
-export type ThreadHistoryLoadEarlierResult = ThreadHistoryController.ThreadHistoryLoadEarlierResult;
-
 function statusWithoutLiveData(
   data: Option.Option<OrchestrationV2ThreadProjection>,
 ): EnvironmentThreadStatus {
