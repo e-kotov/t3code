@@ -22,10 +22,10 @@ describe("citation passage activation", () => {
   it("does not revive an offscreen or unmatched activation on remount", () => {
     const activation = createAssistantCitationPassageActivation();
     activation.begin(1);
-    expect(activation.consume({ requestId: 1, found: true, delta: null })).toBeNull();
+    expect(activation.consume({ requestId: 1, found: true })).toBeNull();
     expect(activation.consume({ requestId: 1, found: true, delta: 1500 })).toBeNull();
     activation.begin(2);
-    expect(activation.consume({ requestId: 2, found: false, delta: null })).toBeNull();
+    expect(activation.consume({ requestId: 2, found: false })).toBeNull();
     expect(activation.consume({ requestId: 2, found: true, delta: 1500 })).toBeNull();
   });
 });
