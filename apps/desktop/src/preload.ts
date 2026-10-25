@@ -272,7 +272,7 @@ contextBridge.exposeInMainWorld("desktopBridge", {
   checkForUpdate: () => ipcRenderer.invoke(IpcChannels.UPDATE_CHECK_CHANNEL),
   downloadUpdate: () => ipcRenderer.invoke(IpcChannels.UPDATE_DOWNLOAD_CHANNEL),
   installUpdate: () => ipcRenderer.invoke(IpcChannels.UPDATE_INSTALL_CHANNEL),
-  ...(process.platform === "win32"
+  ...(clientPlatform === "win32"
     ? {}
     : { deviceCommands: makeDeviceCommandsBridge(ipcRenderer) }),
   cliCommand: {
