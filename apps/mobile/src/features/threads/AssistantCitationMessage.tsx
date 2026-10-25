@@ -3,7 +3,7 @@ import {
   assistantCitationLabel,
   parseAssistantCitationHref,
 } from "@t3tools/shared/assistantCitations";
-import { useNavigation } from "@react-navigation/native";
+import { StackActions, useNavigation } from "@react-navigation/native";
 import { createContext, useContext, useState, type ComponentProps, type ReactNode } from "react";
 import { Keyboard, Modal, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -66,10 +66,20 @@ function AssistantCitationPreviewProvider(props: { readonly children: ReactNode 
                 onPress={() => {
                   setSelected(null);
                   requestAssistantCitationNavigation(selected);
-                  navigation.navigate("Thread", {
+                  const target = {
                     environmentId: String(selected.environmentId),
                     threadId: String(selected.threadId),
-                  });
+                  };
+                  const state = navigation.getState();
+                  const current = state?.routes[state.index];
+                  const params = current?.params as ReactNavigation.RootParamList["Thread"];
+                  if (
+                    current?.name !== "Thread" ||
+                    params?.environmentId !== target.environmentId ||
+                    params?.threadId !== target.threadId
+                  ) {
+                    navigation.dispatch(StackActions.push("Thread", target));
+                  }
                 }}
               />
             </View>
