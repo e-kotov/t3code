@@ -56,7 +56,7 @@ jobs:
             exit 1
           fi
           cat "$RUNNER_TEMP/citation-regression.log"
-          rg -q 'AssertionError' "$RUNNER_TEMP/citation-regression.log"
+          python3 -c 'import os, pathlib; assert "AssertionError" in (pathlib.Path(os.environ["RUNNER_TEMP"]) / "citation-regression.log").read_text()'
       - name: Check changed code and citation behavior
         run: |
           base=$(git merge-base refs/remotes/origin/main HEAD)
