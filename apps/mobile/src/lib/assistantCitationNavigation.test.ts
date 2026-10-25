@@ -24,7 +24,7 @@ function quote(): AssistantCitation {
 
 it("only targets the cited environment and thread, including when thread IDs repeat", () => {
   const citation = quote();
-  const request = { id: 1, citation, routeSeen: false };
+  const request = { id: 1, citation, routeSeen: false, routeKey: null };
   expect(assistantCitationNavigationForScope(request, "environment", "thread")).toBe(request);
   expect(assistantCitationNavigationForScope(request, "other-environment", "thread")).toBeNull();
   expect(assistantCitationNavigationForScope(request, "environment", "other-thread")).toBeNull();
