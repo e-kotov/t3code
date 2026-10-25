@@ -1,7 +1,7 @@
 import type { EditorId, EnvironmentId, ResolvedKeybindingsConfig } from "@t3tools/contracts";
 import { useEffect } from "react";
 
-import { configuredEditorLabel } from "../../forkEditorPreferences";
+import { configuredEditorLabel } from "../../forkEditorLabels";
 import { useConfiguredEditors } from "../../useConfiguredEditors";
 import { isOpenFavoriteEditorShortcut } from "../../keybindings";
 import { announce } from "../../lib/announce";

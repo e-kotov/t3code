@@ -1,5 +1,5 @@
 import { useConfiguredEditors } from "../../useConfiguredEditors";
-import { configuredEditorLabel } from "../../forkEditorPreferences";
+import { configuredEditorLabel } from "../../forkEditorLabels";
 import { configuredOpenInOptions, reportEditorOpenFailure } from "./configuredOpenInOptions";
 import { ThreadDetailsControl } from "./ThreadDetailsControl";
 import { FORK_OPEN_IN_OPTIONS } from "./forkOpenInOptions";

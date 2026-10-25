@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
   configuredEditorEntries,
-  configuredEditorLabel,
   editorPreferencesKey,
   EMPTY_EDITOR_PREFERENCES,
   preferredConfiguredEditor,
@@ -30,12 +29,6 @@ describe("configured editors", () => {
       );
     },
   );
-  it("names opened editors for screen reader announcements", () => {
-    expect(configuredEditorLabel("vscode", "MacIntel")).toBe("VS Code");
-    expect(configuredEditorLabel("file-manager", "MacIntel")).toBe("Finder");
-    expect(configuredEditorLabel(custom.id, "MacIntel")).toBe("editor");
-  });
-
   it("keeps detection by default and allows explicit visibility overrides", () => {
     expect(
       configuredEditorEntries(EMPTY_EDITOR_PREFERENCES, ["vscode"], false).map((entry) => entry.id),

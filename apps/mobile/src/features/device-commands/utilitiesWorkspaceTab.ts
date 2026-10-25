@@ -1,5 +1,4 @@
 import type {
-  NavigationTab,
   resolveSelectedNavigationTab,
   selectedNavigationTab,
 } from "../workspace/navigation-tab-order";
@@ -37,9 +36,4 @@ export function highlightUtilities(select: typeof selectedNavigationTab) {
     }
     return settingsOpen ? "settings" : selected;
   };
-}
-
-/** iOS has no Utilities section, so its native tab bar only sees upstream's sections. */
-export function withoutUtilities(selected: NavigationTab | UtilitiesWorkspaceTab): NavigationTab {
-  return selected === UTILITIES_WORKSPACE_TAB ? "threads" : selected;
 }
