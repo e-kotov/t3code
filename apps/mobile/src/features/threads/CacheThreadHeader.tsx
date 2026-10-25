@@ -1,10 +1,16 @@
 import { focusedCacheHud } from "@t3tools/shared/cacheHud";
-import { useSelectedThreadProjection } from "../../state/use-thread-detail";
+import { useAtomValue } from "@effect/atom-react";
+import { Atom } from "effect/reactivity";
+import type { EnvironmentThreadStructure } from "@t3tools/client-runtime/state/models";
+import { environmentThreadDetails } from "../../state/threads";
+import { useThreadSelection } from "../../state/use-thread-selection";
 import type { ServerConfig } from "@t3tools/contracts";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import type { ComponentProps } from "react";
 import { CacheHud } from "./CacheHud";
 import { ThreadHeader } from "./ThreadHeader";
+
+const emptyDetail = Atom.make<EnvironmentThreadStructure | null>(null);
 
 export function CacheThreadHeader({
   cacheThread,
@@ -14,7 +20,12 @@ export function CacheThreadHeader({
   readonly cacheThread: Pick<EnvironmentThreadShell, "cacheHud" | "modelSelection">;
   readonly cacheServerConfig: ServerConfig | null;
 }) {
-  const detail = useSelectedThreadProjection();
+  const { selectedThreadDetailRef } = useThreadSelection();
+  const detail = useAtomValue(
+    selectedThreadDetailRef === null
+      ? emptyDetail
+      : environmentThreadDetails.quietThreadAtom(selectedThreadDetailRef),
+  );
   const hud = focusedCacheHud(cacheThread.cacheHud, detail?.projection);
   return (
     <ThreadHeader {...props}>
