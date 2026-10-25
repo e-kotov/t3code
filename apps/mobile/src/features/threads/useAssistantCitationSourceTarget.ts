@@ -17,12 +17,16 @@ import {
   subscribeAssistantCitationNavigation,
 } from "../../lib/assistantCitationNavigation";
 import { assistantCitationSourceStep } from "../../lib/assistantCitationMessage";
-import type { ThreadFeedEntry } from "../../lib/threadActivity";
+import { deriveThreadFeedRunFolds, failedFeedRunIds, type ThreadFeedEntry, type ThreadFeedLatestRun } from "../../lib/threadActivity";
 import type { ThreadFeedHistoryControls } from "./ThreadFeed";
+import type { ThreadContentPresentation } from "./threadContentPresentation";
 
 export function useAssistantCitationSourceTarget(input: {
   readonly environmentId: string;
   readonly threadId: string;
+  readonly contentPresentation: ThreadContentPresentation;
+  readonly latestRun: ThreadFeedLatestRun | null;
+  readonly runlessWorkActive: boolean;
   readonly feed: ReadonlyArray<ThreadFeedEntry>;
   readonly visible: ReadonlyArray<ThreadFeedEntry>;
   readonly history?: ThreadFeedHistoryControls;
@@ -78,6 +82,14 @@ export function useAssistantCitationSourceTarget(input: {
       Dialog.alert("Source response unavailable", `${reason}\n\nYour saved quote is unchanged.`);
     };
     const step = assistantCitationSourceStep({
+      presentation: input.contentPresentation,
+      foldRunId: (entryId) => {
+        const folds = deriveThreadFeedRunFolds(input.feed, input.latestRun, input.runlessWorkActive, failedFeedRunIds(input.feed, input.latestRun));
+        for (const fold of folds.values()) {
+          if (fold.hiddenEntryIds.has(entryId)) return fold.runId;
+        }
+        return null;
+      },
       citation: request.citation,
       feed: input.feed,
       visible: input.visible,
@@ -88,7 +100,7 @@ export function useAssistantCitationSourceTarget(input: {
     if (step.kind === "unavailable") return fail(step.reason);
     if (step.kind === "load") {
       current.pages.add(step.page);
-      input.history?.onLoadEarlier();
+      input.history?.onLoadEarlier(request.citation.messageId);
       return;
     }
     if (step.kind === "expand") {
@@ -120,7 +132,7 @@ export function useAssistantCitationSourceTarget(input: {
   });
   useEffect(() => {
     navigate();
-  }, [request, focused, input.feed, input.visible, input.history, input.listKey, loadedKey]);
+  }, [request, focused, input.feed, input.visible, input.history, input.listKey, input.contentPresentation, input.latestRun, input.runlessWorkActive, loadedKey]);
   return {
     rowId: source?.scope === scope ? source.rowId : null,
     onLoad: () => setLoadedKey(input.listKey),

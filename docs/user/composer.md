@@ -138,9 +138,10 @@ editing a comment. If the draft changes while the sheet is open, close the
 sheet and tap the quote again before editing. Adding a quote is refused with an explanation if the selection
 is too long or the resulting prompt would exceed the message limit. The limit is
 checked again when sending, including text added after inserting the quote.
-Saved quotes in sent messages remain readable as text; tapping one does not yet
-navigate to its source. Quotes created on Android may also fail to navigate back
-from web or desktop when the quoted phrase appears more than once in the original message.
+Tap a quote chip in a sent message to preview its full text and comment. Choose
+**Go to source** to open the original assistant response. Earlier turns load and
+folded turns expand when needed. If the source cannot be loaded, your saved quote
+remains readable in the preview.
 iOS displays saved quotes and comments but does not create citations or edit their comments yet.
 
 ## Recall a sent prompt

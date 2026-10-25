@@ -4,7 +4,7 @@ import {
   parseAssistantCitationHref,
 } from "@t3tools/shared/assistantCitations";
 import { useNavigation } from "@react-navigation/native";
-import { useState } from "react";
+import { createContext, useContext, useState, type ComponentProps, type ReactNode } from "react";
 import { Keyboard, Modal, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "../../components/ui/AppText";
@@ -14,32 +14,22 @@ import { contextChipIconSource } from "../../lib/contextChipIconSource";
 import { requestAssistantCitationNavigation } from "../../lib/assistantCitationNavigation";
 import type { MarkdownLinkCustomization } from "../../native/SelectableMarkdownText.types";
 
-export function useAssistantCitationMessagePreview() {
+import { tryCopyTextWithHaptic } from "../../lib/copyTextWithHaptic";
+import { PresentationSource } from "../../components/ui/NativePresentation";
+import * as Dialog from "../../components/ui/Dialog";
+import type { MarkdownFileContextMenu } from "../../native/SelectableMarkdownText.types";
+
+const CitationPreviewContext = createContext<((citation: AssistantCitation) => void) | null>(null);
+
+function AssistantCitationPreviewProvider(props: { readonly children: ReactNode }) {
   const [selected, setSelected] = useState<AssistantCitation | null>(null);
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  return {
-    open: (href: string) => {
-      const citation = parseAssistantCitationHref(href);
-      if (!citation) return false;
-      Keyboard.dismiss();
-      setSelected(citation);
-      return true;
-    },
-    linkCustomization: (href: string): MarkdownLinkCustomization | undefined => {
-      const citation = parseAssistantCitationHref(href);
-      if (!citation) return undefined;
-      const presentation = contextChipPresentation("assistantCitation");
-      return {
-        label: assistantCitationLabel(citation),
-        ...(presentation.icon
-          ? { icon: contextChipIconSource({ kind: "chip", name: presentation.icon }) }
-          : {}),
-        chip: { accent: presentation.accent, tintsIcon: true },
-      };
-    },
-    popup: selected ? (
-      <Modal visible transparent animationType="slide" onRequestClose={() => setSelected(null)}>
+  return (
+    <CitationPreviewContext value={setSelected}>
+      {props.children}
+      {selected ? (
+<Modal visible transparent animationType="slide" onRequestClose={() => setSelected(null)}>
         <View className="flex-1 justify-end bg-backdrop">
           <Pressable
             className="absolute inset-0"
@@ -72,7 +62,7 @@ export function useAssistantCitationMessagePreview() {
             <Button
               label="Go to source"
               icon="arrow.up.right"
-              variant="secondary"
+              tone="secondary"
               onPress={() => {
                 setSelected(null);
                 requestAssistantCitationNavigation(selected);
@@ -85,6 +75,55 @@ export function useAssistantCitationMessagePreview() {
           </View>
         </View>
       </Modal>
-    ) : null,
+      ) : null}
+    </CitationPreviewContext>
+  );
+}
+
+export function AssistantCitationPresentationSource(props: ComponentProps<typeof PresentationSource>) {
+  return <AssistantCitationPreviewProvider><PresentationSource {...props} /></AssistantCitationPreviewProvider>;
+}
+
+export function useAssistantCitationMessagePreview() {
+  const select = useContext(CitationPreviewContext);
+  const open = (href: string) => {
+    const citation = parseAssistantCitationHref(href);
+    if (!citation || !select) return false;
+    Keyboard.dismiss();
+    select(citation);
+    return true;
+  };
+  return {
+    open,
+    linkCustomization: (href: string): MarkdownLinkCustomization | undefined => {
+      const citation = parseAssistantCitationHref(href);
+      if (!citation || !select) return undefined;
+      const presentation = contextChipPresentation("assistantCitation");
+      return {
+        label: assistantCitationLabel(citation),
+        ...(presentation.icon
+          ? { icon: contextChipIconSource({ kind: "chip", name: presentation.icon }) }
+          : {}),
+        chip: { accent: presentation.accent, tintsIcon: true },
+      };
+    },
+    contextMenu: (href: string): MarkdownFileContextMenu | undefined =>
+      parseAssistantCitationHref(href) ? {
+        title: "Assistant quote",
+        actions: [
+          { id: "view-assistant-quote", title: "View quote" },
+          { id: "copy-assistant-quote", title: "Copy quote text" },
+        ],
+      } : undefined,
+    onMenuAction: (href: string, actionId: string) => {
+      const citation = parseAssistantCitationHref(href);
+      if (!citation) return false;
+      if (actionId === "view-assistant-quote") return open(href);
+      if (actionId !== "copy-assistant-quote") return false;
+      void tryCopyTextWithHaptic(citation.text, { target: "quote" }).then((copied) => {
+        if (!copied) Dialog.alert("Could not copy quote", "Try copying the quote again.");
+      });
+      return true;
+    },
   };
 }

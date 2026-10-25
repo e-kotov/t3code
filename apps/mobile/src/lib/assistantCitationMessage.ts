@@ -1,4 +1,5 @@
 import type { AssistantCitation } from "@t3tools/contracts";
+import type { ThreadContentPresentation } from "../features/threads/threadContentPresentation";
 
 interface CitationFeedRow {
   readonly id: string;
@@ -11,6 +12,8 @@ interface CitationFeedRow {
 }
 
 export function assistantCitationSourceStep(input: {
+  readonly presentation: ThreadContentPresentation;
+  readonly foldRunId: (entryId: string) => string | null;
   readonly citation: AssistantCitation;
   readonly feed: ReadonlyArray<CitationFeedRow>;
   readonly visible: ReadonlyArray<CitationFeedRow>;
@@ -18,9 +21,14 @@ export function assistantCitationSourceStep(input: {
     readonly hasMoreHistory: boolean;
     readonly loading: boolean;
     readonly error: string | null;
+    readonly cursor?: string | null;
   };
   readonly requestedPages: ReadonlySet<string>;
 }) {
+  if (input.presentation.kind === "loading") return { kind: "wait" } as const;
+  if (input.presentation.kind === "unavailable") {
+    return { kind: "unavailable", reason: input.presentation.detail } as const;
+  }
   const source = input.feed.find(
     (row) => row.type === "message" && row.message?.id === input.citation.messageId,
   );
@@ -33,7 +41,8 @@ export function assistantCitationSourceStep(input: {
     }
     const index = input.visible.findIndex((row) => row.id === source.id);
     if (index >= 0) return { kind: "scroll", index, rowId: source.id } as const;
-    if (source.message.runId) return { kind: "expand", runId: source.message.runId } as const;
+    const foldRunId = input.foldRunId(source.id);
+    if (foldRunId) return { kind: "expand", runId: foldRunId } as const;
     return {
       kind: "unavailable",
       reason: "The cited response is not visible in this thread.",
@@ -42,7 +51,7 @@ export function assistantCitationSourceStep(input: {
   if (input.history?.loading) return { kind: "wait" } as const;
   if (input.history?.error) return { kind: "unavailable", reason: input.history.error } as const;
   if (input.history?.hasMoreHistory) {
-    const page = input.feed[0]?.id ?? "initial";
+    const page = input.history.cursor ?? input.feed[0]?.id ?? "initial";
     if (input.requestedPages.size < 20 && !input.requestedPages.has(page)) {
       return { kind: "load", page } as const;
     }

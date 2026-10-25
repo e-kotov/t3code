@@ -43,7 +43,7 @@ import {
   type ScheduledTaskId,
 } from "@t3tools/contracts";
 import { renderAssistantCitationsAsText } from "@t3tools/shared/assistantCitations";
-import { useAssistantCitationMessagePreview } from "./AssistantCitationMessage";
+import { AssistantCitationPresentationSource, useAssistantCitationMessagePreview } from "./AssistantCitationMessage";
 import { useAssistantCitationSourceTarget } from "./useAssistantCitationSourceTarget";
 import { encodeComposerContextFragment } from "@t3tools/shared/composerContextClipboard";
 import { parseThreadLinkHref, resolveThreadLinkRef } from "@t3tools/shared/threadLinks";
@@ -318,7 +318,8 @@ export interface ThreadFeedHistoryControls {
   readonly hasMoreHistory: boolean;
   readonly loading: boolean;
   readonly error: string | null;
-  readonly onLoadEarlier: () => void;
+  readonly cursor?: string | null;
+  readonly onLoadEarlier: (throughEntryId?: string) => void;
 }
 
 export interface ThreadFeedProps {
@@ -1837,6 +1838,8 @@ function UserMessageContent(props: UserMessageContentProps) {
           ...props.linkHandlers,
           onLinkPress,
           fileContextMenu: (href) => {
+            const citationMenu = citationPreview.contextMenu(href);
+            if (citationMenu) return citationMenu;
             const reference = parseComposerContextHref(href);
             if (!reference) return props.linkHandlers.fileContextMenu(href);
             const record = props.context?.records.find(
@@ -1851,6 +1854,7 @@ function UserMessageContent(props: UserMessageContentProps) {
             };
           },
           onFileContextMenuAction: (href, actionId) => {
+            if (citationPreview.onMenuAction(href, actionId)) return;
             const reference = parseComposerContextHref(href);
             if (!reference) return props.linkHandlers.onFileContextMenuAction(href, actionId);
             if (actionId === "open-context") return onLinkPress(href);
@@ -1881,7 +1885,6 @@ function UserMessageContent(props: UserMessageContentProps) {
             props.linkHandlers.linkCustomization?.(href),
         }}
       />
-      {citationPreview.popup}
       {selected ? (
         <ComposerContextSheet
           label={selected.label}
@@ -2616,6 +2619,9 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   const citationSource = useAssistantCitationSourceTarget({
     environmentId: props.environmentId,
     threadId: props.threadId,
+    contentPresentation: props.contentPresentation,
+    latestRun: props.latestRun,
+    runlessWorkActive: props.runlessWorkActive ?? false,
     feed: props.feed,
     visible: presentedFeed,
     history: props.historyControls,
@@ -3008,7 +3014,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   }
 
   return (
-    <PresentationSource identifier={fileShareSourceIdentifier} style={{ flex: 1 }}>
+    <AssistantCitationPresentationSource identifier={fileShareSourceIdentifier} style={{ flex: 1 }}>
       <View className="flex-1" onLayout={handleViewportLayout}>
         <View className="flex-1">
           <KeyboardAwareLegendList
@@ -3189,7 +3195,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
         <VideoPreviewModal source={expandedVideo} onRequestClose={() => setExpandedVideo(null)} />
         <FilePreviewModal source={expandedFile} onRequestClose={() => setExpandedFile(null)} />
       </View>
-    </PresentationSource>
+    </AssistantCitationPresentationSource>
   );
 });
 
