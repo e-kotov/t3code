@@ -127,6 +127,8 @@
     "packages/shared/src/editor.ts": 2,
     "packages/shared/src/serverSettings.ts": 21,
     "packages/ssh/src/tunnel.ts": 2,
+    "pnpm-lock.yaml": 5,
+    "pnpm-workspace.yaml": 1,
     "scripts/build-desktop-artifact.ts": 14
   }
 }
