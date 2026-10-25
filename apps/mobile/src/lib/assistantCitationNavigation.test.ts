@@ -44,6 +44,19 @@ it("cancels when leaving a source route before its feed finishes loading", () =>
   }
 });
 
+it("ignores an unfocused copy of the target thread elsewhere in the stack", () => {
+  const request = requestAssistantCitationNavigation(quote());
+  try {
+    reconcileAssistantCitationRoute(request.id, "environment", "thread", true, "active-source");
+    reconcileAssistantCitationRoute(request.id, "environment", "thread", false, "older-source");
+    expect(readAssistantCitationNavigation()?.id).toBe(request.id);
+    reconcileAssistantCitationRoute(request.id, "environment", "thread", false, "active-source");
+    expect(readAssistantCitationNavigation()).toBeNull();
+  } finally {
+    finishAssistantCitationNavigation(request.id);
+  }
+});
+
 it("does not let an old completed scroll erase a newer source-navigation request", () => {
   const first = requestAssistantCitationNavigation(quote());
   const second = requestAssistantCitationNavigation(quote());
