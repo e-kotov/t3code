@@ -9,6 +9,10 @@ on:
       - "patches/react-native-enriched-markdown@*.patch"
       - "apps/mobile/deps/react-native-enriched-markdown-*.tgz"
       - "apps/mobile/src/native/assistantCitation*"
+      - "apps/mobile/modules/t3-citation-passage/**"
+      - "apps/mobile/src/features/threads/AssistantCitationPassage.tsx"
+      - "apps/mobile/src/features/threads/useAssistantCitationSourceTarget.ts"
+      - "apps/mobile/src/lib/assistantCitationPassage*"
       - "apps/mobile/src/native/useAssistantCitationMenu.ts"
 
 permissions:
@@ -62,7 +66,7 @@ jobs:
           base=$(git merge-base refs/remotes/origin/main HEAD)
           if [ "$base" = "$(git rev-parse HEAD)" ]; then base=HEAD^; fi
           vp run check:changed "$base"
-          vp test run apps/mobile/src/native/assistantCitationSelection.test.ts packages/shared/src/assistantCitations.test.ts
+          vp test run apps/mobile/src/native/assistantCitationSelection.test.ts apps/mobile/src/lib/assistantCitationPassage.test.ts packages/shared/src/assistantCitations.test.ts
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -76,3 +80,6 @@ jobs:
       - name: Compile the native selection bridge and test its context
         working-directory: apps/mobile/android
         run: ./gradlew :react-native-enriched-markdown:testDebugUnitTest --tests '*CitationSelectionContextTest' --no-daemon --max-workers=2
+      - name: Test native passage matching and highlighting
+        working-directory: apps/mobile/android
+        run: ./gradlew :t3-citation-passage:testDebugUnitTest --no-daemon --max-workers=2
