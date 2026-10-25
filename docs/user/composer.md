@@ -140,7 +140,9 @@ is too long or the resulting prompt would exceed the message limit. The limit is
 checked again when sending, including text added after inserting the quote.
 Tap a quote chip in a sent message to preview its full text and comment. Choose
 **Go to source** to open the original assistant response. Earlier turns load and
-folded turns expand when needed. If the source cannot be loaded, your saved quote
+folded turns expand when needed. Android scrolls to and highlights the quoted passage;
+if the passage is ambiguous or has changed, it shows the whole response instead.
+If the source cannot be loaded, your saved quote
 remains readable in the preview.
 On web or desktop, an Android quote may still be unable to locate the exact passage
 when both the quoted words and their surrounding context occur more than once.
