@@ -1,6 +1,6 @@
 import type { AssistantCitation } from "@t3tools/contracts";
 import { requireNativeView, requireOptionalNativeModule } from "expo";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { Platform, type NativeSyntheticEvent, type ViewProps } from "react-native";
 import Animated from "react-native-reanimated";
 import type { AssistantCitationPassageLocation } from "../../lib/assistantCitationPassage";
@@ -30,7 +30,8 @@ export function AssistantCitationPassage({
   onLocated,
   children,
   ...props
-}: ComponentProps<typeof Animated.View> & {
+}: Omit<ComponentProps<typeof Animated.View>, "children"> & {
+  readonly children?: ReactNode;
   readonly rowId: string;
   readonly target: AssistantCitationPassageTarget | null;
   readonly onLocated: (location: AssistantCitationPassageLocation) => void;
