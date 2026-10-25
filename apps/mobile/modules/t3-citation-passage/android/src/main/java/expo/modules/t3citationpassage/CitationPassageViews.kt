@@ -6,6 +6,12 @@ import android.widget.HorizontalScrollView
 import android.widget.TextView
 
 internal object CitationPassageViews {
+  fun ready(views: List<TextView>): Boolean = views.isNotEmpty() && views.all {
+    val name = it.javaClass.name
+    val body = name.endsWith(".EnrichedMarkdownText") || name.endsWith(".EnrichedMarkdownInternalText")
+    it.layout != null && (!body || (it.text.isNotBlank() && it.alpha >= 1f))
+  }
+
   fun collect(root: View): List<TextView> {
     val views = mutableListOf<TextView>()
     fun visit(view: View) {

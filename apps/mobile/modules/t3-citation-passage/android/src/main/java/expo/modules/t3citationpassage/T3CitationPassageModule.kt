@@ -63,7 +63,7 @@ class T3CitationPassageView(context: Context, appContext: AppContext) : ExpoView
     val selection = target ?: return true.also { stopObserving() }
     val root = parent as? ViewGroup ?: return true.also { stopObserving() }
     val views = CitationPassageViews.collect(root)
-    val location = if (views.isNotEmpty() && views.all { it.layout != null }) {
+    val location = if (CitationPassageViews.ready(views)) {
       highlighter.reveal(root, views, selection.getString("text"), selection.getString("prefix"),
         selection.getString("suffix"), (selection.getDouble("topInset") * resources.displayMetrics.density).toInt())
     } else null
