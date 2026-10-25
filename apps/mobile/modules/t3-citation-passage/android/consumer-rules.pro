@@ -1,0 +1,4 @@
+-keepnames class com.swmansion.enriched.markdown.EnrichedMarkdownText
+-keepnames class com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
+-keepnames class com.swmansion.enriched.markdown.segments.TableContainerView$CellTextView
+-keepnames class com.swmansion.enriched.markdown.segments.CodeBlockContainerView
