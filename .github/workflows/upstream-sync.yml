@@ -74,7 +74,13 @@ jobs:
             xargs -0 -r vp fmt --check --no-error-on-unmatched-pattern
       - name: Install headless Chromium for web tests
         if: steps.merge.outputs.changed == 'true'
-        run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
+        run: |
+          node apps/web/node_modules/playwright/cli.js install --only-shell chromium
+          browser=$(find "$HOME/.cache/ms-playwright" -name chrome-headless-shell -type f -print -quit)
+          test -n "$browser"
+          if ldd "$browser" | grep '=> not found'; then
+            node apps/web/node_modules/playwright/cli.js install-deps chromium
+          fi
       - if: steps.merge.outputs.changed == 'true'
         env:
           UPSTREAM_SHA: ${{ steps.merge.outputs.upstream }}
