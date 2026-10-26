@@ -146,7 +146,9 @@ export function useThreadActionMenu(input: {
         snoozePresets,
         canShareWithGuest,
       });
-      const clicked = await settlePromise(() => showThreadCachePolicyMenu(thread, items, position, handleNewThread));
+      const clicked = await settlePromise(() =>
+        showThreadCachePolicyMenu(thread, items, position, handleNewThread),
+      );
       if (clicked._tag === "Failure" || clicked.value === null) return;
       const action: ThreadActionMenuId = clicked.value;
       if (

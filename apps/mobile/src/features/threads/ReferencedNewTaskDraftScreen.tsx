@@ -5,7 +5,10 @@ import { NewTaskDraftScreen } from "./NewTaskDraftScreen";
 import { useNewTaskFlow } from "./new-task-flow-provider";
 import { seedThreadReferenceDraft } from "./seedThreadReferenceDraft";
 
-export function ReferencedNewTaskDraftScreen({ referenceThread, ...props }: ComponentProps<typeof NewTaskDraftScreen> & {
+export function ReferencedNewTaskDraftScreen({
+  referenceThread,
+  ...props
+}: ComponentProps<typeof NewTaskDraftScreen> & {
   readonly referenceThread?: ThreadContextRecord | undefined;
 }) {
   const { draftKey } = useNewTaskFlow();
@@ -16,7 +19,11 @@ export function ReferencedNewTaskDraftScreen({ referenceThread, ...props }: Comp
     const result = seedThreadReferenceDraft(draftKey, referenceThread, projectId);
     if (result === "waiting") return;
     applied.current = true;
-    if (result === "failed") Dialog.alert("Could not add thread reference", "Remove some context from the draft and try again.");
+    if (result === "failed")
+      Dialog.alert(
+        "Could not add thread reference",
+        "Remove some context from the draft and try again.",
+      );
   }, [draftKey, projectId, referenceThread]);
   return <NewTaskDraftScreen {...props} />;
 }

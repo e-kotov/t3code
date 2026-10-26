@@ -10,7 +10,7 @@ export type ReferenceThread = Pick<
   "environmentId" | "id" | "projectId" | "title" | "branch" | "worktreePath"
 >;
 export type StartReferencedThread = ReturnType<typeof useNewThreadHandler>;
-export const NEW_THREAD_WITH_REFERENCE = "new-thread-with-reference";
+const NEW_THREAD_WITH_REFERENCE = "new-thread-with-reference";
 
 export async function showThreadReferenceContextMenu<T extends string>(
   thread: ReferenceThread,
@@ -24,11 +24,14 @@ export async function showThreadReferenceContextMenu<T extends string>(
 ): Promise<T | null> {
   const menu: ContextMenuItem<string>[] = items.flatMap((item) =>
     item.id === "new-thread-on-branch"
-      ? [item, {
-          id: NEW_THREAD_WITH_REFERENCE,
-          label: `New thread on ${thread.branch} with reference`,
-          icon: "message-square-plus",
-        }]
+      ? [
+          item,
+          {
+            id: NEW_THREAD_WITH_REFERENCE,
+            label: `New thread on ${thread.branch} with reference`,
+            icon: "message-square-plus",
+          },
+        ]
       : [item],
   );
   const selected = await show(menu, position);
@@ -40,9 +43,11 @@ export async function showThreadReferenceContextMenu<T extends string>(
     startFromOrigin: false,
   });
   if (opened) {
-    useComposerDraftStore.getState().addThreadContexts(opened.draftId, [
-      threadContextRecord(scopeThreadRef(thread.environmentId, thread.id), thread.title),
-    ]);
+    useComposerDraftStore
+      .getState()
+      .addThreadContexts(opened.draftId, [
+        threadContextRecord(scopeThreadRef(thread.environmentId, thread.id), thread.title),
+      ]);
   }
   return null;
 }

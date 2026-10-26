@@ -1,4 +1,8 @@
-import { showThreadReferenceContextMenu, type ReferenceThread, type StartReferencedThread } from "./threadReferenceContextMenu";
+import {
+  showThreadReferenceContextMenu,
+  type ReferenceThread,
+  type StartReferencedThread,
+} from "./threadReferenceContextMenu";
 import type { ContextMenuItem } from "@t3tools/contracts";
 import { AuthSettingsWriteScope } from "@t3tools/contracts";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
@@ -77,7 +81,13 @@ export function showThreadCachePolicyMenu<T extends string>(
 ): Promise<T | null> {
   if (start && thread.projectId && thread.title !== undefined) {
     return showThreadReferenceContextMenu(
-      { ...thread, projectId: thread.projectId, title: thread.title, branch: thread.branch ?? null, worktreePath: thread.worktreePath ?? null },
+      {
+        ...thread,
+        projectId: thread.projectId,
+        title: thread.title,
+        branch: thread.branch ?? null,
+        worktreePath: thread.worktreePath ?? null,
+      },
       items,
       position,
       start,

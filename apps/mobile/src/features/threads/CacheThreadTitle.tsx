@@ -23,7 +23,10 @@ export function CacheThreadTitle(props: {
   );
 }
 
-export function CacheThreadRowTitle({ thread, ...props }: ComponentProps<typeof Text> & {
+export function CacheThreadRowTitle({
+  thread,
+  ...props
+}: ComponentProps<typeof Text> & {
   readonly thread: ComponentProps<typeof CacheThreadTitle>["thread"];
 }) {
   return (

@@ -4,7 +4,10 @@ import { threadComposerContext } from "../../lib/composerContext";
 import type { NewTaskDraftRouteParams } from "./thread-route-state";
 
 export function newThreadReferenceRoute(
-  thread: Pick<EnvironmentThreadShell, "environmentId" | "id" | "projectId" | "title" | "branch" | "worktreePath">,
+  thread: Pick<
+    EnvironmentThreadShell,
+    "environmentId" | "id" | "projectId" | "title" | "branch" | "worktreePath"
+  >,
   requestId: string,
 ): NewTaskDraftRouteParams {
   return {
@@ -13,6 +16,9 @@ export function newThreadReferenceRoute(
     projectId: String(thread.projectId),
     branch: thread.branch,
     worktreePath: thread.worktreePath,
-    referenceThread: threadComposerContext(scopeThreadRef(thread.environmentId, thread.id), thread.title),
+    referenceThread: threadComposerContext(
+      scopeThreadRef(thread.environmentId, thread.id),
+      thread.title,
+    ),
   };
 }
