@@ -11,6 +11,12 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import type * as SqlClient from "effect/sql/SqlClient";
 
+const decodeDriver = Schema.decodeEffect(ProviderDriverKind);
+const decodeModel = Schema.decodeEffect(Schema.fromJsonString(ModelSelection));
+const decodeUsage = Schema.decodeEffect(
+  Schema.fromJsonString(OrchestrationV2ProviderTurnTokenUsage),
+);
+
 // Fork-owned cache HUD reads mounted by ProjectionStore.ts. Only the active
 // provider thread counts, which prevents stale clocks after forks/switches.
 
@@ -67,15 +73,9 @@ export const cacheHudsForThreads = Effect.fn("cacheHudsForThreads")(function* (
   }
   for (const [id, group] of groups) {
     const first = group[0]!;
-    const driver = yield* Schema.decodeEffect(ProviderDriverKind)(first.driver);
-    const model = yield* Schema.decodeEffect(Schema.fromJsonString(ModelSelection))(
-      first.model_json,
-    );
-    const reports = yield* Effect.forEach(group, (row) =>
-      Schema.decodeEffect(Schema.fromJsonString(OrchestrationV2ProviderTurnTokenUsage))(
-        row.usage_json,
-      ),
-    );
+    const driver = yield* decodeDriver(first.driver);
+    const model = yield* decodeModel(first.model_json);
+    const reports = yield* Effect.forEach(group, (row) => decodeUsage(row.usage_json));
     result.set(ThreadId.make(id), deriveCacheHud(driver, reports, model));
   }
   return result;

@@ -72,6 +72,16 @@ jobs:
         run: |
           git diff --name-only --diff-filter=AM -z refs/remotes/origin/main HEAD |
             xargs -0 -r vp fmt --check --no-error-on-unmatched-pattern
+      - name: Check lint before the long test suites
+        if: steps.merge.outputs.changed == 'true'
+        run: |
+          node --input-type=module <<'JS'
+          import { execFileSync, spawnSync } from "node:child_process";
+          import { existsSync } from "node:fs";
+          const files = execFileSync("git", ["diff", "--name-only", "--diff-filter=AM", "-z", "refs/remotes/origin/main", "HEAD"], { encoding: "utf8" })
+            .split("\0").filter(file => /\.[cm]?[jt]sx?$/.test(file) && existsSync(file));
+          if (files.length) process.exit(spawnSync("vp", ["lint", ...files], { stdio: "inherit" }).status ?? 1);
+          JS
       - name: Install headless Chromium for web tests
         if: steps.merge.outputs.changed == 'true'
         run: |

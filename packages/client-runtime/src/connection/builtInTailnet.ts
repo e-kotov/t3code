@@ -1,13 +1,4 @@
-/**
- * Fork: routes through an app-embedded Tailscale node.
- *
- * A platform that embeds a Tailscale node (the Android app) forwards a
- * loopback port to each tailnet route's address. This wraps the connection
- * driver so the tailnet routes can also be tried through that forward, at a
- * user-chosen position among the saved routes. The forwarded routes are never
- * saved: they keep the original route's id and credential and only swap its
- * address for the attempt.
- */
+/** Embedded routes keep saved route identity and credentials; forwarded loopback addresses never persist. */
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
