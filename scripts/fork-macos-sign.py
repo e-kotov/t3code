@@ -49,7 +49,8 @@ def signing_keychain(certificate, password):
         try:
             run("security", "create-keychain", "-p", keychain_password, keychain)
             created = True
-            run("security", "list-keychains", "-d", "user", "-s", *original)
+            # codesign also locates the private key through the user search list.
+            run("security", "list-keychains", "-d", "user", "-s", keychain, *original)
             run("security", "set-keychain-settings", "-lut", "21600", keychain)
             run("security", "unlock-keychain", "-p", keychain_password, keychain)
             run("security", "import", archive, "-k", keychain, "-P", password, "-T", "/usr/bin/codesign")
