@@ -18,7 +18,7 @@ it.layer(NodeServices.layer)("EK desktop update policy", (it) => {
       const config = yield* createBuildConfig(
         "mac",
         "dmg",
-        "0.0.46-ek.8",
+        "0.1.3-ek.202610260001",
         false,
         false,
         undefined,

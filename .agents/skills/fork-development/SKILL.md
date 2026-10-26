@@ -64,8 +64,10 @@ Procedure: `docs/operations/fork-release.md`.
 - Tag `vX.Y.Z-ek.N`, annotated, on a commit already on `main`, pushed with
   `git push origin <tag>`. `X.Y.Z` is the version of upstream's newest nightly merged into
   `main` (`git tag --merged origin/main --sort=-v:refname --list 'v*-nightly.*' | head -1`).
-  `N` starts at 1 for each new `X.Y.Z` and only goes up. Never reuse or move a tag, even for
-  a release that failed to build; take the next `N`.
+  `N` is UTC `YYYYMMDD` followed by a four-digit daily counter (`0001`–`9999`),
+  e.g. `202610260001`. Allocate it with `scripts/fork-nightly-release.py`; do not increment
+  the legacy short counter. This keeps GitHub's alphabetical prerelease sorting and numeric
+  updaters in agreement. Never reuse or move a tag, even for a failed build.
 - For a checkpoint, push the tag and dispatch `release-fork.yml` on main with its version and
   `publish=true`; a tag push alone does not build. The nightly driver does this automatically
   after validation, passing the exact checked commit. Every build must pass before publication.

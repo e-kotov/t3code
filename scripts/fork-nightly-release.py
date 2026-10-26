@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Plan a new EK nightly from the checked-out commit and the published release ledger."""
+from datetime import datetime, timezone
 import json
 import os
 import re
@@ -13,7 +14,7 @@ def git(*args):
     return subprocess.check_output(["git", *args], text=True).strip()
 
 
-def plan(head, merged_tags, all_tags, releases, resolve_tag):
+def plan(head, merged_tags, all_tags, releases, resolve_tag, *, today=None):
     for release in releases:
         tag = release.get("tag_name", "")
         if not release.get("draft") and EK_TAG.fullmatch(tag) and resolve_tag(tag) == head:
@@ -23,7 +24,12 @@ def plan(head, merged_tags, all_tags, releases, resolve_tag):
         raise ValueError("No incorporated upstream nightly tag establishes the base version.")
     numbers = [int(match[2]) for tag in all_tags
                if (match := EK_TAG.fullmatch(tag)) and match[1] == base]
-    version = f"{base}-ek.{max(numbers, default=0) + 1}"
+    day = today if today is not None else datetime.now(timezone.utc).date()
+    floor = int(day.strftime("%Y%m%d")) * 10000
+    revision = max(floor, max(numbers, default=0)) + 1
+    if revision >= floor + 10000:
+        raise ValueError("EK date counter exhausted or a future tag exists; check the UTC clock.")
+    version = f"{base}-ek.{revision}"
     return {"changed": True, "sha": head, "version": version, "tag": f"v{version}",
             "reason": "Changed commit requires validation before publication."}
 

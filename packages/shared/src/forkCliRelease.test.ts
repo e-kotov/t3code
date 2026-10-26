@@ -48,6 +48,21 @@ describe("EK release updates", () => {
     expect(newestCliReleaseVersion([{ tag_name: "v9.0.0" }], "ek")).toBeUndefined();
   });
 
+  it("accepts date counters and selects them above legacy revisions", () => {
+    expect(cliReleaseChannelOf("0.1.3-ek.202610260001")).toBe("ek");
+    expect(
+      newestCliReleaseVersion(
+        [
+          { tag_name: "v0.1.3-ek.12" },
+          { tag_name: "v0.1.3-ek.202610260010" },
+          { tag_name: "v0.1.3-ek.202610260009" },
+          { tag_name: "v0.1.3-ek.202610270001", draft: true },
+        ],
+        "ek",
+      ),
+    ).toBe("0.1.3-ek.202610260010");
+  });
+
   it("allows an explicit stable or nightly selection within the fork index", () => {
     const releases = [
       { tag_name: "v0.0.46-ek.8" },

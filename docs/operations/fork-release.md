@@ -79,9 +79,13 @@ selected fork/upstream regression tests and edit-budget gate, then creates an an
 and dispatches `release-fork.yml`. GitHub may delay scheduled starts.
 
 Nightlies retain `vX.Y.Z-ek.N` tags and GitHub's prerelease flag. `X.Y.Z` comes from the newest
-upstream nightly incorporated into the candidate; `N` exceeds every existing tag for that
-base, including tags from failed builds. The release title identifies the nightly date.
-The updater and Homebrew cask therefore keep recognizing the same version scheme.
+upstream nightly incorporated into the candidate. `N` is UTC `YYYYMMDD` followed by a
+four-digit daily counter (`0001`–`9999`), for example `202610260001`. The allocator reserves
+all existing tags, including failed builds, and refuses counter exhaustion or clock rollback.
+GitHub alphabetically sorts prerelease suffixes within a date bucket; the fixed-width number
+avoids the old `ek.9`/`ek.10` reversal. It remains one numeric SemVer identifier, so existing
+Homebrew, CLI, Android APK and Termux updaters accept it without migration. Existing tags and
+download URLs stay unchanged. The release title identifies the nightly date.
 
 Every platform builds the exact checked commit, even if main advances while the release is
 queued. Publication requires that commit to belong to main and match the existing tag. All
@@ -95,13 +99,17 @@ building installers. An already released candidate skips validation too.
 
 ## Release
 
-Push a tag such as `v0.0.45-ek.1` at the head of `main` with your own Git
-credentials, then dispatch **Fork release** on `main` with version `0.0.45-ek.1`
-and `publish` selected:
+Allocate the next version on the head of `main`, then push its annotated tag and dispatch
+**Fork release** on `main` with `publish` selected. The planner skips an already released
+commit; do not create another tag for it.
 
 ```sh
-git tag v0.0.45-ek.1 && git push origin v0.0.45-ek.1
-gh workflow run release-fork.yml --ref main -f version=0.0.45-ek.1 -f publish=true
+git fetch --tags origin
+git fetch --tags upstream
+version="$(python3 scripts/fork-nightly-release.py | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')"
+git tag -a "v$version" -m "T3 Code EK $version"
+git push origin "v$version"
+gh workflow run release-fork.yml --ref main -f version="$version" -f publish=true
 ```
 
 Pushing the tag does not start a build. Releases run on `main` because Actions
@@ -115,8 +123,8 @@ built. Missing or mismatched tags fail before compilation. Every platform must b
 successfully before publication. Use a new version for every published release.
 
 `X.Y.Z` is the version of upstream's newest `vX.Y.Z-nightly.*` tag merged into
-`main`; `N` starts at 1 for each new `X.Y.Z` and only increases. Never reuse a
-tag, including one whose build failed.
+`main`; allocate `N` with the date-counter planner above. Never reuse a tag, including one
+whose build failed, or return to the legacy short counter.
 
 After publication, the `homebrew_tap` job points `e-kotov/tap`'s `t3-code-ek`
 cask at the new release, taking the Apple Silicon DMG checksum from `SHA256SUMS`. It

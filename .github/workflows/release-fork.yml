@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Fork version, for example 0.0.45-ek.1 (without v)"
+        description: "Fork version, for example 0.1.3-ek.202610260001 (without v)"
         required: true
         type: string
       publish:
