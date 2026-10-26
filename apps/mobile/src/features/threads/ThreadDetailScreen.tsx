@@ -191,6 +191,7 @@ import {
 import { ComposerPopoverHost } from "./ComposerPopoverHost";
 import {
   ThreadFeed,
+  CitationThreadDetailView,
   type ThreadFeedHandle,
   type ThreadFeedHistoryControls,
 } from "./CitationThreadFeed";
@@ -1266,7 +1267,11 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
   };
 
   return (
-    <View className="flex-1" onLayout={handleScreenLayout}>
+    <CitationThreadDetailView
+      className="flex-1"
+      onLayout={handleScreenLayout}
+      canCiteAssistantText={canInsertAssistantCitation}
+    >
       {!usesNativeWorkspaceColumns ? <NativeLayoutObserver onChange={setScreenMetrics} /> : null}
       {props.draftMode ? (
         props.draftMode.content(
@@ -1308,7 +1313,6 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
             <ThreadFeed
               environmentId={props.environmentId}
               threadId={props.selectedThread.id}
-              canCiteAssistantText={canInsertAssistantCitation}
               detailRef={props.selectedThreadDetailRef}
               workspaceRoot={props.threadCwd}
               feed={props.selectedThreadFeed}
@@ -1667,6 +1671,6 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
         </KeyboardStickyView>
       ) : null}
       {assistantCitationSheet}
-    </View>
+    </CitationThreadDetailView>
   );
 }
