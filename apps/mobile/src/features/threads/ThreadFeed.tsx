@@ -2122,7 +2122,9 @@ function useThreadFeedPresentation(
   );
 }
 
-export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps & { readonly ref?: Ref<ThreadFeedHandle> }) {
+export const ThreadFeed = memo(function ThreadFeed(
+  props: ThreadFeedProps & { readonly ref?: Ref<ThreadFeedHandle> },
+) {
   const { ref } = props;
   const { listRef, onEndFollowEnabledChange, onHeaderMaterialVisibilityChange } = props;
   const workflowOpening = useWorkflowOpening(props.environmentId, props.threadId);
