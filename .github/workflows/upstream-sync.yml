@@ -84,7 +84,10 @@ jobs:
       - name: Check mobile feed and cache-control integration
         if: steps.merge.outputs.changed == 'true'
         working-directory: apps/mobile
-        run: vp test run src/reactCompilerCoverage.test.ts src/features/home/ThreadListToolbar.cacheWarming.test.tsx -t 'compiles src/features/threads/ThreadFeed.tsx|shows the Android sidebar'
+        run: |
+          vp test run src/reactCompilerCoverage.test.ts \
+            src/features/home/ThreadListToolbar.cacheWarming.test.tsx \
+            -t 'compiles src/features/threads/ThreadFeed.tsx|shows the Android sidebar'
       - if: steps.merge.outputs.changed == 'true'
         env:
           UPSTREAM_SHA: ${{ steps.merge.outputs.upstream }}
