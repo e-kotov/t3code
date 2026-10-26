@@ -100,7 +100,7 @@
     "apps/web/src/connection/runtime.ts": 1,
     "apps/web/src/editorPreferences.ts": 24,
     "apps/web/src/hooks/useThreadActionMenu.test.ts": 7,
-    "apps/web/src/hooks/useThreadActionMenu.ts": 7,
+    "apps/web/src/hooks/useThreadActionMenu.ts": 9,
     "apps/web/src/lib/threadSort.ts": 1,
     "apps/web/src/routeTree.gen.ts": 21,
     "apps/web/src/state/server.ts": 1,
