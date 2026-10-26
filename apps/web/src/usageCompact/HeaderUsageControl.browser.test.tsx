@@ -1,7 +1,13 @@
+import { ProviderDriverKind } from "@t3tools/contracts";
+import { compileResolvedKeybindingsConfig } from "@t3tools/shared/keybindings";
+import type { CSSProperties } from "react";
 import { useState } from "react";
 import { expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
 import { render } from "../../test/render";
+import { RightPanelTabs } from "../components/RightPanelTabs";
+import type { RightPanelSurface } from "../rightPanelStore";
+import "../index.css";
 import {
   PanelLayoutControls,
   type PanelLayoutControlsProps,
@@ -11,9 +17,24 @@ import {
 
 vi.mock(import("./useHeaderUsage"), () => ({
   useHeaderUsage: () => ({
-    accounts: [],
-    drivers: new Set(["codex"]),
+    accounts: ["codex", "claudeAgent", "antigravity"].map((driver) => ({
+      key: driver,
+      driver: ProviderDriverKind.make(driver),
+      displayName: null,
+      email: undefined,
+      plan: undefined,
+      accentColor: undefined,
+      environments: [],
+      sourceLabel: null,
+      redeem: null,
+      limits: {
+        checkedAt: "2026-10-26T11:59:00Z",
+        windows: [{ id: "session", kind: "session" as const, label: "5h", usedPercent: 0 }],
+      },
+    })),
+    drivers: new Set(["codex", "claudeAgent", "antigravity"]),
     notices: [],
+    authNotices: [],
     disconnected: false,
     onOpenFullView: () => {},
   }),
@@ -101,4 +122,89 @@ it("keeps usage accessible when the inline panel maximizes and restores", async 
   await userEvent.click(page.getByRole("button", { name: "Restore panel size" }));
   await expect.element(usage()).toBeVisible();
   expectBeforeThreadToggle();
+});
+
+it("keeps overflowing panel tabs scrollable beside all three usage meters when maximized", async () => {
+  await page.viewport(900, 600);
+  const surfaces = Array.from({ length: 12 }, (_, index): RightPanelSurface => ({
+    id: `file:${index}`,
+    kind: "file",
+    relativePath: `long-document-${index}.ts`,
+    revealLine: null,
+    revealRequestId: 0,
+  }));
+  const noop = () => {};
+  await using _screen = await render(
+    <div
+      data-chat-workspace
+      className="relative flex h-100 w-screen [--header-usage-reserve:--spacing(40)]"
+      style={
+        {
+          "--workspace-topbar-height": "48px",
+          "--workspace-controls-top": "0px",
+          "--workspace-controls-right": "0px",
+        } as CSSProperties
+      }
+    >
+      <WorkspaceTitlebarControls
+        showMaximizeControl
+        rightPanelOpen
+        animationsActive={false}
+        maximized
+        onToggleMaximized={noop}
+      >
+        <PanelLayoutControls {...props} showUsageControl showThreadPanelControl={false} />
+      </WorkspaceTitlebarControls>
+      <RightPanelTabs
+        mode="inline"
+        maximized
+        open
+        keybindings={compileResolvedKeybindingsConfig([])}
+        getShortcutContext={() => ({
+          terminalFocus: false,
+          terminalOpen: false,
+          previewFocus: false,
+          previewOpen: true,
+          isWeb: true,
+          isDesktop: false,
+        })}
+        surfaces={surfaces}
+        environmentId={null}
+        activeSurfaceId={surfaces[0]!.id}
+        pendingSurfaceIds={new Set()}
+        previewSessions={{}}
+        desktopByTabId={{}}
+        terminalLabelsById={new Map()}
+        onActivate={noop}
+        onCloseSurface={noop}
+        onCloseOtherSurfaces={noop}
+        onCloseSurfacesToRight={noop}
+        onCloseAllSurfaces={noop}
+        onCopyFilePath={noop}
+        onAddBrowser={noop}
+        onAddBrowserInProfile={noop}
+        onAddTerminal={noop}
+        onAddDiff={noop}
+        onAddFiles={noop}
+        onAddPullRequest={noop}
+        onAddPullRequests={noop}
+        onAddDevice={noop}
+        browserAvailable={false}
+        terminalAvailable={false}
+        diffAvailable={false}
+        filesAvailable={false}
+        pullRequestAvailable={false}
+        pullRequestsAvailable={false}
+        deviceAvailable={false}
+      >
+        Panel content
+      </RightPanelTabs>
+    </div>,
+  );
+  const left = page.getByRole("button", { name: "Scroll tabs left", exact: true });
+  const right = page.getByRole("button", { name: "Scroll tabs right", exact: true });
+  await expect.element(usage()).toBeVisible();
+  await expect.element(left).toBeDisabled();
+  await userEvent.click(right);
+  await expect.element(left).not.toBeDisabled();
 });
