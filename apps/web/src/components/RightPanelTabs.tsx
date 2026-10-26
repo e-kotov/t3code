@@ -1234,6 +1234,10 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
         className={cn(
           "flex h-[var(--workspace-topbar-height)] min-h-[var(--workspace-topbar-height)] shrink-0 items-center gap-1 pl-2",
           props.mode === "inline" && !props.layoutControls ? "pr-28" : "pr-3",
+          props.mode === "inline" &&
+            props.maximized &&
+            !props.layoutControls &&
+            "[[data-chat-workspace]:has([data-header-usage])_&]:pr-[calc(--spacing(28)+var(--header-usage-reserve))]",
           ownsDesktopTitleBar && "drag-region",
           ownsDesktopTitleBar && "wco:pr-(--workspace-native-controls-inset)",
           props.mode === "inline" && props.maximized && COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS,
