@@ -1,4 +1,3 @@
-import { useNavigation } from "@react-navigation/native";
 import { selectedNavigationTab, visibleNavigationTabs } from "./navigation-tab-order";
 import { Toolbar } from "../../components/ui/Toolbar";
 import { useControlTheme } from "../../components/ui/useControlTheme";
@@ -21,7 +20,6 @@ export function WorkspaceTabToolbarButtons() {
   const hidden = useHiddenNavigationTabs();
   const workspace = useWorkspaceTabs()!;
   const selectTab = useSelectWorkspaceTab();
-  const navigation = useNavigation();
   const selected = highlightUtilities(selectedNavigationTab)(
     order,
     workspace.state.selectedTab,
