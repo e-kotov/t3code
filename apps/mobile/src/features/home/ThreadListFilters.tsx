@@ -13,7 +13,11 @@ export function ThreadListFilters(
     | "selectedProjectKey"
     | "onEnvironmentChange"
     | "onProjectChange"
-  > & { readonly children?: ReactNode; readonly gutter: number },
+  > & {
+    /** List padding the scroller bleeds through so pills start where row content does. */
+    readonly gutter: number;
+    readonly children?: ReactNode;
+  },
 ) {
   const selectedEnvironment = props.environments.find(
     (environment) => environment.environmentId === props.selectedEnvironmentId,
