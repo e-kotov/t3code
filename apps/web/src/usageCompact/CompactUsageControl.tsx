@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ProviderInstanceIcon } from "../components/chat/ProviderInstanceIcon";
 import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "../components/ui/popover";
 import { useNowMinute } from "../hooks/useNowMinute";
+import { cn } from "../lib/utils";
 import { compactUsage, groupUsageWindows } from "./usageCompact";
 
 const GRID_COLUMNS = ["", "sm:grid-cols-1", "sm:grid-cols-2", "sm:grid-cols-3"] as const;
@@ -82,7 +83,7 @@ export function CompactUsageControl({
         side="bottom"
         align="end"
         padding="compact"
-        className={`max-w-[calc(100vw-2rem)] ${POPUP_WIDTH[providers.length]}`}
+        className={cn("max-w-[calc(100vw-2rem)]", POPUP_WIDTH[providers.length])}
         initialFocus={false}
         finalFocus={false}
       >
@@ -108,7 +109,10 @@ export function CompactUsageControl({
           </p>
         ) : null}
         <div
-          className={`mt-2 grid max-h-[min(28rem,calc(var(--available-height)-4rem))] grid-cols-1 gap-x-4 gap-y-3 overflow-y-auto ${GRID_COLUMNS[providers.length]}`}
+          className={cn(
+            "mt-2 grid max-h-[min(28rem,calc(var(--available-height)-4rem))] grid-cols-1 gap-x-4 gap-y-3 overflow-y-auto",
+            GRID_COLUMNS[providers.length],
+          )}
         >
           {providers.map((provider) => (
             <section key={provider.driver} aria-label={provider.label} className="min-w-0">
@@ -133,7 +137,7 @@ export function CompactUsageControl({
                 <p className="mt-1 text-3xs text-muted-foreground">Limits unavailable</p>
               ) : (
                 groupUsageWindows(provider.windows).map((group, index) => (
-                  <div key={`${group.title}:${index}`} className="mt-1.5">
+                  <div key={`${group.title ?? ""}:${index}`} className="mt-1.5">
                     {group.title ? (
                       <p className="text-3xs text-muted-foreground">{group.title}</p>
                     ) : null}
