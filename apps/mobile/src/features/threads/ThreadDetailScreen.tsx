@@ -1309,6 +1309,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
               environmentId={props.environmentId}
               threadId={props.selectedThread.id}
               canCiteAssistantText={canInsertAssistantCitation}
+              detailRef={props.selectedThreadDetailRef}
               workspaceRoot={props.threadCwd}
               feed={props.selectedThreadFeed}
               pendingHandoff={props.pendingHandoff}
