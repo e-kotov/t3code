@@ -49,7 +49,7 @@ export function CompactUsageControl({
         <PopoverPopup side="top" align="start" width="sm" padding="compact">
           <PopoverTitle>Quota remaining</PopoverTitle>
           <p className="mt-1 text-3xs text-muted-foreground">
-            Last reported · lowest window in the button
+            Last reported · subscription quota first
           </p>
           {notices.length > 0 ? (
             <div className="mt-1 text-3xs text-warning-foreground">
