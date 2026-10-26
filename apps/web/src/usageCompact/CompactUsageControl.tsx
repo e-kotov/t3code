@@ -55,8 +55,8 @@ export function CompactUsageControl({
             <div className="mt-1 text-3xs text-warning-foreground">
               <p>* Partial report. Some account limits are unavailable.</p>
               <ul className="max-h-16 overflow-y-auto">
-                {notices.map((notice, index) => (
-                  <li key={`${index}:${notice}`}>{notice}</li>
+                {[...new Set(notices)].map((notice) => (
+                  <li key={notice}>{notice}</li>
                 ))}
               </ul>
             </div>
