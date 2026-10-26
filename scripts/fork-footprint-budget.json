@@ -92,7 +92,7 @@
     "apps/web/src/components/settings/SettingsScopeSentence.tsx": 1,
     "apps/web/src/components/settings/SettingsSidebarNav.tsx": 2,
     "apps/web/src/components/settings/settingsSearch.ts": 19,
-    "apps/web/src/components/sidebar/SidebarChrome.tsx": 2,
+    "apps/web/src/components/sidebar/SidebarChrome.tsx": 11,
     "apps/web/src/components/sidebar/SidebarListMarkers.tsx": 5,
     "apps/web/src/components/sidebar/SidebarThreadHeader.tsx": 8,
     "apps/web/src/components/sidebar/SidebarThreadRow.tsx": 19,
