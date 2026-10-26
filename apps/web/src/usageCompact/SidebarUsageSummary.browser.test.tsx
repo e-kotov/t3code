@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
-import { render } from "../../test/render";
+import { act, render } from "../../test/render";
 import { CompactUsageControl } from "./CompactUsageControl";
 import { EnvironmentId, ProviderDriverKind, UsageLimitSourceId } from "@t3tools/contracts";
 import { compactUsageReport } from "./usageCompactReport";
@@ -34,6 +34,47 @@ it("opens the full usage page on the first click", async () => {
   expect(openFull).toHaveBeenCalledOnce();
 });
 
+it("keeps composer focus on hover and opens the full page after reading details", async () => {
+  const openFull = vi.fn();
+  await using screen = await render(
+    <>
+      <ul>
+        <CompactUsageControl accounts={[]} onOpenFullView={openFull} />
+      </ul>
+      <input aria-label="Composer" />
+    </>,
+  );
+  const composer = screen.getByRole("textbox", { name: "Composer" });
+  const trigger = screen.getByRole("button", { name: /Usage remaining/ });
+  await userEvent.click(composer);
+  await userEvent.hover(trigger);
+  await expect.element(details()).toBeVisible();
+  await expect.element(composer).toHaveFocus();
+  await userEvent.click(trigger);
+  expect(openFull).toHaveBeenCalledOnce();
+});
+
+it("keeps details open when focus enters the popup and dismisses on outside focus", async () => {
+  const openFull = vi.fn();
+  await using screen = await render(
+    <>
+      <ul>
+        <CompactUsageControl accounts={[]} onOpenFullView={openFull} />
+      </ul>
+      <input aria-label="Composer" />
+    </>,
+  );
+  await userEvent.tab();
+  await expect.element(details()).toBeVisible();
+  const popup = page.getByRole("dialog");
+  await act(async () => (popup.element() as HTMLElement).focus());
+  await expect.element(popup).toHaveFocus();
+  await expect.element(details()).toBeVisible();
+  await userEvent.click(screen.getByRole("textbox", { name: "Composer" }));
+  await expect.element(details()).not.toBeInTheDocument();
+  expect(openFull).not.toHaveBeenCalled();
+});
+
 it("shows details on keyboard focus and opens the full page with Enter", async () => {
   const openFull = vi.fn();
   await using _screen = await renderControl(openFull);
@@ -43,6 +84,15 @@ it("shows details on keyboard focus and opens the full page with Enter", async (
   await expect.element(details()).not.toBeInTheDocument();
   expect(openFull).not.toHaveBeenCalled();
   await userEvent.keyboard("{Enter}");
+  expect(openFull).toHaveBeenCalledOnce();
+});
+
+it("opens the full usage page with Space", async () => {
+  const openFull = vi.fn();
+  await using _screen = await renderControl(openFull);
+  await userEvent.tab();
+  await expect.element(details()).toBeVisible();
+  await userEvent.keyboard(" ");
   expect(openFull).toHaveBeenCalledOnce();
 });
 
