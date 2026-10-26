@@ -84,9 +84,7 @@ export function CompactUsageControl({
                           >
                             {percent(window.remainingPercent)}
                           </span>
-                          <span
-                            className="w-16 text-right text-muted-foreground"
-                          >
+                          <span className="w-16 text-right text-muted-foreground">
                             {reset ? `↻ ${formatDuration(reset.at - now)}` : "?"}
                           </span>
                         </div>
