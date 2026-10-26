@@ -4,7 +4,7 @@ import { environmentPresentations } from "../state/presentation";
 import { CompactUsageControl } from "./CompactUsageControl";
 
 export function SidebarUsageSummary({ onOpenFullView }: { onOpenFullView: () => void }) {
-  const presentations = useAtomValue(environmentPresentations.presentationsAtom);
+  const presentations = useAtomValue(environmentPresentations.presentationsWithProvidersAtom);
   return (
     <CompactUsageControl
       accounts={collectLimitAccounts(presentations)}

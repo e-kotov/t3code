@@ -36,12 +36,8 @@ export function CompactUsageControl({
         >
           {providers.map((provider) => (
             <span key={provider.driver} className="flex min-w-0 flex-col leading-tight">
-              <span className="truncate text-3xs text-muted-foreground">
-                {provider.shortLabel}
-              </span>
-              <span
-                className={`font-mono text-2xs tabular-nums ${quotaColor(provider.remaining)}`}
-              >
+              <span className="truncate text-3xs text-muted-foreground">{provider.shortLabel}</span>
+              <span className={`font-mono text-2xs tabular-nums ${quotaColor(provider.remaining)}`}>
                 {percent(provider.remaining)}
               </span>
             </span>
