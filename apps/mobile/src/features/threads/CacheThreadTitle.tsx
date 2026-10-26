@@ -5,7 +5,7 @@ import { View } from "react-native";
 import { CacheHud } from "./CacheHud";
 import { ThreadCachePolicyControl } from "./ThreadCachePolicyControl";
 
-export function CacheThreadTitle(props: {
+function CacheThreadTitle(props: {
   readonly thread: Pick<
     EnvironmentThreadShell,
     "environmentId" | "id" | "cacheHud" | "modelSelection"

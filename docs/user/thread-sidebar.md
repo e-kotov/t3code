@@ -10,6 +10,10 @@ and mode selections, unless the destination project has its own model default.
 Its branch and workspace mode come from your configured defaults. To continue in
 an existing worktree, use **New thread in this worktree** from the branch toolbar.
 
+Right-click a thread on desktop, or long-press it on mobile, and choose **New thread
+on [branch] with reference** to open a draft on that branch with the selected
+conversation attached as context. Write your prompt and send when ready.
+
 When you change a new thread's project, T3 Code stays in the current environment
 if that project exists there. Otherwise it selects an environment that has it.
 
