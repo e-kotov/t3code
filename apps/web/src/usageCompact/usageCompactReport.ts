@@ -11,7 +11,9 @@ export function compactUsageReport(presentations: LimitPresentations) {
     for (const source of presentation.serverConfig?.usageLimitSources ?? []) {
       for (const account of source.accounts) {
         if (account.usageLimits.unavailable?.reason !== "probeFailed") continue;
-        notices.push(`${source.label} · ${account.email ?? account.id}: ${limitsNotice(account.usageLimits)}`);
+        notices.push(
+          `${source.label} · ${account.email ?? account.id}: ${limitsNotice(account.usageLimits)}`,
+        );
       }
     }
   }

@@ -32,11 +32,19 @@ function provider(id: string, failed = false): ServerProvider {
   };
 }
 
-function presentations(providers: readonly ServerProvider[], usageLimitSources: UsageLimitSourceSnapshots = []) {
-  return new Map([[EnvironmentId.make("test"), {
-    entry: { target: { label: "Test" } },
-    serverConfig: { providers, usageLimitSources },
-  }]]);
+function presentations(
+  providers: readonly ServerProvider[],
+  usageLimitSources: UsageLimitSourceSnapshots = [],
+) {
+  return new Map([
+    [
+      EnvironmentId.make("test"),
+      {
+        entry: { target: { label: "Test" } },
+        serverConfig: { providers, usageLimitSources },
+      },
+    ],
+  ]);
 }
 
 it("reports an incomplete native pool instead of silently dropping a failed account", () => {
@@ -47,18 +55,27 @@ it("reports an incomplete native pool instead of silently dropping a failed acco
 });
 
 it("keeps source and individual proxy account failures visible", () => {
-  const report = compactUsageReport(presentations([provider("good")], [{
-    id: UsageLimitSourceId.make("proxy"),
-    kind: "cliproxy",
-    label: "CLI Proxy",
-    checkedAt,
-    error: "Source probe failed",
-    accounts: [{
-      id: "failed",
-      driver: ProviderDriverKind.make("claudeAgent"),
-      usageLimits: { checkedAt, windows: [], unavailable: { reason: "probeFailed" } },
-    }],
-  }]));
+  const report = compactUsageReport(
+    presentations(
+      [provider("good")],
+      [
+        {
+          id: UsageLimitSourceId.make("proxy"),
+          kind: "cliproxy",
+          label: "CLI Proxy",
+          checkedAt,
+          error: "Source probe failed",
+          accounts: [
+            {
+              id: "failed",
+              driver: ProviderDriverKind.make("claudeAgent"),
+              usageLimits: { checkedAt, windows: [], unavailable: { reason: "probeFailed" } },
+            },
+          ],
+        },
+      ],
+    ),
+  );
   expect(report.accounts).toHaveLength(1);
   expect(report.notices).toEqual([
     "CLI Proxy: Source probe failed",
