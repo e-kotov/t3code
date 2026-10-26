@@ -4,9 +4,7 @@ import importlib.util
 import os
 from pathlib import Path
 import plistlib
-import subprocess
 import sys
-import tempfile
 import unittest
 
 sys.dont_write_bytecode = True
@@ -87,7 +85,7 @@ class MacSigningTest(unittest.TestCase):
     def test_updated_build_retains_keychain_access_and_both_installers_keep_signatures(self):
         original_search_list = signing.run("security", "list-keychains", "-d", "user")
         certificate = base64.b64decode(os.environ["FORK_MACOS_CERTIFICATE_BASE64"], validate=True)
-        with tempfile.TemporaryDirectory() as directory:
+        with signing.scratch("t3code-ek-signing-test-") as directory:
             root = Path(directory)
             with signing.signing_keychain(certificate, os.environ["FORK_MACOS_CERTIFICATE_PASSWORD"]) as keychain:
                 first, first_exe = fixture(root / "first", "0.1.0-ek.1", 1)

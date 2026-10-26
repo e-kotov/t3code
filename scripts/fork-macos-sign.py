@@ -29,10 +29,16 @@ def run(*arguments):
     return result.stdout
 
 
+def scratch(prefix):
+    root = Path(os.environ.get("RUNNER_TEMP", str(Path.home() / "tmp")))
+    root.mkdir(parents=True, exist_ok=True)
+    return tempfile.TemporaryDirectory(prefix=prefix, dir=root)
+
+
 @contextmanager
 def signing_keychain(certificate, password):
     original = shlex.split(run("security", "list-keychains", "-d", "user").decode())
-    with tempfile.TemporaryDirectory(prefix="t3code-ek-signing-") as directory:
+    with scratch("t3code-ek-signing-") as directory:
         root = Path(directory)
         keychain = root / "signing.keychain-db"
         archive = root / "certificate.p12"
@@ -98,7 +104,7 @@ def mounted(dmg, mountpoint):
 def package_installers(source, output, version, keychain):
     name = f"T3-Code-{version}-arm64"
     output.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="t3code-ek-installers-") as directory:
+    with scratch("t3code-ek-installers-") as directory:
         root = Path(directory)
         payload = root / "payload"
         mountpoint = root / "mounted"
