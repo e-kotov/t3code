@@ -63,6 +63,7 @@ function HomeFilters() {
   const [options, setOptions] = useState(DEFAULT_CONVERSATION_LIST_OPTIONS);
   return (
     <ConversationThreadListFilters
+      gutter={0}
       environments={[]}
       projects={[]}
       selectedEnvironmentId={null}
