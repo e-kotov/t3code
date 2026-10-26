@@ -50,7 +50,6 @@ export function CompactUsageControl({
               onFocus={(event) => {
                 if (event.currentTarget.matches(":focus-visible")) setOpen(true);
               }}
-              onBlur={() => setOpen(false)}
             />
           }
         >
