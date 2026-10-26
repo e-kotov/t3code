@@ -224,7 +224,10 @@ export function withBuiltInTailnet(
    * a saved route, a tailnet route below the node's position also counts when
    * the node can reach it, so the connection returns to the node.
    */
-  const preflight = Effect.fn("builtInTailnet.preflight")((entry: ConnectionCatalogEntry, route: ConnectionRoute) => {
+  const preflight = Effect.fn("builtInTailnet.preflight")((
+    entry: ConnectionCatalogEntry,
+    route: ConnectionRoute,
+  ) => {
     const mode = tailnet.mode();
     if (mode === "off") return driver.preflight(entry, route);
     const { before } = splitAtBuiltIn(connectionRoutes(entry), mode);

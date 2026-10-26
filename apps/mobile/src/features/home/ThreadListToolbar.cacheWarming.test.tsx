@@ -13,10 +13,10 @@ const harness = vi.hoisted(() => ({
   listeners: new Set<() => void>(),
 }));
 vi.mock("@effect/atom-react", () => ({
-  useAtomValue: (atom: string) => useSyncExternalStore(
-    subscribe,
-    () => atom === "threads" ? harness.threads : harness.settings,
-  ),
+  useAtomValue: (atom: string) =>
+    useSyncExternalStore(subscribe, () =>
+      atom === "threads" ? harness.threads : harness.settings,
+    ),
 }));
 vi.mock("../../state/threads", () => ({
   environmentThreadShells: { threadShellsAtom: "threads" },
@@ -82,7 +82,9 @@ vi.mock("./ConversationListToolbarButtons", () => ({ ConversationListToolbarButt
 
 function subscribe(listener: () => void) {
   harness.listeners.add(listener);
-  return () => { harness.listeners.delete(listener); };
+  return () => {
+    harness.listeners.delete(listener);
+  };
 }
 
 function setup() {

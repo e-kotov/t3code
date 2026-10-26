@@ -36,14 +36,14 @@ export const cacheHudsForThreads = Effect.fn("cacheHudsForThreads")(function* (
   sql: SqlClient.SqlClient,
   threadIds: ReadonlyArray<ThreadId>,
 ) {
-    const result = new Map<ThreadId, OrchestrationV2CacheHud | null>();
-    if (threadIds.length === 0) return result;
-    const rows = yield* sql<{
-      thread_id: string;
-      driver: string;
-      model_json: string;
-      usage_json: string;
-    }>`
+  const result = new Map<ThreadId, OrchestrationV2CacheHud | null>();
+  if (threadIds.length === 0) return result;
+  const rows = yield* sql<{
+    thread_id: string;
+    driver: string;
+    model_json: string;
+    usage_json: string;
+  }>`
       SELECT t.thread_id, p.driver,
         json_extract(t.payload_json, '$.modelSelection') AS model_json,
         json_extract(u.payload_json, '$.tokenUsage') AS usage_json
@@ -59,27 +59,27 @@ export const cacheHudsForThreads = Effect.fn("cacheHudsForThreads")(function* (
       )
       WHERE t.thread_id IN ${sql.in(threadIds)}
     `;
-    const groups = new Map<string, (typeof rows)[number][]>();
-    for (const row of rows) {
-      const group = groups.get(row.thread_id) ?? [];
-      group.push(row);
-      groups.set(row.thread_id, group);
-    }
-    for (const [id, group] of groups) {
-      const first = group[0]!;
-      const driver = yield* Schema.decodeEffect(ProviderDriverKind)(first.driver);
-      const model = yield* Schema.decodeEffect(Schema.fromJsonString(ModelSelection))(
-        first.model_json,
-      );
-      const reports = yield* Effect.forEach(group, (row) =>
-        Schema.decodeEffect(Schema.fromJsonString(OrchestrationV2ProviderTurnTokenUsage))(
-          row.usage_json,
-        ),
-      );
-      result.set(ThreadId.make(id), deriveCacheHud(driver, reports, model));
-    }
-    return result;
-  });
+  const groups = new Map<string, (typeof rows)[number][]>();
+  for (const row of rows) {
+    const group = groups.get(row.thread_id) ?? [];
+    group.push(row);
+    groups.set(row.thread_id, group);
+  }
+  for (const [id, group] of groups) {
+    const first = group[0]!;
+    const driver = yield* Schema.decodeEffect(ProviderDriverKind)(first.driver);
+    const model = yield* Schema.decodeEffect(Schema.fromJsonString(ModelSelection))(
+      first.model_json,
+    );
+    const reports = yield* Effect.forEach(group, (row) =>
+      Schema.decodeEffect(Schema.fromJsonString(OrchestrationV2ProviderTurnTokenUsage))(
+        row.usage_json,
+      ),
+    );
+    result.set(ThreadId.make(id), deriveCacheHud(driver, reports, model));
+  }
+  return result;
+});
 
 export const withCacheHud =
   (cacheHuds: ReadonlyMap<ThreadId, OrchestrationV2CacheHud | null>) =>
