@@ -98,7 +98,9 @@ export function CompactUsageControl({
         </div>
         {authNotices.length > 0 ? (
           <ul className="mt-1 text-3xs text-muted-foreground">
-            {[...new Set(authNotices)].map((notice) => <li key={notice}>{notice}</li>)}
+            {[...new Set(authNotices)].map((notice) => (
+              <li key={notice}>{notice}</li>
+            ))}
           </ul>
         ) : null}
         {notices.length > 0 ? (

@@ -18,7 +18,9 @@ function hasVerifiedQuotaAccess(provider: ServerProvider): boolean {
     !limits?.credentialFingerprint ||
     limits.unavailable ||
     limits.windows.length === 0
-  ) return false;
+  ) {
+    return false;
+  }
   // Match the successful OAuth probe to its health snapshot, not arbitrary cached windows.
   const snapshotLagMs = Date.parse(provider.checkedAt) - Date.parse(limits.checkedAt);
   return Number.isFinite(snapshotLagMs) && snapshotLagMs >= 0 && snapshotLagMs <= 60_000;
@@ -65,7 +67,9 @@ export function compactUsageReport(presentations: LimitPresentations) {
       if (provider.enabled && provider.installed && isProviderAvailable(provider)) {
         drivers.add(provider.driver);
         if (hasVerifiedQuotaAccess(provider)) {
-          authNotices.add("Antigravity quota access verified; session sign-in is not yet confirmed.");
+          authNotices.add(
+            "Antigravity quota access verified; session sign-in is not yet confirmed.",
+          );
         }
       }
     }
@@ -79,5 +83,10 @@ export function compactUsageReport(presentations: LimitPresentations) {
       }
     }
   }
-  return { accounts: collectLimitAccounts(authenticated), notices, drivers, authNotices: [...authNotices] };
+  return {
+    accounts: collectLimitAccounts(authenticated),
+    notices,
+    drivers,
+    authNotices: [...authNotices],
+  };
 }

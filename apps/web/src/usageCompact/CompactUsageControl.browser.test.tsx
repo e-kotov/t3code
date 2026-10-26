@@ -108,6 +108,25 @@ it("opens the full usage page with Space", async () => {
   expect(openFull).toHaveBeenCalledOnce();
 });
 
+it("explains verified quota access when session sign-in is unconfirmed", async () => {
+  const notice = "Antigravity quota access verified; session sign-in is not yet confirmed.";
+  await using _screen = await render(
+    <CompactUsageControl
+      accounts={[
+        account("antigravity", [
+          { id: "gemini-pro", kind: "weekly", label: "Gemini Pro · Weekly", usedPercent: 25 },
+        ]),
+      ]}
+      drivers={new Set(["antigravity"])}
+      authNotices={[notice]}
+      onOpenFullView={() => {}}
+    />,
+  );
+  await userEvent.hover(trigger());
+  await expect.element(page.getByText(notice, { exact: true })).toBeVisible();
+  await expect.element(page.getByText("75%", { exact: true }).first()).toBeVisible();
+});
+
 it("shows every reported window of all harnesses in one shared popup", async () => {
   const accounts = [
     account("codex", [
