@@ -107,7 +107,7 @@
     "docs/user/composer.md": 22,
     "docs/user/install.md": 3,
     "docs/user/mobile-notifications.md": 42,
-    "docs/user/thread-sidebar.md": 4,
+    "docs/user/thread-sidebar.md": 8,
     "docs/user/usage.md": 19,
     "packages/client-runtime/package.json": 4,
     "packages/client-runtime/src/connection/index.ts": 3,
