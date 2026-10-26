@@ -154,6 +154,41 @@ jobs:
       clerk_cli_oauth_client_id: ""
       relay_url: ""
 
+  mac_signed:
+    needs: [prepare, mac]
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - name: Checkout signing code from the build commit
+        env:
+          RELEASE_REF: ${{ needs.prepare.outputs.sha }}
+          GIT_TERMINAL_PROMPT: "0"
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          git fetch --no-tags --depth=1 origin "$RELEASE_REF"
+          git sparse-checkout set --no-cone /scripts/fork-macos-sign.py /scripts/fork-macos-sign.test.py /scripts/fork-homebrew-cask.rb
+          git checkout --detach FETCH_HEAD
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: desktop-mac-arm64
+          path: unsigned-mac
+      - name: Verify update identity and sign both installers
+        env:
+          FORK_MACOS_CERTIFICATE_BASE64: ${{ secrets.FORK_MACOS_CERTIFICATE_BASE64 }}
+          FORK_MACOS_CERTIFICATE_PASSWORD: ${{ secrets.FORK_MACOS_CERTIFICATE_PASSWORD }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          python3 scripts/fork-macos-sign.test.py
+          python3 scripts/fork-macos-sign.py unsigned-mac signed-mac --version "$RELEASE_VERSION"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: fork-mac-signed
+          path: signed-mac/*
+          if-no-files-found: error
+
   linux_server:
     needs: [prepare, bundle]
     runs-on: ubuntu-24.04
@@ -305,16 +340,11 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: [prepare, mac, linux_server, android]
+    needs: [prepare, mac_signed, linux_server, android]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          pattern: desktop-*
-          path: assets
-          merge-multiple: true
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           pattern: fork-*
@@ -346,7 +376,7 @@ jobs:
           cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
           Fork installers for Mac (Apple Silicon), Android, Linux x64 server, and native Termux ARM64 server (with web UI).
           The Termux bundle installs with t3-termux update from Egor's Termux dotfiles; native dependencies are prepared on the phone.
-          Mac builds are not notarized. Android uses the fork's own signing key and package ID.
+          Mac builds use the fork's persistent private signing certificate and are not Apple notarized. Android uses the fork's own signing key and package ID.
           Direct SSH/Tailscale pairing works without upstream cloud configuration. Upstream Expo updates are disabled.
           Android direct notifications use the paired SSH/Tailscale server connection and do not require T3 Connect; Android keeps an ongoing connection notification while listening.
           Cache warming is off by default. The global Warm all control updates each eligible conversation toggle on the selected server; warm turns are visible and billable.
@@ -376,6 +406,7 @@ jobs:
           TAP_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
         run: |
           set -euo pipefail
           if [[ -z "$TAP_DEPLOY_KEY" ]]; then
@@ -413,11 +444,11 @@ jobs:
             exit 0
           fi
 
-          awk -v version="$RELEASE_VERSION" -v arm="$arm" '
-            /^  version "/ { sub(/"[^"]*"/, "\"" version "\"") }
-            /^  sha256 "/ { sub(/"[^"]*"/, "\"" arm "\"") }
-            { print }
-          ' "$cask" > "$RUNNER_TEMP/cask.rb"
+          gh api "repos/$GITHUB_REPOSITORY/contents/scripts/fork-homebrew-cask.rb?ref=$RELEASE_SHA" \
+            --jq .content | base64 --decode > "$RUNNER_TEMP/cask-template.rb"
+          sed -e "s/@VERSION@/$RELEASE_VERSION/g" -e "s/@SHA256@/$arm/g" \
+            "$RUNNER_TEMP/cask-template.rb" > "$RUNNER_TEMP/cask.rb"
+          ruby -c "$RUNNER_TEMP/cask.rb"
           mv "$RUNNER_TEMP/cask.rb" "$cask"
           if ! grep -qF "\"$arm\"" "$cask"; then
             echo 'Cask checksum line was not found.'

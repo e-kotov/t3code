@@ -1,0 +1,75 @@
+name: Verify fork Mac signing
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/fork-macos-sign.py
+      - scripts/fork-macos-sign.test.py
+      - scripts/fork-homebrew-cask.rb
+      - .github/workflows/fork-macos-signing.yml
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Optional published EK version to repackage as a test artifact (without v)"
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - name: Checkout signing code
+        env:
+          CHECKOUT_REF: ${{ github.sha }}
+          GIT_TERMINAL_PROMPT: "0"
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          git fetch --no-tags --depth=1 origin "$CHECKOUT_REF"
+          git sparse-checkout set --no-cone /scripts/fork-macos-sign.py /scripts/fork-macos-sign.test.py /scripts/fork-homebrew-cask.rb
+          git checkout --detach FETCH_HEAD
+      - name: Check cross-build Keychain access and installer signatures
+        env:
+          FORK_MACOS_CERTIFICATE_BASE64: ${{ secrets.FORK_MACOS_CERTIFICATE_BASE64 }}
+          FORK_MACOS_CERTIFICATE_PASSWORD: ${{ secrets.FORK_MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$FORK_MACOS_CERTIFICATE_BASE64" && test -n "$FORK_MACOS_CERTIFICATE_PASSWORD"
+          python3 scripts/fork-macos-sign.test.py
+          ruby -c scripts/fork-homebrew-cask.rb
+      - name: Verify and sign an existing installer without publishing
+        if: github.event_name == 'workflow_dispatch' && inputs.version != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          FORK_MACOS_CERTIFICATE_BASE64: ${{ secrets.FORK_MACOS_CERTIFICATE_BASE64 }}
+          FORK_MACOS_CERTIFICATE_PASSWORD: ${{ secrets.FORK_MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-ek\.[0-9]+$ ]]
+          gh release download "v$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" \
+            --pattern "T3-Code-$RELEASE_VERSION-arm64.dmg" --pattern SHA256SUMS --dir unsigned-mac
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+          root = Path("unsigned-mac")
+          for dmg in root.glob("*.dmg"):
+              matches = [line.split()[0] for line in (root / "SHA256SUMS").read_text().splitlines()
+                         if line.split()[-1] == dmg.name]
+              assert matches == [hashlib.file_digest(dmg.open("rb"), "sha256").hexdigest()], "DMG checksum mismatch"
+          PY
+          python3 scripts/fork-macos-sign.py unsigned-mac signed-mac --version "$RELEASE_VERSION"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: github.event_name == 'workflow_dispatch' && inputs.version != ''
+        with:
+          name: mac-signing-smoke
+          path: signed-mac/*
+          if-no-files-found: error
+          retention-days: 3

@@ -8,7 +8,8 @@ publishing account is required.
 
 ## Artifacts
 
-- Mac Apple Silicon only (no Intel builds): DMG and ZIP. Builds are unsigned/not notarized;
+- Mac Apple Silicon only (no Intel builds): DMG and ZIP. Builds use the fork's persistent
+  private signing certificate and are not Apple notarized;
   macOS may require approval in Privacy & Security on first launch.
 - Android: standalone signed ARM64 APK (`-arm64.apk`), package `pro.ekotov.t3code`,
   labelled T3 Code EK. Targets ARM64 phones including Galaxy S23+; x86 emulators
@@ -43,8 +44,8 @@ brew install --cask e-kotov/tap/t3-code-ek
 brew upgrade --cask t3-code-ek
 ```
 
-The cask pins each DMG's SHA-256, re-signs `T3 Code EK.app` ad hoc after
-install and clears its quarantine flag. This is not Apple notarization. When
+The cask pins each DMG's SHA-256, verifies and preserves `T3 Code EK.app`'s private
+release signature, and clears its quarantine flag. This is not Apple notarization. When
 replacing upstream's `t3-code` cask, uninstall it without `--zap` so T3 data is
 retained, and remove it from any managed Homebrew package list.
 
@@ -137,6 +138,24 @@ source checksums, matching signing certificates, alignment and ARM64-only
 libraries, then adds `-arm64.apk` and `SHA256SUMS-arm64` to the existing release.
 Version/package/data remain compatible; use `SHA256SUMS-arm64` for this added APK.
 
+## Mac signing
+
+`FORK_MACOS_CERTIFICATE_BASE64` holds the base64-encoded PKCS12 signing identity;
+`FORK_MACOS_CERTIFICATE_PASSWORD` holds its password. Both are encrypted Actions
+secrets. Keep this identity across releases: replacing it requires another Keychain
+approval. The public SHA-1 certificate fingerprint is pinned in
+`scripts/fork-macos-sign.py` and `scripts/fork-homebrew-cask.rb`.
+
+The fork-owned `mac_signed` job signs the upstream packager's output before publication.
+It uses an isolated temporary keychain, preserves native entitlements and installer
+layout, and verifies the signed app after extracting both final installers. Its native
+regression runs two different signed builds against one test Keychain item with
+interaction disabled. This does not verify the real user's existing Keychain ACL or GUI.
+Missing or mismatched credentials fail the release; there is no unsigned fallback.
+The cask template comes from the exact release commit so installation preserves its
+identity. GitHub releases may distribute these signatures, but they do not provide
+Apple publisher verification or notarization.
+
 ## Android signing
 
 The repository needs three encrypted Actions secrets: `ANDROID_KEYSTORE_BASE64`,
@@ -147,7 +166,7 @@ fork's repository secrets; preserve those secrets when migrating the repository.
 
 The APK's versionCode is the workflow run number. Do not move release building
 to a new workflow without maintaining a higher versionCode than installed APKs.
-Apple signing/notarization and iOS distribution require separate credentials;
+Apple Developer ID signing/notarization and iOS distribution require separate credentials;
 iOS is outside this Mac/Android/GWDG release workflow.
 
 ## Android built-in Tailscale
