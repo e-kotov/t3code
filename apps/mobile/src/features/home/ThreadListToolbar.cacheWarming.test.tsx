@@ -113,7 +113,7 @@ function setup() {
   reactGlobals.IS_REACT_ACT_ENVIRONMENT = true;
   const render = () =>
     act(() => {
-      for (const listener of harness.listeners) listener();
+      for (const listener of [...harness.listeners]) listener();
       root.render(
         <ThreadListToolbar
           sidebar
