@@ -35,7 +35,7 @@
     "apps/mobile/src/features/threads/NewTaskDraftRouteScreen.tsx": 3,
     "apps/mobile/src/features/threads/ThreadComposer.tsx": 4,
     "apps/mobile/src/features/threads/ThreadDetailScreen.tsx": 22,
-    "apps/mobile/src/features/threads/ThreadFeed.tsx": 85,
+    "apps/mobile/src/features/threads/ThreadFeed.tsx": 89,
     "apps/mobile/src/features/threads/ThreadHeader.tsx": 4,
     "apps/mobile/src/features/threads/ThreadNavigationSidebar.tsx": 44,
     "apps/mobile/src/features/threads/ThreadRouteScreen.tsx": 23,
