@@ -123,8 +123,9 @@ export const installDeviceCommands = Effect.fn("desktop.ipc.deviceCommands.insta
   yield* installDeviceUtilities();
   const ipc = yield* DesktopIpc.DesktopIpc;
   const electronWindow = yield* ElectronWindow.ElectronWindow;
+  const runFork = Effect.runForkWith(yield* Effect.context<never>());
   const unsubscribe = runner.subscribe((runUpdate) => {
-    Effect.runFork(electronWindow.sendAll(Channels.DEVICE_COMMANDS_RUN_UPDATED_CHANNEL, runUpdate));
+    runFork(electronWindow.sendAll(Channels.DEVICE_COMMANDS_RUN_UPDATED_CHANNEL, runUpdate));
   });
   yield* Effect.addFinalizer(() =>
     Effect.sync(() => {

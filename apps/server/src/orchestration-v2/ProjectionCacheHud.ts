@@ -32,8 +32,10 @@ export function cacheHudFromProjection(
 }
 
 // Only token metadata from a bounded recent window crosses into the shell.
-export const cacheHudsForThreads = (sql: SqlClient.SqlClient, threadIds: ReadonlyArray<ThreadId>) =>
-  Effect.gen(function* () {
+export const cacheHudsForThreads = Effect.fn("cacheHudsForThreads")(function* (
+  sql: SqlClient.SqlClient,
+  threadIds: ReadonlyArray<ThreadId>,
+) {
     const result = new Map<ThreadId, OrchestrationV2CacheHud | null>();
     if (threadIds.length === 0) return result;
     const rows = yield* sql<{
@@ -65,12 +67,12 @@ export const cacheHudsForThreads = (sql: SqlClient.SqlClient, threadIds: Readonl
     }
     for (const [id, group] of groups) {
       const first = group[0]!;
-      const driver = yield* Schema.decodeUnknownEffect(ProviderDriverKind)(first.driver);
-      const model = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(ModelSelection))(
+      const driver = yield* Schema.decodeEffect(ProviderDriverKind)(first.driver);
+      const model = yield* Schema.decodeEffect(Schema.fromJsonString(ModelSelection))(
         first.model_json,
       );
       const reports = yield* Effect.forEach(group, (row) =>
-        Schema.decodeUnknownEffect(Schema.fromJsonString(OrchestrationV2ProviderTurnTokenUsage))(
+        Schema.decodeEffect(Schema.fromJsonString(OrchestrationV2ProviderTurnTokenUsage))(
           row.usage_json,
         ),
       );

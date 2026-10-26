@@ -2781,6 +2781,7 @@ export const ThreadFeed = memo(function ThreadFeed({
   // current overlay height before the scroll integration's next reaction;
   // on Android the declarative contentInset floor covers this same window.
   const listMountKey = `${feedThreadKey}:${presentedFeed.some((entry) => entry.type !== "thinking") ? "filled" : "empty"}`;
+  const citationListRef = useRef<LegendListRef | null>(null);
   const citationSource = useAssistantCitationSourceTarget({
     environmentId: props.environmentId,
     threadId: props.threadId,
@@ -2791,7 +2792,7 @@ export const ThreadFeed = memo(function ThreadFeed({
     feed: props.feed,
     visible: presentedFeed,
     history: props.historyControls,
-    listRef,
+    listRef: citationListRef,
     listKey: listMountKey,
     topInset: anchorTopInset + CHAT_LIST_ANCHOR_OFFSET,
     onManualNavigation: () => setEndFollow(false),
@@ -2804,6 +2805,7 @@ export const ThreadFeed = memo(function ThreadFeed({
   const { contentInsetEndAdjustment } = props;
   const attachList = (list: LegendListRef | null) => {
     listRef.current = list;
+    citationListRef.current = list;
     const bottom = contentInsetEndAdjustment.get();
     if (list && bottom > 0) list.reportContentInset({ bottom });
   };

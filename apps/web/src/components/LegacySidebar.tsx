@@ -1714,8 +1714,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
         });
       });
 
-      const clicked = await showThreadReferenceContextMenu(
-        thread,
+      const clicked = await api.contextMenu.show(
         [
           buildTargetedItem("rename", "Rename", {
             isDisabled: (member) =>
@@ -2179,7 +2178,8 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
         thread.environmentId,
         AuthOrchestrationOperateScope,
       );
-      const clicked = await api.contextMenu.show(
+      const clicked = await showThreadReferenceContextMenu(
+        thread,
         [
           ...(thread.branch
             ? [{ id: "new-thread-on-branch", label: `New thread on ${thread.branch}` }]

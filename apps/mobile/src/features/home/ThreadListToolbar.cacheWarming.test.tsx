@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { act } from "react";
+import { act, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { expect, it, vi } from "vite-plus/test";
@@ -10,9 +10,13 @@ const harness = vi.hoisted(() => ({
   settings: {} as Record<string, unknown>,
   update: vi.fn(),
   canWrite: true,
+  listeners: new Set<() => void>(),
 }));
 vi.mock("@effect/atom-react", () => ({
-  useAtomValue: (atom: string) => (atom === "threads" ? harness.threads : harness.settings),
+  useAtomValue: (atom: string) => useSyncExternalStore(
+    subscribe,
+    () => atom === "threads" ? harness.threads : harness.settings,
+  ),
 }));
 vi.mock("../../state/threads", () => ({
   environmentThreadShells: { threadShellsAtom: "threads" },
@@ -21,7 +25,9 @@ vi.mock("../../state/server", () => ({
   serverEnvironment: { settingsValueAtom: () => "settings", updateSettings: "update" },
 }));
 vi.mock("../../state/use-atom-command", () => ({ useAtomCommand: () => harness.update }));
-vi.mock("../../state/session", () => ({ useEnvironmentScope: () => harness.canWrite }));
+vi.mock("../../state/session", () => ({
+  useEnvironmentScope: () => useSyncExternalStore(subscribe, () => harness.canWrite),
+}));
 vi.mock("../../state/use-remote-environment-registry", () => ({
   useSavedRemoteConnection: () => ({ environmentLabel: "GWDG HPC" }),
 }));
@@ -74,6 +80,11 @@ vi.mock("../../components/ui/SearchField", () => ({ SearchField: () => null }));
 vi.mock("../workspace/WorkspaceListToolbarRow", () => ({ WorkspaceListToolbarRow: () => null }));
 vi.mock("./ConversationListToolbarButtons", () => ({ ConversationListToolbarButtons: () => null }));
 
+function subscribe(listener: () => void) {
+  harness.listeners.add(listener);
+  return () => { harness.listeners.delete(listener); };
+}
+
 function setup() {
   harness.update.mockReset();
   harness.settings = { cacheWarmingSessions: {} };
@@ -99,7 +110,8 @@ function setup() {
   const previous = reactGlobals.IS_REACT_ACT_ENVIRONMENT;
   reactGlobals.IS_REACT_ACT_ENVIRONMENT = true;
   const render = () =>
-    act(() =>
+    act(() => {
+      for (const listener of harness.listeners) listener();
       root.render(
         <ThreadListToolbar
           sidebar
@@ -111,8 +123,8 @@ function setup() {
           onOpenEnvironments={() => {}}
           cacheWarmingEnvironmentId={environmentId}
         />,
-      ),
-    );
+      );
+    });
   return {
     host,
     render,
