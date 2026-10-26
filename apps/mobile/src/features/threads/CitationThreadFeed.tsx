@@ -4,7 +4,11 @@ import { assistantCitationSourceReadiness } from "../../lib/assistantCitationMes
 import { useThreadDetail } from "../../state/use-thread-detail";
 import { useRemoteEnvironmentRuntime } from "../../state/use-remote-environment-registry";
 import { AssistantCitationSynchronization } from "./AssistantCitationSynchronization";
-import { ThreadFeed as BaseThreadFeed, type ThreadFeedProps, type ThreadFeedHandle } from "./ThreadFeed";
+import {
+  ThreadFeed as BaseThreadFeed,
+  type ThreadFeedProps,
+  type ThreadFeedHandle,
+} from "./ThreadFeed";
 
 export type { ThreadFeedHistoryControls, ThreadFeedHandle } from "./ThreadFeed";
 

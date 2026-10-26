@@ -2433,6 +2433,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
               snoozePresets,
             }),
             position,
+            handleNewThreadRef.current,
           ),
         );
         if (clicked._tag === "Failure" || clicked.value === null) return;

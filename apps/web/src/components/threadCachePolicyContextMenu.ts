@@ -1,3 +1,4 @@
+import { showThreadReferenceContextMenu, type ReferenceThread, type StartReferencedThread } from "./threadReferenceContextMenu";
 import type { ContextMenuItem } from "@t3tools/contracts";
 import { AuthSettingsWriteScope } from "@t3tools/contracts";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
@@ -17,7 +18,7 @@ type CacheThread = Pick<
   "environmentId" | "id" | "cacheHud" | "modelSelection"
 >;
 
-export async function showThreadCachePolicyMenu<T extends string>(
+async function showCachePolicyMenu<T extends string>(
   thread: CacheThread,
   items: readonly ContextMenuItem<T>[],
   position?: { x: number; y: number },
@@ -66,4 +67,22 @@ export async function showThreadCachePolicyMenu<T extends string>(
       { label: "thread idle cache policy" },
     );
   return null;
+}
+
+export function showThreadCachePolicyMenu<T extends string>(
+  thread: CacheThread & Partial<ReferenceThread>,
+  items: readonly ContextMenuItem<T>[],
+  position?: { x: number; y: number },
+  start?: StartReferencedThread,
+): Promise<T | null> {
+  if (start && thread.projectId && thread.title !== undefined) {
+    return showThreadReferenceContextMenu(
+      { ...thread, projectId: thread.projectId, title: thread.title, branch: thread.branch ?? null, worktreePath: thread.worktreePath ?? null },
+      items,
+      position,
+      start,
+      (menu, location) => showCachePolicyMenu(thread, menu, location),
+    );
+  }
+  return showCachePolicyMenu(thread, items, position);
 }

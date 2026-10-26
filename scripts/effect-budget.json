@@ -105,6 +105,7 @@
   "apps/mobile/src/features/threads/McpAppWebView.tsx": 7,
   "apps/mobile/src/features/threads/NewTaskContextPickerScreens.tsx": 2,
   "apps/mobile/src/features/threads/NewTaskDraftRouteScreen.tsx": 5,
+  "apps/mobile/src/features/threads/ReferencedNewTaskDraftScreen.tsx": 1,
   "apps/mobile/src/features/threads/NewTaskDraftScreen.tsx": 10,
   "apps/mobile/src/features/threads/NewTaskRouteScreen.tsx": 1,
   "apps/mobile/src/features/threads/QuestionAttachments.tsx": 2,

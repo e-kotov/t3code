@@ -1,5 +1,8 @@
+import type { ThreadContextRecord } from "@t3tools/contracts";
+
 export type NewTaskDraftRouteParams = {
   readonly requestId?: string;
+  readonly referenceThread?: ThreadContextRecord;
   readonly environmentId?: string | string[];
   readonly projectId?: string | string[];
   readonly branch?: string | null;

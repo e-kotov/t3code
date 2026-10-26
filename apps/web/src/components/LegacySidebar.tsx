@@ -1,3 +1,4 @@
+import { showThreadReferenceContextMenu } from "./threadReferenceContextMenu";
 import { SidebarCacheWarmingToggle } from "./CacheWarmingToggle";
 import { CacheWarmingTitleHint, SidebarThreadCacheControls } from "./sidebar/SidebarThreadCache";
 import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
@@ -1713,7 +1714,8 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
         });
       });
 
-      const clicked = await api.contextMenu.show(
+      const clicked = await showThreadReferenceContextMenu(
+        thread,
         [
           buildTargetedItem("rename", "Rename", {
             isDisabled: (member) =>
@@ -2199,6 +2201,8 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
           },
         ],
         position,
+        handleNewThread,
+        (items, location) => api.contextMenu.show(items, location),
       );
 
       if (clicked === "project-settings") {

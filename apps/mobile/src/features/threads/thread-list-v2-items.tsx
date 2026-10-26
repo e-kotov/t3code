@@ -1,3 +1,4 @@
+import { useNewThreadReferenceMenu } from "./useNewThreadReferenceMenu";
 import { ThreadCachePolicyControl, useThreadCachePolicyMenu } from "./ThreadCachePolicyControl";
 import { CacheHud } from "./CacheHud";
 import { CacheThreadTitle } from "./CacheThreadTitle";
@@ -704,6 +705,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   // Recycling changes identity without remounting; clear local UI directly because equality may skip the render closure.
   const rowIdentity = `${thread.environmentId}:${thread.id}`;
   const cachePolicyMenu = useThreadCachePolicyMenu(thread);
+  const referenceMenu = useNewThreadReferenceMenu(thread);
   const [boundIdentity, setBoundIdentity] = useState(rowIdentity);
   if (boundIdentity !== rowIdentity) {
     setBoundIdentity(rowIdentity);
@@ -896,6 +898,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   );
   const handleMenuAction = useCallback(
     ({ nativeEvent }: { readonly nativeEvent: { readonly event: string } }) => {
+      if (referenceMenu.handleAction(nativeEvent.event)) return;
       if (cachePolicyMenu.handleAction(nativeEvent.event)) return;
       if (nativeEvent.event === "new-thread-on-branch") onNewThreadOnBranch(thread);
       if (nativeEvent.event === "settle") handleSettle();
@@ -935,6 +938,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
     },
     [
       cachePolicyMenu,
+      referenceMenu,
       onNewThreadOnBranch,
       thread,
       handleArchive,
@@ -1032,18 +1036,18 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
           </View>
         ) : null}
         <CacheThreadTitle thread={thread}>
-        <Text
-          className={cn(
-            "flex-1 text-base",
-            !recede && "font-t3-medium",
-            selected
-              ? selectedThreadRowColors.foregroundClassName
-              : rowAppearance.foregroundClassName,
-          )}
-          numberOfLines={2}
-        >
-          {thread.title}
-        </Text>
+          <Text
+            className={cn(
+              "flex-1 text-base",
+              !recede && "font-t3-medium",
+              selected
+                ? selectedThreadRowColors.foregroundClassName
+                : rowAppearance.foregroundClassName,
+            )}
+            numberOfLines={2}
+          >
+            {thread.title}
+          </Text>
         </CacheThreadTitle>
         <View className="flex-row items-center gap-1.5" style={{ marginTop: 3 }}>
           {props.hasQueuedMessages ? <QueuedMessageIcon selected={selected} /> : null}
@@ -1413,6 +1417,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
                     },
                   ]
                 : []),
+              ...referenceMenu.actions,
               { id: "copy-thread-id", title: "Copy thread ID", image: "doc.on.doc" },
               ...(snoozedRow
                 ? snoozedMenuActions

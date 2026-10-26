@@ -24,7 +24,7 @@ import { resolveNewTaskBranchWorktreePath } from "./new-task-context-presentatio
 import { NativeStackScreenOptions } from "../../native/StackHeader";
 
 import { ThreadScreenFallback } from "./ThreadScreenHost";
-import { NewTaskDraftScreen } from "./NewTaskDraftScreen";
+import { ReferencedNewTaskDraftScreen as NewTaskDraftScreen } from "./ReferencedNewTaskDraftScreen";
 
 import type { NewTaskDraftRouteParams } from "./thread-route-state";
 export type { NewTaskDraftRouteParams } from "./thread-route-state";
@@ -195,6 +195,7 @@ export function NewTaskDraftRouteScreen({ route }: StaticScreenProps<NewTaskDraf
       ) : (
         <NewTaskDraftScreen
           initialProjectRef={preparedProjectRef}
+          referenceThread={params.referenceThread}
           incomingShareId={
             Array.isArray(params.incomingShareId)
               ? params.incomingShareId[0]
