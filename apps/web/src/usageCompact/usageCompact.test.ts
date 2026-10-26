@@ -88,4 +88,19 @@ describe("compact usage", () => {
     expect(result[2]?.remaining).toBe(10);
     expect(result[2]?.windows.map((window) => window.label)).toEqual(["Gemini Pro", "Claude"]);
   });
+
+  it("keeps optional Claude spending out of subscription headlines", () => {
+    const claude = account("claudeAgent", 20);
+    const monthly = {
+      id: "monthly_spend", kind: "monthly", label: "Monthly spend", usedPercent: 100,
+    } as const;
+    const result = compactUsage([
+      { ...claude, limits: { ...claude.limits, windows: [...claude.limits.windows, monthly] } },
+    ], now)[1]!;
+    expect(result.remaining).toBe(80);
+    expect(result.windows).toHaveLength(2);
+    expect(compactUsage([
+      { ...claude, limits: { ...claude.limits, windows: [monthly] } },
+    ], now)[1]?.remaining).toBe(0);
+  });
 });
