@@ -62,7 +62,7 @@ it("marks readable quotas partial when a connected source fails", async () => {
     </ul>,
   );
   const trigger = screen.getByRole("button", { name: /Usage remaining.*Partial report/ });
-  await expect.element(trigger).toHaveTextContent("100%*");
+  await expect.element(trigger).toHaveTextContent(/100%\*/);
   await userEvent.click(trigger);
   await expect
     .element(
