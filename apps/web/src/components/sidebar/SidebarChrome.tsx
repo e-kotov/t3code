@@ -1,6 +1,5 @@
 import { SidebarDeviceCommandsMenu } from "../../deviceCommands/SidebarDeviceCommandsMenu";
-import { ArrowLeftIcon, SettingsIcon } from "lucide-react";
-import { SidebarUsageSummary } from "../../usageCompact/SidebarUsageSummary";
+import { ArrowLeftIcon, ChartNoAxesColumnIcon, SettingsIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { memo } from "react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
@@ -218,7 +217,11 @@ const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
               onClick={handlePullRequestsClick}
             />
           ) : null}
-          <SidebarUsageSummary onOpenFullView={handleUsageClick} />
+          <SidebarUtilityItem
+            icon={<ChartNoAxesColumnIcon />}
+            label="Usage"
+            onClick={handleUsageClick}
+          />
         </>
       )}
       <SidebarDeviceCommandsMenu />

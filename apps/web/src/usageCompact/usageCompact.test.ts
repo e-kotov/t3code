@@ -1,7 +1,7 @@
 import { ProviderDriverKind } from "@t3tools/contracts";
 import type { LimitAccount } from "@t3tools/shared/usageLimits";
 import { describe, expect, it } from "vite-plus/test";
-import { compactUsage } from "./usageCompact";
+import { compactUsage, groupUsageWindows } from "./usageCompact";
 
 const now = Date.parse("2026-10-26T12:00:00Z");
 
@@ -107,5 +107,46 @@ describe("compact usage", () => {
       compactUsage([{ ...claude, limits: { ...claude.limits, windows: [monthly] } }], now)[1]
         ?.remaining,
     ).toBe(0);
+  });
+
+  it("shows only the requested harnesses and keeps authenticated unreadable ones unknown", () => {
+    const result = compactUsage([account("codex", 40)], now, new Set(["codex", "antigravity"]));
+    expect(result.map((provider) => [provider.label, provider.remaining])).toEqual([
+      ["Codex", 60],
+      ["Antigravity", null],
+    ]);
+  });
+
+  it("groups reported Family · Window labels without renaming other windows", () => {
+    const agy = account("antigravity", 0);
+    const pool = compactUsage(
+      [
+        {
+          ...agy,
+          limits: {
+            ...agy.limits,
+            windows: [
+              { id: "gemini-5h", kind: "session", label: "Gemini · 5-hour", usedPercent: 0 },
+              { id: "gemini-weekly", kind: "weekly", label: "Gemini · Weekly", usedPercent: 0 },
+              { id: "3p-weekly", kind: "weekly", label: "Claude & GPT · Weekly", usedPercent: 0 },
+            ],
+          },
+        },
+        account("codex", 0),
+      ],
+      now,
+    );
+    expect(
+      groupUsageWindows(pool[2]!.windows).map((group) => [
+        group.title,
+        group.rows.map((row) => row.label),
+      ]),
+    ).toEqual([
+      ["Gemini", ["5-hour", "Weekly"]],
+      ["Claude & GPT", ["Weekly"]],
+    ]);
+    expect(groupUsageWindows(pool[0]!.windows)).toEqual([
+      { title: null, rows: [{ label: "5h", window: pool[0]!.windows[0] }] },
+    ]);
   });
 });

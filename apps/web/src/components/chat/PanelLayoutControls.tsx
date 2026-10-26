@@ -9,6 +9,7 @@ import type { ThreadPanelPresentation } from "../../rightPanelLayout";
 import { PopoverCreateHandle, PopoverTrigger } from "../ui/popover";
 import { Toggle } from "../ui/toggle";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { HeaderUsageControl } from "../../usageCompact/HeaderUsageControl";
 
 export interface PanelLayoutControlsProps {
   showThreadPanelControl?: boolean;
@@ -78,6 +79,8 @@ export const PanelLayoutControls = memo(function PanelLayoutControls({
       className="flex h-full shrink-0 items-center gap-1 [-webkit-app-region:no-drag]"
       data-panel-layout-controls
     >
+      {/* Fork: exactly one instance per chat layout shows the thread toggle; usage rides with it. */}
+      {showThreadPanelControl ? <HeaderUsageControl /> : null}
       {showThreadPanelControl
         ? threadPanelPresentation === "popover"
           ? threadPanelTooltip(

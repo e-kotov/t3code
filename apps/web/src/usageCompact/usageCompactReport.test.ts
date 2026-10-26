@@ -11,15 +11,20 @@ import { compactUsageReport } from "./usageCompactReport";
 
 const checkedAt = "2026-10-26T12:00:00Z";
 
-function provider(id: string, failed = false): ServerProvider {
+function provider(
+  id: string,
+  failed = false,
+  driver = "codex",
+  auth: ServerProvider["auth"]["status"] = "authenticated",
+): ServerProvider {
   return {
     instanceId: ProviderInstanceId.make(id),
-    driver: ProviderDriverKind.make("codex"),
+    driver: ProviderDriverKind.make(driver),
     enabled: true,
     installed: true,
     version: null,
     status: "ready",
-    auth: { status: "authenticated", email: `${id}@example.com` },
+    auth: { status: auth, email: `${id}@example.com` },
     checkedAt,
     models: [],
     slashCommands: [],
@@ -81,4 +86,51 @@ it("keeps source and individual proxy account failures visible", () => {
     "CLI Proxy: Source probe failed",
     "CLI Proxy · failed: Could not read limits.",
   ]);
+});
+
+it("shows only signed-in native providers and proxy accounts of the compact harnesses", () => {
+  const report = compactUsageReport(
+    presentations(
+      [
+        provider("signed-out", false, "claudeAgent", "unauthenticated"),
+        provider("unread", true, "antigravity"),
+        { ...provider("off", false, "codex"), enabled: false },
+        provider("cursor", false, "cursor"),
+      ],
+      [
+        {
+          id: UsageLimitSourceId.make("proxy"),
+          kind: "cliproxy",
+          label: "CLI Proxy",
+          checkedAt,
+          accounts: [
+            {
+              id: "proxied",
+              driver: ProviderDriverKind.make("codex"),
+              usageLimits: {
+                checkedAt,
+                windows: [{ id: "session", kind: "session", label: "5h", usedPercent: 10 }],
+              },
+            },
+          ],
+        },
+        {
+          id: UsageLimitSourceId.make("other"),
+          kind: "cliproxy",
+          label: "Other Proxy",
+          checkedAt,
+          accounts: [
+            {
+              id: "cursor",
+              driver: ProviderDriverKind.make("cursor"),
+              usageLimits: { checkedAt, windows: [] },
+            },
+          ],
+        },
+      ],
+    ),
+  );
+  expect([...report.drivers].toSorted()).toEqual(["antigravity", "codex"]);
+  expect(report.accounts.map((account) => account.key)).toEqual(["proxy:proxied"]);
+  expect(report.notices).toEqual(["antigravity: Could not read limits."]);
 });

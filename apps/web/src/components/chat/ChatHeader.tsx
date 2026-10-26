@@ -273,6 +273,7 @@ export const ChatHeader = memo(function ChatHeader({
       className={cn(
         "flex min-w-0 flex-1 items-center gap-2 sm:gap-3",
         rightPanelOpen ? "pr-10" : "pr-24",
+        "[[data-chat-header]:has([data-header-usage])_&]:me-36",
       )}
       onContextMenu={handleHeaderContextMenu}
     >
