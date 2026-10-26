@@ -10,6 +10,11 @@ import { expect, it } from "vite-plus/test";
 import { compactUsageReport } from "./usageCompactReport";
 
 const checkedAt = "2026-10-26T12:00:00Z";
+const verifiedLimits = {
+  checkedAt: "2026-10-26T11:59:30Z",
+  credentialFingerprint: "google-account-fingerprint",
+  windows: [{ id: "gemini-pro-weekly", kind: "weekly", label: "Gemini Pro · Weekly", usedPercent: 25 }],
+} as const;
 
 function provider(
   id: string,
@@ -133,4 +138,32 @@ it("shows only signed-in native providers and proxy accounts of the compact harn
   expect([...report.drivers].toSorted()).toEqual(["antigravity", "codex"]);
   expect(report.accounts.map((account) => account.key)).toEqual(["proxy:proxied"]);
   expect(report.notices).toEqual(["antigravity: Could not read limits."]);
+});
+
+it("recognizes verified Antigravity quota access before a session confirms sign-in", () => {
+  const report = compactUsageReport(presentations([{
+    ...provider("google", false, "antigravity", "unknown"),
+    status: "warning",
+    usageLimits: verifiedLimits,
+  }]));
+  expect([...report.drivers]).toEqual(["antigravity"]);
+  expect(report.accounts).toHaveLength(1);
+  expect(report.notices).toEqual([]);
+  expect(report).toMatchObject({ authNotices: [
+    "Antigravity quota access verified; session sign-in is not yet confirmed.",
+  ] });
+});
+
+it("rejects signed-out, unverified, stale or mismatched quota authentication evidence", () => {
+  const base = provider("google", false, "antigravity", "unknown");
+  const report = compactUsageReport(presentations([
+    { ...base, auth: { status: "unauthenticated" }, usageLimits: verifiedLimits },
+    { ...base, driver: ProviderDriverKind.make("codex"), usageLimits: verifiedLimits },
+    { ...base, usageLimits: { ...verifiedLimits, credentialFingerprint: undefined } },
+    { ...base, usageLimits: { ...verifiedLimits, checkedAt: "2026-10-26T11:00:00Z" } },
+    { ...base, usageLimits: { ...verifiedLimits, checkedAt: "2026-10-26T12:01:00Z" } },
+    { ...base, usageLimits: { ...verifiedLimits, unavailable: { reason: "probeFailed" } } },
+  ]));
+  expect([...report.drivers]).toEqual([]);
+  expect(report.accounts).toEqual([]);
 });

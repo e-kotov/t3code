@@ -1,10 +1,12 @@
+import { useState } from "react";
 import { expect, it, vi } from "vite-plus/test";
-import { page } from "vite-plus/test/browser";
+import { page, userEvent } from "vite-plus/test/browser";
 import { render } from "../../test/render";
 import {
   PanelLayoutControls,
   type PanelLayoutControlsProps,
   ThreadPanelHeaderControl,
+  WorkspaceTitlebarControls,
 } from "../components/chat/PanelLayoutControls";
 
 vi.mock(import("./useHeaderUsage"), () => ({
@@ -64,4 +66,39 @@ it("omits the usage group where no thread toggle is shown", async () => {
   );
   await expect.element(page.getByRole("button", { name: "Toggle right panel" })).toBeVisible();
   await expect.element(usage()).not.toBeInTheDocument();
+});
+
+function MaximizablePanel() {
+  const [maximized, setMaximized] = useState(false);
+  const rootUsage = { showUsageControl: maximized };
+  const headerUsage = { showUsageControl: !maximized };
+  return (
+    <>
+      <WorkspaceTitlebarControls
+        showMaximizeControl
+        rightPanelOpen
+        animationsActive={false}
+        maximized={maximized}
+        onToggleMaximized={() => setMaximized((value) => !value)}
+      >
+        <PanelLayoutControls {...props} {...rootUsage} showThreadPanelControl={false} />
+      </WorkspaceTitlebarControls>
+      <div hidden={maximized}>
+        <ThreadPanelHeaderControl {...props} {...headerUsage} rightPanelOpen />
+      </div>
+    </>
+  );
+}
+
+it("keeps usage accessible when the inline panel maximizes and restores", async () => {
+  await using _screen = await render(<MaximizablePanel />);
+  await expect.element(usage()).toBeVisible();
+  await userEvent.click(page.getByRole("button", { name: "Maximize panel" }));
+  await expect.element(usage()).toBeVisible();
+  await userEvent.hover(usage());
+  await expect.element(page.getByText("Quota remaining", { exact: true })).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  await userEvent.click(page.getByRole("button", { name: "Restore panel size" }));
+  await expect.element(usage()).toBeVisible();
+  expectBeforeThreadToggle();
 });
