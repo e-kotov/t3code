@@ -38,7 +38,9 @@ export function CompactUsageControl({
               <span className="truncate text-[9px] text-muted-foreground">
                 {provider.shortLabel}
               </span>
-              <span className={`font-mono text-[11px] tabular-nums ${quotaColor(provider.remaining)}`}>
+              <span
+                className={`font-mono text-[11px] tabular-nums ${quotaColor(provider.remaining)}`}
+              >
                 {percent(provider.remaining)}
               </span>
             </span>
@@ -76,7 +78,9 @@ export function CompactUsageControl({
                           <span className="min-w-0 flex-1 truncate text-muted-foreground">
                             {window.label}
                           </span>
-                          <span className={`font-mono tabular-nums ${quotaColor(window.remainingPercent)}`}>
+                          <span
+                            className={`font-mono tabular-nums ${quotaColor(window.remainingPercent)}`}
+                          >
                             {percent(window.remainingPercent)}
                           </span>
                           <span
@@ -92,7 +96,12 @@ export function CompactUsageControl({
                 )}
                 {provider.accounts.length > 0 ? (
                   <p className="text-[9px] text-muted-foreground">
-                    Checked {new Date(Math.min(...provider.accounts.map((account) => Date.parse(account.limits.checkedAt)))).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    Checked{" "}
+                    {new Date(
+                      Math.min(
+                        ...provider.accounts.map((account) => Date.parse(account.limits.checkedAt)),
+                      ),
+                    ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </p>
                 ) : null}
               </section>

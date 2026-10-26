@@ -21,9 +21,16 @@ function setup() {
   return {
     host,
     render: (modelLabel: string, effortLabel: string | null, compact = false) =>
-      act(() => root.render(
-        <CacheHud hud={null} modelLabel={modelLabel} effortLabel={effortLabel} compact={compact} />,
-      )),
+      act(() =>
+        root.render(
+          <CacheHud
+            hud={null}
+            modelLabel={modelLabel}
+            effortLabel={effortLabel}
+            compact={compact}
+          />,
+        ),
+      ),
     [Symbol.dispose]() {
       act(() => root.unmount());
       globals.IS_REACT_ACT_ENVIRONMENT = previous;

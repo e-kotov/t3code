@@ -6,7 +6,9 @@ import { CompactUsageControl } from "./CompactUsageControl";
 it("opens a compact summary before opening the full usage page", async () => {
   const openFull = vi.fn();
   await using screen = await render(
-    <ul><CompactUsageControl accounts={[]} onOpenFullView={openFull} /></ul>,
+    <ul>
+      <CompactUsageControl accounts={[]} onOpenFullView={openFull} />
+    </ul>,
   );
   await userEvent.click(screen.getByRole("button", { name: /Usage remaining/ }));
   await expect.element(page.getByText("Quota remaining", { exact: true })).toBeVisible();
