@@ -5,6 +5,7 @@ import type { OrchestrationV2CacheHud, ServerProviderUsageWindow } from "@t3tool
 import { createCacheHudClock, createCacheHudSnapshot } from "@t3tools/shared/cacheHud";
 import { formatResetsIn } from "@t3tools/shared/usageLimits";
 import { formatModelSlugName } from "@t3tools/shared/model";
+import { useNowMinuteMs } from "../../lib/clock";
 import { AppText as Text } from "../../components/ui/AppText";
 
 const subscribe = createCacheHudClock(
@@ -23,6 +24,7 @@ export function CacheHud(props: {
   effortLabel?: string | null;
 }) {
   const focused = useIsFocused();
+  const now = useNowMinuteMs();
   const hud = props.hud;
   const expiry =
     hud?.ttlMs !== undefined &&
@@ -65,7 +67,7 @@ export function CacheHud(props: {
             : window.windowDurationMins === 300
               ? "5h"
               : window.label;
-        const reset = formatResetsIn(window, Date.now())?.replace(/^resets in /, "↻");
+        const reset = formatResetsIn(window, now)?.replace(/^resets in /, "↻");
         return (
           <Text
             key={window.id}
