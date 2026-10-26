@@ -18,14 +18,18 @@ export function compactUsage(accounts: readonly LimitAccount[], now: number) {
   return PROVIDERS.map((provider) => {
     const pool = pools.find((candidate) => candidate.driver === provider.driver);
     const windows = pool ? displayLimitWindows(pool) : [];
+    const quotaWindows = windows.filter(
+      (window) => provider.driver !== "claudeAgent" || window.id !== "monthly_spend",
+    );
+    const headlineWindows = quotaWindows.length > 0 ? quotaWindows : windows;
     return {
       ...provider,
       accounts: pool?.accounts ?? [],
       windows,
       remaining:
-        windows.length === 0
+        headlineWindows.length === 0
           ? null
-          : Math.max(0, Math.min(100, Math.min(...windows.map((w) => w.remainingPercent)))),
+          : Math.max(0, Math.min(100, Math.min(...headlineWindows.map((w) => w.remainingPercent)))),
     };
   });
 }

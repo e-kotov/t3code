@@ -8,10 +8,12 @@ import { compactUsage } from "./usageCompact";
 
 export function CompactUsageControl({
   accounts,
+  notices = [],
   disconnected = false,
   onOpenFullView,
 }: {
   accounts: Parameters<typeof compactUsage>[0];
+  notices?: readonly string[];
   disconnected?: boolean;
   onOpenFullView: () => void;
 }) {
@@ -29,7 +31,7 @@ export function CompactUsageControl({
           render={
             <button
               type="button"
-              aria-label={`Usage remaining. ${summary}`}
+              aria-label={`Usage remaining. ${summary}${notices.length > 0 ? ". Partial report" : ""}`}
               className="grid h-8 w-full min-w-24 grid-cols-3 items-center gap-1 rounded-md px-1 text-center hover:bg-sidebar-row-hover focus-visible:outline-2 focus-visible:outline-ring"
             />
           }
@@ -39,6 +41,7 @@ export function CompactUsageControl({
               <span className="truncate text-3xs text-muted-foreground">{provider.shortLabel}</span>
               <span className={`font-mono text-2xs tabular-nums ${quotaColor(provider.remaining)}`}>
                 {percent(provider.remaining)}
+                {provider.remaining !== null && notices.length > 0 ? "*" : null}
               </span>
             </span>
           ))}
@@ -48,6 +51,14 @@ export function CompactUsageControl({
           <p className="mt-1 text-3xs text-muted-foreground">
             Last reported · lowest window in the button
           </p>
+          {notices.length > 0 ? (
+            <div className="mt-1 text-3xs text-warning-foreground">
+              <p>* Partial report. Some account limits are unavailable.</p>
+              <ul className="max-h-16 overflow-y-auto">
+                {notices.map((notice, index) => <li key={`${index}:${notice}`}>{notice}</li>)}
+              </ul>
+            </div>
+          ) : null}
           {disconnected ? (
             <p className="mt-1 text-3xs text-warning-foreground">
               An environment is disconnected; its values may be out of date.
