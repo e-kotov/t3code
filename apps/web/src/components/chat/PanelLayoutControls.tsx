@@ -13,6 +13,7 @@ import { HeaderUsageControl } from "../../usageCompact/HeaderUsageControl";
 
 export interface PanelLayoutControlsProps {
   showThreadPanelControl?: boolean;
+  showUsageControl?: boolean;
   showTerminalControl?: boolean;
   showRightPanelControl?: boolean;
   terminalAvailable: boolean;
@@ -33,6 +34,7 @@ export interface PanelLayoutControlsProps {
 
 export const PanelLayoutControls = memo(function PanelLayoutControls({
   showThreadPanelControl = true,
+  showUsageControl = showThreadPanelControl,
   showTerminalControl = true,
   showRightPanelControl = true,
   terminalAvailable,
@@ -79,8 +81,8 @@ export const PanelLayoutControls = memo(function PanelLayoutControls({
       className="flex h-full shrink-0 items-center gap-1 [-webkit-app-region:no-drag]"
       data-panel-layout-controls
     >
-      {/* Fork: exactly one instance per chat layout shows the thread toggle; usage rides with it. */}
-      {showThreadPanelControl ? <HeaderUsageControl /> : null}
+      {/* Maximizing hides the chat header, so usage can move to the root controls. */}
+      {showUsageControl ? <HeaderUsageControl /> : null}
       {showThreadPanelControl
         ? threadPanelPresentation === "popover"
           ? threadPanelTooltip(

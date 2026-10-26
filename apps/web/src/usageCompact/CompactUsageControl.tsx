@@ -15,12 +15,14 @@ export function CompactUsageControl({
   accounts,
   drivers,
   notices = [],
+  authNotices = [],
   disconnected = false,
   onOpenFullView,
 }: {
   accounts: Parameters<typeof compactUsage>[0];
   drivers?: Parameters<typeof compactUsage>[2];
   notices?: readonly string[];
+  authNotices?: readonly string[];
   disconnected?: boolean;
   onOpenFullView: () => void;
 }) {
@@ -47,7 +49,7 @@ export function CompactUsageControl({
         render={
           <button
             type="button"
-            aria-label={`Usage remaining: ${summary}${notices.length > 0 ? ". Partial report" : ""}${disconnected ? ". Environment disconnected" : ""}. Open full usage`}
+            aria-label={`Usage remaining: ${summary}${notices.length > 0 ? ". Partial report" : ""}${disconnected ? ". Environment disconnected" : ""}${authNotices.length > 0 ? ". Session sign-in unconfirmed" : ""}. Open full usage`}
             data-toolbar-control
             data-header-usage
             className="relative flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 text-foreground outline-hidden [-webkit-app-region:no-drag] hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-popup-open:bg-accent"
@@ -76,7 +78,7 @@ export function CompactUsageControl({
             </span>
           </span>
         ))}
-        {notices.length > 0 || disconnected ? (
+        {notices.length > 0 || disconnected || authNotices.length > 0 ? (
           <span aria-hidden className="absolute top-1 right-0.5 size-1 rounded-full bg-warning" />
         ) : null}
       </PopoverTrigger>
@@ -94,6 +96,11 @@ export function CompactUsageControl({
             All authenticated harnesses · click opens Usage
           </span>
         </div>
+        {authNotices.length > 0 ? (
+          <ul className="mt-1 text-3xs text-muted-foreground">
+            {[...new Set(authNotices)].map((notice) => <li key={notice}>{notice}</li>)}
+          </ul>
+        ) : null}
         {notices.length > 0 ? (
           <div className="mt-1 text-3xs text-warning-foreground">
             <p>Partial report. Some account limits are unavailable.</p>

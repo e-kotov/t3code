@@ -10,6 +10,20 @@ import { COMPACT_USAGE_DRIVERS } from "./usageCompact";
 const shownDriver = (driver: ServerProvider["driver"]) =>
   COMPACT_USAGE_DRIVERS.some((shown) => shown === driver);
 
+function hasVerifiedQuotaAccess(provider: ServerProvider): boolean {
+  const limits = provider.usageLimits;
+  if (
+    provider.driver !== "antigravity" ||
+    provider.auth.status !== "unknown" ||
+    !limits?.credentialFingerprint ||
+    limits.unavailable ||
+    limits.windows.length === 0
+  ) return false;
+  // Match the successful OAuth probe to its health snapshot, not arbitrary cached windows.
+  const snapshotLagMs = Date.parse(provider.checkedAt) - Date.parse(limits.checkedAt);
+  return Number.isFinite(snapshotLagMs) && snapshotLagMs >= 0 && snapshotLagMs <= 60_000;
+}
+
 /** Signed-in native providers and proxy accounts; signed-out logins drop their stale windows. */
 function authenticatedPresentations(presentations: LimitPresentations): LimitPresentations {
   return new Map(
@@ -24,7 +38,8 @@ function authenticatedPresentations(presentations: LimitPresentations): LimitPre
             ...config,
             providers: config.providers.filter(
               (provider) =>
-                shownDriver(provider.driver) && provider.auth.status === "authenticated",
+                shownDriver(provider.driver) &&
+                (provider.auth.status === "authenticated" || hasVerifiedQuotaAccess(provider)),
             ),
             // As in the full Usage filter, a source emptied by filtering is not "no accounts".
             usageLimitSources: config.usageLimitSources?.flatMap((source) => {
@@ -44,10 +59,14 @@ export function compactUsageReport(presentations: LimitPresentations) {
   const authenticated = authenticatedPresentations(presentations);
   const drivers = new Set<string>();
   const notices = [...collectLimitNotices(authenticated)];
+  const authNotices = new Set<string>();
   for (const presentation of authenticated.values()) {
     for (const provider of presentation.serverConfig?.providers ?? []) {
       if (provider.enabled && provider.installed && isProviderAvailable(provider)) {
         drivers.add(provider.driver);
+        if (hasVerifiedQuotaAccess(provider)) {
+          authNotices.add("Antigravity quota access verified; session sign-in is not yet confirmed.");
+        }
       }
     }
     for (const source of presentation.serverConfig?.usageLimitSources ?? []) {
@@ -60,5 +79,5 @@ export function compactUsageReport(presentations: LimitPresentations) {
       }
     }
   }
-  return { accounts: collectLimitAccounts(authenticated), notices, drivers };
+  return { accounts: collectLimitAccounts(authenticated), notices, drivers, authNotices: [...authNotices] };
 }
