@@ -85,25 +85,6 @@ jobs:
         if: steps.merge.outputs.changed == 'true'
         working-directory: apps/mobile
         run: |
-          node <<'JS'
-          const fs = require("node:fs");
-          const cp = require("node:child_process");
-          const path = require("node:path");
-          const babel = require("@babel/core");
-          const config = require("./babel.config.js")({ cache() {} });
-          const file = "src/features/threads/ThreadFeed.tsx";
-          const source = fs.readFileSync(file, "utf8");
-          const noRest = source.replace(/function ThreadFeed\(\{\s*ref,\s*\.\.\.props\s*\}: ThreadFeedProps & \{ readonly ref\?: Ref<ThreadFeedHandle> \}\) \{/, "function ThreadFeed(props: ThreadFeedProps & { readonly ref?: Ref<ThreadFeedHandle> }) {\n const { ref } = props;");
-          const withoutCitation = source.replace(/  const citationSource = useAssistantCitationSourceTarget\(\{[\s\S]*?\n  \}\);/, "  const citationSource = null as any;");
-          const upstream = cp.execFileSync("git", ["show", "3433ba15fdfec1acaad273f293098e773fc97bee:apps/mobile/" + file], { encoding: "utf8" });
-          for (const [variant, text] of [["current", source], ["upstream", upstream], ["no-rest", noRest], ["without-citation", withoutCitation]]) {
-            const events = [];
-            const presets = config.presets.map(([name, options]) => name === "babel-preset-expo" ? [require.resolve(name), { ...options, "react-compiler": { logger: { logEvent(_, event) { events.push(event); } } } }] : [name, options]);
-            babel.transformSync(text, { filename: path.resolve(file), cwd: process.cwd(), babelrc: false, configFile: false, code: false, presets, caller: { name: "metro", bundler: "metro", platform: "ios", isDev: false, isServer: false, isNodeModule: false, supportsStaticESM: true, supportsReactCompiler: true } });
-            console.log("COMPILER_VARIANT", variant, "changed", text !== source);
-            for (const event of events.filter(e => e.kind === "CompileError" || e.kind === "CompileSkip")) console.log(JSON.stringify(event.detail ?? event));
-          }
-          JS
           vp test run src/reactCompilerCoverage.test.ts \
             src/features/home/ThreadListToolbar.cacheWarming.test.tsx \
             -t 'compiles src/features/threads/ThreadFeed.tsx|shows the Android sidebar'

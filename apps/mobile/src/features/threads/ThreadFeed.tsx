@@ -2122,10 +2122,8 @@ function useThreadFeedPresentation(
   );
 }
 
-export const ThreadFeed = memo(function ThreadFeed({
-  ref,
-  ...props
-}: ThreadFeedProps & { readonly ref?: Ref<ThreadFeedHandle> }) {
+export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps & { readonly ref?: Ref<ThreadFeedHandle> }) {
+  const { ref } = props;
   const { listRef, onEndFollowEnabledChange, onHeaderMaterialVisibilityChange } = props;
   const workflowOpening = useWorkflowOpening(props.environmentId, props.threadId);
   const guestThreadRef = useMemo(
@@ -2781,7 +2779,6 @@ export const ThreadFeed = memo(function ThreadFeed({
   // current overlay height before the scroll integration's next reaction;
   // on Android the declarative contentInset floor covers this same window.
   const listMountKey = `${feedThreadKey}:${presentedFeed.some((entry) => entry.type !== "thinking") ? "filled" : "empty"}`;
-  const citationListRef = useRef<LegendListRef | null>(null);
   const citationSource = useAssistantCitationSourceTarget({
     environmentId: props.environmentId,
     threadId: props.threadId,
@@ -2792,7 +2789,7 @@ export const ThreadFeed = memo(function ThreadFeed({
     feed: props.feed,
     visible: presentedFeed,
     history: props.historyControls,
-    listRef: citationListRef,
+    listRef,
     listKey: listMountKey,
     topInset: anchorTopInset + CHAT_LIST_ANCHOR_OFFSET,
     onManualNavigation: () => setEndFollow(false),
@@ -2805,7 +2802,6 @@ export const ThreadFeed = memo(function ThreadFeed({
   const { contentInsetEndAdjustment } = props;
   const attachList = (list: LegendListRef | null) => {
     listRef.current = list;
-    citationListRef.current = list;
     const bottom = contentInsetEndAdjustment.get();
     if (list && bottom > 0) list.reportContentInset({ bottom });
   };
