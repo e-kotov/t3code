@@ -20,6 +20,7 @@ export function CacheHud(props: {
   compact?: boolean;
   usageWindows?: readonly ServerProviderUsageWindow[];
   modelLabel?: string;
+  effortLabel?: string | null;
 }) {
   const focused = useIsFocused();
   const hud = props.hud;
@@ -85,9 +86,20 @@ export function CacheHud(props: {
       <View className="flex-row items-center gap-2">
         {content}
         {modelLabel ? (
-          <Text className="shrink font-mono text-[10px] text-foreground-muted" numberOfLines={1}>
-            {modelLabel}
-          </Text>
+          <View className="min-w-0 shrink items-end">
+            <Text className="font-mono text-[10px] text-foreground-muted" numberOfLines={1}>
+              {modelLabel}
+            </Text>
+            {props.effortLabel ? (
+              <Text
+                className="font-mono text-[10px] text-foreground-muted"
+                numberOfLines={1}
+                accessibilityLabel={`Model effort: ${props.effortLabel}`}
+              >
+                {props.effortLabel}
+              </Text>
+            ) : null}
+          </View>
         ) : null}
       </View>
       {usageWindows.length > 0 ? <View className="flex-row items-center">{windows}</View> : null}

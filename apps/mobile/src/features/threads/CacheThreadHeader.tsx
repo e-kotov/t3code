@@ -1,4 +1,8 @@
 import { focusedCacheHud } from "@t3tools/shared/cacheHud";
+import {
+  deriveReportedModelSelection,
+  formatModelSelectionEffort,
+} from "@t3tools/client-runtime/state/thread-execution";
 import { useAtomValue } from "@effect/atom-react";
 import { Atom } from "effect/reactivity";
 import type { EnvironmentThreadStructure } from "@t3tools/client-runtime/state/models";
@@ -32,6 +36,13 @@ export function CacheThreadHeader({
       <CacheHud
         hud={hud}
         modelLabel={cacheThread.modelSelection.model}
+        effortLabel={formatModelSelectionEffort(
+          cacheThread.modelSelection,
+          cacheServerConfig?.providers.find(
+            (provider) => provider.instanceId === cacheThread.modelSelection.instanceId,
+          )?.models,
+          detail ? deriveReportedModelSelection(detail.projection) : null,
+        )}
         usageWindows={
           cacheServerConfig?.providers.find(
             (provider) => provider.instanceId === cacheThread.modelSelection.instanceId,
