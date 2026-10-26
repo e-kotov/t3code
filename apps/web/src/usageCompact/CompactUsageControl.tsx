@@ -1,6 +1,7 @@
+import { ProviderDriverKind } from "@t3tools/contracts";
 import { formatDuration } from "@t3tools/shared/usageLimits";
 import { useState } from "react";
-import { Button } from "../components/ui/button";
+import { ProviderInstanceIcon } from "../components/chat/ProviderInstanceIcon";
 import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "../components/ui/popover";
 import { SidebarMenuItem } from "../components/ui/sidebar";
 import { useNowMinute } from "../hooks/useNowMinute";
@@ -25,35 +26,71 @@ export function CompactUsageControl({
     .map((provider) => `${provider.label}: ${percent(provider.remaining)}`)
     .join(", ");
   return (
-    <SidebarMenuItem className="min-w-0 flex-1">
-      <Popover open={open} onOpenChange={setOpen}>
+    <SidebarMenuItem className="shrink-0">
+      <Popover
+        open={open}
+        onOpenChange={(nextOpen, details) => {
+          // Pressing the trigger opens the full usage page; only hover and focus show details.
+          if (details.reason === "trigger-press") details.cancel();
+          if (!details.isCanceled) setOpen(nextOpen);
+        }}
+      >
         <PopoverTrigger
+          openOnHover
+          closeDelay={150}
           render={
             <button
               type="button"
               aria-label={`Usage remaining. ${summary}${notices.length > 0 ? ". Partial report" : ""}`}
-              className="grid h-8 w-full min-w-24 grid-cols-3 items-center gap-1 rounded-md px-1 text-center hover:bg-sidebar-row-hover focus-visible:outline-2 focus-visible:outline-ring"
+              className="relative flex h-8 w-12 items-center justify-center gap-1 rounded-md text-sidebar-foreground outline-hidden hover:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+              onClick={() => {
+                setOpen(false);
+                onOpenFullView();
+              }}
+              onFocus={(event) => {
+                if (event.currentTarget.matches(":focus-visible")) setOpen(true);
+              }}
+              onBlur={() => setOpen(false)}
             />
           }
         >
           {providers.map((provider) => (
-            <span key={provider.driver} className="flex min-w-0 flex-col leading-tight">
-              <span className="truncate text-3xs text-muted-foreground">{provider.shortLabel}</span>
-              <span className={`font-mono text-2xs tabular-nums ${quotaColor(provider.remaining)}`}>
-                {percent(provider.remaining)}
-                {provider.remaining !== null && notices.length > 0 ? "*" : null}
+            <span key={provider.driver} aria-hidden className="flex flex-col items-center gap-0.5">
+              <ProviderInstanceIcon
+                driverKind={ProviderDriverKind.make(provider.driver)}
+                displayName={provider.label}
+                iconClassName="size-3"
+                showBadge={false}
+              />
+              <span
+                className={`h-0.5 w-3 overflow-hidden rounded-full bg-muted ${quotaColor(provider.remaining)}`}
+              >
+                <span
+                  className="block h-full rounded-full bg-current"
+                  style={{ width: `${provider.remaining ?? 0}%` }}
+                />
               </span>
             </span>
           ))}
+          {notices.length > 0 ? (
+            <span aria-hidden className="absolute top-1 right-0.5 size-1 rounded-full bg-warning" />
+          ) : null}
         </PopoverTrigger>
-        <PopoverPopup side="top" align="start" width="sm" padding="compact">
+        <PopoverPopup
+          side="top"
+          align="start"
+          width="sm"
+          padding="compact"
+          initialFocus={false}
+          finalFocus={false}
+        >
           <PopoverTitle>Quota remaining</PopoverTitle>
           <p className="mt-1 text-3xs text-muted-foreground">
             Last reported · subscription quota first
           </p>
           {notices.length > 0 ? (
             <div className="mt-1 text-3xs text-warning-foreground">
-              <p>* Partial report. Some account limits are unavailable.</p>
+              <p>Partial report. Some account limits are unavailable.</p>
               <ul className="max-h-16 overflow-y-auto">
                 {[...new Set(notices)].map((notice) => (
                   <li key={notice}>{notice}</li>
@@ -66,7 +103,7 @@ export function CompactUsageControl({
               An environment is disconnected; its values may be out of date.
             </p>
           ) : null}
-          <div className="my-2 space-y-2">
+          <div className="mt-2 space-y-2">
             {providers.map((provider) => (
               <section key={provider.driver} aria-label={provider.label}>
                 <div className="flex items-baseline justify-between gap-2 text-xs font-medium">
@@ -114,16 +151,6 @@ export function CompactUsageControl({
               </section>
             ))}
           </div>
-          <Button
-            variant="ghost"
-            size="xs"
-            onClick={() => {
-              setOpen(false);
-              onOpenFullView();
-            }}
-          >
-            Open full usage
-          </Button>
         </PopoverPopup>
       </Popover>
     </SidebarMenuItem>

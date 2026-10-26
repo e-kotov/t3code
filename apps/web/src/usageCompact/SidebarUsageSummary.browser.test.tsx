@@ -5,22 +5,45 @@ import { CompactUsageControl } from "./CompactUsageControl";
 import { EnvironmentId, ProviderDriverKind, UsageLimitSourceId } from "@t3tools/contracts";
 import { compactUsageReport } from "./usageCompactReport";
 
-it("opens a compact summary before opening the full usage page", async () => {
-  const openFull = vi.fn();
-  await using screen = await render(
+function renderControl(openFull: () => void) {
+  return render(
     <ul>
       <CompactUsageControl accounts={[]} onOpenFullView={openFull} />
     </ul>,
   );
-  await userEvent.click(screen.getByRole("button", { name: /Usage remaining/ }));
-  await expect.element(page.getByText("Quota remaining", { exact: true })).toBeVisible();
+}
+
+const details = () => page.getByText("Quota remaining", { exact: true });
+
+it("shows quota details on hover without opening the full usage page", async () => {
+  const openFull = vi.fn();
+  await using screen = await renderControl(openFull);
+  await userEvent.hover(screen.getByRole("button", { name: /Usage remaining/ }));
+  await expect.element(details()).toBeVisible();
+  await userEvent.hover(details());
+  await expect.element(details()).toBeVisible();
+  await userEvent.unhover(details());
+  await expect.element(details()).not.toBeInTheDocument();
   expect(openFull).not.toHaveBeenCalled();
-  await userEvent.keyboard("{Escape}");
-  await expect.element(page.getByText("Quota remaining", { exact: true })).not.toBeInTheDocument();
+});
+
+it("opens the full usage page on the first click", async () => {
+  const openFull = vi.fn();
+  await using screen = await renderControl(openFull);
   await userEvent.click(screen.getByRole("button", { name: /Usage remaining/ }));
-  await userEvent.click(page.getByRole("button", { name: "Open full usage" }));
   expect(openFull).toHaveBeenCalledOnce();
-  await expect.element(page.getByText("Quota remaining", { exact: true })).not.toBeInTheDocument();
+});
+
+it("shows details on keyboard focus and opens the full page with Enter", async () => {
+  const openFull = vi.fn();
+  await using _screen = await renderControl(openFull);
+  await userEvent.tab();
+  await expect.element(details()).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  await expect.element(details()).not.toBeInTheDocument();
+  expect(openFull).not.toHaveBeenCalled();
+  await userEvent.keyboard("{Enter}");
+  expect(openFull).toHaveBeenCalledOnce();
 });
 
 it("marks readable quotas partial when a connected source fails", async () => {
@@ -61,12 +84,11 @@ it("marks readable quotas partial when a connected source fails", async () => {
       <CompactUsageControl {...report} onOpenFullView={() => {}} />
     </ul>,
   );
-  const trigger = screen.getByRole("button", { name: /Usage remaining.*Partial report/ });
-  await expect.element(screen.getByText("100%*", { exact: true })).toBeVisible();
-  await userEvent.click(trigger);
+  await userEvent.hover(screen.getByRole("button", { name: /Usage remaining.*Partial report/ }));
+  await expect.element(page.getByText("100%", { exact: true })).toBeVisible();
   await expect
     .element(
-      page.getByText("* Partial report. Some account limits are unavailable.", { exact: true }),
+      page.getByText("Partial report. Some account limits are unavailable.", { exact: true }),
     )
     .toBeVisible();
   await expect
