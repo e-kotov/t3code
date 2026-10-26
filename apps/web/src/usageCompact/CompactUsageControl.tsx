@@ -3,12 +3,13 @@ import { formatDuration } from "@t3tools/shared/usageLimits";
 import { useState } from "react";
 import { ProviderInstanceIcon } from "../components/chat/ProviderInstanceIcon";
 import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "../components/ui/popover";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
 import { useNowMinute } from "../hooks/useNowMinute";
 import { cn } from "../lib/utils";
 import { compactUsage, groupUsageWindows } from "./usageCompact";
 
 const GRID_COLUMNS = ["", "sm:grid-cols-1", "sm:grid-cols-2", "sm:grid-cols-3"] as const;
-const POPUP_WIDTH = ["w-64", "w-64", "w-[23rem]", "w-[32rem]"] as const;
+const POPUP_WIDTH = ["w-64", "w-64", "w-92", "w-128"] as const;
 
 export function CompactUsageControl({
   accounts,
@@ -69,7 +70,7 @@ export function CompactUsageControl({
               showBadge={false}
             />
             <span
-              className={`font-mono text-[11px] whitespace-nowrap tabular-nums ${quotaColor(provider.remaining)}`}
+              className={`font-mono text-2xs whitespace-nowrap tabular-nums ${quotaColor(provider.remaining)}`}
             >
               {percent(provider.remaining)}
             </span>
@@ -88,7 +89,7 @@ export function CompactUsageControl({
         finalFocus={false}
       >
         <div className="flex items-baseline gap-2">
-          <PopoverTitle className="text-xs">Quota remaining</PopoverTitle>
+          <PopoverTitle>Quota remaining</PopoverTitle>
           <span className="ms-auto text-3xs text-muted-foreground">
             All authenticated harnesses · click opens Usage
           </span>
@@ -136,8 +137,11 @@ export function CompactUsageControl({
               {provider.windows.length === 0 ? (
                 <p className="mt-1 text-3xs text-muted-foreground">Limits unavailable</p>
               ) : (
-                groupUsageWindows(provider.windows).map((group, index) => (
-                  <div key={`${group.title ?? ""}:${index}`} className="mt-1.5">
+                groupUsageWindows(provider.windows).map((group) => (
+                  <div
+                    key={`${group.rows[0]?.window.kind}:${group.rows[0]?.window.id}`}
+                    className="mt-1.5"
+                  >
                     {group.title ? (
                       <p className="text-3xs text-muted-foreground">{group.title}</p>
                     ) : null}
@@ -147,9 +151,12 @@ export function CompactUsageControl({
                       return (
                         <div key={`${window.kind}:${window.id}`} className="mt-0.5">
                           <div className="grid grid-cols-[minmax(0,1fr)_2rem_3rem] items-baseline gap-1 text-3xs">
-                            <span className="truncate" title={window.label}>
-                              {label}
-                            </span>
+                            <Tooltip>
+                              <TooltipTrigger render={<span className="truncate" />}>
+                                {label}
+                              </TooltipTrigger>
+                              <TooltipPopup>{window.label}</TooltipPopup>
+                            </Tooltip>
                             <span
                               className={`text-right font-mono tabular-nums ${quotaColor(window.remainingPercent)}`}
                             >
