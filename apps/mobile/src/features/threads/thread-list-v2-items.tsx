@@ -1,7 +1,7 @@
 import { useNewThreadReferenceMenu } from "./useNewThreadReferenceMenu";
 import { ThreadCachePolicyControl, useThreadCachePolicyMenu } from "./ThreadCachePolicyControl";
 import { CacheHud } from "./CacheHud";
-import { CacheThreadTitle } from "./CacheThreadTitle";
+import { CacheThreadRowTitle } from "./CacheThreadTitle";
 import * as Dialog from "../../components/ui/Dialog";
 import type { ThreadRowProviderInstance } from "./thread-provider-instance";
 import {
@@ -1035,20 +1035,19 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
             />
           </View>
         ) : null}
-        <CacheThreadTitle thread={thread}>
-          <Text
-            className={cn(
-              "flex-1 text-base",
-              !recede && "font-t3-medium",
-              selected
-                ? selectedThreadRowColors.foregroundClassName
-                : rowAppearance.foregroundClassName,
-            )}
-            numberOfLines={2}
-          >
-            {thread.title}
-          </Text>
-        </CacheThreadTitle>
+        <CacheThreadRowTitle
+          thread={thread}
+          className={cn(
+            "flex-1 text-base",
+            !recede && "font-t3-medium",
+            selected
+              ? selectedThreadRowColors.foregroundClassName
+              : rowAppearance.foregroundClassName,
+          )}
+          numberOfLines={2}
+        >
+          {thread.title}
+        </CacheThreadRowTitle>
         <View className="flex-row items-center gap-1.5" style={{ marginTop: 3 }}>
           {props.hasQueuedMessages ? <QueuedMessageIcon selected={selected} /> : null}
           {pinnedRow ? (

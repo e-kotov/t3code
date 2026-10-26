@@ -1,5 +1,6 @@
+import { AppText as Text } from "../../components/ui/AppText";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { View } from "react-native";
 import { CacheHud } from "./CacheHud";
 import { ThreadCachePolicyControl } from "./ThreadCachePolicyControl";
@@ -19,5 +20,17 @@ export function CacheThreadTitle(props: {
       </View>
       <CacheHud hud={props.thread.cacheHud} compact />
     </>
+  );
+}
+
+export function CacheThreadRowTitle({ thread, ...props }: ComponentProps<typeof Text> & {
+  readonly thread: ComponentProps<typeof CacheThreadTitle>["thread"];
+}) {
+  return (
+    <View className="min-w-0 flex-1">
+      <CacheThreadTitle thread={thread}>
+        <Text {...props} />
+      </CacheThreadTitle>
+    </View>
   );
 }
