@@ -58,17 +58,17 @@ const firstGenerationRow = Effect.fn("AntigravityTurnUsage.firstGenerationRow")(
   return rows[0];
 });
 
-/** A session without a database or generations yet starts from zero. */
+/** A session without a database or generations yet starts from -1 (Antigravity's first generation is idx=0). */
 const latestAntigravityGenerationRowId = Effect.fn("latestAntigravityGenerationRowId")(function* (
   filename: string,
 ) {
   const fileSystem = yield* FileSystem.FileSystem;
-  if (!(yield* fileSystem.exists(filename))) return 0;
+  if (!(yield* fileSystem.exists(filename))) return -1;
   const row = yield* firstGenerationRow<{ readonly row_id: number | null }>(
     filename,
     "SELECT MAX(rowid) AS row_id FROM gen_metadata",
   );
-  return row?.row_id ?? 0;
+  return row?.row_id ?? -1;
 });
 
 /** Decodes only the newest row; the usage reader's scan decodes the whole conversation. */
@@ -261,8 +261,8 @@ export const withAntigravityTurnUsage = Effect.fn("withAntigravityTurnUsage")(fu
         const sessionId = turnInput.providerThread.nativeThreadRef?.nativeId ?? undefined;
         const baselineRowId =
           sessionId === undefined
-            ? 0
-            : yield* quietly(latestAntigravityGenerationRowId(database(sessionId)), 0);
+            ? -1
+            : yield* quietly(latestAntigravityGenerationRowId(database(sessionId)), -1);
         threads.set(turnInput.providerThread.id, {
           sessionId,
           baselineRowId,

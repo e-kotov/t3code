@@ -62,11 +62,20 @@ function generation(usage: {
   );
 }
 
-const insertGeneration = (filename: string, data: Uint8Array) =>
+const insertGeneration = (filename: string, data: Uint8Array, idx?: number) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient;
-    yield* sql.unsafe("CREATE TABLE IF NOT EXISTS gen_metadata (idx INTEGER, data BLOB)");
-    yield* sql.unsafe("INSERT INTO gen_metadata (idx, data) VALUES (0, ?)", [data]);
+    yield* sql.unsafe(
+      "CREATE TABLE IF NOT EXISTS gen_metadata (idx INTEGER PRIMARY KEY, data BLOB)",
+    );
+    if (idx !== undefined) {
+      yield* sql.unsafe("INSERT INTO gen_metadata (idx, data) VALUES (?, ?)", [idx, data]);
+    } else {
+      yield* sql.unsafe(
+        "INSERT INTO gen_metadata (idx, data) VALUES (COALESCE((SELECT MAX(idx) + 1 FROM gen_metadata), 0), ?)",
+        [data],
+      );
+    }
   }).pipe(Effect.provide(NodeSqliteClient.layer({ filename })));
 
 const instanceId = ProviderInstanceId.make("antigravity");
@@ -176,6 +185,19 @@ const setup = Effect.gen(function* () {
 });
 
 const layer = Layer.mergeAll(NodeServices.layer, NodeCrypto.layer);
+
+it.effect("reports the first generation (idx=0) on a fresh session", () =>
+  Effect.gen(function* () {
+    const { database, startTurn, emit } = yield* setup;
+    yield* startTurn();
+    yield* insertGeneration(database, finalRequest);
+    const [, settled] = yield* emit([
+      threadEvent(contextUsage, "2026-10-27T14:59:00.000Z"),
+      turnEvent("provider-turn:1", "completed", DateTime.makeUnsafe("2026-10-27T15:00:00.000Z")),
+    ]);
+    assert.deepStrictEqual(tokenUsageOf(settled), finalRequestUsage("2026-10-27T15:00:00.000Z"));
+  }).pipe(Effect.scoped, Effect.provide(layer)),
+);
 
 it.effect("reports the turn's newest generation as its last request", () =>
   Effect.gen(function* () {
