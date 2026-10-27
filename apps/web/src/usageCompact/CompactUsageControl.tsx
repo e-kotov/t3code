@@ -49,9 +49,8 @@ export function CompactUsageControl({
           <button
             type="button"
             aria-label={`Usage remaining: ${summary}${notices.length > 0 ? ". Partial report" : ""}${disconnected ? ". Environment disconnected" : ""}${authNotices.length > 0 ? ". Session sign-in unconfirmed" : ""}. Open full usage`}
-            data-toolbar-control
             data-header-usage
-            className="relative flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 text-foreground outline-hidden [-webkit-app-region:no-drag] hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-popup-open:bg-accent"
+            className="relative flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 text-(--contrast-toolbar-foreground) outline-hidden [-webkit-app-region:no-drag] hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-popup-open:bg-accent"
             onClick={() => {
               setOpen(false);
               onOpenFullView();
@@ -70,6 +69,23 @@ export function CompactUsageControl({
               iconClassName="size-3"
               showBadge={false}
             />
+            {provider.bars.length > 0 ? (
+              <span className="flex flex-col justify-center gap-0.5 py-0.5">
+                {provider.bars.map((bar) => (
+                  <span key={bar.label} className="flex items-center gap-0.5">
+                    <span className="w-2.5 text-right font-mono text-4xs font-semibold uppercase text-muted-foreground">
+                      {bar.label}
+                    </span>
+                    <span className="h-0.5 w-3 overflow-hidden rounded-full bg-muted">
+                      <span
+                        className={cn("block h-full rounded-full", barFillColor(bar.remaining))}
+                        style={{ width: `${bar.remaining}%` }}
+                      />
+                    </span>
+                  </span>
+                ))}
+              </span>
+            ) : null}
             <span
               className={`font-mono text-2xs whitespace-nowrap tabular-nums ${quotaColor(provider.remaining)}`}
             >
@@ -218,5 +234,9 @@ function quotaColor(remaining: number | null) {
       ? "text-destructive-foreground"
       : remaining <= 25
         ? "text-warning-foreground"
-        : "text-foreground";
+        : "";
+}
+
+function barFillColor(remaining: number) {
+  return remaining <= 10 ? "bg-destructive" : remaining <= 25 ? "bg-warning" : "bg-success";
 }

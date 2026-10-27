@@ -117,6 +117,91 @@ describe("compact usage", () => {
     ]);
   });
 
+  it("derives session (5h) and weekly (w) progress bars, keeping single bar for session-only accounts", () => {
+    const codexPro = account("codex", 20);
+    const codexPlus = {
+      ...codexPro,
+      limits: {
+        ...codexPro.limits,
+        windows: [
+          ...codexPro.limits.windows,
+          { id: "weekly", kind: "weekly" as const, label: "Weekly", usedPercent: 40 },
+        ],
+      },
+    };
+    const codexFree = {
+      ...account("codex", 0),
+      limits: {
+        checkedAt: "2026-10-26T11:59:00Z",
+        windows: [{ id: "monthly", kind: "monthly" as const, label: "Monthly", usedPercent: 35 }],
+      },
+    };
+    const claude = {
+      ...account("claudeAgent", 30),
+      limits: {
+        checkedAt: "2026-10-26T11:59:00Z",
+        windows: [
+          { id: "five_hour", kind: "session" as const, label: "Session", usedPercent: 70 },
+          { id: "seven_day", kind: "weekly" as const, label: "Weekly", usedPercent: 45 },
+        ],
+      },
+    };
+    const agy = {
+      ...account("antigravity", 0),
+      limits: {
+        checkedAt: "2026-10-26T11:59:00Z",
+        windows: [
+          { id: "gemini-5h", kind: "session" as const, label: "Gemini · 5-hour", usedPercent: 10 },
+          {
+            id: "gemini-weekly",
+            kind: "weekly" as const,
+            label: "Gemini · Weekly",
+            usedPercent: 20,
+          },
+          {
+            id: "3p-weekly",
+            kind: "weekly" as const,
+            label: "Claude & GPT · Weekly",
+            usedPercent: 40,
+          },
+        ],
+      },
+    };
+
+    // Codex Pro has only 5h bar
+    const proResult = compactUsage([codexPro], now, new Set(["codex"]))[0]!;
+    expect(proResult.bars).toEqual([{ label: "5h", remaining: 80 }]);
+
+    // Codex Plus has 5h and w bars
+    const plusResult = compactUsage([codexPlus], now, new Set(["codex"]))[0]!;
+    expect(plusResult.bars).toEqual([
+      { label: "5h", remaining: 80 },
+      { label: "w", remaining: 60 },
+    ]);
+
+    // Monthly-only fallback (Free/Go)
+    const freeResult = compactUsage([codexFree], now, new Set(["codex"]))[0]!;
+    expect(freeResult.bars).toEqual([{ label: "mo", remaining: 65 }]);
+
+    // Claude has 5h and w bars
+    const claudeResult = compactUsage([claude], now, new Set(["claudeAgent"]))[0]!;
+    expect(claudeResult.bars).toEqual([
+      { label: "5h", remaining: 30 },
+      { label: "w", remaining: 55 },
+    ]);
+
+    // Antigravity takes the tightest weekly limit (3p-weekly remaining 60% vs gemini-weekly 80%)
+    const agyResult = compactUsage([agy], now, new Set(["antigravity"]))[0]!;
+    expect(agyResult.bars).toEqual([
+      { label: "5h", remaining: 90 },
+      { label: "w", remaining: 60 },
+    ]);
+
+    // Provider without readable windows has empty bars
+    const emptyResult = compactUsage([], now, new Set(["codex"]))[0]!;
+    expect(emptyResult.bars).toEqual([]);
+  });
+
   it("groups reported Family · Window labels without renaming other windows", () => {
     const agy = account("antigravity", 0);
     const pool = compactUsage(

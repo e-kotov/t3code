@@ -13,6 +13,11 @@ const PROVIDERS = [
 
 export const COMPACT_USAGE_DRIVERS = PROVIDERS.map((provider) => provider.driver);
 
+export interface CompactUsageBar {
+  readonly label: string;
+  readonly remaining: number;
+}
+
 export function compactUsage(
   accounts: readonly LimitAccount[],
   now: number,
@@ -30,6 +35,22 @@ export function compactUsage(
       (window) => provider.driver !== "claudeAgent" || window.id !== "monthly_spend",
     );
     const headlineWindows = quotaWindows.length > 0 ? quotaWindows : windows;
+
+    const tightest = (kind: LimitPoolWindow["kind"]) => {
+      const matching = quotaWindows.filter((window) => window.kind === kind);
+      return matching.length === 0
+        ? null
+        : Math.max(0, Math.min(100, Math.min(...matching.map((w) => w.remainingPercent))));
+    };
+    const session = tightest("session");
+    const weekly = tightest("weekly");
+    const monthly = session === null && weekly === null ? tightest("monthly") : null;
+    const bars: CompactUsageBar[] = [
+      ...(session === null ? [] : [{ label: "5h", remaining: session }]),
+      ...(weekly === null ? [] : [{ label: "w", remaining: weekly }]),
+      ...(monthly === null ? [] : [{ label: "mo", remaining: monthly }]),
+    ];
+
     return {
       ...provider,
       accounts: pool?.accounts ?? [],
@@ -38,6 +59,7 @@ export function compactUsage(
         headlineWindows.length === 0
           ? null
           : Math.max(0, Math.min(100, Math.min(...headlineWindows.map((w) => w.remainingPercent)))),
+      bars,
     };
   });
 }
