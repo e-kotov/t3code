@@ -81,19 +81,50 @@ const providerThread = {
   contextUsage: null,
 } as unknown as OrchestrationV2ProviderThread;
 
+const driver = ProviderDriverKind.make("antigravity");
+
 const turnEvent = (
   id: string,
   status: OrchestrationV2ProviderTurn["status"],
-  completedAt: DateTime.Utc,
+  completedAt: DateTime.Utc | null = null,
 ): ProviderAdapter.ProviderAdapterV2Event => ({
   type: "provider_turn.updated",
-  driver: ProviderDriverKind.make("antigravity"),
+  driver,
   providerTurn: {
     id: ProviderTurnId.make(id),
     providerThreadId,
     status,
     completedAt,
   } as OrchestrationV2ProviderTurn,
+});
+
+const threadEvent = (
+  usage: { readonly usedTokens: number; readonly maxTokens: number },
+  updatedAt: string,
+): ProviderAdapter.ProviderAdapterV2Event => ({
+  type: "provider_thread.updated",
+  driver,
+  providerThread: {
+    ...providerThread,
+    contextUsage: usage,
+    updatedAt: DateTime.makeUnsafe(updatedAt),
+  },
+});
+
+const tokenUsageOf = (event: ProviderAdapter.ProviderAdapterV2Event | undefined) =>
+  event?.type === "provider_turn.updated" ? event.providerTurn.tokenUsage : undefined;
+
+const finalRequest = generation({ uncached: 2_000, output: 300, creation: 500, cached: 117_500 });
+const finalRequestUsage = (updatedAt: string) => ({
+  cacheScopeKey: "antigravity:gemini-3.1-pro-high",
+  usedTokens: 120_000,
+  maxTokens: 1_048_576,
+  inputTokens: 120_000,
+  cachedInputTokens: 117_500,
+  cacheCreationTokens: 500,
+  outputTokens: 300,
+  reasoningOutputTokens: 0,
+  updatedAt,
 });
 
 const setup = Effect.gen(function* () {
@@ -129,10 +160,13 @@ const setup = Effect.gen(function* () {
       providerThread,
       modelSelection,
     } as unknown as ProviderAdapter.ProviderAdapterV2TurnInput);
-  const emit = (...emitted: ReadonlyArray<ProviderAdapter.ProviderAdapterV2Event>) =>
+  const emit = (
+    emitted: ReadonlyArray<ProviderAdapter.ProviderAdapterV2Event>,
+    outputs = emitted.length,
+  ) =>
     Effect.gen(function* () {
       yield* Queue.offerAll(events, emitted);
-      return yield* session.events.pipe(Stream.take(emitted.length), Stream.runCollect);
+      return yield* session.events.pipe(Stream.take(outputs), Stream.runCollect);
     });
   return {
     database: path.join(conversations, `${sessionId}.db`),
@@ -143,10 +177,9 @@ const setup = Effect.gen(function* () {
 
 const layer = Layer.mergeAll(NodeServices.layer, NodeCrypto.layer);
 
-it.effect("attaches the newest generation's cache counts to the settled turn", () =>
+it.effect("reports the turn's newest generation as its last request", () =>
   Effect.gen(function* () {
     const { database, startTurn, emit } = yield* setup;
-    const completedAt = DateTime.makeUnsafe("2026-10-27T15:00:00.000Z");
     yield* insertGeneration(
       database,
       generation({ uncached: 1, output: 1, creation: 0, cached: 0 }),
@@ -154,48 +187,78 @@ it.effect("attaches the newest generation's cache counts to the settled turn", (
     yield* startTurn();
     yield* insertGeneration(
       database,
-      generation({ uncached: 2_000, output: 300, creation: 500, cached: 117_500 }),
+      generation({ uncached: 90_000, output: 50, creation: 0, cached: 0 }),
     );
-    const [threadUpdate, settled] = yield* emit(
-      {
-        type: "provider_thread.updated",
-        driver: ProviderDriverKind.make("antigravity"),
-        providerThread: { ...providerThread, contextUsage },
-      },
-      turnEvent("provider-turn:1", "completed", completedAt),
-    );
-    assert.strictEqual(threadUpdate?.type, "provider_thread.updated");
-    assert.deepStrictEqual(
-      settled?.type === "provider_turn.updated" && settled.providerTurn.tokenUsage,
-      {
-        cacheScopeKey: "antigravity:gemini-3.1-pro-high",
-        usedTokens: 120_000,
-        maxTokens: 1_048_576,
-        inputTokens: 120_000,
-        cachedInputTokens: 117_500,
-        cacheCreationTokens: 500,
-        outputTokens: 300,
-        reasoningOutputTokens: 0,
-        updatedAt: "2026-10-27T15:00:00.000Z",
-      },
-    );
+    yield* insertGeneration(database, finalRequest);
+    const [, settled] = yield* emit([
+      threadEvent(contextUsage, "2026-10-27T14:59:00.000Z"),
+      turnEvent("provider-turn:1", "completed", DateTime.makeUnsafe("2026-10-27T15:00:00.000Z")),
+    ]);
+    assert.deepStrictEqual(tokenUsageOf(settled), finalRequestUsage("2026-10-27T15:00:00.000Z"));
   }).pipe(Effect.scoped, Effect.provide(layer)),
 );
 
-it.effect("leaves a turn that wrote no generation without usage", () =>
+it.effect("follows the live context size while a turn runs", () =>
+  Effect.gen(function* () {
+    const { startTurn, emit } = yield* setup;
+    yield* startTurn();
+    const [running, threadUpdate, refreshed] = yield* emit(
+      [
+        turnEvent("provider-turn:1", "running"),
+        threadEvent({ usedTokens: 130_000, maxTokens: 1_048_576 }, "2026-10-27T15:01:00.000Z"),
+      ],
+      3,
+    );
+    assert.isUndefined(tokenUsageOf(running));
+    assert.strictEqual(threadUpdate?.type, "provider_thread.updated");
+    assert.strictEqual(
+      refreshed?.type === "provider_turn.updated" && refreshed.providerTurn.status,
+      "running",
+    );
+    // Zero request counters update the context without replacing the last request.
+    assert.deepStrictEqual(tokenUsageOf(refreshed), {
+      cacheScopeKey: "antigravity:gemini-3.1-pro-high",
+      usedTokens: 130_000,
+      maxTokens: 1_048_576,
+      inputTokens: 0,
+      updatedAt: "2026-10-27T15:01:00.000Z",
+    });
+  }).pipe(Effect.scoped, Effect.provide(layer)),
+);
+
+it.effect("repeats a settled turn's report and gives a later turn only its own generation", () =>
   Effect.gen(function* () {
     const { database, startTurn, emit } = yield* setup;
-    yield* insertGeneration(
-      database,
-      generation({ uncached: 2_000, output: 300, creation: 500, cached: 117_500 }),
-    );
     yield* startTurn();
-    const [settled] = yield* emit(
+    yield* insertGeneration(database, finalRequest);
+    const completedAt = DateTime.makeUnsafe("2026-10-27T15:00:00.000Z");
+    const [, first, repeated, compaction] = yield* emit([
+      threadEvent(contextUsage, "2026-10-27T14:59:00.000Z"),
+      turnEvent("provider-turn:1", "completed", completedAt),
+      turnEvent("provider-turn:1", "completed", completedAt),
+      turnEvent("provider-turn:2", "completed", DateTime.makeUnsafe("2026-10-27T15:02:00.000Z")),
+    ]);
+    assert.deepStrictEqual(tokenUsageOf(first), finalRequestUsage("2026-10-27T15:00:00.000Z"));
+    assert.deepStrictEqual(tokenUsageOf(repeated), tokenUsageOf(first));
+    assert.deepStrictEqual(tokenUsageOf(compaction), {
+      cacheScopeKey: "antigravity:gemini-3.1-pro-high",
+      usedTokens: 120_000,
+      maxTokens: 1_048_576,
+      inputTokens: 0,
+      updatedAt: "2026-10-27T15:02:00.000Z",
+    });
+  }).pipe(Effect.scoped, Effect.provide(layer)),
+);
+
+it.effect("leaves a turn without a generation or known context without usage", () =>
+  Effect.gen(function* () {
+    const { database, startTurn, emit } = yield* setup;
+    yield* insertGeneration(database, finalRequest);
+    yield* startTurn();
+    const [settled] = yield* emit([
       turnEvent("provider-turn:2", "interrupted", DateTime.makeUnsafe("2026-10-27T15:05:00Z")),
-    );
-    assert.isTrue(settled?.type === "provider_turn.updated");
-    assert.isUndefined(
-      settled?.type === "provider_turn.updated" && settled.providerTurn.tokenUsage,
-    );
+    ]);
+    assert.strictEqual(settled?.type, "provider_turn.updated");
+    assert.isUndefined(tokenUsageOf(settled));
   }).pipe(Effect.scoped, Effect.provide(layer)),
 );
