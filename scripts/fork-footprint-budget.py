@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reject growth in fork edits to upstream-owned files; update only after review."""
+"""Reject growth or shrinkage in fork edits to upstream-owned files; update only after review."""
 import argparse
 import json
 import os
@@ -35,11 +35,18 @@ def main():
         print(f"Recorded {sum(counts.values())} changed lines in {len(counts)} upstream files")
         return 0
     budget = json.loads(baseline.read_text())["files"]
-    failures = [f"{path}: {count} > {budget.get(path, 0)}" for path, count in sorted(counts.items())
-                if count > budget.get(path, 0)]
-    if failures:
-        print("Fork edits grew in upstream-owned files:\n" + "\n".join(failures))
+    grown = [f"{path}: {count} > {budget.get(path, 0)}" for path, count in sorted(counts.items())
+             if count > budget.get(path, 0)]
+    # A fully reverted mount has no numstat row, so walk the budget rather than the diff.
+    shrunk = [f"{path}: {counts.get(path, 0)} < {limit}" for path, limit in sorted(budget.items())
+              if counts.get(path, 0) < limit]
+    if grown:
+        print("Fork edits grew in upstream-owned files:\n" + "\n".join(grown))
         print("Extract fork logic or review and explicitly update scripts/fork-footprint-budget.json.")
+    if shrunk:
+        print("Fork edits shrank in upstream-owned files:\n" + "\n".join(shrunk))
+        print("Fork integration may have been dropped; verify, then --write.")
+    if grown or shrunk:
         return 1
     print(f"Fork footprint passed: {sum(counts.values())} changed lines in {len(counts)} upstream files")
     return 0

@@ -11,7 +11,7 @@ SCRIPT = Path(__file__).with_name("fork-footprint-budget.py").resolve()
 
 
 class FootprintBudgetTest(unittest.TestCase):
-    def test_growth_new_mounts_and_unmerged_upstream(self):
+    def test_growth_shrinkage_new_mounts_and_unmerged_upstream(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
 
@@ -62,14 +62,26 @@ class FootprintBudgetTest(unittest.TestCase):
             (root / "mount.ts").write_text("upstream\nfork mount\nmore fork logic\n")
             commit()
             self.assertIn("mount.ts: 2 > 1", gate(success=False))
+            gate("--write")
             # Resetting only fixture files is safe; no developer checkout is involved.
+            # Growth in one file and a partial shrink in another are both reported.
             (root / "mount.ts").write_text("upstream\nfork mount\n")
             (root / "untouched.ts").write_text("upstream\nnew mount\n")
             commit()
-            self.assertIn("untouched.ts: 1 > 0", gate(success=False))
+            output = gate(success=False)
+            self.assertIn("untouched.ts: 1 > 0", output)
+            self.assertIn("mount.ts: 1 < 2", output)
+            self.assertIn("may have been dropped", output)
+            # A fully reverted mount leaves no diff row but must still be caught.
             (root / "mount.ts").write_text("upstream\n")
             (root / "untouched.ts").write_text("upstream\n")
             commit()
+            output = gate(success=False)
+            self.assertIn("mount.ts: 0 < 2", output)
+            self.assertNotIn("untouched.ts", output)
+            gate("--write")
+            self.assertEqual(json.loads((root / "scripts/fork-footprint-budget.json").read_text()),
+                             {"files": {}})
             gate()
             (root / "untouched.ts").unlink()
             commit()

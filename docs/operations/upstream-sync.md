@@ -121,8 +121,9 @@ rebase it onto `upstream/main` with a backup branch `ek/pre-sync-<date>` and for
 Newly touched or deleted upstream files have a zero budget. Fork-owned files do not consume it.
 The explicit exception is `README.md`: it is now the fork's own landing page, preserved by
 the merge helper and excluded from the mount budget. Its upstream counterpart remains linked.
-The sync and pre-push checks reject growth before typechecking; reductions pass.
-This catches expanding integration points before they become recurring conflicts.
+The sync and pre-push checks reject growth before typechecking. This catches expanding
+integration points before they become recurring conflicts. They also reject reductions, because
+a smaller diff can mean a merge silently dropped a fork mount; verify the feature, then `--write`.
 
 After reviewing an unavoidable mount change, commit it and run
 `python3 scripts/fork-footprint-budget.py --write`, then review and commit the budget diff.
