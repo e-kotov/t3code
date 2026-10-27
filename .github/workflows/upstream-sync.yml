@@ -86,11 +86,11 @@ jobs:
           run-install: false
       - if: steps.merge.outputs.changed == 'true'
         run: vp install
-      - name: Regenerate the web route tree
+      - name: Format mergiraf output and regenerate the web route tree
         if: steps.merge.outputs.changed == 'true'
         run: |
           node scripts/fork-route-tree.mjs
-          scripts/fork-upstream-sync.sh routes
+          scripts/fork-upstream-sync.sh tidy
       - name: Install Python packaging test dependency
         if: steps.merge.outputs.changed == 'true'
         run: python3 -m pip install PyYAML==6.0.3

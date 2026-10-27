@@ -2,7 +2,8 @@
 # Daily fork maintenance for .github/workflows/upstream-sync.yml.
 #   merge      merge pingdotgg/t3code main into the fork's main (fails on conflict)
 #   checks     typecheck the packages the fork changes and run every test file it touched
-#   routes     commit the web route tree after scripts/fork-route-tree.mjs regenerated it
+#   tidy       format files mergiraf resolved, then commit the route tree that
+#              scripts/fork-route-tree.mjs regenerated
 #   footprint [REV]  list upstream-owned files the fork edits, with changed line counts;
 #                    measures the working tree by default, or REV (e.g. HEAD) if given
 # checks and footprint compare against UPSTREAM_SHA, else the upstream commit HEAD contains,
@@ -14,7 +15,7 @@ out() { echo "$1" >> "${GITHUB_OUTPUT:-/dev/null}"; }
 summary() { echo "$1" >> "${GITHUB_STEP_SUMMARY:-/dev/stderr}"; }
 fork_base() { [ -n "${UPSTREAM_SHA:-}" ] && echo "$UPSTREAM_SHA" || git merge-base HEAD refs/remotes/upstream/main; }
 
-cmd=${1:?usage: fork-upstream-sync.sh merge|routes|checks|footprint [REV]}
+cmd=${1:?usage: fork-upstream-sync.sh merge|tidy|checks|footprint [REV]}
 shift
 case "$cmd" in
   merge)
@@ -76,7 +77,17 @@ case "$cmd" in
     git log -1 --format=%b | sed '/^$/d; s/^/- /' >> "${GITHUB_STEP_SUMMARY:-/dev/stderr}"
     out "changed=true"
     ;;
-  routes)
+  tidy)
+    # mergiraf rewrites resolved regions without the repository's formatting.
+    solved=$(git log -1 --format=%B | sed -n 's/^Resolved by mergiraf [^:]*: //p')
+    if [ -n "$solved" ]; then
+      # shellcheck disable=SC2086 # one path per word
+      vp fmt --no-error-on-unmatched-pattern $solved
+      if ! git diff --quiet; then
+        git commit -q -am "style(fork): format files mergiraf resolved"
+        summary "Formatted the files mergiraf resolved."
+      fi
+    fi
     # The merge takes upstream's generated tree on conflict; the regenerated one restores fork routes.
     tree=apps/web/src/routeTree.gen.ts
     if ! git diff --quiet -- "$tree"; then

@@ -20,8 +20,9 @@ they are not tied to upstream stable releases.
    mergiraf resolved. Its results are not reviewed by a person: the checks below decide.
    Replaying the 2026-10-27 sync, it resolved 7 of 15 files, one of them wrongly (a duplicate
    import that the typecheck rejects).
-2. `scripts/fork-route-tree.mjs` regenerates the route tree with the TanStack generator the web
-   build uses, so the fork's route files are listed again; `routes` commits any change.
+2. `tidy` formats the files mergiraf resolved, which it leaves unformatted, and commits the route
+   tree that `scripts/fork-route-tree.mjs` regenerated with the web build's TanStack generator, so
+   the fork's route files are listed again.
 3. `checks` first rejects any growth beyond the reviewed per-file upstream-edit budget, then typechecks contracts, shared, client-runtime, SSH, server, web, mobile and desktop, then
    runs every test file the fork added or changed relative to upstream, plus the upstream tests
    beside upstream files the fork mounts into (listed in the script) and the mobile React
