@@ -1,4 +1,5 @@
 import { UtilitiesSection } from "../device-utilities/UtilitiesSection";
+import { WorkspaceTabsContext, useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { useUtilitiesSidebarExitActions } from "./useUtilitiesSidebarActions";
 import {
   DEVICE_COMMAND_ICONS,
@@ -63,6 +64,8 @@ function readSnapshot(): {
 
 export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
   const exitActions = useUtilitiesSidebarExitActions();
+  const workspaceTabs = useWorkspaceTabs();
+  const bottomPadding = Math.max(40, (workspaceTabs?.bottomClearance ?? 0) + 16);
   const [{ state, error }, setSnapshot] = useState(readSnapshot);
   function setError(error: string | null) {
     setSnapshot((previous) => ({ ...previous, error }));
@@ -72,6 +75,7 @@ export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
   const [outputId, setOutputId] = useState<string | null>(null);
   const [active, setActive] = useState(AppState.currentState === "active");
   const refresh = useCallback(() => setSnapshot(readSnapshot()), []);
+  // oxlint-disable-next-line t3code/react-effect-budget -- refresh commands on app active state
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (value) => {
       setActive(value === "active");
@@ -80,6 +84,7 @@ export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
     return () => subscription.remove();
   }, [refresh]);
   const running = state?.runs.some((run) => run.status === "running") ?? false;
+  // oxlint-disable-next-line t3code/react-effect-budget -- poll running commands while active
   useEffect(() => {
     if (!running || !active) return;
     const timer = setInterval(refresh, 1500);
@@ -151,7 +156,7 @@ export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
         ]}
       />
       <ScrollView
-        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: bottomPadding }}
         keyboardShouldPersistTaps="handled"
       >
         <UtilitiesSection />
@@ -184,10 +189,7 @@ export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
                   }
                 />
               ) : null}
-              <Button
-                label="Android settings"
-                onPress={() => void Linking.openSettings()}
-              />
+              <Button label="Android settings" onPress={() => void Linking.openSettings()} />
               <Button
                 label={probe?.status === "running" ? "Testing…" : "Test connection"}
                 disabled={
@@ -356,5 +358,13 @@ export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
         </View>
       </Modal>
     </View>
+  );
+}
+
+export function UtilitiesSidebar(props: { readonly context: ReturnType<typeof useWorkspaceTabs> }) {
+  return (
+    <WorkspaceTabsContext value={props.context}>
+      <DeviceCommandsScreen sidebar />
+    </WorkspaceTabsContext>
   );
 }

@@ -1,24 +1,35 @@
+import { useAndroidFloatingTabs } from "../settings/appearance/AppearancePreferencesProvider";
 import { WorkspaceNoTabs } from "./WorkspaceNoTabs";
 import { useEnabledNavigationTabs } from "./navigation-tabs";
 import { NAVIGATION_TAB_ORDER } from "./navigation-tab-order";
 import { useMemo, type ReactNode } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
+import { FLOATING_TABS, floatingTabsMetrics } from "./floating-workspace-tabs";
 import { View } from "react-native";
 import { ScreenContent } from "../../components/ui/ScreenContent";
 import { PullRequestsScreen } from "../pull-requests/PullRequestsScreen";
 import { PullRequestToolbar } from "../pull-requests/PullRequestToolbar.android";
 import { WorkspaceTabsContext, useWorkspaceTabs } from "./WorkspaceTabsContext";
 import { WorkspaceTabPanes } from "./WorkspaceTabPanes";
-import { DeviceCommandsScreen } from "../device-commands/DeviceCommandsScreen";
+import { UtilitiesSidebar } from "../device-commands/DeviceCommandsScreen";
 
 export function AndroidWorkspaceSidebar(props: {
   readonly children: ReactNode;
   readonly onRequestVisibility: () => void;
   readonly selectedPullRequestKey: string | null;
 }) {
+  const floatingTabsEnabled = useAndroidFloatingTabs();
   const workspace = useWorkspaceTabs()!;
   const enabled = useEnabledNavigationTabs();
-  const context = useMemo(() => ({ ...workspace, bottomClearance: 16 }), [workspace]);
-  if (workspace.state.selectedTab === "commands") return <DeviceCommandsScreen sidebar />;
+  const insets = useSafeAreaInsets();
+  const { scale, fabSize } = useAndroidControlSizing();
+  const floating = floatingTabsMetrics(enabled.length + 2, scale, fabSize);
+  const bottomClearance = floatingTabsEnabled
+    ? insets.bottom + FLOATING_TABS.bottom + FLOATING_TABS.edge + floating.height
+    : 16;
+  const context = useMemo(() => ({ ...workspace, bottomClearance }), [workspace, bottomClearance]);
+  if (workspace.state.selectedTab === "commands") return <UtilitiesSidebar context={context} />;
   if (enabled.length === 0) return <WorkspaceNoTabs />;
   return (
     <WorkspaceTabPanes
