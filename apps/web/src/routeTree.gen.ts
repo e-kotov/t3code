@@ -722,18 +722,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatSettingsDevicesRouteImport
       parentRoute: typeof ChatSettingsRoute
     }
-    '/_chat/settings/commands': {
-      id: '/_chat/settings/commands'
-      path: '/commands'
-      fullPath: '/settings/commands'
-      preLoaderRoute: typeof ChatSettingsCommandsRouteImport
-      parentRoute: typeof ChatSettingsRoute
-    }
     '/_chat/settings/connections': {
       id: '/_chat/settings/connections'
       path: '/connections'
       fullPath: '/settings/connections'
       preLoaderRoute: typeof ChatSettingsConnectionsRouteImport
+      parentRoute: typeof ChatSettingsRoute
+    }
+    '/_chat/settings/commands': {
+      id: '/_chat/settings/commands'
+      path: '/commands'
+      fullPath: '/settings/commands'
+      preLoaderRoute: typeof ChatSettingsCommandsRouteImport
       parentRoute: typeof ChatSettingsRoute
     }
     '/_chat/settings/chat': {
@@ -810,8 +810,8 @@ interface ChatSettingsRouteChildren {
   ChatSettingsBetaRoute: typeof ChatSettingsBetaRoute
   ChatSettingsBrowserRoute: typeof ChatSettingsBrowserRoute
   ChatSettingsChatRoute: typeof ChatSettingsChatRoute
-  ChatSettingsConnectionsRoute: typeof ChatSettingsConnectionsRoute
   ChatSettingsCommandsRoute: typeof ChatSettingsCommandsRoute
+  ChatSettingsConnectionsRoute: typeof ChatSettingsConnectionsRoute
   ChatSettingsDevicesRoute: typeof ChatSettingsDevicesRoute
   ChatSettingsDiagnosticsRoute: typeof ChatSettingsDiagnosticsRoute
   ChatSettingsDiffsRoute: typeof ChatSettingsDiffsRoute
@@ -839,8 +839,8 @@ const ChatSettingsRouteChildren: ChatSettingsRouteChildren = {
   ChatSettingsBetaRoute: ChatSettingsBetaRoute,
   ChatSettingsBrowserRoute: ChatSettingsBrowserRoute,
   ChatSettingsChatRoute: ChatSettingsChatRoute,
-  ChatSettingsConnectionsRoute: ChatSettingsConnectionsRoute,
   ChatSettingsCommandsRoute: ChatSettingsCommandsRoute,
+  ChatSettingsConnectionsRoute: ChatSettingsConnectionsRoute,
   ChatSettingsDevicesRoute: ChatSettingsDevicesRoute,
   ChatSettingsDiagnosticsRoute: ChatSettingsDiagnosticsRoute,
   ChatSettingsDiffsRoute: ChatSettingsDiffsRoute,
