@@ -238,9 +238,5 @@ function quotaColor(remaining: number | null) {
 }
 
 function barFillColor(remaining: number) {
-  return remaining <= 10
-    ? "bg-destructive"
-    : remaining <= 25
-      ? "bg-warning"
-      : "bg-success";
+  return remaining <= 10 ? "bg-destructive" : remaining <= 25 ? "bg-warning" : "bg-success";
 }

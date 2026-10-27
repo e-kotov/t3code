@@ -152,8 +152,18 @@ describe("compact usage", () => {
         checkedAt: "2026-10-26T11:59:00Z",
         windows: [
           { id: "gemini-5h", kind: "session" as const, label: "Gemini · 5-hour", usedPercent: 10 },
-          { id: "gemini-weekly", kind: "weekly" as const, label: "Gemini · Weekly", usedPercent: 20 },
-          { id: "3p-weekly", kind: "weekly" as const, label: "Claude & GPT · Weekly", usedPercent: 40 },
+          {
+            id: "gemini-weekly",
+            kind: "weekly" as const,
+            label: "Gemini · Weekly",
+            usedPercent: 20,
+          },
+          {
+            id: "3p-weekly",
+            kind: "weekly" as const,
+            label: "Claude & GPT · Weekly",
+            usedPercent: 40,
+          },
         ],
       },
     };
