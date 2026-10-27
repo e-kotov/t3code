@@ -112,6 +112,6 @@ export function useHomeListOptions(availableEnvironmentIds: ReadonlySet<Environm
     setSelectedEnvironmentId,
     setSelectedProjectKey,
     setProjectSortOrder,
-    conversationList: conversationListControls(resolvedOptions, setOptions),
+    conversationList: conversationListControls(resolvedOptions, updateOptions),
   } as const;
 }

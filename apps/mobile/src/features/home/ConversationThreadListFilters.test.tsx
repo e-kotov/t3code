@@ -61,6 +61,8 @@ vi.mock("../../components/ui/Menu", () => ({
 
 function HomeFilters() {
   const [options, setOptions] = useState(DEFAULT_CONVERSATION_LIST_OPTIONS);
+  const updateOptions = (patch: Partial<typeof options>) =>
+    setOptions((current) => ({ ...current, ...patch }));
   return (
     <ConversationThreadListFilters
       gutter={0}
@@ -70,7 +72,7 @@ function HomeFilters() {
       selectedProjectKey={null}
       onEnvironmentChange={() => {}}
       onProjectChange={() => {}}
-      conversationList={conversationListControls(options, setOptions)}
+      conversationList={conversationListControls(options, updateOptions)}
     />
   );
 }

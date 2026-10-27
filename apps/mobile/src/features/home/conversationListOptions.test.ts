@@ -34,8 +34,8 @@ describe("conversation list options", () => {
 
   it("updates only its own option through the shared options setter", () => {
     let state = { ...defaults, selectedProjectKey: "project" as string | null };
-    const list = conversationListControls<typeof state>(state, (next) => {
-      state = typeof next === "function" ? next(state) : next;
+    const list = conversationListControls<typeof state>(state, (patch) => {
+      state = { ...state, ...patch };
     });
     list.onConversationSortOrderChange("created_at");
     list.onConversationGroupingChange("machine");

@@ -31,16 +31,16 @@ const GROUPING_CHOICES = [
 
 export function conversationListControls<T extends ConversationListOptions>(
   options: ConversationListOptions,
-  setOptions: Dispatch<SetStateAction<T>>,
+  updateOptions: (patch: Partial<T>) => void,
 ): ConversationListControls {
   return {
     conversationSortOrder: options.conversationSortOrder,
     conversationGrouping: options.conversationGrouping,
     onConversationSortOrderChange: (value) => {
-      setOptions((current) => ({ ...current, conversationSortOrder: value }));
+      updateOptions({ conversationSortOrder: value } as Partial<T>);
     },
     onConversationGroupingChange: (value) => {
-      setOptions((current) => ({ ...current, conversationGrouping: value }));
+      updateOptions({ conversationGrouping: value } as Partial<T>);
     },
   };
 }
