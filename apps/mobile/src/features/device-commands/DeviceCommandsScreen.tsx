@@ -1,5 +1,5 @@
 import { UtilitiesSection } from "../device-utilities/UtilitiesSection";
-import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
+import { WorkspaceTabsContext, useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { useUtilitiesSidebarExitActions } from "./useUtilitiesSidebarActions";
 import {
   DEVICE_COMMAND_ICONS,
@@ -187,10 +187,7 @@ export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
                   }
                 />
               ) : null}
-              <Button
-                label="Android settings"
-                onPress={() => void Linking.openSettings()}
-              />
+              <Button label="Android settings" onPress={() => void Linking.openSettings()} />
               <Button
                 label={probe?.status === "running" ? "Testing…" : "Test connection"}
                 disabled={
@@ -359,5 +356,15 @@ export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
         </View>
       </Modal>
     </View>
+  );
+}
+
+export function UtilitiesSidebar(props: {
+  readonly context: ReturnType<typeof useWorkspaceTabs>;
+}) {
+  return (
+    <WorkspaceTabsContext value={props.context}>
+      <DeviceCommandsScreen sidebar />
+    </WorkspaceTabsContext>
   );
 }

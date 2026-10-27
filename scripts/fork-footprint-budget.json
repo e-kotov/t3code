@@ -12,7 +12,7 @@
     "apps/mobile/modules/t3-agent-notifications/android/src/main/java/expo/modules/t3agentnotifications/AgentNotifications.kt": 16,
     "apps/mobile/modules/t3-agent-notifications/android/src/main/java/expo/modules/t3agentnotifications/T3AgentNotificationsModule.kt": 29,
     "apps/mobile/modules/t3-composer-editor/android/src/main/java/expo/modules/t3composereditor/T3ComposerEditorView.kt": 3,
-    "apps/mobile/modules/t3-native-controls/android/src/main/java/expo/modules/t3nativecontrols/T3WorkspaceNavigationModule.kt": 26,
+    "apps/mobile/modules/t3-native-controls/android/src/main/java/expo/modules/t3nativecontrols/T3WorkspaceNavigationModule.kt": 21,
     "apps/mobile/src/App.tsx": 2,
     "apps/mobile/src/Stack.tsx": 3,
     "apps/mobile/src/components/ComposerEditor.tsx": 2,

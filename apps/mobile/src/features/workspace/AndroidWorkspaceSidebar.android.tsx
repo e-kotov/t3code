@@ -12,7 +12,7 @@ import { PullRequestsScreen } from "../pull-requests/PullRequestsScreen";
 import { PullRequestToolbar } from "../pull-requests/PullRequestToolbar.android";
 import { WorkspaceTabsContext, useWorkspaceTabs } from "./WorkspaceTabsContext";
 import { WorkspaceTabPanes } from "./WorkspaceTabPanes";
-import { DeviceCommandsScreen } from "../device-commands/DeviceCommandsScreen";
+import { UtilitiesSidebar } from "../device-commands/DeviceCommandsScreen";
 
 export function AndroidWorkspaceSidebar(props: {
   readonly children: ReactNode;
@@ -29,7 +29,7 @@ export function AndroidWorkspaceSidebar(props: {
     ? insets.bottom + FLOATING_TABS.bottom + FLOATING_TABS.edge + floating.height
     : 16;
   const context = useMemo(() => ({ ...workspace, bottomClearance }), [workspace, bottomClearance]);
-  if (workspace.state.selectedTab === "commands") return <WorkspaceTabsContext value={context}><DeviceCommandsScreen sidebar /></WorkspaceTabsContext>;
+  if (workspace.state.selectedTab === "commands") return <UtilitiesSidebar context={context} />;
   if (enabled.length === 0) return <WorkspaceNoTabs />;
   return (
     <WorkspaceTabPanes

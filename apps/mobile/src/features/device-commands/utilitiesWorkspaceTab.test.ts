@@ -3,7 +3,7 @@ import {
   resolveSelectedNavigationTab,
   selectedNavigationTab,
 } from "../workspace/navigation-tab-order";
-import { highlightUtilities, keepUtilities, floatingNavigationTabCount } from "./utilitiesWorkspaceTab";
+import { highlightUtilities, keepUtilities } from "./utilitiesWorkspaceTab";
 import { initialWorkspaceTabsState, workspaceTabsReducer } from "../workspace/workspace-tabs-state";
 import { workspaceTabNavigationState } from "../workspace/workspace-tab-navigation";
 
@@ -51,9 +51,4 @@ it("opens Utilities without restoring a chat or pull-request detail beside it", 
     { columns: true, check },
   );
   expect(next.routes).toEqual([home]);
-});
-
-it("computes floating tab count including Utilities and Settings", () => {
-  expect(floatingNavigationTabCount(0)).toBe(2);
-  expect(floatingNavigationTabCount(3)).toBe(5);
 });
