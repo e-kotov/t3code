@@ -112,7 +112,6 @@ function MaximizablePanel() {
 }
 
 it("keeps usage accessible when the inline panel maximizes and restores", async () => {
-  await page.viewport(1280, 800);
   await using _screen = await render(<MaximizablePanel />);
   await expect.element(usage()).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Maximize panel" }));
