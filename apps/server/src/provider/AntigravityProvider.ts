@@ -31,6 +31,7 @@ import {
   type ServerProviderDraft,
 } from "@t3tools/provider-core/server/snapshotProbe";
 import { resolveUsageLimitsAfterProbe } from "@t3tools/provider-core/server/usageLimits";
+import { antigravityGroupedModels } from "./acp/AntigravityAcpSupport.ts";
 
 const EMPTY_MODEL_CAPABILITIES = createModelCapabilities({ optionDescriptors: [] });
 const MAX_WORKSPACE_SNAPSHOTS = 32;
@@ -47,9 +48,9 @@ type SessionSetupResult = Pick<
 export function buildAntigravityModelsFromSession(
   setup: SessionSetupResult,
 ): ReadonlyArray<ServerProviderModel> {
-  const config = setup.configOptions?.find(
-    (option) => option.id === "model" || option.category === "model",
-  );
+  const config = antigravityGroupedModels(setup)
+    ? undefined
+    : setup.configOptions?.find((option) => option.id === "model" || option.category === "model");
   const currentValue =
     config?.type === "select" ? config.currentValue : setup.models?.currentModelId;
   const entries =
@@ -115,6 +116,8 @@ function isMissingInstallation(error: EffectAcpErrors.AcpError | ProviderSetupEr
 interface AntigravityProviderState {
   readonly draft: ServerProviderDraft;
   readonly authRevision: number;
+  /** Config updates omit `models`, so keep a grouped session's concrete list. */
+  readonly groupedModels: EffectAcpSchema.SessionModelState | null;
 }
 
 interface AntigravityProviderOptions {
@@ -159,6 +162,7 @@ export const makeAntigravityProvider = Effect.fn("makeAntigravityProvider")(func
   const metadata = yield* SubscriptionRef.make<AntigravityProviderState>({
     draft: initialDraft,
     authRevision: 0,
+    groupedModels: null,
   });
   // Preserve disk-discovered skills when callbacks replace workspace commands; the registry will not rescan them.
   const discoveredSkills = new Map<string, ServerProvider["skills"]>();
@@ -286,6 +290,7 @@ export const makeAntigravityProvider = Effect.fn("makeAntigravityProvider")(func
       const workspace = cwd ? workspaces.find((entry) => entry.cwd === cwd) : undefined;
       return {
         authRevision: state.authRevision + 1,
+        groupedModels: antigravityGroupedModels(started.sessionSetupResult) ?? null,
         draft: {
           ...draft,
           installed: true,
@@ -324,10 +329,38 @@ export const makeAntigravityProvider = Effect.fn("makeAntigravityProvider")(func
   const onConfigOptionsUpdated = Effect.fn("AntigravityProvider.onConfigOptionsUpdated")(function* (
     configOptions: ReadonlyArray<EffectAcpSchema.SessionConfigOption>,
   ) {
-    const models = buildAntigravityModelsFromSession({ configOptions });
     yield* SubscriptionRef.update(metadata, (state) => {
       if (state.draft.auth.status !== "authenticated") return state;
+      const models = buildAntigravityModelsFromSession(
+        state.groupedModels ? { models: state.groupedModels } : { configOptions },
+      );
       return { ...state, draft: { ...state.draft, models } };
+    });
+  });
+
+  // Grouped config updates name only the family and thinking level.
+  const onModelSelected = Effect.fn("AntigravityProvider.onModelSelected")(function* (
+    modelId: string,
+  ) {
+    yield* SubscriptionRef.update(metadata, (state) => {
+      const grouped = state.groupedModels;
+      if (
+        state.draft.auth.status !== "authenticated" ||
+        !grouped ||
+        grouped.currentModelId === modelId ||
+        !grouped.availableModels.some((model) => model.modelId === modelId)
+      ) {
+        return state;
+      }
+      const groupedModels = { ...grouped, currentModelId: modelId };
+      return {
+        ...state,
+        groupedModels,
+        draft: {
+          ...state.draft,
+          models: buildAntigravityModelsFromSession({ models: groupedModels }),
+        },
+      };
     });
   });
 
@@ -375,6 +408,7 @@ export const makeAntigravityProvider = Effect.fn("makeAntigravityProvider")(func
       (state) =>
         ({
           authRevision: state.authRevision + 1,
+          groupedModels: null,
           draft: {
             ...state.draft,
             auth: { status: "unauthenticated" },
@@ -425,6 +459,7 @@ export const makeAntigravityProvider = Effect.fn("makeAntigravityProvider")(func
     snapshot: { ...managed, getSnapshot },
     onSessionStarted,
     onConfigOptionsUpdated,
+    onModelSelected,
     onAvailableCommands,
     onSignedOut: clearAccountMetadata(),
     onAuthRequired: clearAccountMetadata(),

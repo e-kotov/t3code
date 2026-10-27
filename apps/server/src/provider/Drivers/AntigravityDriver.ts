@@ -241,6 +241,9 @@ export const AntigravityDriver: ProviderDriver<
       );
       const runtime = yield* makeAntigravityAcpRuntime({
         ...input,
+        ...(settings.acpClientName
+          ? { clientInfo: { ...input.clientInfo, name: settings.acpClientName } }
+          : {}),
         authMethod: auth.authMethod,
         childProcessSpawner: spawner,
         spawn: buildAntigravityAcpSpawnInput({
@@ -425,6 +428,7 @@ export const AntigravityDriver: ProviderDriver<
           ? provider.onAvailableCommands(event.availableCommands)
           : Effect.void;
       },
+      onModelSelected: provider.onModelSelected,
       continuationRequests,
       nativeLogging: (threadId) =>
         makeNativeLogger({
