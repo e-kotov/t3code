@@ -1,32 +1,23 @@
 import {
   ANTIGRAVITY_DEFAULT_MODEL,
-  type OrchestrationV2ProviderCapabilities,
-  type OrchestrationV2ProviderTurnTokenUsage,
   ProviderDriverKind,
   ProviderInstanceId,
+  type OrchestrationV2ProviderCapabilities,
   type ProviderSetupError,
 } from "@t3tools/contracts";
 import type { SelfInvocation } from "@t3tools/shared/nodeRuntime";
-import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Crypto from "effect/Crypto";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Exit from "effect/Exit";
 import * as Scope from "effect/Scope";
-import * as Stream from "effect/Stream";
 import * as EffectAcpErrors from "effect-acp/errors";
 
 import * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
-import type * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
 import type { AntigravityAuth } from "../../provider/AntigravityAuth.ts";
 import type * as AcpSessionRuntime from "@t3tools/provider-acp/server/AcpSessionRuntime";
-import { resolveAntigravityInstanceDirectories } from "../../provider/antigravityAuthSupport.ts";
-import {
-  makeAntigravityUsageCache,
-  readAntigravityUsage,
-} from "../../provider/Drivers/antigravityUsageReader.ts";
+import { withAntigravityTurnUsage } from "./AntigravityTurnUsage.ts";
 import {
   antigravityPermissionMode,
   applyAntigravityAcpModelSelection,
@@ -235,7 +226,7 @@ export const makeAntigravityAdapterV2 = Effect.fn("makeAntigravityAdapterV2")(fu
     path: yield* Path.Path,
     host: yield* ProviderHost.ProviderHost,
   };
-  const baseAdapter = yield* makeAcpAdapterV2({
+  const adapter = yield* makeAcpAdapterV2({
     instanceId: options.instanceId,
     flavor: makeAntigravityAcpAdapterFlavor({ ...options, ...services }),
     selfInvocation: options.selfInvocation,
@@ -244,171 +235,5 @@ export const makeAntigravityAdapterV2 = Effect.fn("makeAntigravityAdapterV2")(fu
       ? {}
       : { continuationRequests: options.continuationRequests }),
   });
-
-  const usageCache = makeAntigravityUsageCache();
-  const getConversationRoots = Effect.fn("AntigravityAdapterV2.getConversationRoots")(function* () {
-    const dirs = yield* resolveAntigravityInstanceDirectories(
-      services.host.paths.stateDir,
-      options.instanceId,
-    ).pipe(
-      Effect.provideService(Crypto.Crypto, services.crypto),
-      Effect.provideService(Path.Path, services.path),
-      Effect.option,
-    );
-    const home = yield* HostProcess.HomeDirectory.pipe(Effect.option);
-    const roots: string[] = [];
-    if (dirs._tag === "Some") {
-      roots.push(services.path.join(dirs.value.profile, "antigravity-acp", "conversations"));
-      roots.push(services.path.join(dirs.value.profile, "conversations"));
-    }
-    if (home._tag === "Some") {
-      roots.push(
-        services.path.join(home.value, ".gemini", "antigravity-cli", "conversations"),
-        services.path.join(home.value, ".gemini", "antigravity", "conversations"),
-        services.path.join(
-          home.value,
-          "Library",
-          "Application Support",
-          "Antigravity",
-          "User",
-          "globalStorage",
-          "google.antigravity",
-          "conversations",
-        ),
-        services.path.join(
-          home.value,
-          ".config",
-          "Antigravity",
-          "User",
-          "globalStorage",
-          "google.antigravity",
-          "conversations",
-        ),
-      );
-    }
-    const existing: string[] = [];
-    for (const root of roots) {
-      const exists = yield* services.fileSystem.exists(root).pipe(Effect.orElseSucceed(() => false));
-      if (exists) existing.push(root);
-    }
-    return existing;
-  });
-
-  const enrichTurnWithUsage = (
-    event: ProviderAdapter.ProviderAdapterV2Event & {
-      readonly type: "provider_turn.updated";
-    },
-    nativeSessionId: string | undefined,
-  ) =>
-    Effect.gen(function* () {
-      if (!nativeSessionId) return event;
-      const roots = yield* getConversationRoots();
-      if (roots.length === 0) return event;
-      const scan = yield* readAntigravityUsage(roots, 0, usageCache).pipe(
-        Effect.provideService(FileSystem.FileSystem, services.fileSystem),
-        Effect.provideService(Path.Path, services.path),
-        Effect.option,
-      );
-      if (scan._tag === "None") return event;
-      const records = scan.value.files
-        .flatMap((file) => file.records)
-        .filter((rec) => rec.sessionId === nativeSessionId);
-      const latest = records[records.length - 1];
-      if (!latest) return event;
-      const totals = latest.totals;
-      const inputTokens = totals.uncachedInputTokens + totals.cachedInputTokens;
-      const usedTokens = inputTokens + totals.outputTokens;
-      const now = yield* DateTime.now;
-      const tokenUsage: OrchestrationV2ProviderTurnTokenUsage = {
-        usedTokens,
-        inputTokens,
-        cachedInputTokens: totals.cachedInputTokens,
-        cacheCreationTokens: totals.cacheCreationTokens,
-        outputTokens: totals.outputTokens,
-        reasoningOutputTokens: totals.reasoningTokens,
-        updatedAt: DateTime.formatIso(now),
-      };
-      return {
-        ...event,
-        providerTurn: {
-          ...event.providerTurn,
-          tokenUsage,
-        },
-      };
-    });
-
-  return {
-    ...baseAdapter,
-    openSession: (input: ProviderAdapter.ProviderAdapterV2OpenSessionInput) =>
-      Effect.gen(function* () {
-        const threadNativeIds = new Map<string, string>();
-        if (input.initialNativeThreadId) {
-          threadNativeIds.set(input.threadId, input.initialNativeThreadId);
-        }
-        const sessionRuntime = yield* baseAdapter.openSession({
-          ...input,
-          subscribeEvents: (subscription: ProviderAdapter.ProviderAdapterV2EventSubscription) => {
-            const enrichedEvents = subscription.events.pipe(
-              Stream.mapEffect((event) =>
-                Effect.gen(function* () {
-                  if (event.type === "provider_thread.updated") {
-                    const nativeId = event.providerThread.nativeThreadRef?.nativeId;
-                    if (nativeId) {
-                      threadNativeIds.set(event.providerThread.id, nativeId);
-                    }
-                  }
-                  if (
-                    event.type === "provider_turn.updated" &&
-                    event.providerTurn.tokenUsage === undefined &&
-                    (event.providerTurn.status === "completed" ||
-                      event.providerTurn.status === "interrupted" ||
-                      event.providerTurn.status === "failed")
-                  ) {
-                    const nativeId =
-                      threadNativeIds.get(event.providerTurn.providerThreadId) ??
-                      event.providerTurn.nativeTurnRef?.nativeId;
-                    return yield* enrichTurnWithUsage(event, nativeId);
-                  }
-                  return event;
-                }),
-              ),
-            );
-            return yield* input.subscribeEvents({
-              ...subscription,
-              events: enrichedEvents,
-            });
-          },
-        });
-
-        return {
-          ...sessionRuntime,
-          ensureThread: (threadInput) =>
-            Effect.gen(function* () {
-              const thread = yield* sessionRuntime.ensureThread(threadInput);
-              if (thread.nativeThreadRef?.nativeId) {
-                threadNativeIds.set(thread.id, thread.nativeThreadRef.nativeId);
-              }
-              return thread;
-            }),
-          resumeThread: (threadInput) =>
-            Effect.gen(function* () {
-              const thread = yield* sessionRuntime.resumeThread(threadInput);
-              if (thread.nativeThreadRef?.nativeId) {
-                threadNativeIds.set(thread.id, thread.nativeThreadRef.nativeId);
-              }
-              return thread;
-            }),
-          startTurn: (turnInput) =>
-            Effect.gen(function* () {
-              if (turnInput.providerThread.nativeThreadRef?.nativeId) {
-                threadNativeIds.set(
-                  turnInput.providerThread.id,
-                  turnInput.providerThread.nativeThreadRef.nativeId,
-                );
-              }
-              return yield* sessionRuntime.startTurn(turnInput);
-            }),
-        };
-      }),
-  };
+  return yield* withAntigravityTurnUsage(adapter, { instanceId: options.instanceId, ...services });
 });

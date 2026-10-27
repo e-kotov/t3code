@@ -16,7 +16,6 @@ import {
   describeUsageWindows,
   hotCacheThreadIds,
   presentCacheHud,
-  reportFromContextUsage,
 } from "./cacheHud.ts";
 
 const updatedAt = "2026-10-13T08:00:00.000Z";
@@ -348,7 +347,8 @@ describe("focusedCacheHud", () => {
       }),
     ).toBeNull();
   });
-  it("falls back to provider contextUsage when providerTurns has no turn reports", () => {
+
+  it("shows context-only usage when the active provider reports no turn usage", () => {
     const acpProjection = {
       thread: { activeProviderThreadId: providerThreadId, modelSelection: selection },
       providerThreads: [
@@ -356,105 +356,38 @@ describe("focusedCacheHud", () => {
           id: providerThreadId,
           driver: ProviderDriverKind.make("antigravity"),
           contextUsage: { usedTokens: 125_000, maxTokens: 1_048_576 },
-          updatedAt: "2026-10-13T11:20:00.000Z",
+          updatedAt: DateTime.makeUnsafe("2026-10-13T11:20:00.000Z"),
         },
       ],
       providerTurns: [],
     };
-    const result = focusedCacheHud(null, acpProjection);
-    expect(result).not.toBeNull();
-    expect(result?.driver).toBe("antigravity");
-    expect(result?.usage.usedTokens).toBe(125_000);
-    expect(result?.usage.maxTokens).toBe(1_048_576);
-    expect(presentCacheHud(result!, start).contextText).toBe("125k/1m");
+    const result = focusedCacheHud(null, acpProjection)!;
+    expect(result).toEqual({
+      driver: ProviderDriverKind.make("antigravity"),
+      usage: { usedTokens: 125_000, maxTokens: 1_048_576, updatedAt: "2026-10-13T11:20:00.000Z" },
+      basis: "unknown",
+    });
+    expect(presentCacheHud(result, start).contextText).toBe("125k/1m");
   });
 
-  it("preserves fallback cache counts when projection refreshes context usage", () => {
-    const fallbackWithCache = hud({
+  it("does not carry a shell HUD's cache counts onto another provider", () => {
+    const antigravityShell = hud({
       driver: ProviderDriverKind.make("antigravity"),
       basis: "unknown",
-      usage: {
-        updatedAt,
-        usedTokens: 170_000,
-        maxTokens: 1_048_576,
-        inputTokens: 170_000,
-        cachedInputTokens: 167_000,
-      },
+      usage: { updatedAt, usedTokens: 170_000, inputTokens: 170_000, cachedInputTokens: 167_000 },
     });
-    const acpProjection = {
-      thread: { activeProviderThreadId: providerThreadId, modelSelection: selection },
-      providerThreads: [
-        {
-          id: providerThreadId,
-          driver: ProviderDriverKind.make("antigravity"),
-          contextUsage: { usedTokens: 175_000, maxTokens: 1_048_576 },
-          updatedAt: "2026-10-13T11:25:00.000Z",
-        },
-      ],
-      providerTurns: [],
-    };
-    const result = focusedCacheHud(fallbackWithCache, acpProjection);
-    expect(result?.usage.usedTokens).toBe(175_000);
-    expect(result?.usage.cachedInputTokens).toBe(167_000);
-    expect(presentCacheHud(result!, start).cacheText).toBe("? 98% ⇣167k");
-    expect(presentCacheHud(result!, start).contextText).toBe("175k/1m");
-  });
-
-  it("handles DateTime.Utc object for provider.updatedAt", () => {
-    const acpProjection = {
-      thread: { activeProviderThreadId: providerThreadId, modelSelection: selection },
-      providerThreads: [
-        {
-          id: providerThreadId,
-          driver: ProviderDriverKind.make("antigravity"),
-          contextUsage: { usedTokens: 80_000 },
-          updatedAt: DateTime.unsafeMake(Date.parse("2026-10-13T11:20:00.000Z")),
-        },
-      ],
-      providerTurns: [],
-    };
-    const result = focusedCacheHud(null, acpProjection as any);
-    expect(result).not.toBeNull();
-    expect(result?.usage.usedTokens).toBe(80_000);
-    expect(result?.usage.updatedAt).toBe("2026-10-13T11:20:00.000Z");
-  });
-
-  it("does not leak fallback cache stats across different drivers", () => {
-    const fallbackAntigravity = hud({
-      driver: ProviderDriverKind.make("antigravity"),
-      basis: "unknown",
-      usage: {
-        updatedAt,
-        usedTokens: 170_000,
-        cachedInputTokens: 167_000,
-      },
-    });
-    const codexProjection = {
+    const result = focusedCacheHud(antigravityShell, {
       thread: { activeProviderThreadId: providerThreadId, modelSelection: selection },
       providerThreads: [
         {
           id: providerThreadId,
           driver: ProviderDriverKind.make("codex"),
           contextUsage: { usedTokens: 50_000 },
-          updatedAt,
+          updatedAt: DateTime.makeUnsafe(updatedAt),
         },
       ],
       providerTurns: [],
-    };
-    const result = focusedCacheHud(fallbackAntigravity, codexProjection);
-    expect(result?.driver).toBe("codex");
-    expect(result?.usage.usedTokens).toBe(50_000);
-    expect(result?.usage.cachedInputTokens).toBeUndefined();
-  });
-
-  it("converts snapshot to report with reportFromContextUsage", () => {
-    const report = reportFromContextUsage(
-      { usedTokens: 10_000, maxTokens: 200_000, cachedInputTokens: 5_000 },
-      "2026-10-13T12:00:00.000Z",
-    );
-    expect(report.usedTokens).toBe(10_000);
-    expect(report.maxTokens).toBe(200_000);
-    expect(report.cachedInputTokens).toBe(5_000);
-    expect(report.updatedAt).toBe("2026-10-13T12:00:00.000Z");
+    });
+    expect(result?.usage).toEqual({ usedTokens: 50_000, updatedAt });
   });
 });

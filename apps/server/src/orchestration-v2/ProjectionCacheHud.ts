@@ -34,17 +34,11 @@ export function cacheHudFromProjection(
   const turnReports = projection.providerTurns
     .filter((turn) => turn.providerThreadId === provider.id)
     .flatMap((turn) => (turn.tokenUsage ? [turn.tokenUsage] : []));
-  const providerUpdatedAt =
-    typeof provider.updatedAt === "string"
-      ? provider.updatedAt
-      : provider.updatedAt && typeof provider.updatedAt === "object"
-        ? DateTime.formatIso(provider.updatedAt as DateTime.Utc)
-        : "";
   const reports =
     turnReports.length > 0
       ? turnReports
       : provider.contextUsage
-        ? [reportFromContextUsage(provider.contextUsage, providerUpdatedAt)]
+        ? [reportFromContextUsage(provider.contextUsage, DateTime.formatIso(provider.updatedAt))]
         : [];
   return deriveCacheHud(provider.driver, reports, projection.thread.modelSelection);
 }
@@ -62,7 +56,7 @@ export const cacheHudsForThreads = Effect.fn("cacheHudsForThreads")(function* (
     model_json: string;
     usage_json: string | null;
     context_usage_json: string | null;
-    provider_updated_at: string | null;
+    provider_updated_at: string;
   }>`
       SELECT t.thread_id, p.driver,
         json_extract(t.payload_json, '$.modelSelection') AS model_json,
@@ -87,22 +81,21 @@ export const cacheHudsForThreads = Effect.fn("cacheHudsForThreads")(function* (
     group.push(row);
     groups.set(row.thread_id, group);
   }
-  const now = yield* DateTime.now;
-  const nowIso = DateTime.formatIso(now);
   for (const [id, group] of groups) {
     const first = group[0]!;
     const driver = yield* decodeDriver(first.driver);
     const model = yield* decodeModel(first.model_json);
-    const usageRows = group.filter((row) => row.usage_json !== null);
-    let reports: OrchestrationV2ProviderTurnTokenUsage[] = [];
-    if (usageRows.length > 0) {
-      reports = yield* Effect.forEach(usageRows, (row) => decodeUsage(row.usage_json!));
-    } else if (first.context_usage_json) {
-      const parsed = Option.getOrNull(decodeContextUsage(first.context_usage_json));
-      if (parsed !== null) {
-        reports = [reportFromContextUsage(parsed, first.provider_updated_at ?? nowIso)];
-      }
-    }
+    const usageJson = group.flatMap((row) => (row.usage_json === null ? [] : [row.usage_json]));
+    const contextUsage =
+      first.context_usage_json === null
+        ? Option.none()
+        : decodeContextUsage(first.context_usage_json);
+    const reports =
+      usageJson.length > 0
+        ? yield* Effect.forEach(usageJson, (json) => decodeUsage(json))
+        : Option.isSome(contextUsage)
+          ? [reportFromContextUsage(contextUsage.value, first.provider_updated_at)]
+          : [];
     result.set(ThreadId.make(id), deriveCacheHud(driver, reports, model));
   }
   return result;

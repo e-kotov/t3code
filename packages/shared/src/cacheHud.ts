@@ -86,9 +86,6 @@ export function reportFromContextUsage(
     ...(contextUsage.cachedInputTokens !== undefined
       ? { cachedInputTokens: contextUsage.cachedInputTokens }
       : {}),
-    ...(contextUsage.cacheCreationTokens !== undefined
-      ? { cacheCreationTokens: contextUsage.cacheCreationTokens }
-      : {}),
     updatedAt,
   };
 }
@@ -126,41 +123,13 @@ export function focusedCacheHud(
   const turnReports = projection.providerTurns
     .filter((turn) => turn.providerThreadId === provider.id)
     .flatMap((turn) => (turn.tokenUsage ? [turn.tokenUsage] : []));
-  const providerUpdatedAt =
-    typeof provider.updatedAt === "string"
-      ? provider.updatedAt
-      : provider.updatedAt && typeof provider.updatedAt === "object"
-        ? DateTime.formatIso(provider.updatedAt as DateTime.Utc)
-        : (fallback?.usage.updatedAt ?? "");
   const reports =
     turnReports.length > 0
       ? turnReports
-      : provider.contextUsage
-        ? [reportFromContextUsage(provider.contextUsage, providerUpdatedAt)]
+      : provider.contextUsage && provider.updatedAt
+        ? [reportFromContextUsage(provider.contextUsage, DateTime.formatIso(provider.updatedAt))]
         : [];
-  const derived = deriveCacheHud(provider.driver, reports, projection.thread.modelSelection);
-  if (
-    derived &&
-    fallback &&
-    fallback.driver === provider.driver &&
-    fallback.usage.cachedInputTokens !== undefined &&
-    derived.usage.cachedInputTokens === undefined
-  ) {
-    return {
-      ...derived,
-      usage: {
-        ...derived.usage,
-        cachedInputTokens: fallback.usage.cachedInputTokens,
-        ...(fallback.usage.cacheCreationTokens !== undefined
-          ? { cacheCreationTokens: fallback.usage.cacheCreationTokens }
-          : {}),
-        ...(fallback.usage.inputTokens !== undefined
-          ? { inputTokens: fallback.usage.inputTokens }
-          : {}),
-      },
-    };
-  }
-  return derived;
+  return deriveCacheHud(provider.driver, reports, projection.thread.modelSelection);
 }
 
 function formatHudTokens(value: number) {
@@ -184,16 +153,16 @@ export function presentCacheHud(hud: OrchestrationV2CacheHud, nowMs: number) {
       ? "unknown"
       : remainingMs === 0
         ? "cold"
-        : remainingMs < 300_000
+        : remainingMs <= 300_000
           ? "expiring"
-          : "warm";
-  // @effect-diagnostics-next-line globalDate:off -- React external-store boundaries use wall-clock milliseconds.
-  const expiry = new Date(Date.parse(usage.updatedAt) + (hud.ttlMs ?? 0));
-  const clock = `${String(expiry.getHours()).padStart(2, "0")}:${String(expiry.getMinutes()).padStart(2, "0")}`;
+          : "hot";
   const percentage =
     usage.inputTokens && cached !== undefined
       ? Math.min(100, Math.round((cached / usage.inputTokens) * 100))
       : null;
+  // @effect-diagnostics-next-line globalDate:off -- Format the React HUD in the device local timezone.
+  const expiry = new Date(Date.parse(usage.updatedAt) + (hud.ttlMs ?? 0));
+  const clock = `${String(expiry.getHours()).padStart(2, "0")}:${String(expiry.getMinutes()).padStart(2, "0")}`;
   const tokens = cached === undefined ? "⇣?" : `⇣${formatHudTokens(cached)}`;
   const cacheText =
     state === "cold"

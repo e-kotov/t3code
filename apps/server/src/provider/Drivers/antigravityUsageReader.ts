@@ -129,7 +129,7 @@ interface Metadata {
   usages: Fields[];
 }
 
-function metadata(bytes: Uint8Array, step: boolean): Metadata {
+export function metadata(bytes: Uint8Array, step: boolean): Metadata {
   const root = fields(bytes);
   if (!step && bytesAt(root, 1) === undefined) {
     throw new Error("Missing Antigravity generation metadata");
@@ -260,7 +260,7 @@ const readDatabase = Effect.fn("readDatabase")(function* (
   }).pipe(sql.withTransaction);
 });
 
-function usageCandidates(
+export function usageCandidates(
   sessionId: string,
   generations: ReadonlyArray<{ idx: number; entry: Metadata }>,
   steps: ReadonlyArray<{ idx: number; entry: Metadata }>,

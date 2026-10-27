@@ -8,7 +8,7 @@ on:
       - ".github/workflows/fork-cache-hud.yml"
       - "packages/shared/src/cacheHud*"
       - "apps/server/src/orchestration-v2/ProjectionCacheHud*"
-      - "apps/server/src/orchestration-v2/Adapters/AntigravityAdapterV2*"
+      - "apps/server/src/orchestration-v2/Adapters/AntigravityTurnUsage*"
       - "apps/web/src/components/ChatView.tsx"
       - "apps/mobile/src/features/threads/CacheThreadHeader.tsx"
 
@@ -70,7 +70,7 @@ jobs:
           vp run check:changed "$base"
           vp test run packages/shared/src/cacheHud.test.ts
           vp test run apps/server/src/orchestration-v2/ProjectionCacheHud.test.ts
-          vp test run apps/server/src/orchestration-v2/Adapters/AntigravityAdapterV2.test.ts
+          vp test run apps/server/src/orchestration-v2/Adapters/AntigravityTurnUsage.test.ts
       - name: Capture formatting fixes
         if: failure()
         run: |
