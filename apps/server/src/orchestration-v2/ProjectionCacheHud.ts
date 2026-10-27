@@ -10,10 +10,12 @@ import {
   type OrchestrationV2ThreadProjection,
   ProviderDriverKind,
   ThreadId,
+  ThreadTokenUsageSnapshot,
 } from "@t3tools/contracts";
 import { deriveCacheHud } from "@t3tools/shared/cacheHud";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import type * as SqlClient from "effect/sql/SqlClient";
 
@@ -22,6 +24,7 @@ const decodeModel = Schema.decodeEffect(Schema.fromJsonString(ModelSelection));
 const decodeUsage = Schema.decodeEffect(
   Schema.fromJsonString(OrchestrationV2ProviderTurnTokenUsage),
 );
+const decodeContextUsage = Schema.decodeOption(Schema.fromJsonString(ThreadTokenUsageSnapshot));
 
 function parseFields(bytes: Uint8Array): Map<number, (number | Uint8Array)[]> {
   let offset = 0;
@@ -277,6 +280,8 @@ export const cacheHudsForThreads = Effect.fn("cacheHudsForThreads")(function* (
     group.push(row);
     groups.set(row.thread_id, group);
   }
+  const now = yield* DateTime.now;
+  const nowIso = DateTime.formatIso(now);
   for (const [id, group] of groups) {
     const first = group[0]!;
     const driver = yield* decodeDriver(first.driver);
@@ -290,12 +295,9 @@ export const cacheHudsForThreads = Effect.fn("cacheHudsForThreads")(function* (
       if (first.driver === "antigravity" && first.native_id) {
         const stats = readAntigravitySessionCache(first.native_id);
         if (stats) {
-          let contextUsage: { usedTokens?: number; maxTokens?: number } | null = null;
-          if (first.context_usage_json) {
-            try {
-              contextUsage = JSON.parse(first.context_usage_json);
-            } catch {}
-          }
+          const contextUsage = first.context_usage_json
+            ? Option.getOrNull(decodeContextUsage(first.context_usage_json))
+            : null;
           fallbackReport = {
             usedTokens: contextUsage?.usedTokens ?? stats.inputTokens + stats.outputTokens,
             maxTokens: contextUsage?.maxTokens ?? 1_048_576,
@@ -303,25 +305,23 @@ export const cacheHudsForThreads = Effect.fn("cacheHudsForThreads")(function* (
             cachedInputTokens: stats.cachedInputTokens,
             cacheCreationTokens: stats.cacheCreationTokens,
             outputTokens: stats.outputTokens,
-            updatedAt: stats.updatedAt ?? first.provider_updated_at ?? new Date().toISOString(),
+            updatedAt: stats.updatedAt ?? first.provider_updated_at ?? nowIso,
           };
         }
       }
       if (!fallbackReport && first.context_usage_json) {
-        try {
-          const parsed = JSON.parse(first.context_usage_json);
-          if (parsed && typeof parsed.usedTokens === "number") {
-            fallbackReport = {
-              usedTokens: parsed.usedTokens,
-              ...(parsed.maxTokens != null ? { maxTokens: parsed.maxTokens } : {}),
-              ...(parsed.inputTokens != null ? { inputTokens: parsed.inputTokens } : {}),
-              ...(parsed.cachedInputTokens != null
-                ? { cachedInputTokens: parsed.cachedInputTokens }
-                : {}),
-              updatedAt: first.provider_updated_at ?? new Date().toISOString(),
-            };
-          }
-        } catch {}
+        const parsed = Option.getOrNull(decodeContextUsage(first.context_usage_json));
+        if (parsed !== null) {
+          fallbackReport = {
+            usedTokens: parsed.usedTokens,
+            ...(parsed.maxTokens !== undefined ? { maxTokens: parsed.maxTokens } : {}),
+            ...(parsed.inputTokens !== undefined ? { inputTokens: parsed.inputTokens } : {}),
+            ...(parsed.cachedInputTokens !== undefined
+              ? { cachedInputTokens: parsed.cachedInputTokens }
+              : {}),
+            updatedAt: first.provider_updated_at ?? nowIso,
+          };
+        }
       }
       result.set(
         ThreadId.make(id),
