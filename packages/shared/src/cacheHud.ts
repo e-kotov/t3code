@@ -83,10 +83,7 @@ export function focusedCacheHud(
           "activeProviderThreadId" | "modelSelection"
         >;
         readonly providerThreads: ReadonlyArray<
-          Pick<
-            OrchestrationV2ThreadProjection["providerThreads"][number],
-            "id" | "driver"
-          > & {
+          Pick<OrchestrationV2ThreadProjection["providerThreads"][number], "id" | "driver"> & {
             readonly contextUsage?: OrchestrationV2ThreadProjection["providerThreads"][number]["contextUsage"];
             readonly updatedAt?:
               | OrchestrationV2ThreadProjection["providerThreads"][number]["updatedAt"]
@@ -130,7 +127,7 @@ export function focusedCacheHud(
               updatedAt:
                 typeof provider.updatedAt === "string"
                   ? provider.updatedAt
-                  : (fallback?.usage.updatedAt ?? new Date().toISOString()),
+                  : (fallback?.usage.updatedAt ?? ""),
             },
           ]
         : [];
@@ -154,7 +151,7 @@ export function focusedCacheHud(
       },
     };
   }
-  return derived ?? fallback ?? null;
+  return derived;
 }
 
 function formatHudTokens(value: number) {

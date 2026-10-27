@@ -119,7 +119,7 @@ interface CachedAntigravitySessionUsage {
 
 const antigravitySessionUsageCache = new Map<string, CachedAntigravitySessionUsage>();
 
-export function readAntigravitySessionCache(nativeId: string) {
+function readAntigravitySessionCache(nativeId: string) {
   const file = findAntigravitySessionDb(nativeId);
   if (!file) return null;
   try {
@@ -142,9 +142,9 @@ export function readAntigravitySessionCache(nativeId: string) {
         antigravitySessionUsageCache.set(nativeId, { fingerprint, stats: null });
         return null;
       }
-      const row = db
-        .prepare("SELECT data FROM gen_metadata ORDER BY rowid DESC LIMIT 1")
-        .get() as { data: Uint8Array } | undefined;
+      const row = db.prepare("SELECT data FROM gen_metadata ORDER BY rowid DESC LIMIT 1").get() as
+        | { data: Uint8Array }
+        | undefined;
       if (!row || !row.data) {
         antigravitySessionUsageCache.set(nativeId, { fingerprint, stats: null });
         return null;
@@ -315,7 +315,9 @@ export const cacheHudsForThreads = Effect.fn("cacheHudsForThreads")(function* (
               usedTokens: parsed.usedTokens,
               ...(parsed.maxTokens != null ? { maxTokens: parsed.maxTokens } : {}),
               ...(parsed.inputTokens != null ? { inputTokens: parsed.inputTokens } : {}),
-              ...(parsed.cachedInputTokens != null ? { cachedInputTokens: parsed.cachedInputTokens } : {}),
+              ...(parsed.cachedInputTokens != null
+                ? { cachedInputTokens: parsed.cachedInputTokens }
+                : {}),
               updatedAt: first.provider_updated_at ?? new Date().toISOString(),
             };
           }
