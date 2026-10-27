@@ -11,13 +11,22 @@ they are not tied to upstream stable releases.
 
 1. `merge` merges upstream `main` into fork `main`. If upstream is already contained, it stops.
    `fork-merge-upstream.sh` preserves the fork-owned README, including when upstream edits
-   would otherwise merge cleanly. All other paths keep normal Git conflict detection;
-   upstream documentation remains linked from the fork landing page.
-2. `checks` first rejects any growth beyond the reviewed per-file upstream-edit budget, then typechecks contracts, shared, client-runtime, SSH, server, web, mobile and desktop, then
+   would otherwise merge cleanly; upstream documentation remains linked from the fork landing
+   page. A conflicted `apps/web/src/routeTree.gen.ts` takes upstream's version. Other conflicts
+   go to [mergiraf](https://mergiraf.org) (pinned in the workflow), a syntax-aware merge driver
+   that resolves, for example, both sides adding imports or list entries at the same place.
+   It replaces a file only when it resolves every conflict in it; anything else keeps Git's
+   markers and blocks the sync. The merge commit message and run summary name each file
+   mergiraf resolved. Its results are not reviewed by a person: the checks below decide.
+   Replaying the 2026-10-27 sync, it resolved 7 of 15 files, one of them wrongly (a duplicate
+   import that the typecheck rejects).
+2. `scripts/fork-route-tree.mjs` regenerates the route tree with the TanStack generator the web
+   build uses, so the fork's route files are listed again; `routes` commits any change.
+3. `checks` first rejects any growth beyond the reviewed per-file upstream-edit budget, then typechecks contracts, shared, client-runtime, SSH, server, web, mobile and desktop, then
    runs every test file the fork added or changed relative to upstream, plus the upstream tests
    beside upstream files the fork mounts into (listed in the script) and the mobile React
    Compiler coverage test. Web browser tests run in headless Chromium on the runner.
-3. If both pass, the merge commit is pushed to `main`. Upstream workflows that became active are
+4. If the checks pass, the merge commit is pushed to `main`. Upstream workflows that became active are
    disabled; only fork-owned workflows stay enabled.
 
 A conflict or failed check leaves `main` unchanged and fails the run. GitHub emails the
@@ -39,7 +48,8 @@ deletes the branch. The branch must contain fork `main`.
 git fetch upstream && git fetch origin
 git switch main && git merge --ff-only origin/main
 bash scripts/fork-merge-upstream.sh upstream/main "Merge upstream main"
-# If source conflicts remain, resolve them; rerere replays earlier resolutions.
+# rerere replays earlier resolutions; with `brew install mergiraf` the helper also tries it.
+# Resolve what remains. Take upstream's routeTree.gen.ts; the workflow regenerates it.
 VP_GIT_HOOKS=0 git commit --no-edit   # the upstream pre-commit hook needs vp
 git push origin HEAD:refs/heads/sync/upstream-$(date +%F)
 gh workflow run upstream-sync.yml -R e-kotov/t3code -f branch=sync/upstream-$(date +%F)

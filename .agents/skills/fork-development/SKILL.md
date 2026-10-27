@@ -99,7 +99,7 @@ store afterwards.
 
 ## Resolving a blocked upstream sync
 
-When the daily run fails with conflicts, merge locally (`git fetch upstream`, then `bash scripts/fork-merge-upstream.sh upstream/main "Merge upstream main"`) and keep both sides' intent; `rerere` is enabled, so resolutions are reused.
+When the daily run fails with conflicts, merge locally (`git fetch upstream`, then `bash scripts/fork-merge-upstream.sh upstream/main "Merge upstream main"`) and keep both sides' intent; `rerere` is enabled, so resolutions are reused. The helper takes upstream's generated `routeTree.gen.ts` (the workflow regenerates it) and, when `mergiraf` is installed, tries it on the remaining files. What is left needs judgment: an upstream refactor of the code a fork mount touches. Check auto-merged fork mounts too: a clean merge can still drop a fork entry from a list upstream restructured.
 Do not install dependencies for this: Egor keeps no `node_modules` on the Mac. Commit with
 `VP_GIT_HOOKS=0`, push the merge to a `sync/<name>` branch and run
 `gh workflow run upstream-sync.yml -f branch=sync/<name>`; it checks the branch on GitHub and

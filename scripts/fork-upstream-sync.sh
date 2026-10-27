@@ -2,6 +2,7 @@
 # Daily fork maintenance for .github/workflows/upstream-sync.yml.
 #   merge      merge pingdotgg/t3code main into the fork's main (fails on conflict)
 #   checks     typecheck the packages the fork changes and run every test file it touched
+#   routes     commit the web route tree after scripts/fork-route-tree.mjs regenerated it
 #   footprint [REV]  list upstream-owned files the fork edits, with changed line counts;
 #                    measures the working tree by default, or REV (e.g. HEAD) if given
 # checks and footprint compare against UPSTREAM_SHA, else the upstream commit HEAD contains,
@@ -13,7 +14,7 @@ out() { echo "$1" >> "${GITHUB_OUTPUT:-/dev/null}"; }
 summary() { echo "$1" >> "${GITHUB_STEP_SUMMARY:-/dev/stderr}"; }
 fork_base() { [ -n "${UPSTREAM_SHA:-}" ] && echo "$UPSTREAM_SHA" || git merge-base HEAD refs/remotes/upstream/main; }
 
-cmd=${1:?usage: fork-upstream-sync.sh merge|checks|footprint [REV]}
+cmd=${1:?usage: fork-upstream-sync.sh merge|routes|checks|footprint [REV]}
 shift
 case "$cmd" in
   merge)
@@ -60,7 +61,16 @@ case "$cmd" in
       exit 1
     fi
     summary "Merged $behind upstream commits up to ${upstream:0:10}."
+    git log -1 --format=%b | sed '/^$/d; s/^/- /' >> "${GITHUB_STEP_SUMMARY:-/dev/stderr}"
     out "changed=true"
+    ;;
+  routes)
+    # The merge takes upstream's generated tree on conflict; the regenerated one restores fork routes.
+    tree=apps/web/src/routeTree.gen.ts
+    if ! git diff --quiet -- "$tree"; then
+      git commit -q -m "chore(fork): regenerate the web route tree" -- "$tree"
+      summary "Regenerated \`$tree\` from the route files."
+    fi
     ;;
   checks)
     upstream=$(fork_base)

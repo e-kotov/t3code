@@ -51,6 +51,18 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch --no-tags origin "$CHECKOUT_REF"
           git checkout --detach FETCH_HEAD
+      - name: Install mergiraf for syntax-aware conflict resolution
+        env:
+          MERGIRAF_VERSION: "0.20.0"
+          MERGIRAF_SHA256: fc77469be936b02ab9021b984a3aebc9250a21ae3d264f2ef2198eb8b31b2a7b
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/mergiraf.tar.gz"
+          curl -fsSL -o "$archive" "https://codeberg.org/mergiraf/mergiraf/releases/download/v$MERGIRAF_VERSION/mergiraf_x86_64-unknown-linux-musl.tar.gz"
+          echo "$MERGIRAF_SHA256  $archive" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/bin" mergiraf
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - id: merge
         env:
           SYNC_BRANCH: ${{ inputs.branch }}
@@ -64,6 +76,11 @@ jobs:
           run-install: false
       - if: steps.merge.outputs.changed == 'true'
         run: vp install
+      - name: Regenerate the web route tree
+        if: steps.merge.outputs.changed == 'true'
+        run: |
+          node scripts/fork-route-tree.mjs
+          scripts/fork-upstream-sync.sh routes
       - name: Install Python packaging test dependency
         if: steps.merge.outputs.changed == 'true'
         run: python3 -m pip install PyYAML==6.0.3
