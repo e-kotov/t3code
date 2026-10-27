@@ -359,9 +359,7 @@ export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
   );
 }
 
-export function UtilitiesSidebar(props: {
-  readonly context: ReturnType<typeof useWorkspaceTabs>;
-}) {
+export function UtilitiesSidebar(props: { readonly context: ReturnType<typeof useWorkspaceTabs> }) {
   return (
     <WorkspaceTabsContext value={props.context}>
       <DeviceCommandsScreen sidebar />
