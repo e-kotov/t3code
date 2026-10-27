@@ -59,7 +59,7 @@ case "$cmd" in
       summary ""
       git diff --name-only --diff-filter=U | sed 's/^/- `/; s/$/`/' >> "${GITHUB_STEP_SUMMARY:-/dev/stderr}"
       if [ -n "${SYNC_CONFLICT_BUNDLE:-}" ] && [ -z "${SYNC_BRANCH:-}" ]; then
-        # jules-sync.yml pushes this commit, markers included, for Jules to resolve on a branch.
+        # The workflow hands this commit, markers included, to jules-sync.yml for Jules to resolve.
         conflicted=$(git diff --name-only --diff-filter=U | tr '\n' ' ')
         git add -A
         git commit -q -m "Merge upstream main ${upstream:0:10} with unresolved conflicts" \

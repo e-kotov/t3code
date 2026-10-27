@@ -33,7 +33,9 @@ they are not tied to upstream stable releases.
 ## Conflicts that need judgment: Jules
 
 When a sync started from `main` still has conflicts after mergiraf, the merge step commits the
-conflicted merge, markers included, and `.github/workflows/jules-sync.yml` takes over:
+conflicted merge, markers included. When it merged cleanly but a check failed, its merge is kept
+as it is. Either way the run uploads it as `upstream-handoff`, and
+`.github/workflows/jules-sync.yml` takes over; for a failed check, the task includes the log:
 
 1. `handoff` pushes it as `sync/conflicts-<UTC time>` and starts a [Jules](https://jules.google)
    session there through the Jules REST API (alpha), with

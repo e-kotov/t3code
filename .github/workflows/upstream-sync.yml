@@ -69,15 +69,8 @@ jobs:
         env:
           SYNC_BRANCH: ${{ inputs.branch }}
           SYNC_PROMOTE_ONLY: ${{ inputs.promote_only && 'true' || 'false' }}
-          SYNC_CONFLICT_BUNDLE: ${{ runner.temp }}/conflict.bundle
+          SYNC_CONFLICT_BUNDLE: ${{ runner.temp }}/handoff.bundle
         run: scripts/fork-upstream-sync.sh merge
-      - name: Keep the conflicted merge for jules-sync.yml
-        if: failure() && steps.merge.outputs.conflict == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: upstream-conflict
-          path: ${{ runner.temp }}/conflict.bundle
-          retention-days: 3
       - if: steps.merge.outputs.changed == 'true'
         uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
         with:
@@ -141,6 +134,21 @@ jobs:
         with:
           name: fork-format-fixes
           path: ${{ runner.temp }}/fork-format.patch
+          retention-days: 3
+      # A sync from main that conflicted, or merged cleanly but failed a check, goes to jules-sync.yml.
+      - name: Keep the failed merge for jules-sync.yml
+        id: handoff
+        if: >-
+          failure() && inputs.branch == '' &&
+          (steps.merge.outputs.conflict == 'true' || steps.merge.outputs.changed == 'true')
+        run: |
+          [ -f "$RUNNER_TEMP/handoff.bundle" ] ||
+            git bundle create "$RUNNER_TEMP/handoff.bundle" refs/remotes/origin/main..main
+      - if: failure() && steps.handoff.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: upstream-handoff
+          path: ${{ runner.temp }}/handoff.bundle
           retention-days: 3
       - if: steps.merge.outputs.changed == 'true'
         run: git bundle create "$RUNNER_TEMP/merge.bundle" refs/remotes/origin/main..main

@@ -1,21 +1,24 @@
 You are resolving an upstream merge in e-kotov/t3code, a fork of pingdotgg/t3code.
 
-The branch you start on ends with a merge commit, "Merge upstream main … with unresolved
-conflicts". Its first parent is the fork's main and its second parent is upstream main. The files
-listed after "Unresolved:" in that commit message still contain Git conflict markers (diff3
-style: ours, the merge base, theirs). Git's automatic merge and the mergiraf merge tool already
-handled everything else.
+The branch you start on contains a merge of upstream main into the fork (first parent: the
+fork's main; second parent: upstream main), possibly followed by formatting or route-tree commits.
+Either the merge commit is titled "… with unresolved conflicts" and the files listed after
+"Unresolved:" in its message still contain Git conflict markers (diff3 style: ours, the merge
+base, theirs), or the merge is clean and the fork's checks failed; then the failure log is at the
+end of this task. Git's automatic merge and the mergiraf merge tool already handled everything
+else.
 
 Before editing, read AGENTS.md and .agents/skills/fork-development/SKILL.md, which explain where
 fork code lives and why fork edits in upstream files are kept small.
 
 Do this:
 
-1. In each listed file, remove every conflict marker and keep both sides' intent. "Ours" is fork
-   code; "theirs" is upstream's change. When upstream removed or restructured code that a fork
-   line touched, move the fork's addition onto upstream's new structure; do not restore code
-   upstream deleted. Compare the two parents (`git diff HEAD^1 HEAD^2 -- <file>`) to see what
-   upstream changed.
+1. In each listed file, remove every conflict marker and keep both sides' intent. "Ours" is
+   fork code; "theirs" is upstream's change. When upstream removed or restructured code that a
+   fork line touched, move the fork's addition onto upstream's new structure; do not restore code
+   upstream deleted. To see what upstream changed, compare the merge's parents:
+   `m=$(git rev-list --merges -1 HEAD); git diff "$m^1" "$m^2" -- <file>`. For a failed check,
+   fix the fork code that no longer fits upstream's change in the same way.
 2. Check fork features that merged without a conflict but may have lost their mount point, for
    example a fork entry missing from a list that upstream rebuilt.
 3. Change nothing else: no unrelated refactors, formatting passes, dependency updates or edits
@@ -29,5 +32,5 @@ Do this:
    its interface), do not guess. Resolve the rest, then add `.jules-needs-decision.md` at the
    repository root describing the decision, the options and your recommendation.
 
-Commit your resolution on top of this branch. Do not rebase, squash, or rewrite the merge commit;
+Commit your work on top of this branch. Do not rebase, squash, or rewrite the merge commit;
 the fork's automation rebuilds a clean merge commit from your final files and checks it.
