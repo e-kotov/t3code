@@ -209,3 +209,99 @@ it.effect.each([
       yield* assertCacheHud({ driver, usage: cacheRead(67, opus), basis: "unknown" });
     }).pipe(Effect.provide(layer)),
 );
+
+it.effect.each([
+  ["memory", ProjectionStore.layerMemory],
+  ["SQL", layerSql],
+] as const)(
+  "%s shells fall back to active provider contextUsage when turns have no tokenUsage",
+  ([, layer]) =>
+    Effect.gen(function* () {
+      const store = yield* ProjectionStore.ProjectionStoreV2;
+      const now = yield* DateTime.now;
+      const threadId = ThreadId.make("thread:antigravity-hud");
+      const providerThreadId = ProviderThreadId.make("provider-thread:antigravity-hud");
+      const antigravityDriver = ProviderDriverKind.make("antigravity");
+      const selection = {
+        instanceId: ProviderInstanceId.make("antigravity"),
+        model: "gemini-3.8-flash-high",
+      } satisfies ModelSelection;
+
+      yield* store.apply({
+        id: EventId.make("event:antigravity-1"),
+        type: "thread.created",
+        threadId,
+        occurredAt: now,
+        payload: {
+          createdBy: "user",
+          creationSource: "web",
+          id: threadId,
+          projectId: ProjectId.make("project:antigravity-hud"),
+          title: "Antigravity HUD",
+          providerInstanceId: selection.instanceId,
+          modelSelection: selection,
+          runtimeMode: "full-access",
+          interactionMode: "default",
+          branch: null,
+          worktreePath: null,
+          activeProviderThreadId: providerThreadId,
+          lineage: { parentThreadId: null, relationshipToParent: null, rootThreadId: threadId },
+          forkedFrom: null,
+          createdAt: now,
+          updatedAt: now,
+          archivedAt: null,
+          settledOverride: null,
+          settledAt: null,
+          lastVisitedAt: null,
+          deletedAt: null,
+        },
+      });
+
+      yield* store.apply({
+        id: EventId.make("event:antigravity-2"),
+        type: "provider-thread.updated",
+        threadId,
+        occurredAt: now,
+        payload: {
+          id: providerThreadId,
+          driver: antigravityDriver,
+          providerInstanceId: selection.instanceId,
+          providerSessionId: null,
+          appThreadId: threadId,
+          ownerNodeId: null,
+          nativeThreadRef: null,
+          nativeConversationHeadRef: null,
+          status: "idle",
+          firstRunOrdinal: 1,
+          lastRunOrdinal: 1,
+          handoffIds: [],
+          forkedFrom: null,
+          createdAt: now,
+          updatedAt: now,
+          contextUsage: {
+            usedTokens: 132_895,
+            maxTokens: 1_048_576,
+          },
+          pendingBackgroundTasks: [],
+        },
+      });
+
+      const listed = (yield* store.getShellSnapshot()).threads.find(
+        (thread) => thread.id === threadId,
+      );
+      const shell = yield* store.getThreadShell(threadId);
+
+      const expectedHud: OrchestrationV2CacheHud = {
+        driver: antigravityDriver,
+        usage: {
+          usedTokens: 132_895,
+          maxTokens: 1_048_576,
+          updatedAt: DateTime.formatIso(now),
+        },
+        basis: "unknown",
+      };
+
+      assert.deepEqual(shell?.cacheHud, expectedHud);
+      assert.deepEqual(listed?.cacheHud, expectedHud);
+    }).pipe(Effect.provide(layer)),
+);

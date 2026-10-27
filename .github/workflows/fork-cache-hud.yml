@@ -3,10 +3,11 @@ name: Fork cache HUD
 on:
   workflow_dispatch:
   push:
-    branches: [main, "sync/subagent-context-*"]
+    branches: [main, "sync/subagent-context-*", "feat/*"]
     paths:
       - ".github/workflows/fork-cache-hud.yml"
       - "packages/shared/src/cacheHud*"
+      - "apps/server/src/orchestration-v2/ProjectionCacheHud*"
       - "apps/web/src/components/ChatView.tsx"
       - "apps/mobile/src/features/threads/CacheThreadHeader.tsx"
 
@@ -67,6 +68,7 @@ jobs:
           if [ "$base" = "$(git rev-parse HEAD)" ]; then base=HEAD^; fi
           vp run check:changed "$base"
           vp test run packages/shared/src/cacheHud.test.ts
+          vp test run apps/server/src/orchestration-v2/ProjectionCacheHud.test.ts
       - name: Capture formatting fixes
         if: failure()
         run: |

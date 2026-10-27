@@ -346,4 +346,55 @@ describe("focusedCacheHud", () => {
       }),
     ).toBeNull();
   });
+  it("falls back to provider contextUsage when providerTurns has no turn reports", () => {
+    const acpProjection = {
+      thread: { activeProviderThreadId: providerThreadId, modelSelection: selection },
+      providerThreads: [
+        {
+          id: providerThreadId,
+          driver: ProviderDriverKind.make("antigravity"),
+          contextUsage: { usedTokens: 125_000, maxTokens: 1_048_576 },
+          updatedAt: "2026-10-13T11:20:00.000Z",
+        },
+      ],
+      providerTurns: [],
+    };
+    const result = focusedCacheHud(null, acpProjection);
+    expect(result).not.toBeNull();
+    expect(result?.driver).toBe("antigravity");
+    expect(result?.usage.usedTokens).toBe(125_000);
+    expect(result?.usage.maxTokens).toBe(1_048_576);
+    expect(presentCacheHud(result!, start).contextText).toBe("125k/1m");
+  });
+
+  it("preserves fallback cache counts when projection refreshes context usage", () => {
+    const fallbackWithCache = hud({
+      driver: ProviderDriverKind.make("antigravity"),
+      basis: "unknown",
+      usage: {
+        updatedAt,
+        usedTokens: 170_000,
+        maxTokens: 1_048_576,
+        inputTokens: 170_000,
+        cachedInputTokens: 167_000,
+      },
+    });
+    const acpProjection = {
+      thread: { activeProviderThreadId: providerThreadId, modelSelection: selection },
+      providerThreads: [
+        {
+          id: providerThreadId,
+          driver: ProviderDriverKind.make("antigravity"),
+          contextUsage: { usedTokens: 175_000, maxTokens: 1_048_576 },
+          updatedAt: "2026-10-13T11:25:00.000Z",
+        },
+      ],
+      providerTurns: [],
+    };
+    const result = focusedCacheHud(fallbackWithCache, acpProjection);
+    expect(result?.usage.usedTokens).toBe(175_000);
+    expect(result?.usage.cachedInputTokens).toBe(167_000);
+    expect(presentCacheHud(result!, start).cacheText).toBe("? 98% ⇣167k");
+    expect(presentCacheHud(result!, start).contextText).toBe("175k/1m");
+  });
 });

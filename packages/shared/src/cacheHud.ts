@@ -83,7 +83,15 @@ export function focusedCacheHud(
           "activeProviderThreadId" | "modelSelection"
         >;
         readonly providerThreads: ReadonlyArray<
-          Pick<OrchestrationV2ThreadProjection["providerThreads"][number], "id" | "driver">
+          Pick<
+            OrchestrationV2ThreadProjection["providerThreads"][number],
+            "id" | "driver"
+          > & {
+            readonly contextUsage?: OrchestrationV2ThreadProjection["providerThreads"][number]["contextUsage"];
+            readonly updatedAt?:
+              | OrchestrationV2ThreadProjection["providerThreads"][number]["updatedAt"]
+              | string;
+          }
         >;
         readonly providerTurns: ReadonlyArray<
           Pick<
@@ -100,13 +108,53 @@ export function focusedCacheHud(
     (entry) => entry.id === projection.thread.activeProviderThreadId,
   );
   if (!provider) return null;
-  return deriveCacheHud(
-    provider.driver,
-    projection.providerTurns
-      .filter((turn) => turn.providerThreadId === provider.id)
-      .flatMap((turn) => (turn.tokenUsage ? [turn.tokenUsage] : [])),
-    projection.thread.modelSelection,
-  );
+  const turnReports = projection.providerTurns
+    .filter((turn) => turn.providerThreadId === provider.id)
+    .flatMap((turn) => (turn.tokenUsage ? [turn.tokenUsage] : []));
+  const reports =
+    turnReports.length > 0
+      ? turnReports
+      : provider.contextUsage
+        ? [
+            {
+              usedTokens: provider.contextUsage.usedTokens,
+              ...(provider.contextUsage.maxTokens !== undefined
+                ? { maxTokens: provider.contextUsage.maxTokens }
+                : {}),
+              ...(provider.contextUsage.inputTokens !== undefined
+                ? { inputTokens: provider.contextUsage.inputTokens }
+                : {}),
+              ...(provider.contextUsage.cachedInputTokens !== undefined
+                ? { cachedInputTokens: provider.contextUsage.cachedInputTokens }
+                : {}),
+              updatedAt:
+                typeof provider.updatedAt === "string"
+                  ? provider.updatedAt
+                  : (fallback?.usage.updatedAt ?? new Date().toISOString()),
+            },
+          ]
+        : [];
+  const derived = deriveCacheHud(provider.driver, reports, projection.thread.modelSelection);
+  if (
+    derived &&
+    fallback?.usage.cachedInputTokens !== undefined &&
+    derived.usage.cachedInputTokens === undefined
+  ) {
+    return {
+      ...derived,
+      usage: {
+        ...derived.usage,
+        cachedInputTokens: fallback.usage.cachedInputTokens,
+        ...(fallback.usage.cacheCreationTokens !== undefined
+          ? { cacheCreationTokens: fallback.usage.cacheCreationTokens }
+          : {}),
+        ...(fallback.usage.inputTokens !== undefined
+          ? { inputTokens: fallback.usage.inputTokens }
+          : {}),
+      },
+    };
+  }
+  return derived ?? fallback ?? null;
 }
 
 function formatHudTokens(value: number) {
