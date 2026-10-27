@@ -59,7 +59,9 @@ function createWorkspaceTabsModel() {
     threads: 0,
     pullRequests: 0,
     usage: 0,
-    settings: 0, commands: 0, };
+    settings: 0,
+    commands: 0,
+  };
   return {
     stored,
     resolved: Atom.make((get) =>
