@@ -5,9 +5,12 @@ import {
   type OrchestrationV2ThreadProjection,
   ProviderDriverKind,
   ThreadId,
+  ThreadTokenUsageSnapshot,
 } from "@t3tools/contracts";
-import { deriveCacheHud } from "@t3tools/shared/cacheHud";
+import { deriveCacheHud, reportFromContextUsage } from "@t3tools/shared/cacheHud";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import type * as SqlClient from "effect/sql/SqlClient";
 
@@ -16,6 +19,7 @@ const decodeModel = Schema.decodeEffect(Schema.fromJsonString(ModelSelection));
 const decodeUsage = Schema.decodeEffect(
   Schema.fromJsonString(OrchestrationV2ProviderTurnTokenUsage),
 );
+const decodeContextUsage = Schema.decodeOption(Schema.fromJsonString(ThreadTokenUsageSnapshot));
 
 // Fork-owned cache HUD reads mounted by ProjectionStore.ts. Only the active
 // provider thread counts, which prevents stale clocks after forks/switches.
@@ -26,15 +30,17 @@ export function cacheHudFromProjection(
   const provider = projection.providerThreads.find(
     (entry) => entry.id === projection.thread.activeProviderThreadId,
   );
-  return provider
-    ? deriveCacheHud(
-        provider.driver,
-        projection.providerTurns
-          .filter((turn) => turn.providerThreadId === provider.id)
-          .flatMap((turn) => (turn.tokenUsage ? [turn.tokenUsage] : [])),
-        projection.thread.modelSelection,
-      )
-    : null;
+  if (!provider) return null;
+  const turnReports = projection.providerTurns
+    .filter((turn) => turn.providerThreadId === provider.id)
+    .flatMap((turn) => (turn.tokenUsage ? [turn.tokenUsage] : []));
+  const reports =
+    turnReports.length > 0
+      ? turnReports
+      : provider.contextUsage
+        ? [reportFromContextUsage(provider.contextUsage, DateTime.formatIso(provider.updatedAt))]
+        : [];
+  return deriveCacheHud(provider.driver, reports, projection.thread.modelSelection);
 }
 
 // Only token metadata from a bounded recent window crosses into the shell.
@@ -48,15 +54,19 @@ export const cacheHudsForThreads = Effect.fn("cacheHudsForThreads")(function* (
     thread_id: string;
     driver: string;
     model_json: string;
-    usage_json: string;
+    usage_json: string | null;
+    context_usage_json: string | null;
+    provider_updated_at: string;
   }>`
       SELECT t.thread_id, p.driver,
         json_extract(t.payload_json, '$.modelSelection') AS model_json,
-        json_extract(u.payload_json, '$.tokenUsage') AS usage_json
+        json_extract(u.payload_json, '$.tokenUsage') AS usage_json,
+        json_extract(p.payload_json, '$.contextUsage') AS context_usage_json,
+        p.updated_at AS provider_updated_at
       FROM orchestration_v2_projection_threads t
       JOIN orchestration_v2_projection_provider_threads p
         ON p.provider_thread_id = t.active_provider_thread_id
-      JOIN orchestration_v2_projection_provider_turns u ON u.provider_turn_id IN (
+      LEFT JOIN orchestration_v2_projection_provider_turns u ON u.provider_turn_id IN (
         SELECT recent.provider_turn_id
         FROM orchestration_v2_projection_provider_turns recent
         WHERE recent.provider_thread_id = p.provider_thread_id
@@ -75,7 +85,17 @@ export const cacheHudsForThreads = Effect.fn("cacheHudsForThreads")(function* (
     const first = group[0]!;
     const driver = yield* decodeDriver(first.driver);
     const model = yield* decodeModel(first.model_json);
-    const reports = yield* Effect.forEach(group, (row) => decodeUsage(row.usage_json));
+    const usageJson = group.flatMap((row) => (row.usage_json === null ? [] : [row.usage_json]));
+    const contextUsage =
+      first.context_usage_json === null
+        ? Option.none()
+        : decodeContextUsage(first.context_usage_json);
+    const reports =
+      usageJson.length > 0
+        ? yield* Effect.forEach(usageJson, (json) => decodeUsage(json))
+        : Option.isSome(contextUsage)
+          ? [reportFromContextUsage(contextUsage.value, first.provider_updated_at)]
+          : [];
     result.set(ThreadId.make(id), deriveCacheHud(driver, reports, model));
   }
   return result;

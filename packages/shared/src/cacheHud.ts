@@ -6,7 +6,9 @@ import type {
   ProviderDriverKind,
   ServerProviderUsageWindow,
   ThreadId,
+  ThreadTokenUsageSnapshot,
 } from "@t3tools/contracts";
+import * as DateTime from "effect/DateTime";
 
 import { formatResetsIn } from "./usageLimits.ts";
 
@@ -73,6 +75,21 @@ export function deriveCacheHud(
   return { driver, usage, basis: "unknown" };
 }
 
+export function reportFromContextUsage(
+  contextUsage: ThreadTokenUsageSnapshot,
+  updatedAt: string,
+): OrchestrationV2ProviderTurnTokenUsage {
+  return {
+    usedTokens: contextUsage.usedTokens,
+    ...(contextUsage.maxTokens !== undefined ? { maxTokens: contextUsage.maxTokens } : {}),
+    ...(contextUsage.inputTokens !== undefined ? { inputTokens: contextUsage.inputTokens } : {}),
+    ...(contextUsage.cachedInputTokens !== undefined
+      ? { cachedInputTokens: contextUsage.cachedInputTokens }
+      : {}),
+    updatedAt,
+  };
+}
+
 // Focused subagent usage arrives through the detail stream, bypassing shell refreshes.
 export function focusedCacheHud(
   fallback: OrchestrationV2CacheHud | null | undefined,
@@ -85,9 +102,7 @@ export function focusedCacheHud(
         readonly providerThreads: ReadonlyArray<
           Pick<OrchestrationV2ThreadProjection["providerThreads"][number], "id" | "driver"> & {
             readonly contextUsage?: OrchestrationV2ThreadProjection["providerThreads"][number]["contextUsage"];
-            readonly updatedAt?:
-              | OrchestrationV2ThreadProjection["providerThreads"][number]["updatedAt"]
-              | string;
+            readonly updatedAt?: OrchestrationV2ThreadProjection["providerThreads"][number]["updatedAt"];
           }
         >;
         readonly providerTurns: ReadonlyArray<
@@ -111,47 +126,10 @@ export function focusedCacheHud(
   const reports =
     turnReports.length > 0
       ? turnReports
-      : provider.contextUsage
-        ? [
-            {
-              usedTokens: provider.contextUsage.usedTokens,
-              ...(provider.contextUsage.maxTokens !== undefined
-                ? { maxTokens: provider.contextUsage.maxTokens }
-                : {}),
-              ...(provider.contextUsage.inputTokens !== undefined
-                ? { inputTokens: provider.contextUsage.inputTokens }
-                : {}),
-              ...(provider.contextUsage.cachedInputTokens !== undefined
-                ? { cachedInputTokens: provider.contextUsage.cachedInputTokens }
-                : {}),
-              updatedAt:
-                typeof provider.updatedAt === "string"
-                  ? provider.updatedAt
-                  : (fallback?.usage.updatedAt ?? ""),
-            },
-          ]
+      : provider.contextUsage && provider.updatedAt
+        ? [reportFromContextUsage(provider.contextUsage, DateTime.formatIso(provider.updatedAt))]
         : [];
-  const derived = deriveCacheHud(provider.driver, reports, projection.thread.modelSelection);
-  if (
-    derived &&
-    fallback?.usage.cachedInputTokens !== undefined &&
-    derived.usage.cachedInputTokens === undefined
-  ) {
-    return {
-      ...derived,
-      usage: {
-        ...derived.usage,
-        cachedInputTokens: fallback.usage.cachedInputTokens,
-        ...(fallback.usage.cacheCreationTokens !== undefined
-          ? { cacheCreationTokens: fallback.usage.cacheCreationTokens }
-          : {}),
-        ...(fallback.usage.inputTokens !== undefined
-          ? { inputTokens: fallback.usage.inputTokens }
-          : {}),
-      },
-    };
-  }
-  return derived;
+  return deriveCacheHud(provider.driver, reports, projection.thread.modelSelection);
 }
 
 function formatHudTokens(value: number) {

@@ -6,6 +6,7 @@ import {
   type OrchestrationV2CacheHud,
 } from "@t3tools/contracts";
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 
 import {
   cacheWarmingState,
@@ -345,5 +346,48 @@ describe("focusedCacheHud", () => {
         ],
       }),
     ).toBeNull();
+  });
+
+  it("shows context-only usage when the active provider reports no turn usage", () => {
+    const acpProjection = {
+      thread: { activeProviderThreadId: providerThreadId, modelSelection: selection },
+      providerThreads: [
+        {
+          id: providerThreadId,
+          driver: ProviderDriverKind.make("antigravity"),
+          contextUsage: { usedTokens: 125_000, maxTokens: 1_048_576 },
+          updatedAt: DateTime.makeUnsafe("2026-10-13T11:20:00.000Z"),
+        },
+      ],
+      providerTurns: [],
+    };
+    const result = focusedCacheHud(null, acpProjection)!;
+    expect(result).toEqual({
+      driver: ProviderDriverKind.make("antigravity"),
+      usage: { usedTokens: 125_000, maxTokens: 1_048_576, updatedAt: "2026-10-13T11:20:00.000Z" },
+      basis: "unknown",
+    });
+    expect(presentCacheHud(result, start).contextText).toBe("125k/1m");
+  });
+
+  it("does not carry a shell HUD's cache counts onto another provider", () => {
+    const antigravityShell = hud({
+      driver: ProviderDriverKind.make("antigravity"),
+      basis: "unknown",
+      usage: { updatedAt, usedTokens: 170_000, inputTokens: 170_000, cachedInputTokens: 167_000 },
+    });
+    const result = focusedCacheHud(antigravityShell, {
+      thread: { activeProviderThreadId: providerThreadId, modelSelection: selection },
+      providerThreads: [
+        {
+          id: providerThreadId,
+          driver: ProviderDriverKind.make("codex"),
+          contextUsage: { usedTokens: 50_000 },
+          updatedAt: DateTime.makeUnsafe(updatedAt),
+        },
+      ],
+      providerTurns: [],
+    });
+    expect(result?.usage).toEqual({ usedTokens: 50_000, updatedAt });
   });
 });

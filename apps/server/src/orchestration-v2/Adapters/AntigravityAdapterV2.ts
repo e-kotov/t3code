@@ -17,6 +17,7 @@ import * as EffectAcpErrors from "effect-acp/errors";
 import * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
 import type { AntigravityAuth } from "../../provider/AntigravityAuth.ts";
 import type * as AcpSessionRuntime from "@t3tools/provider-acp/server/AcpSessionRuntime";
+import { withAntigravityTurnUsage } from "./AntigravityTurnUsage.ts";
 import {
   antigravityPermissionMode,
   applyAntigravityAcpModelSelection,
@@ -232,7 +233,7 @@ export const makeAntigravityAdapterV2 = Effect.fn("makeAntigravityAdapterV2")(fu
     path: yield* Path.Path,
     host: yield* ProviderHost.ProviderHost,
   };
-  return yield* makeAcpAdapterV2({
+  const adapter = yield* makeAcpAdapterV2({
     instanceId: options.instanceId,
     flavor: makeAntigravityAcpAdapterFlavor({ ...options, ...services }),
     selfInvocation: options.selfInvocation,
@@ -241,4 +242,5 @@ export const makeAntigravityAdapterV2 = Effect.fn("makeAntigravityAdapterV2")(fu
       ? {}
       : { continuationRequests: options.continuationRequests }),
   });
+  return yield* withAntigravityTurnUsage(adapter, { instanceId: options.instanceId, ...services });
 });
