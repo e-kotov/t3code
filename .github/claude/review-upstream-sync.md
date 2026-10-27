@@ -7,6 +7,7 @@ changes. The merge commit is `m=$(git rev-list --merges -1 HEAD)`; `git diff "$m
 upstream's side. AGENTS.md and .agents/skills/fork-development/SKILL.md explain the fork's rules.
 
 Judge only the fix:
+
 - Does it resolve every listed conflict or failure, keeping both the fork feature and upstream's
   change? Did it restore code upstream deleted, or drop or disable a fork feature?
 - Did it break a fork mount that merged cleanly, or change anything beyond what was needed?
