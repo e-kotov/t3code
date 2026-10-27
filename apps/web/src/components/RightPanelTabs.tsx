@@ -1237,7 +1237,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
           props.mode === "inline" &&
             props.maximized &&
             !props.layoutControls &&
-            "[[data-chat-workspace]:has([data-header-usage])_&]:pr-[calc(--spacing(28)+var(--header-usage-reserve))]",
+            "[[data-chat-workspace]:has([data-header-usage])_&]:pr-(--header-usage-tabs-reserve)",
           ownsDesktopTitleBar && "drag-region",
           ownsDesktopTitleBar && "wco:pr-(--workspace-native-controls-inset)",
           props.mode === "inline" && props.maximized && COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS,

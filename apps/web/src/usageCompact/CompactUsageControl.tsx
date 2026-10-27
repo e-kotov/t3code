@@ -9,7 +9,6 @@ import { cn } from "../lib/utils";
 import { compactUsage, groupUsageWindows } from "./usageCompact";
 
 const GRID_COLUMNS = ["", "sm:grid-cols-1", "sm:grid-cols-2", "sm:grid-cols-3"] as const;
-const POPUP_WIDTH = ["w-64", "w-64", "w-92", "w-128"] as const;
 
 export function CompactUsageControl({
   accounts,
@@ -86,7 +85,10 @@ export function CompactUsageControl({
         side="bottom"
         align="end"
         padding="compact"
-        className={cn("max-w-[calc(100vw-2rem)]", POPUP_WIDTH[providers.length])}
+        className={cn(
+          "max-w-[calc(100vw-2rem)]",
+          providers.length === 3 ? "w-128" : providers.length === 2 ? "w-92" : "w-64",
+        )}
         initialFocus={false}
         finalFocus={false}
       >
