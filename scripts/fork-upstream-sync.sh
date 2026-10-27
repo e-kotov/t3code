@@ -59,7 +59,7 @@ case "$cmd" in
       summary ""
       git diff --name-only --diff-filter=U | sed 's/^/- `/; s/$/`/' >> "${GITHUB_STEP_SUMMARY:-/dev/stderr}"
       if [ -n "${SYNC_CONFLICT_BUNDLE:-}" ] && [ -z "${SYNC_BRANCH:-}" ]; then
-        # The workflow hands this commit, markers included, to jules-sync.yml for Jules to resolve.
+        # The workflow hands this commit, markers included, to claude-sync.yml for resolution.
         conflicted=$(git diff --name-only --diff-filter=U | tr '\n' ' ')
         git add -A
         git commit -q -m "Merge upstream main ${upstream:0:10} with unresolved conflicts" \
@@ -67,7 +67,7 @@ case "$cmd" in
         git bundle create "$SYNC_CONFLICT_BUNDLE" refs/remotes/origin/main..main
         out "conflict=true"
         summary ""
-        summary "Handed the conflicted merge to jules-sync.yml for resolution."
+        summary "Handed the conflicted merge to claude-sync.yml for resolution."
         exit 1
       fi
       git merge --abort
@@ -98,7 +98,7 @@ case "$cmd" in
   checks)
     upstream=$(fork_base)
     python3 scripts/fork-merge-upstream.test.py
-    python3 scripts/fork-jules.test.py
+    python3 scripts/fork-sync-excerpt.test.py
     python3 scripts/fork-footprint-budget.test.py
     python3 scripts/fork-nightly-release.test.py
     python3 scripts/build-termux-server.test.py

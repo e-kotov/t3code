@@ -1,5 +1,5 @@
 name: Upstream sync
-# jules-sync.yml reads the checked branch from the run name.
+# claude-sync.yml reads the checked branch from the run name.
 run-name: Upstream sync${{ inputs.branch && format(' {0}', inputs.branch) || '' }}
 
 # Merges pingdotgg/t3code main into this fork every six hours. A clean merge that passes the
@@ -135,8 +135,8 @@ jobs:
           name: fork-format-fixes
           path: ${{ runner.temp }}/fork-format.patch
           retention-days: 3
-      # A sync from main that conflicted, or merged cleanly but failed a check, goes to jules-sync.yml.
-      - name: Keep the failed merge for jules-sync.yml
+      # A sync from main that conflicted, or merged cleanly but failed a check, goes to claude-sync.yml.
+      - name: Keep the failed merge for claude-sync.yml
         id: handoff
         if: >-
           failure() && inputs.branch == '' &&
@@ -198,7 +198,7 @@ jobs:
         run: |
           # Upstream deploy/release workflows must not run in the fork; keep only fork-owned ones.
           set -euo pipefail
-          keep=' android-arm64-existing.yml publish-fork-artifacts.yml release-desktop.yml release-fork.yml release-termux.yml nightly-fork.yml upstream-sync.yml jules-sync.yml fork-device-commands.yml fork-cache-hud.yml fork-macos-signing.yml '
+          keep=' android-arm64-existing.yml publish-fork-artifacts.yml release-desktop.yml release-fork.yml release-termux.yml nightly-fork.yml upstream-sync.yml claude-sync.yml fork-device-commands.yml fork-cache-hud.yml fork-macos-signing.yml '
           gh workflow list -R "$GITHUB_REPOSITORY" --json path,state --jq '.[] | select(.state == "active") | .path' |
             while read -r path; do
               name=${path##*/}

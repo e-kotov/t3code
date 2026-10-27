@@ -1,0 +1,197 @@
+name: Claude sync
+
+# Resolves an upstream sync from main that conflicted or failed a check. Claude Opus (high effort)
+# fixes it, a second Claude run reviews the fix, and one follow-up fix handles the review's
+# findings or, if the review approved, a later failed check. The result is one merge commit on
+# sync/claude-<time>, which upstream-sync.yml checks and promotes. Billed to the Claude Platform
+# key ANTHROPIC_API_KEY, capped per run. See docs/operations/upstream-sync.md.
+on:
+  workflow_run:
+    workflows: ["Upstream sync"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: claude-sync
+  cancel-in-progress: false
+
+env:
+  CLAUDE_CODE_VERSION: "2.1.308"
+  CLAUDE_MODEL: claude-opus-5-5
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  resolve:
+    if: >-
+      github.repository == 'e-kotov/t3code' &&
+      github.event.workflow_run.conclusion == 'failure' &&
+      (github.event.workflow_run.display_title == 'Upstream sync' ||
+       startsWith(github.event.workflow_run.display_title, 'Upstream sync sync/claude-'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      branch: ${{ steps.prepare.outputs.branch }}
+    steps:
+      - name: Prepare the failed merge
+        id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: ${{ github.event.workflow_run.display_title }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          set -euo pipefail
+          summary() { echo "$1" >> "$GITHUB_STEP_SUMMARY"; }
+          git init -q .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git config user.name "t3code-ek upstream sync"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch -q --no-tags origin main:refs/remotes/origin/main
+          target=${TITLE#Upstream sync}
+          target=${target# }
+          gh run view "$RUN_ID" -R "$GITHUB_REPOSITORY" --log-failed > "$RUNNER_TEMP/failed.log" || true
+          if [ -z "$target" ]; then
+            if ! gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY" -n upstream-handoff -D "$RUNNER_TEMP/handoff"; then
+              summary "The sync failed before merging; nothing to resolve."
+              exit 0
+            fi
+            if [ -n "$(git ls-remote origin 'refs/heads/sync/claude-*')" ]; then
+              summary "A sync/claude-* branch exists, so a resolution is in progress."
+              exit 0
+            fi
+            git fetch -q "$RUNNER_TEMP/handoff/handoff.bundle" main:refs/heads/work
+            branch="sync/claude-$(date -u +%Y%m%d-%H%M)"
+            mode=fix
+          else
+            git fetch -q --no-tags origin "refs/heads/$target:refs/heads/work"
+            if git log -1 --format=%B refs/heads/work | grep -q '^Claude-Follow-Up: used'; then
+              summary "The follow-up fix for \`$target\` is used up and its checks failed ($RUN_URL). Egor decides; delete the branch to re-enable automatic resolution."
+              exit 1
+            fi
+            branch=$target
+            mode=ci
+          fi
+          git checkout -q work
+          merge=$(git rev-list --merges -1 HEAD)
+          unresolved=$(git log -1 --format=%B "$merge" | sed -n 's/^Unresolved: //p')
+          {
+            echo
+            echo "## This run"
+            echo
+            if [ "$mode" = fix ] && [ -n "$unresolved" ]; then
+              echo "Conflict markers remain in: $unresolved"
+            else
+              echo "The merge has no conflict markers, but the fork's checks failed ($RUN_URL). Error excerpt:"
+              echo
+              python3 scripts/fork-sync-excerpt.py "$RUNNER_TEMP/failed.log"
+            fi
+          } > "$RUNNER_TEMP/context.md"
+          echo "$unresolved" > "$RUNNER_TEMP/unresolved"
+          git rev-parse HEAD > "$RUNNER_TEMP/fix-base"
+          { echo "branch=$branch"; echo "mode=$mode"; echo "merge=$merge"; } >> "$GITHUB_OUTPUT"
+          summary "Resolving in \`$branch\` (mode: $mode) from $RUN_URL."
+      - if: steps.prepare.outputs.branch != ''
+        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: false
+      - name: Install dependencies and Claude Code
+        if: steps.prepare.outputs.branch != ''
+        run: |
+          vp install
+          npm install -g "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
+      - name: Fix with Claude
+        id: fix
+        if: steps.prepare.outputs.mode == 'fix'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: scripts/claude-sync.sh fix 10
+      - name: Review the fix with Claude
+        id: review
+        if: steps.prepare.outputs.mode == 'fix'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: scripts/claude-sync.sh review 4
+      - name: Follow-up fix with Claude
+        id: follow-up
+        if: >-
+          steps.prepare.outputs.mode == 'ci' ||
+          (steps.prepare.outputs.mode == 'fix' && steps.review.outputs.verdict == 'changes')
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: scripts/claude-sync.sh follow-up 8
+      - name: Rebuild one merge commit
+        if: steps.prepare.outputs.branch != ''
+        env:
+          MERGE: ${{ steps.prepare.outputs.merge }}
+          VERDICT: ${{ steps.review.outputs.verdict }}
+          FOLLOW_UP: ${{ steps.follow-up.outcome == 'success' && 'used' || 'unused' }}
+          MODE: ${{ steps.prepare.outputs.mode }}
+        run: |
+          set -euo pipefail
+          if [ -f .claude-needs-decision.md ]; then
+            {
+              echo "Claude asked for a decision; nothing is pushed or promoted:"
+              echo
+              cat .claude-needs-decision.md
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          for file in $(cat "$RUNNER_TEMP/unresolved"); do
+            if grep -qE '^(<{7}|>{7})( |$)' "$file"; then
+              echo "::error::Conflict markers remain in $file."
+              exit 1
+            fi
+          done
+          [ "$MODE" = ci ] && review=$(git log -1 --format=%B "$MERGE" | sed -n 's/^Claude-Review: //p') || review=$VERDICT
+          upstream=$(git rev-parse "$MERGE^2")
+          merged=$(git commit-tree "HEAD^{tree}" -p "$MERGE^1" -p "$upstream" \
+            -m "Merge upstream main ${upstream:0:10}" \
+            -m "Resolved by Claude ($CLAUDE_MODEL) in GitHub Actions; see the Claude sync run." \
+            -m "Claude-Review: ${review:-none}
+          Claude-Follow-Up: $FOLLOW_UP")
+          git branch -f resolved "$merged"
+          git bundle create "$RUNNER_TEMP/resolved.bundle" refs/remotes/origin/main..resolved
+      - if: steps.prepare.outputs.branch != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: claude-resolved
+          path: ${{ runner.temp }}/resolved.bundle
+          retention-days: 3
+
+  # Fresh runner that executes no repository code: it only pushes the resolution and asks
+  # upstream-sync.yml to check it without merging newer upstream code.
+  submit:
+    needs: resolve
+    if: needs.resolve.outputs.branch != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: claude-resolved
+          path: ${{ runner.temp }}
+      - name: Push and check the resolution
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SYNC_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
+          BRANCH: ${{ needs.resolve.outputs.branch }}
+          GIT_TERMINAL_PROMPT: "0"
+        run: |
+          set -euo pipefail
+          git init -q .
+          git fetch -q --no-tags "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" main:refs/remotes/origin/main
+          git fetch -q "$RUNNER_TEMP/resolved.bundle" resolved:refs/heads/resolved
+          git push -q -f "https://x-access-token:${SYNC_TOKEN}@github.com/$GITHUB_REPOSITORY.git" "refs/heads/resolved:refs/heads/$BRANCH"
+          gh workflow run upstream-sync.yml -R "$GITHUB_REPOSITORY" -f branch="$BRANCH" -f promote_only=true
+          echo "Pushed \`$BRANCH\` and dispatched upstream-sync.yml to check and promote it." >> "$GITHUB_STEP_SUMMARY"

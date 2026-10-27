@@ -30,35 +30,36 @@ they are not tied to upstream stable releases.
 4. If the checks pass, the merge commit is pushed to `main`. Upstream workflows that became active are
    disabled; only fork-owned workflows stay enabled.
 
-## Conflicts that need judgment: Jules
+## Conflicts and failed checks: Claude
 
 When a sync started from `main` still has conflicts after mergiraf, the merge step commits the
 conflicted merge, markers included. When it merged cleanly but a check failed, its merge is kept
 as it is. Either way the run uploads it as `upstream-handoff`, and
-`.github/workflows/jules-sync.yml` takes over; for a failed check, the task includes the log:
+`.github/workflows/claude-sync.yml` resolves it with Claude Code (pinned version) and the Claude
+Platform key `ANTHROPIC_API_KEY`, in a workspace with a monthly spend limit:
 
-1. `handoff` pushes it as `sync/conflicts-<UTC time>` and starts a [Jules](https://jules.google)
-   session there through the Jules REST API (alpha), with
-   [`.github/jules/resolve-upstream-conflicts.md`](../../.github/jules/resolve-upstream-conflicts.md)
-   as the task. It starts nothing while a `sync/conflicts-*` or `sync/jules-*` branch exists,
-   since a resolution is then already in progress. The secret `JULES_API_KEY` comes from jules.google.com/settings#api.
-2. Jules commits its resolution and opens a pull request. `rebuild` turns the pull request's files
-   into one merge commit with the original parents (fork `main`, upstream), pushes it as
-   `sync/jules-<PR>` and dispatches this workflow with `promote_only`, so the usual checks decide.
-   `main` never contains the conflict-marker commit. It waits while markers remain, and promotes
-   nothing when Jules adds `.jules-needs-decision.md`: then Egor decides.
-3. `report` closes the pull request and deletes the `sync/conflicts-*` and Jules branches after
-   promotion. After a failed check it comments on the pull request and sends the failed steps and
-   log tail to the Jules session, at most three times.
+1. **Fix**: Claude Opus at high effort (`--effort high`) gets
+   [`.github/claude/fix-upstream-sync.md`](../../.github/claude/fix-upstream-sync.md) plus the
+   conflicted files or an excerpt of the failed checks' error lines
+   (`scripts/fork-sync-excerpt.py`). Dependencies are installed, so it typechecks and tests what it
+   touches. It may edit files and run `git` read commands, `vp` and the budget script; it has no
+   network tools and no push credentials.
+2. **Review**: a second, read-only Claude run reviews only that fix
+   ([`.github/claude/review-upstream-sync.md`](../../.github/claude/review-upstream-sync.md)) and
+   returns a structured verdict.
+3. **Follow-up fix**, once: for the review's findings, or, if the review approved, for a failed
+   check of the resolution.
+4. The workflow rebuilds one merge commit with the original parents (fork `main`, upstream), pushes
+   it as `sync/claude-<UTC time>` from a job that runs no repository code, and dispatches this
+   workflow with `promote_only`. The usual checks decide promotion; the branch is deleted after
+   it. If they fail after the follow-up is used, or Claude writes `.claude-needs-decision.md`, the
+   run fails (GitHub emails it) and the branch stays for Egor. While a `sync/claude-*` branch
+   exists, no new resolution starts; delete it to re-enable automatic resolution.
 
-4. `watch` runs hourly while a `sync/conflicts-*` branch exists. Jules can stop to ask a question
-   (state `AWAITING_USER_FEEDBACK`); `watch` tells it to continue, at most until the session has
-   six messages, and fails visibly (GitHub emails the failure) when a session stays stuck, ends
-   without a pull request, or cannot be found. Failure logs sent to Jules are excerpts of the
-   error lines (`scripts/fork-jules.py excerpt`), not the log's tail, which is mostly noise.
-
-To test without promotion, push a conflicted merge to a branch named `sync/conflicts-test-…` and
-run **Jules sync** with that branch: `rebuild` then pushes `sync/jules-<PR>` but dispatches nothing.
+Each Claude run has a spend cap (`--max-budget-usd`: fix 10, review 4, follow-up 8 US dollars), so
+one sync costs at most about 22 dollars of Platform credits and usually far less. The job that runs
+Claude also installs and runs repository code with the API key in its environment; the workspace
+spend limit bounds what a compromised dependency could do with it.
 
 A conflict or failed check leaves `main` unchanged and fails the run. GitHub emails the
 failure; the run summary lists the conflicting files. The next scheduled run retries automatically,
