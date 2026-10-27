@@ -1,6 +1,5 @@
 import type { MenuAction } from "@react-native-menu/menu";
 import type { SidebarConversationGrouping, SidebarConversationSortOrder } from "@t3tools/contracts";
-import type { Dispatch, SetStateAction } from "react";
 
 /** Fork conversation sort and machine grouping, held with the Home list options. */
 export interface ConversationListOptions {
@@ -29,18 +28,18 @@ const GROUPING_CHOICES = [
   ["machine", "By machine"],
 ] as const satisfies ReadonlyArray<readonly [SidebarConversationGrouping, string]>;
 
-export function conversationListControls<T extends ConversationListOptions>(
+export function conversationListControls(
   options: ConversationListOptions,
-  setOptions: Dispatch<SetStateAction<T>>,
+  updateOptions: (patch: Partial<ConversationListOptions>) => void,
 ): ConversationListControls {
   return {
     conversationSortOrder: options.conversationSortOrder,
     conversationGrouping: options.conversationGrouping,
     onConversationSortOrderChange: (value) => {
-      setOptions((current) => ({ ...current, conversationSortOrder: value }));
+      updateOptions({ conversationSortOrder: value });
     },
     onConversationGroupingChange: (value) => {
-      setOptions((current) => ({ ...current, conversationGrouping: value }));
+      updateOptions({ conversationGrouping: value });
     },
   };
 }

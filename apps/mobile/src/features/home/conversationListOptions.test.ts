@@ -32,10 +32,10 @@ describe("conversation list options", () => {
     expect(isConversationListCustomized(grouped)).toBe(true);
   });
 
-  it("updates only its own option through the shared options setter", () => {
+  it("updates only its own option through the shared options updater", () => {
     let state = { ...defaults, selectedProjectKey: "project" as string | null };
-    const list = conversationListControls<typeof state>(state, (next) => {
-      state = typeof next === "function" ? next(state) : next;
+    const list = conversationListControls(state, (patch) => {
+      state = { ...state, ...patch };
     });
     list.onConversationSortOrderChange("created_at");
     list.onConversationGroupingChange("machine");
@@ -78,9 +78,7 @@ describe("conversation list options", () => {
       onEnvironmentChange: () => {},
       onProjectChange: () => {},
     };
-    expect(buildHomeListFilterMenu(base).items.map((item) => item.title)).toEqual([
-      "Environment",
-    ]);
+    expect(buildHomeListFilterMenu(base).items.map((item) => item.title)).toEqual(["Environment"]);
 
     const list = controls();
     const menu = buildHomeListFilterMenu({ ...base, ...list });

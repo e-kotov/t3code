@@ -70,7 +70,9 @@ function HomeFilters() {
       selectedProjectKey={null}
       onEnvironmentChange={() => {}}
       onProjectChange={() => {}}
-      conversationList={conversationListControls(options, setOptions)}
+      conversationList={conversationListControls(options, (patch) =>
+        setOptions((current) => ({ ...current, ...patch })),
+      )}
     />
   );
 }
