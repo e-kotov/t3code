@@ -1,4 +1,6 @@
 name: Upstream sync
+# jules-sync.yml reads the checked branch from the run name.
+run-name: Upstream sync${{ inputs.branch && format(' {0}', inputs.branch) || '' }}
 
 # Merges pingdotgg/t3code main into this fork every six hours. A clean merge that passes the
 # fork checks is pushed to main; a conflict or failed check leaves main untouched and fails
@@ -67,7 +69,15 @@ jobs:
         env:
           SYNC_BRANCH: ${{ inputs.branch }}
           SYNC_PROMOTE_ONLY: ${{ inputs.promote_only && 'true' || 'false' }}
+          SYNC_CONFLICT_BUNDLE: ${{ runner.temp }}/conflict.bundle
         run: scripts/fork-upstream-sync.sh merge
+      - name: Keep the conflicted merge for jules-sync.yml
+        if: failure() && steps.merge.outputs.conflict == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: upstream-conflict
+          path: ${{ runner.temp }}/conflict.bundle
+          retention-days: 3
       - if: steps.merge.outputs.changed == 'true'
         uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
         with:
@@ -180,7 +190,7 @@ jobs:
         run: |
           # Upstream deploy/release workflows must not run in the fork; keep only fork-owned ones.
           set -euo pipefail
-          keep=' android-arm64-existing.yml publish-fork-artifacts.yml release-desktop.yml release-fork.yml release-termux.yml nightly-fork.yml upstream-sync.yml fork-device-commands.yml fork-cache-hud.yml fork-macos-signing.yml '
+          keep=' android-arm64-existing.yml publish-fork-artifacts.yml release-desktop.yml release-fork.yml release-termux.yml nightly-fork.yml upstream-sync.yml jules-sync.yml fork-device-commands.yml fork-cache-hud.yml fork-macos-signing.yml '
           gh workflow list -R "$GITHUB_REPOSITORY" --json path,state --jq '.[] | select(.state == "active") | .path' |
             while read -r path; do
               name=${path##*/}

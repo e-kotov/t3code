@@ -29,6 +29,28 @@ they are not tied to upstream stable releases.
 4. If the checks pass, the merge commit is pushed to `main`. Upstream workflows that became active are
    disabled; only fork-owned workflows stay enabled.
 
+## Conflicts that need judgment: Jules
+
+When a sync started from `main` still has conflicts after mergiraf, the merge step commits the
+conflicted merge, markers included, and `.github/workflows/jules-sync.yml` takes over:
+
+1. `handoff` pushes it as `sync/conflicts-<UTC time>` and starts a [Jules](https://jules.google)
+   session there through the Jules REST API (alpha), with
+   [`.github/jules/resolve-upstream-conflicts.md`](../../.github/jules/resolve-upstream-conflicts.md)
+   as the task. It starts nothing while any `sync/*` branch exists, since a resolution is then
+   already in progress. The secret `JULES_API_KEY` comes from jules.google.com/settings#api.
+2. Jules commits its resolution and opens a pull request. `rebuild` turns the pull request's files
+   into one merge commit with the original parents (fork `main`, upstream), pushes it as
+   `sync/jules-<PR>` and dispatches this workflow with `promote_only`, so the usual checks decide.
+   `main` never contains the conflict-marker commit. It waits while markers remain, and promotes
+   nothing when Jules adds `.jules-needs-decision.md`: then Egor decides.
+3. `report` closes the pull request and deletes the `sync/conflicts-*` and Jules branches after
+   promotion. After a failed check it comments on the pull request and sends the failed steps and
+   log tail to the Jules session, at most three times.
+
+To test without promotion, push a conflicted merge to a branch named `sync/conflicts-test-…` and
+run **Jules sync** with that branch: `rebuild` then pushes `sync/jules-<PR>` but dispatches nothing.
+
 A conflict or failed check leaves `main` unchanged and fails the run. GitHub emails the
 failure; the run summary lists the conflicting files. The next scheduled run retries automatically,
 so a broken upstream commit that upstream fixes itself needs no action.
