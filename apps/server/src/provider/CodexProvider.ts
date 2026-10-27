@@ -780,10 +780,9 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
   const accountStatus = managedAuth
     ? { status: "ready" as const, auth: managedAuth, message: undefined }
     : accountProbeStatus(snapshot);
+  const signedOut = !snapshot.account.account && snapshot.account.requiresOpenaiAuth;
   const usageLimits =
-    (snapshot.account.account
-      ? snapshot.account.account.type !== "chatgpt"
-      : !snapshot.account.requiresOpenaiAuth)
+    snapshot.account.account?.type !== "chatgpt" && !signedOut
       ? makeUnavailableUsageLimits({ checkedAt, reason: "unsupported" })
       : snapshot.rateLimits === undefined || "failure" in snapshot.rateLimits
         ? makeUnavailableUsageLimits({
