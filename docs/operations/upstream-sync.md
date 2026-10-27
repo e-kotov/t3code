@@ -40,8 +40,8 @@ as it is. Either way the run uploads it as `upstream-handoff`, and
 1. `handoff` pushes it as `sync/conflicts-<UTC time>` and starts a [Jules](https://jules.google)
    session there through the Jules REST API (alpha), with
    [`.github/jules/resolve-upstream-conflicts.md`](../../.github/jules/resolve-upstream-conflicts.md)
-   as the task. It starts nothing while any `sync/*` branch exists, since a resolution is then
-   already in progress. The secret `JULES_API_KEY` comes from jules.google.com/settings#api.
+   as the task. It starts nothing while a `sync/conflicts-*` or `sync/jules-*` branch exists,
+   since a resolution is then already in progress. The secret `JULES_API_KEY` comes from jules.google.com/settings#api.
 2. Jules commits its resolution and opens a pull request. `rebuild` turns the pull request's files
    into one merge commit with the original parents (fork `main`, upstream), pushes it as
    `sync/jules-<PR>` and dispatches this workflow with `promote_only`, so the usual checks decide.

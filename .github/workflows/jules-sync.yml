@@ -64,8 +64,8 @@ jobs:
             summary "The sync failed before merging; nothing for Jules."
             exit 0
           fi
-          if [ -n "$(git ls-remote "$remote" 'refs/heads/sync/*')" ]; then
-            summary "A sync/* branch already exists, so a resolution is in progress. Not starting another."
+          if [ -n "$(git ls-remote "$remote" 'refs/heads/sync/conflicts-*' 'refs/heads/sync/jules-*')" ]; then
+            summary "A sync/conflicts-* or sync/jules-* branch exists, so a resolution is in progress."
             exit 0
           fi
           git fetch -q --no-tags "$remote" main:refs/remotes/origin/main
@@ -191,6 +191,7 @@ jobs:
           set -euo pipefail
           target=${TITLE#Upstream sync }
           pr=${target#sync/jules-}
+          [[ "$pr" =~ ^[0-9]+$ ]] || exit 0
           url=$(gh pr view "$pr" -R "$GITHUB_REPOSITORY" --json url --jq .url)
           head=$(gh pr view "$pr" -R "$GITHUB_REPOSITORY" --json headRefName --jq .headRefName)
           [ "$CONCLUSION" = success ] || [ "$CONCLUSION" = failure ] || exit 0
