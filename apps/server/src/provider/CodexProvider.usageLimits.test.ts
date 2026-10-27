@@ -1,7 +1,6 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { describe, it, assert } from "@effect/vitest";
+import { it, assert } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import { CodexSettings } from "@t3tools/contracts";
 
@@ -114,6 +113,29 @@ it.layer(NodeServices.layer)("CodexProvider usageLimits", (it) => {
         assert.deepStrictEqual(status.usageLimits?.unavailable, {
           reason: "probeFailed",
           message: "Codex CLI is not authenticated. Run `codex login` and try again.",
+        });
+      }),
+  );
+
+  it.effect(
+    "still reports probeFailed when a ChatGPT account's usage read fails",
+    () =>
+      Effect.gen(function* () {
+        const status = yield* checkCodexProviderStatus(defaultCodexSettings, () =>
+          Effect.succeed(
+            makeCodexProbeSnapshot({
+              account: {
+                account: { type: "chatgpt", email: "test@example.com", planType: "pro" },
+                requiresOpenaiAuth: true,
+              },
+              rateLimits: { failure: "Codex did not answer the usage request." },
+            }),
+          ),
+        );
+
+        assert.deepStrictEqual(status.usageLimits?.unavailable, {
+          reason: "probeFailed",
+          message: "Codex did not answer the usage request.",
         });
       }),
   );
