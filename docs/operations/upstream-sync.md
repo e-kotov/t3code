@@ -23,7 +23,7 @@ they are not tied to upstream stable releases.
 2. `tidy` formats the files mergiraf resolved, which it leaves unformatted, and commits the route
    tree that `scripts/fork-route-tree.mjs` regenerated with the web build's TanStack generator, so
    the fork's route files are listed again.
-3. `checks` first rejects any growth beyond the reviewed per-file upstream-edit budget, then typechecks contracts, shared, client-runtime, SSH, server, web, mobile and desktop, then
+3. `checks` first rejects any growth beyond the reviewed per-file upstream-edit budget or any budgeted fork mount dropped to 0 lines, then typechecks contracts, shared, client-runtime, SSH, server, web, mobile and desktop, then
    runs every test file the fork added or changed relative to upstream, plus the upstream tests
    beside upstream files the fork mounts into (listed in the script) and the mobile React
    Compiler coverage test. Web browser tests run in headless Chromium on the runner.
@@ -121,8 +121,12 @@ rebase it onto `upstream/main` with a backup branch `ek/pre-sync-<date>` and for
 Newly touched or deleted upstream files have a zero budget. Fork-owned files do not consume it.
 The explicit exception is `README.md`: it is now the fork's own landing page, preserved by
 the merge helper and excluded from the mount budget. Its upstream counterpart remains linked.
-The sync and pre-push checks reject growth before typechecking; reductions pass.
-This catches expanding integration points before they become recurring conflicts.
+The sync and pre-push checks reject growth before typechecking. This catches expanding
+integration points before they become recurring conflicts. They also reject a budgeted file
+whose fork diff falls to 0 lines, because that usually means a merge silently dropped a fork
+mount: restore it, or run `--write` only if the feature was intentionally retired. A partial
+reduction only prints a warning, since extractions and upstream refactors shrink mounts too;
+verify the feature, then record the smaller budget with `--write`.
 
 After reviewing an unavoidable mount change, commit it and run
 `python3 scripts/fork-footprint-budget.py --write`, then review and commit the budget diff.
