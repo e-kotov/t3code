@@ -51,6 +51,12 @@ as it is. Either way the run uploads it as `upstream-handoff`, and
    promotion. After a failed check it comments on the pull request and sends the failed steps and
    log tail to the Jules session, at most three times.
 
+4. `watch` runs hourly while a `sync/conflicts-*` branch exists. Jules can stop to ask a question
+   (state `AWAITING_USER_FEEDBACK`); `watch` tells it to continue, at most until the session has
+   six messages, and fails visibly (GitHub emails the failure) when a session stays stuck, ends
+   without a pull request, or cannot be found. Failure logs sent to Jules are excerpts of the
+   error lines (`scripts/fork-jules.py excerpt`), not the log's tail, which is mostly noise.
+
 To test without promotion, push a conflicted merge to a branch named `sync/conflicts-test-…` and
 run **Jules sync** with that branch: `rebuild` then pushes `sync/jules-<PR>` but dispatches nothing.
 

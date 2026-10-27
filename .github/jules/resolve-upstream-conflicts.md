@@ -8,6 +8,9 @@ base, theirs), or the merge is clean and the fork's checks failed; then the fail
 end of this task. Git's automatic merge and the mergiraf merge tool already handled everything
 else.
 
+This task runs unattended. Nobody answers questions, so never stop to ask or wait for input:
+decide as described below, and use step 6 for anything that truly needs Egor.
+
 Before editing, read AGENTS.md and .agents/skills/fork-development/SKILL.md, which explain where
 fork code lives and why fork edits in upstream files are kept small.
 
