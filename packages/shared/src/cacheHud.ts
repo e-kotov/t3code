@@ -6,7 +6,9 @@ import type {
   ProviderDriverKind,
   ServerProviderUsageWindow,
   ThreadId,
+  ThreadTokenUsageSnapshot,
 } from "@t3tools/contracts";
+import * as DateTime from "effect/DateTime";
 
 import { formatResetsIn } from "./usageLimits.ts";
 
@@ -73,6 +75,24 @@ export function deriveCacheHud(
   return { driver, usage, basis: "unknown" };
 }
 
+export function reportFromContextUsage(
+  contextUsage: ThreadTokenUsageSnapshot,
+  updatedAt: string,
+): OrchestrationV2ProviderTurnTokenUsage {
+  return {
+    usedTokens: contextUsage.usedTokens,
+    ...(contextUsage.maxTokens !== undefined ? { maxTokens: contextUsage.maxTokens } : {}),
+    ...(contextUsage.inputTokens !== undefined ? { inputTokens: contextUsage.inputTokens } : {}),
+    ...(contextUsage.cachedInputTokens !== undefined
+      ? { cachedInputTokens: contextUsage.cachedInputTokens }
+      : {}),
+    ...(contextUsage.cacheCreationTokens !== undefined
+      ? { cacheCreationTokens: contextUsage.cacheCreationTokens }
+      : {}),
+    updatedAt,
+  };
+}
+
 // Focused subagent usage arrives through the detail stream, bypassing shell refreshes.
 export function focusedCacheHud(
   fallback: OrchestrationV2CacheHud | null | undefined,
@@ -85,9 +105,7 @@ export function focusedCacheHud(
         readonly providerThreads: ReadonlyArray<
           Pick<OrchestrationV2ThreadProjection["providerThreads"][number], "id" | "driver"> & {
             readonly contextUsage?: OrchestrationV2ThreadProjection["providerThreads"][number]["contextUsage"];
-            readonly updatedAt?:
-              | OrchestrationV2ThreadProjection["providerThreads"][number]["updatedAt"]
-              | string;
+            readonly updatedAt?: OrchestrationV2ThreadProjection["providerThreads"][number]["updatedAt"];
           }
         >;
         readonly providerTurns: ReadonlyArray<
@@ -108,33 +126,24 @@ export function focusedCacheHud(
   const turnReports = projection.providerTurns
     .filter((turn) => turn.providerThreadId === provider.id)
     .flatMap((turn) => (turn.tokenUsage ? [turn.tokenUsage] : []));
+  const providerUpdatedAt =
+    typeof provider.updatedAt === "string"
+      ? provider.updatedAt
+      : provider.updatedAt && typeof provider.updatedAt === "object"
+        ? DateTime.formatIso(provider.updatedAt as DateTime.Utc)
+        : (fallback?.usage.updatedAt ?? "");
   const reports =
     turnReports.length > 0
       ? turnReports
       : provider.contextUsage
-        ? [
-            {
-              usedTokens: provider.contextUsage.usedTokens,
-              ...(provider.contextUsage.maxTokens !== undefined
-                ? { maxTokens: provider.contextUsage.maxTokens }
-                : {}),
-              ...(provider.contextUsage.inputTokens !== undefined
-                ? { inputTokens: provider.contextUsage.inputTokens }
-                : {}),
-              ...(provider.contextUsage.cachedInputTokens !== undefined
-                ? { cachedInputTokens: provider.contextUsage.cachedInputTokens }
-                : {}),
-              updatedAt:
-                typeof provider.updatedAt === "string"
-                  ? provider.updatedAt
-                  : (fallback?.usage.updatedAt ?? ""),
-            },
-          ]
+        ? [reportFromContextUsage(provider.contextUsage, providerUpdatedAt)]
         : [];
   const derived = deriveCacheHud(provider.driver, reports, projection.thread.modelSelection);
   if (
     derived &&
-    fallback?.usage.cachedInputTokens !== undefined &&
+    fallback &&
+    fallback.driver === provider.driver &&
+    fallback.usage.cachedInputTokens !== undefined &&
     derived.usage.cachedInputTokens === undefined
   ) {
     return {
@@ -175,16 +184,16 @@ export function presentCacheHud(hud: OrchestrationV2CacheHud, nowMs: number) {
       ? "unknown"
       : remainingMs === 0
         ? "cold"
-        : remainingMs <= 300_000
+        : remainingMs < 300_000
           ? "expiring"
-          : "hot";
+          : "warm";
+  // @effect-diagnostics-next-line globalDate:off -- React external-store boundaries use wall-clock milliseconds.
+  const expiry = new Date(Date.parse(usage.updatedAt) + (hud.ttlMs ?? 0));
+  const clock = `${String(expiry.getHours()).padStart(2, "0")}:${String(expiry.getMinutes()).padStart(2, "0")}`;
   const percentage =
     usage.inputTokens && cached !== undefined
       ? Math.min(100, Math.round((cached / usage.inputTokens) * 100))
       : null;
-  // @effect-diagnostics-next-line globalDate:off -- Format the React HUD in the device local timezone.
-  const expiry = new Date(Date.parse(usage.updatedAt) + (hud.ttlMs ?? 0));
-  const clock = `${String(expiry.getHours()).padStart(2, "0")}:${String(expiry.getMinutes()).padStart(2, "0")}`;
   const tokens = cached === undefined ? "⇣?" : `⇣${formatHudTokens(cached)}`;
   const cacheText =
     state === "cold"

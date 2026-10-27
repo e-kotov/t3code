@@ -6,6 +6,7 @@ import {
   type OrchestrationV2CacheHud,
 } from "@t3tools/contracts";
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 
 import {
   cacheWarmingState,
@@ -15,6 +16,7 @@ import {
   describeUsageWindows,
   hotCacheThreadIds,
   presentCacheHud,
+  reportFromContextUsage,
 } from "./cacheHud.ts";
 
 const updatedAt = "2026-10-13T08:00:00.000Z";
@@ -396,5 +398,63 @@ describe("focusedCacheHud", () => {
     expect(result?.usage.cachedInputTokens).toBe(167_000);
     expect(presentCacheHud(result!, start).cacheText).toBe("? 98% ⇣167k");
     expect(presentCacheHud(result!, start).contextText).toBe("175k/1m");
+  });
+
+  it("handles DateTime.Utc object for provider.updatedAt", () => {
+    const acpProjection = {
+      thread: { activeProviderThreadId: providerThreadId, modelSelection: selection },
+      providerThreads: [
+        {
+          id: providerThreadId,
+          driver: ProviderDriverKind.make("antigravity"),
+          contextUsage: { usedTokens: 80_000 },
+          updatedAt: DateTime.unsafeMake(Date.parse("2026-10-13T11:20:00.000Z")),
+        },
+      ],
+      providerTurns: [],
+    };
+    const result = focusedCacheHud(null, acpProjection as any);
+    expect(result).not.toBeNull();
+    expect(result?.usage.usedTokens).toBe(80_000);
+    expect(result?.usage.updatedAt).toBe("2026-10-13T11:20:00.000Z");
+  });
+
+  it("does not leak fallback cache stats across different drivers", () => {
+    const fallbackAntigravity = hud({
+      driver: ProviderDriverKind.make("antigravity"),
+      basis: "unknown",
+      usage: {
+        updatedAt,
+        usedTokens: 170_000,
+        cachedInputTokens: 167_000,
+      },
+    });
+    const codexProjection = {
+      thread: { activeProviderThreadId: providerThreadId, modelSelection: selection },
+      providerThreads: [
+        {
+          id: providerThreadId,
+          driver: ProviderDriverKind.make("codex"),
+          contextUsage: { usedTokens: 50_000 },
+          updatedAt,
+        },
+      ],
+      providerTurns: [],
+    };
+    const result = focusedCacheHud(fallbackAntigravity, codexProjection);
+    expect(result?.driver).toBe("codex");
+    expect(result?.usage.usedTokens).toBe(50_000);
+    expect(result?.usage.cachedInputTokens).toBeUndefined();
+  });
+
+  it("converts snapshot to report with reportFromContextUsage", () => {
+    const report = reportFromContextUsage(
+      { usedTokens: 10_000, maxTokens: 200_000, cachedInputTokens: 5_000 },
+      "2026-10-13T12:00:00.000Z",
+    );
+    expect(report.usedTokens).toBe(10_000);
+    expect(report.maxTokens).toBe(200_000);
+    expect(report.cachedInputTokens).toBe(5_000);
+    expect(report.updatedAt).toBe("2026-10-13T12:00:00.000Z");
   });
 });
