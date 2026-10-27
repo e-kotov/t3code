@@ -243,11 +243,7 @@ class T3WorkspaceNavigationView(
               .background(if (selected) Color(indicatorColor) else Color.Transparent, CircleShape),
             contentAlignment = Alignment.Center,
           ) {
-            navigationIcon(
-              tab = tab,
-              tint = tint,
-              modifier = Modifier.size((24 * textScale).dp),
-            )
+            navigationIcon(tab, tint, Modifier.size((24 * textScale).dp))
           }
         }
       }
@@ -424,14 +420,9 @@ class T3WorkspaceNavigationView(
     if (tab == "pullRequests") "Pull Requests" else tabTitle(tab)
 
   @Composable
-  private fun navigationIcon(
-    tab: String,
-    tint: Color = androidx.compose.material3.LocalContentColor.current,
-    modifier: Modifier = Modifier,
-  ) {
+  private fun navigationIcon(tab: String, tint: Color = androidx.compose.material3.LocalContentColor.current, modifier: Modifier = Modifier) =
     if (tab == "commands") UtilityNavigationIcon(utilitiesLabel, utilitiesColor, tint = tint, modifier = modifier)
     else Icon(tabIconPainter(tab), contentDescription = null, modifier = modifier, tint = tint)
-  }
 
   @Composable
   private fun tabIconPainter(tab: String) = painterResource(

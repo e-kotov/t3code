@@ -29,7 +29,7 @@ export function AndroidWorkspaceSidebar(props: {
     ? insets.bottom + FLOATING_TABS.bottom + FLOATING_TABS.edge + floating.height
     : 16;
   const context = useMemo(() => ({ ...workspace, bottomClearance }), [workspace, bottomClearance]);
-  if (workspace.state.selectedTab === "commands") return <DeviceCommandsScreen sidebar />;
+  if (workspace.state.selectedTab === "commands") return <WorkspaceTabsContext value={context}><DeviceCommandsScreen sidebar /></WorkspaceTabsContext>;
   if (enabled.length === 0) return <WorkspaceNoTabs />;
   return (
     <WorkspaceTabPanes

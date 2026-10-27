@@ -1,4 +1,5 @@
 import { UtilitiesSection } from "../device-utilities/UtilitiesSection";
+import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { useUtilitiesSidebarExitActions } from "./useUtilitiesSidebarActions";
 import {
   DEVICE_COMMAND_ICONS,
@@ -63,6 +64,8 @@ function readSnapshot(): {
 
 export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
   const exitActions = useUtilitiesSidebarExitActions();
+  const workspaceTabs = useWorkspaceTabs();
+  const bottomPadding = Math.max(40, (workspaceTabs?.bottomClearance ?? 0) + 16);
   const [{ state, error }, setSnapshot] = useState(readSnapshot);
   function setError(error: string | null) {
     setSnapshot((previous) => ({ ...previous, error }));
@@ -151,7 +154,7 @@ export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
         ]}
       />
       <ScrollView
-        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: bottomPadding }}
         keyboardShouldPersistTaps="handled"
       >
         <UtilitiesSection />

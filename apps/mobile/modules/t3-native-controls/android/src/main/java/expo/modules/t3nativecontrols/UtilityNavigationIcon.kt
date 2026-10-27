@@ -18,8 +18,13 @@ internal fun UtilityNavigationIcon(
   tint: Color = androidx.compose.material3.LocalContentColor.current,
   modifier: Modifier = Modifier,
 ) {
-  Box(modifier = modifier, contentAlignment = Alignment.Center) {
-    Icon(painter = painterResource(R.drawable.t3_device_commands), contentDescription = label, tint = tint)
+  Box(contentAlignment = Alignment.Center) {
+    Icon(
+      painter = painterResource(R.drawable.t3_device_commands),
+      contentDescription = label,
+      tint = tint,
+      modifier = modifier,
+    )
     Text("●", color = Color(color), fontSize = 10.sp, modifier = Modifier.align(Alignment.TopEnd).clearAndSetSemantics { })
   }
 }

@@ -37,3 +37,12 @@ export function highlightUtilities(select: typeof selectedNavigationTab) {
     return settingsOpen ? "settings" : selected;
   };
 }
+
+/**
+ * Tab count for the Android One UI floating navigation bar.
+ * In upstream, floating tabs include the enabled sections plus 1 (the fixed Settings tab).
+ * In this fork, the bar also includes Utilities ("commands"), so the count is enabled + 2.
+ */
+export function floatingNavigationTabCount(enabledCount: number): number {
+  return enabledCount + 2;
+}
