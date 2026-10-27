@@ -36,56 +36,20 @@ export function compactUsage(
     );
     const headlineWindows = quotaWindows.length > 0 ? quotaWindows : windows;
 
-    const sessionWindows = windows.filter(
-      (window) =>
-        window.kind === "session" ||
-        window.windowDurationMins === 300 ||
-        window.id === "five_hour" ||
-        window.id === "primary" ||
-        window.id.endsWith("-5h"),
-    );
-    const sessionRemaining =
-      sessionWindows.length > 0
-        ? Math.max(0, Math.min(100, Math.min(...sessionWindows.map((w) => w.remainingPercent))))
-        : null;
-
-    const weeklyWindows = windows.filter(
-      (window) =>
-        (window.kind === "weekly" ||
-          window.windowDurationMins === 7 * 24 * 60 ||
-          window.id === "seven_day" ||
-          window.id === "secondary" ||
-          window.id.endsWith("-weekly")) &&
-        (provider.driver !== "claudeAgent" || window.id !== "monthly_spend"),
-    );
-    const weeklyRemaining =
-      weeklyWindows.length > 0
-        ? Math.max(0, Math.min(100, Math.min(...weeklyWindows.map((w) => w.remainingPercent))))
-        : null;
-
-    const bars: CompactUsageBar[] = [];
-    if (sessionRemaining !== null) {
-      bars.push({ label: "5h", remaining: sessionRemaining });
-    }
-    if (weeklyRemaining !== null) {
-      bars.push({ label: "w", remaining: weeklyRemaining });
-    }
-    if (bars.length === 0 && headlineWindows.length > 0) {
-      const monthlyWindows = windows.filter(
-        (window) =>
-          window.kind === "monthly" &&
-          (provider.driver !== "claudeAgent" || window.id !== "monthly_spend"),
-      );
-      if (monthlyWindows.length > 0) {
-        bars.push({
-          label: "mo",
-          remaining: Math.max(
-            0,
-            Math.min(100, Math.min(...monthlyWindows.map((w) => w.remainingPercent))),
-          ),
-        });
-      }
-    }
+    const tightest = (kind: LimitPoolWindow["kind"]) => {
+      const matching = quotaWindows.filter((window) => window.kind === kind);
+      return matching.length === 0
+        ? null
+        : Math.max(0, Math.min(100, Math.min(...matching.map((w) => w.remainingPercent))));
+    };
+    const session = tightest("session");
+    const weekly = tightest("weekly");
+    const monthly = session === null && weekly === null ? tightest("monthly") : null;
+    const bars: CompactUsageBar[] = [
+      ...(session === null ? [] : [{ label: "5h", remaining: session }]),
+      ...(weekly === null ? [] : [{ label: "w", remaining: weekly }]),
+      ...(monthly === null ? [] : [{ label: "mo", remaining: monthly }]),
+    ];
 
     return {
       ...provider,

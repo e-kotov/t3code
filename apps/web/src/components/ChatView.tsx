@@ -3123,7 +3123,7 @@ export default function ChatView(props: ChatViewProps) {
     <div
       ref={setWorkspaceLayoutElement}
       data-chat-workspace
-      className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background [--header-usage-reserve:--spacing(40)] [--header-usage-tabs-reserve:calc(--spacing(28)+var(--header-usage-reserve))]"
+      className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background [--header-usage-reserve:--spacing(56)] [--header-usage-tabs-reserve:calc(--spacing(28)+var(--header-usage-reserve))]"
     >
       <DeviceSetupDialogHost
         threadKey={activeThreadKey}
