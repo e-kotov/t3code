@@ -555,7 +555,7 @@ const probeCodexAppServerProvider = Effect.fn("probeCodexAppServerProvider")(fun
       ),
       // Usage is an enrichment: a failure or a slow answer degrades to "no
       // usage this probe" rather than costing the account and models.
-      input.skipNativeUsage
+      input.skipNativeUsage || accountResponse.account?.type !== "chatgpt"
         ? // @effect-diagnostics-next-line effectSucceedWithVoid:off - This optional result requires undefined, not the wider void type.
           Effect.succeed(undefined)
         : withCodexDiscoveryDeadline(
@@ -780,8 +780,9 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
   const accountStatus = managedAuth
     ? { status: "ready" as const, auth: managedAuth, message: undefined }
     : accountProbeStatus(snapshot);
+  const signedOut = !snapshot.account.account && snapshot.account.requiresOpenaiAuth;
   const usageLimits =
-    snapshot.account.account?.type === "apiKey"
+    snapshot.account.account?.type !== "chatgpt" && !signedOut
       ? makeUnavailableUsageLimits({ checkedAt, reason: "unsupported" })
       : snapshot.rateLimits === undefined || "failure" in snapshot.rateLimits
         ? makeUnavailableUsageLimits({
