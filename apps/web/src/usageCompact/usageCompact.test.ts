@@ -117,6 +117,61 @@ describe("compact usage", () => {
     ]);
   });
 
+  it("derives session (5h) and weekly (w) progress bars, keeping single bar for session-only accounts", () => {
+    const codexPro = account("codex", 20);
+    const codexPlus = {
+      ...codexPro,
+      limits: {
+        ...codexPro.limits,
+        windows: [
+          ...codexPro.limits.windows,
+          { id: "secondary", kind: "weekly" as const, label: "Weekly", usedPercent: 40 },
+        ],
+      },
+    };
+    const claude = {
+      ...account("claudeAgent", 30),
+      limits: {
+        checkedAt: "2026-10-26T11:59:00Z",
+        windows: [
+          { id: "five_hour", kind: "session" as const, label: "Session", usedPercent: 70 },
+          { id: "seven_day", kind: "weekly" as const, label: "Weekly", usedPercent: 45 },
+        ],
+      },
+    };
+    const agy = {
+      ...account("antigravity", 0),
+      limits: {
+        checkedAt: "2026-10-26T11:59:00Z",
+        windows: [
+          { id: "gemini-5h", kind: "session" as const, label: "Gemini · 5-hour", usedPercent: 10 },
+          { id: "gemini-weekly", kind: "weekly" as const, label: "Gemini · Weekly", usedPercent: 20 },
+        ],
+      },
+    };
+
+    const proResult = compactUsage([codexPro], now)[0]!;
+    expect(proResult.bars).toEqual([{ label: "5h", remaining: 80 }]);
+
+    const plusResult = compactUsage([codexPlus], now)[0]!;
+    expect(plusResult.bars).toEqual([
+      { label: "5h", remaining: 80 },
+      { label: "w", remaining: 60 },
+    ]);
+
+    const claudeResult = compactUsage([claude], now)[1]!;
+    expect(claudeResult.bars).toEqual([
+      { label: "5h", remaining: 30 },
+      { label: "w", remaining: 55 },
+    ]);
+
+    const agyResult = compactUsage([agy], now)[2]!;
+    expect(agyResult.bars).toEqual([
+      { label: "5h", remaining: 90 },
+      { label: "w", remaining: 80 },
+    ]);
+  });
+
   it("groups reported Family · Window labels without renaming other windows", () => {
     const agy = account("antigravity", 0);
     const pool = compactUsage(

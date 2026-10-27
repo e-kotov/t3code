@@ -257,3 +257,26 @@ it("marks readable quotas partial when a connected source fails", async () => {
     .element(page.getByText("CLI Proxy: Source probe failed", { exact: true }))
     .toBeVisible();
 });
+
+it("renders micro-labeled progress bars without data-toolbar-control background styling", async () => {
+  const accounts = [
+    account("codex", [
+      { id: "primary", kind: "session", label: "5h", usedPercent: 20 },
+    ]),
+    account("claudeAgent", [
+      { id: "five_hour", kind: "session", label: "Session", usedPercent: 30 },
+      { id: "seven_day", kind: "weekly", label: "Weekly", usedPercent: 40 },
+    ]),
+  ];
+  await using _screen = await render(
+    <CompactUsageControl
+      accounts={accounts}
+      drivers={new Set(["codex", "claudeAgent"])}
+      onOpenFullView={() => {}}
+    />,
+  );
+  const btn = trigger();
+  await expect.element(btn).toBeVisible();
+  expect(btn.element().hasAttribute("data-toolbar-control")).toBe(false);
+  expect(btn.element().hasAttribute("data-header-usage")).toBe(true);
+});

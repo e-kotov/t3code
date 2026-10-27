@@ -13,6 +13,11 @@ const PROVIDERS = [
 
 export const COMPACT_USAGE_DRIVERS = PROVIDERS.map((provider) => provider.driver);
 
+export interface CompactUsageBar {
+  readonly label: string;
+  readonly remaining: number;
+}
+
 export function compactUsage(
   accounts: readonly LimitAccount[],
   now: number,
@@ -30,6 +35,58 @@ export function compactUsage(
       (window) => provider.driver !== "claudeAgent" || window.id !== "monthly_spend",
     );
     const headlineWindows = quotaWindows.length > 0 ? quotaWindows : windows;
+
+    const sessionWindows = windows.filter(
+      (window) =>
+        window.kind === "session" ||
+        window.windowDurationMins === 300 ||
+        window.id === "five_hour" ||
+        window.id === "primary" ||
+        window.id.endsWith("-5h"),
+    );
+    const sessionRemaining =
+      sessionWindows.length > 0
+        ? Math.max(0, Math.min(100, Math.min(...sessionWindows.map((w) => w.remainingPercent))))
+        : null;
+
+    const weeklyWindows = windows.filter(
+      (window) =>
+        (window.kind === "weekly" ||
+          window.windowDurationMins === 7 * 24 * 60 ||
+          window.id === "seven_day" ||
+          window.id === "secondary" ||
+          window.id.endsWith("-weekly")) &&
+        (provider.driver !== "claudeAgent" || window.id !== "monthly_spend"),
+    );
+    const weeklyRemaining =
+      weeklyWindows.length > 0
+        ? Math.max(0, Math.min(100, Math.min(...weeklyWindows.map((w) => w.remainingPercent))))
+        : null;
+
+    const bars: CompactUsageBar[] = [];
+    if (sessionRemaining !== null) {
+      bars.push({ label: "5h", remaining: sessionRemaining });
+    }
+    if (weeklyRemaining !== null) {
+      bars.push({ label: "w", remaining: weeklyRemaining });
+    }
+    if (bars.length === 0 && headlineWindows.length > 0) {
+      const monthlyWindows = windows.filter(
+        (window) =>
+          window.kind === "monthly" &&
+          (provider.driver !== "claudeAgent" || window.id !== "monthly_spend"),
+      );
+      if (monthlyWindows.length > 0) {
+        bars.push({
+          label: "mo",
+          remaining: Math.max(
+            0,
+            Math.min(100, Math.min(...monthlyWindows.map((w) => w.remainingPercent))),
+          ),
+        });
+      }
+    }
+
     return {
       ...provider,
       accounts: pool?.accounts ?? [],
@@ -38,6 +95,7 @@ export function compactUsage(
         headlineWindows.length === 0
           ? null
           : Math.max(0, Math.min(100, Math.min(...headlineWindows.map((w) => w.remainingPercent)))),
+      bars,
     };
   });
 }
