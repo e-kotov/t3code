@@ -3,7 +3,7 @@ import { compileResolvedKeybindingsConfig } from "@t3tools/shared/keybindings";
 import type { CSSProperties } from "react";
 import { useState } from "react";
 import { expect, it, vi } from "vite-plus/test";
-import { page, userEvent } from "vite-plus/test/browser";
+import { commands, page, userEvent } from "vite-plus/test/browser";
 import { render } from "../../test/render";
 import { RightPanelTabs } from "../components/RightPanelTabs";
 import type { RightPanelSurface } from "../rightPanelStore";
@@ -112,13 +112,16 @@ function MaximizablePanel() {
 }
 
 it("keeps usage accessible when the inline panel maximizes and restores", async () => {
+  await page.viewport(1280, 800);
   await using _screen = await render(<MaximizablePanel />);
   await expect.element(usage()).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Maximize panel" }));
   await expect.element(usage()).toBeVisible();
   await userEvent.hover(usage());
-  await expect.element(page.getByText("Quota remaining", { exact: true })).toBeVisible();
-  await userEvent.keyboard("{Escape}");
+  const details = page.getByText("Quota remaining", { exact: true });
+  await expect.element(details).toBeVisible();
+  await commands.resetPointer();
+  await expect.element(details).not.toBeInTheDocument();
   await userEvent.click(page.getByRole("button", { name: "Restore panel size" }));
   await expect.element(usage()).toBeVisible();
   expectBeforeThreadToggle();

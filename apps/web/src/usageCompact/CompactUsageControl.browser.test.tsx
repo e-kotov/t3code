@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vite-plus/test";
-import { page, userEvent } from "vite-plus/test/browser";
+import { commands, page, userEvent } from "vite-plus/test/browser";
 import { act, render } from "../../test/render";
 import { CompactUsageControl } from "./CompactUsageControl";
 import { EnvironmentId, ProviderDriverKind, UsageLimitSourceId } from "@t3tools/contracts";
@@ -39,7 +39,7 @@ it("shows quota details on hover without opening the full usage page", async () 
   await expect.element(details()).toBeVisible();
   await userEvent.hover(details());
   await expect.element(details()).toBeVisible();
-  await userEvent.unhover(details());
+  await commands.resetPointer();
   await expect.element(details()).not.toBeInTheDocument();
   expect(openFull).not.toHaveBeenCalled();
 });
@@ -70,10 +70,11 @@ it("keeps composer focus on hover and opens the full page after reading details"
 
 it("keeps details open when focus enters the popup and dismisses on outside focus", async () => {
   const openFull = vi.fn();
+  await page.viewport(1280, 800);
   await using screen = await render(
     <>
       <CompactUsageControl accounts={[]} onOpenFullView={openFull} />
-      <input aria-label="Composer" />
+      <input aria-label="Composer" style={{ position: "fixed", bottom: 0, right: 0 }} />
     </>,
   );
   await userEvent.tab();
