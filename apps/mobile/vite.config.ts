@@ -5,6 +5,7 @@ import "vite-plus/test/config";
 import { FORK_REACT_TESTS } from "./fork-react-tests";
 
 const reactTests = [
+  "src/features/files/useFileTreeEntries.test.tsx",
   "src/features/projects/AddProjectScreen.test.ts",
   "src/lib/useMediaVideoPlayback.test.tsx",
   "src/features/pull-requests/usePullRequestEnvironmentFallback.test.tsx",
@@ -18,6 +19,7 @@ const reactTests = [
   "src/features/settings/components/BranchNamingSettings.test.tsx",
   "src/features/threads/ThreadMarkdownImage.test.tsx",
   "src/features/threads/UsageLimitRecoveryCard.test.tsx",
+  "src/features/threads/NewTaskDraftRouteScreen.test.tsx",
   "src/native/NativeHeaderToolbar.test.tsx",
   "src/native/useRestingTopOffset.test.tsx",
   "src/native/useRetryingImageSource.test.tsx",
@@ -25,6 +27,7 @@ const reactTests = [
   "src/state/use-selected-thread-git-actions.test.tsx",
   ...FORK_REACT_TESTS,
   "src/features/terminal/useTerminalExitNavigation.test.tsx",
+  "src/features/threads/use-thread-list-now.test.tsx",
 ];
 
 const sourceRoot = `${normalizePath(NodeURL.fileURLToPath(new URL("./src", import.meta.url)))}/`;
