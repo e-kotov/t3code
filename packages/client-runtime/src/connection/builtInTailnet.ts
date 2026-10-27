@@ -249,6 +249,8 @@ export function withBuiltInTailnet(
     connect,
     checkRoute: driver.checkRoute,
     preflight,
+    // A live session's prepared origin is already the forwarded port when on the node.
+    checkHost: driver.checkHost,
   });
 }
 

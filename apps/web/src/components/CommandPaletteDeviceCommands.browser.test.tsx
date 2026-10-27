@@ -2,6 +2,8 @@ import { expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
 
 import { render } from "../../test/render";
+import { openCommandPalette } from "../commandPaletteBus";
+import { useCommandPaletteStore } from "../commandPaletteStore";
 import { CommandPalette } from "./CommandPalette";
 
 const optionLabels = async () =>
@@ -13,9 +15,10 @@ const optionLabels = async () =>
 // appending its own actions, or every re-render appends them again.
 it("keeps one copy of each action while the palette re-renders", async () => {
   using _platform = vi.spyOn(navigator, "platform", "get").mockReturnValue("Linux x86_64");
+  useCommandPaletteStore.setState(useCommandPaletteStore.getInitialState(), true);
   await using _screen = await render(<CommandPalette>{null}</CommandPalette>);
 
-  await userEvent.keyboard("{Control>}k{/Control}");
+  openCommandPalette();
   await expect.element(page.getByRole("dialog")).toBeVisible();
   const opened = await vi.waitFor(async () => {
     const labels = await optionLabels();

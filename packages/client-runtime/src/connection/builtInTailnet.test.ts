@@ -74,6 +74,7 @@ function fakeDriver(script: {
     checkRoute: (_entry, route) =>
       Effect.succeed(script.answers.has(routeHttpBaseUrl(route) ?? "") ? "answered" : "silent"),
     preflight: (_entry, route) => Effect.succeed(script.answers.has(routeHttpBaseUrl(route) ?? "")),
+    checkHost: () => Effect.succeed("answered"),
     connect: (entry) => {
       const urls = connectionRoutes(entry).map(routeHttpBaseUrl);
       attempts.push(urls);
