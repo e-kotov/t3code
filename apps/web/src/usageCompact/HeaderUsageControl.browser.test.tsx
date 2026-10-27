@@ -89,12 +89,18 @@ it("omits the usage group where no thread toggle is shown", async () => {
   await expect.element(usage()).not.toBeInTheDocument();
 });
 
+const workspaceVars = {
+  "--workspace-topbar-height": "48px",
+  "--workspace-controls-top": "0px",
+  "--workspace-controls-right": "0px",
+} as CSSProperties;
+
 function MaximizablePanel() {
   const [maximized, setMaximized] = useState(false);
   const rootUsage = { showUsageControl: maximized };
   const headerUsage = { showUsageControl: !maximized };
   return (
-    <>
+    <div data-chat-workspace className="relative flex h-100 w-screen" style={workspaceVars}>
       <WorkspaceTitlebarControls
         showMaximizeControl
         rightPanelOpen
@@ -104,14 +110,15 @@ function MaximizablePanel() {
       >
         <PanelLayoutControls {...props} {...rootUsage} showThreadPanelControl={false} />
       </WorkspaceTitlebarControls>
-      <div hidden={maximized}>
+      <div hidden={maximized} className="relative w-1/2">
         <ThreadPanelHeaderControl {...props} {...headerUsage} rightPanelOpen />
       </div>
-    </>
+    </div>
   );
 }
 
 it("keeps usage accessible when the inline panel maximizes and restores", async () => {
+  await page.viewport(1280, 800);
   await using _screen = await render(<MaximizablePanel />);
   await expect.element(usage()).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Maximize panel" }));
