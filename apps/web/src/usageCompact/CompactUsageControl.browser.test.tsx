@@ -199,9 +199,7 @@ it("keeps an authenticated harness without readable limits as unknown", async ()
   await userEvent.hover(trigger());
   await expect
     .element(
-      page
-        .getByRole("region", { name: "Claude" })
-        .getByText("Limits unavailable", { exact: true }),
+      page.getByRole("region", { name: "Claude" }).getByText("Limits unavailable", { exact: true }),
     )
     .toBeVisible();
   await expect.element(page.getByRole("region", { name: "Antigravity" })).not.toBeInTheDocument();
