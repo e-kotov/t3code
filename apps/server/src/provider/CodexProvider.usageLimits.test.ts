@@ -117,26 +117,24 @@ it.layer(NodeServices.layer)("CodexProvider usageLimits", (it) => {
       }),
   );
 
-  it.effect(
-    "still reports probeFailed when a ChatGPT account's usage read fails",
-    () =>
-      Effect.gen(function* () {
-        const status = yield* checkCodexProviderStatus(defaultCodexSettings, () =>
-          Effect.succeed(
-            makeCodexProbeSnapshot({
-              account: {
-                account: { type: "chatgpt", email: "test@example.com", planType: "pro" },
-                requiresOpenaiAuth: true,
-              },
-              rateLimits: { failure: "Codex did not answer the usage request." },
-            }),
-          ),
-        );
+  it.effect("still reports probeFailed when a ChatGPT account's usage read fails", () =>
+    Effect.gen(function* () {
+      const status = yield* checkCodexProviderStatus(defaultCodexSettings, () =>
+        Effect.succeed(
+          makeCodexProbeSnapshot({
+            account: {
+              account: { type: "chatgpt", email: "test@example.com", planType: "pro" },
+              requiresOpenaiAuth: true,
+            },
+            rateLimits: { failure: "Codex did not answer the usage request." },
+          }),
+        ),
+      );
 
-        assert.deepStrictEqual(status.usageLimits?.unavailable, {
-          reason: "probeFailed",
-          message: "Codex did not answer the usage request.",
-        });
-      }),
+      assert.deepStrictEqual(status.usageLimits?.unavailable, {
+        reason: "probeFailed",
+        message: "Codex did not answer the usage request.",
+      });
+    }),
   );
 });
