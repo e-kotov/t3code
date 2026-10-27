@@ -74,7 +74,8 @@ function fakeDriver(script: {
     checkRoute: (_entry, route) =>
       Effect.succeed(script.answers.has(routeHttpBaseUrl(route) ?? "") ? "answered" : "silent"),
     preflight: (_entry, route) => Effect.succeed(script.answers.has(routeHttpBaseUrl(route) ?? "")),
-    checkHost: () => Effect.succeed("answered"),
+    checkHost: (prepared) =>
+      Effect.succeed(script.answers.has(prepared.httpBaseUrl) ? "answered" : "silent"),
     connect: (entry) => {
       const urls = connectionRoutes(entry).map(routeHttpBaseUrl);
       attempts.push(urls);
@@ -278,6 +279,17 @@ describe("built-in Tailscale routes", () => {
       expect(yield* first.preflight(ENTRY, TAILNET)).toBe(true);
       const last = withBuiltInTailnet(driver, fakeTailnet("last").tailnet);
       expect(yield* last.preflight(ENTRY, TAILNET)).toBe(false);
+    }),
+  );
+
+  it.effect("checks a live session's host on the origin it connected through", () =>
+    Effect.gen(function* () {
+      type Prepared = Parameters<ConnectionDriver.ConnectionDriver["Service"]["checkHost"]>[0];
+      const { driver } = fakeDriver({ answers: new Set([FORWARDED_URL]), connects: new Set() });
+      const engine = withBuiltInTailnet(driver, fakeTailnet("first").tailnet);
+      const session = (httpBaseUrl: string) => ({ httpBaseUrl }) as Prepared;
+      expect(yield* engine.checkHost(session(FORWARDED_URL))).toBe("answered");
+      expect(yield* engine.checkHost(session(TAILNET_URL))).toBe("silent");
     }),
   );
 });
