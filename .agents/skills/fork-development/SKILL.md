@@ -20,7 +20,7 @@ This checkout is Egor Kotov's fork. Upstream will not merge fork features, and
 - Put feature logic in new, fork-owned files (components, hooks, services, tests).
 - Change upstream-owned files only to mount that code: an import plus a line or two. Do not
   restructure, reformat or rename upstream code.
-- CI and the pre-push checks enforce `scripts/fork-footprint-budget.json` per upstream-owned file. New upstream-file edits have zero budget; extract fork logic first. An unavoidable mount change needs an explicit, reviewed budget update via `python3 scripts/fork-footprint-budget.py --write` after committing. Never auto-refresh it in CI.
+- CI and the pre-push checks enforce `scripts/fork-footprint-budget.json` per upstream-owned file. New upstream-file edits have zero budget; extract fork logic first. An unavoidable mount change needs an explicit, reviewed budget update via `python3 scripts/fork-footprint-budget.py --write` after committing. A budgeted upstream file whose fork diff drops to 0 lines fails the check as a dropped mount until it is restored, or the retirement is reviewed and committed via `--write`; a partial shrink only warns. Never auto-refresh it in CI.
 - Run `scripts/fork-upstream-sync.sh footprint` before and after. It lists upstream files the
   fork edits; your change should not grow it beyond the mount lines. If a feature needs a
   large edit inside an upstream file, extract the fork part into a new file first.

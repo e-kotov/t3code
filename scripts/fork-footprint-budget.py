@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reject growth or shrinkage in fork edits to upstream-owned files; update only after review."""
+"""Reject growth or dropped mounts in fork edits to upstream-owned files; update only after review."""
 import argparse
 import json
 import os
@@ -38,15 +38,22 @@ def main():
     grown = [f"{path}: {count} > {budget.get(path, 0)}" for path, count in sorted(counts.items())
              if count > budget.get(path, 0)]
     # A fully reverted mount has no numstat row, so walk the budget rather than the diff.
-    shrunk = [f"{path}: {counts.get(path, 0)} < {limit}" for path, limit in sorted(budget.items())
-              if counts.get(path, 0) < limit]
+    dropped = [f"{path}: 0 < {limit}" for path, limit in sorted(budget.items())
+               if limit > 0 and counts.get(path, 0) == 0]
+    shrunk = [f"{path}: {counts[path]} < {limit}" for path, limit in sorted(budget.items())
+              if 0 < counts.get(path, 0) < limit]
     if grown:
         print("Fork edits grew in upstream-owned files:\n" + "\n".join(grown))
         print("Extract fork logic or review and explicitly update scripts/fork-footprint-budget.json.")
+    if dropped:
+        print("Fork integration was dropped (0 lines):\n" + "\n".join(dropped))
+        print("Restore the fork mount; if the feature was intentionally retired, "
+              "update scripts/fork-footprint-budget.json with --write.")
+    # A smaller mount is usually a reviewed extraction or an upstream refactor, so only warn.
     if shrunk:
-        print("Fork edits shrank in upstream-owned files:\n" + "\n".join(shrunk))
-        print("Fork integration may have been dropped; verify, then --write.")
-    if grown or shrunk:
+        print("Fork edits shrank in upstream-owned files (warning):\n" + "\n".join(shrunk))
+        print("Verify the fork feature is intact; after review, record the smaller budget with --write.")
+    if grown or dropped:
         return 1
     print(f"Fork footprint passed: {sum(counts.values())} changed lines in {len(counts)} upstream files")
     return 0

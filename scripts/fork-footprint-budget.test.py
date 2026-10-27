@@ -64,20 +64,30 @@ class FootprintBudgetTest(unittest.TestCase):
             self.assertIn("mount.ts: 2 > 1", gate(success=False))
             gate("--write")
             # Resetting only fixture files is safe; no developer checkout is involved.
-            # Growth in one file and a partial shrink in another are both reported.
+            # Growth in one file fails even while a partial shrink in another only warns.
             (root / "mount.ts").write_text("upstream\nfork mount\n")
             (root / "untouched.ts").write_text("upstream\nnew mount\n")
             commit()
             output = gate(success=False)
             self.assertIn("untouched.ts: 1 > 0", output)
             self.assertIn("mount.ts: 1 < 2", output)
-            self.assertIn("may have been dropped", output)
-            # A fully reverted mount leaves no diff row but must still be caught.
-            (root / "mount.ts").write_text("upstream\n")
+            # A partial shrink alone passes with a warning; --write records the smaller budget.
             (root / "untouched.ts").write_text("upstream\n")
             commit()
+            output = gate()
+            self.assertIn("shrank in upstream-owned files (warning)", output)
+            self.assertIn("mount.ts: 1 < 2", output)
+            self.assertIn("Fork footprint passed", output)
+            gate("--write")
+            self.assertEqual(json.loads((root / "scripts/fork-footprint-budget.json").read_text()),
+                             {"files": {"mount.ts": 1}})
+            self.assertNotIn("warning", gate())
+            # A fully reverted mount leaves no diff row but must still fail as dropped.
+            (root / "mount.ts").write_text("upstream\n")
+            commit()
             output = gate(success=False)
-            self.assertIn("mount.ts: 0 < 2", output)
+            self.assertIn("Fork integration was dropped (0 lines)", output)
+            self.assertIn("mount.ts: 0 < 1", output)
             self.assertNotIn("untouched.ts", output)
             gate("--write")
             self.assertEqual(json.loads((root / "scripts/fork-footprint-budget.json").read_text()),

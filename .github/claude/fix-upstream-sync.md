@@ -24,8 +24,9 @@ files, and fork edits in upstream-owned files are kept to small mount points.
    typecheck`) and run the tests of files you changed (`cd <package> && vp test run <file>`). Run
    `python3 scripts/fork-footprint-budget.py`; if it reports growth, prefer moving fork logic into
    fork-owned files, and only for a few unavoidable mount lines run it with `--write`. If it reports
-   shrinkage, restore any dropped fork mount (see step 2); run `--write` only once the fork feature
-   is confirmed intact.
+   a file dropped to 0 lines, a fork mount was lost: restore it (see step 2) and do not `--write`
+   it away; retiring the feature is a decision for step 5. A shrinkage warning is informational;
+   check the feature is intact.
 5. Do not commit or push; the workflow commits your working tree. If something truly needs Egor's
    product decision (removing, relocating or redesigning a fork feature), resolve everything else
    and write `.claude-needs-decision.md` at the repository root with the decision, the options and

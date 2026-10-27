@@ -12,6 +12,8 @@ Judge only the fix:
   change? Did it restore code upstream deleted, or drop or disable a fork feature?
 - Did it break a fork mount that merged cleanly, or change anything beyond what was needed?
 - Is anything likely to fail typecheck, lint or tests, or behave wrongly at runtime?
+- If it lowered `scripts/fork-footprint-budget.json` via `--write`, is each reduction an
+  intentional extraction or feature retirement rather than a lost fork integration?
 
 Request changes only for real defects, each with file, line and the concrete fix. Approve when the
 fix is correct even if you would have written it differently.
