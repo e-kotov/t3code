@@ -1,0 +1,18 @@
+gradle.beforeProject { project ->
+  if (project.path == ':expo-sharing') {
+    project.plugins.withId('com.android.library') {
+      def android = project.extensions.getByName('android')
+      android.testOptions.unitTests.includeAndroidResources = true
+      android.sourceSets.getByName('test').java.srcDir(
+        new File(gradle.rootProject.projectDir.parentFile, 'src/features/sharing/android')
+      )
+      project.dependencies.add('testImplementation', 'junit:junit:4.13.2')
+      project.dependencies.add('testImplementation', 'org.robolectric:robolectric:4.16.1')
+      project.tasks.withType(Test).configureEach {
+        javaLauncher = project.javaToolchains.launcherFor {
+          languageVersion = JavaLanguageVersion.of(21)
+        }
+      }
+    }
+  }
+}

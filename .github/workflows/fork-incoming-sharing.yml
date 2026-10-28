@@ -36,6 +36,29 @@ jobs:
           run-install: false
           cache: true
       - run: vp install
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c
+        with:
+          cache-read-only: false
+      - name: Generate isolated Android project
+        working-directory: apps/mobile
+        run: vp exec expo prebuild --platform android --no-install
+      - name: Require patched native sharing instead of the stock precompiled library
+        working-directory: apps/mobile/android
+        run: |
+          ./gradlew :app:dependencies --configuration releaseRuntimeClasspath --console=plain --no-daemon --max-workers=2 > "$RUNNER_TEMP/sharing-dependencies.log"
+          python3 - <<'PY'
+          import os, pathlib
+          dependencies = (pathlib.Path(os.environ['RUNNER_TEMP']) / 'sharing-dependencies.log').read_text()
+          assert 'project :expo-sharing' in dependencies, 'Patched expo-sharing source is absent from the Android runtime classpath'
+          assert 'host.exp.exponent:expo.modules.sharing:' not in dependencies, 'The unpatched precompiled sharing library is linked'
+          PY
+      - name: Test the Android transcript and PDF parser
+        working-directory: apps/mobile/android
+        run: ./gradlew --init-script ../../../scripts/fork-sharing-tests.gradle :expo-sharing:testDebugUnitTest --no-daemon --max-workers=2
       - name: Prove a share delivered without a resume fails before the fix
         run: |
           source=apps/mobile/src/features/sharing/forkIncomingShareEvents.ts
