@@ -1,8 +1,6 @@
 name: Fork machine groups
 
 on:
-  push:
-    branches: [feat/fold-machine-groups]
   pull_request:
     branches: [main]
     paths:

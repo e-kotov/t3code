@@ -7,7 +7,9 @@ import {
 import { withMobileMachineContext } from "./mobileMachineContext";
 import type { ThreadListV2ThreadListItem } from "./threadListV2";
 
-function isMachineHeader(item: { readonly type: string }): item is ThreadListV2MachineHeaderListItem {
+function isMachineHeader(item: {
+  readonly type: string;
+}): item is ThreadListV2MachineHeaderListItem {
   return item.type === "v2-machine-header";
 }
 

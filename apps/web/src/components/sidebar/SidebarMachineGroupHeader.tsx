@@ -91,14 +91,17 @@ export function SidebarMachineGroupHeader(props: {
             type="button"
             aria-label={collapsed ? "Expand machine group" : "Collapse machine group"}
             aria-expanded={!collapsed}
-            title={collapsed ? "Expand machine group" : "Collapse machine group"}
             className="rounded p-1 hover:bg-accent"
             onClick={(event) => {
               event.stopPropagation();
               toggleMachineGroup(environmentId);
             }}
           >
-            {collapsed ? <ChevronRightIcon className="size-3" /> : <ChevronDownIcon className="size-3" />}
+            {collapsed ? (
+              <ChevronRightIcon className="size-3" />
+            ) : (
+              <ChevronDownIcon className="size-3" />
+            )}
           </button>
         </span>
       ) : null}

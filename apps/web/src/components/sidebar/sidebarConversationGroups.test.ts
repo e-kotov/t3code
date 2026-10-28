@@ -57,26 +57,57 @@ describe("groupSidebarRowsByMachine", () => {
     const folded = view({ machineOrder: [alpha, local, zulu], collapsedMachineGroups: [local] });
     for (const section of ["pinned", "active", "working", "snoozed", "settled"] as const) {
       expect(layout(groupSidebarRowsByMachine(threads, section, folded, rowsOf))).toEqual([
-        "[env-alpha:0/3]", "a1", "[env-local:1/3]", "[env-zulu:2/3]", "z1",
+        "[env-alpha:0/3]",
+        "a1",
+        "[env-local:1/3]",
+        "[env-zulu:2/3]",
+        "z1",
       ]);
     }
-    expect(layout(groupSidebarRowsByMachine(threads, "active", {
-      ...folded, collapsedMachineGroups: [],
-    }, rowsOf))).toEqual([
-      "[env-alpha:0/3]", "a1", "[env-local:1/3]", "l1", "l2", "[env-zulu:2/3]", "z1",
-    ]);
+    expect(
+      layout(
+        groupSidebarRowsByMachine(
+          threads,
+          "active",
+          {
+            ...folded,
+            collapsedMachineGroups: [],
+          },
+          rowsOf,
+        ),
+      ),
+    ).toEqual(["[env-alpha:0/3]", "a1", "[env-local:1/3]", "l1", "l2", "[env-zulu:2/3]", "z1"]);
   });
 
   it("keeps the expand control reachable when a folded machine is the only remaining machine", () => {
-    expect(layout(groupSidebarRowsByMachine([thread("a1", alpha)], "active", view({
-      collapsedMachineGroups: [alpha],
-    }), rowsOf))).toEqual(["[env-alpha:0/1]"]);
+    expect(
+      layout(
+        groupSidebarRowsByMachine(
+          [thread("a1", alpha)],
+          "active",
+          view({
+            collapsedMachineGroups: [alpha],
+          }),
+          rowsOf,
+        ),
+      ),
+    ).toEqual(["[env-alpha:0/1]"]);
   });
 
   it("ignores folded machines when grouping is turned off", () => {
-    expect(layout(groupSidebarRowsByMachine(threads, "active", view({
-      grouping: "none", collapsedMachineGroups: [local, alpha, zulu],
-    }), rowsOf))).toEqual(["z1", "l1", "a1", "l2"]);
+    expect(
+      layout(
+        groupSidebarRowsByMachine(
+          threads,
+          "active",
+          view({
+            grouping: "none",
+            collapsedMachineGroups: [local, alpha, zulu],
+          }),
+          rowsOf,
+        ),
+      ),
+    ).toEqual(["z1", "l1", "a1", "l2"]);
   });
 
   it("puts the primary machine first, then the rest alphabetically, keeping row order", () => {

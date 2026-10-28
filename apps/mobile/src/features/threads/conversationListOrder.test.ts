@@ -326,23 +326,40 @@ describe("arrangeMobileConversationList", () => {
   });
 
   it("folds only the selected machine and restores its rows in their original order", () => {
-    const options = { grouping: "machine", environments, machineKinds, machineOrder: ["machine-b"] } as const;
+    const options = {
+      grouping: "machine",
+      environments,
+      machineKinds,
+      machineOrder: ["machine-b"],
+    } as const;
     const folded = arrangeMobileConversationList(rows, {
-      ...options, collapsedMachineGroups: ["machine-a"],
+      ...options,
+      collapsedMachineGroups: ["machine-a"],
     });
     expect(folded.map(keyOf)).toEqual(["[machine-b]", "b1", "[machine-a]"]);
     expect(folded.at(-1)).toMatchObject({ collapsible: true, position: 1, count: 2 });
     expect(arrangeMobileConversationList(rows, options).map(keyOf)).toEqual([
-      "[machine-b]", "b1", "[machine-a]", "a1", "a2",
+      "[machine-b]",
+      "b1",
+      "[machine-a]",
+      "a1",
+      "a2",
     ]);
   });
 
   it("keeps a single folded machine reachable and preserves shelf and pending rows", () => {
     const shelf = { type: "v2-active-shelf", key: "active" } as const;
-    const pending = { type: "v2-pending", key: "pending", pendingTask: { environmentId: "machine-a" } } as const;
+    const pending = {
+      type: "v2-pending",
+      key: "pending",
+      pendingTask: { environmentId: "machine-a" },
+    } as const;
     const input = [row("machine-a", "pin"), shelf, pending, row("machine-a", "a1")];
     const folded = arrangeMobileConversationList(input, {
-      grouping: "machine", environments, machineKinds, machineOrder: [],
+      grouping: "machine",
+      environments,
+      machineKinds,
+      machineOrder: [],
       collapsedMachineGroups: ["machine-a"],
     });
     expect(folded.map(keyOf)).toEqual(["[machine-a]", "active", "pending"]);
@@ -351,7 +368,10 @@ describe("arrangeMobileConversationList", () => {
 
   it("shows ungrouped conversations even if their machine was folded", () => {
     const arranged = arrangeMobileConversationList(rows, {
-      grouping: "none", environments, machineKinds, machineOrder: [],
+      grouping: "none",
+      environments,
+      machineKinds,
+      machineOrder: [],
       collapsedMachineGroups: ["machine-a", "machine-b"],
     });
     expect(arranged.map(keyOf)).toEqual(["[machine-a]", "[machine-b]", "a1", "b1", "a2"]);
