@@ -44,7 +44,14 @@ jobs:
           cache-dependency-path: apps/mobile/modules/t3-tailnet/go/go.sum
       - name: Test the Tailscale engine
         working-directory: apps/mobile/modules/t3-tailnet/go
-        run: go test -race ./...
+        run: go test -mod=readonly -race ./...
+      - name: Verify dependency files
+        working-directory: apps/mobile/modules/t3-tailnet/go
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+      - name: Build the Android Tailscale library
+        run: scripts/build-tailnet-android.sh
       - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
         with:
           node-version-file: package.json
