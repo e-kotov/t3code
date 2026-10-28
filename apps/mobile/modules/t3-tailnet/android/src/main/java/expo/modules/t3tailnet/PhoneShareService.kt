@@ -76,6 +76,7 @@ open class PhoneShareService : Service() {
   private val main = Handler(Looper.getMainLooper())
   private val healthCheck = Runnable { launchWork { checkHealth() } }
   private var started = false
+  private var failedServerChecks = 0
   @Volatile private var failed = false
 
   override fun onCreate() {
@@ -167,12 +168,21 @@ open class PhoneShareService : Service() {
 
   private fun checkHealth() {
     try {
-      check(serverReady()) { "The phone T3 server stopped. Start it and enable sharing again." }
+      if (!serverReady()) {
+        failedServerChecks += 1
+        check(failedServerChecks < 3) { "The phone T3 server stopped. Start it and enable sharing again." }
+        update("Waiting for phone T3 server")
+        return
+      }
+      failedServerChecks = 0
       val result = checkReply(tailnetCall("status"))
       when (result.optString("state")) {
         "stopped" -> error("Built-in Tailscale stopped. Enable sharing again.")
         "needs-login", "needs-approval" -> error("Sign in or approve built-in Tailscale, then enable sharing again.")
-        "running" -> update("Available on your tailnet")
+        "running" -> {
+          checkReply(tailnetCall("startPhoneShare"))
+          update("Available on your tailnet")
+        }
         else -> update("Reconnecting to Tailscale")
       }
     } catch (error: Exception) {
