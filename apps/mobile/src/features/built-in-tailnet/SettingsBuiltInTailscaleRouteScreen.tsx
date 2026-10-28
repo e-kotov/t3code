@@ -201,9 +201,10 @@ export function SettingsBuiltInTailscaleRouteScreen() {
 
         <Text className="text-sm text-foreground-muted">{describeStatus(status, signedIn)}</Text>
         <Text className="text-sm text-foreground-muted">
-          Built-in Tailscale signs in as its own device. It stays active for phone sharing and direct
-          notifications; otherwise it stops when T3 is in the background or after five idle minutes.
-          Phone sharing exposes only this phone's T3 server to your tailnet and requires T3 pairing.
+          Built-in Tailscale signs in as its own device. It stays active for phone sharing and
+          direct notifications; otherwise it stops when T3 is in the background or after five idle
+          minutes. Phone sharing exposes only this phone's T3 server to your tailnet and requires T3
+          pairing.
         </Text>
         {logs === null ? null : (
           <Text selectable className="font-mono text-xs text-foreground-muted">

@@ -97,7 +97,12 @@ function readConfig(): Pick<Snapshot, "enabled" | "position" | "signedIn"> {
   };
 }
 
-let snapshot: Snapshot = { ...readConfig(), status: null, error: null, phoneShare: { enabled: false, status: "Off" } };
+let snapshot: Snapshot = {
+  ...readConfig(),
+  status: null,
+  error: null,
+  phoneShare: { enabled: false, status: "Off" },
+};
 const listeners = new Set<() => void>();
 
 function publish(patch: Partial<Snapshot>) {
