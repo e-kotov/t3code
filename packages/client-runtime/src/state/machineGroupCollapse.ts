@@ -24,6 +24,7 @@ export function machineGroupThreadVisible(
     Boolean(options.searchQuery?.trim()) ||
     !options.collapsedMachineGroups?.includes(thread.environmentId) ||
     (options.selectedThreadKey != null &&
-      scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)) === options.selectedThreadKey)
+      scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)) ===
+        options.selectedThreadKey)
   );
 }
