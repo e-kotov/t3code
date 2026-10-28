@@ -138,8 +138,7 @@ class PhoneShareService : Service() {
     val open = launch?.let { PendingIntent.getActivity(this, ID, it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE) }
     val stop = PendingIntent.getService(this, ID, Intent(this, PhoneShareService::class.java).setAction(STOP), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL) else Notification.Builder(this)
-    val icon = resources.getIdentifier("notification_icon", "drawable", packageName)
-    return builder.setSmallIcon(if (icon != 0) icon else android.R.drawable.ic_dialog_info).setContentTitle("T3 phone remote access")
+    return builder.setSmallIcon(R.drawable.phone_share_active).setContentTitle("T3 phone remote access")
       .setContentText(text).setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
       .addAction(Notification.Action.Builder(0, "Stop", stop).build()).build()
   }
