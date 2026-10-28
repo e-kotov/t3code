@@ -3,7 +3,9 @@ package engine
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"testing"
 	"time"
@@ -59,8 +61,8 @@ func TestPhoneShareStopClosesActiveConnectionAndAllowsIdle(t *testing.T) {
 		t.Fatal("stopped sharing must permit the node to idle")
 	}
 	_ = c.SetReadDeadline(time.Now().Add(2 * time.Second))
-	if _, err := c.Read(make([]byte, 1)); err == nil {
-		t.Fatal("connection remained open after sharing stopped")
+	if _, err := c.Read(make([]byte, 1)); !errors.Is(err, io.EOF) {
+		t.Fatalf("read after sharing stopped = %v, want EOF", err)
 	}
 	e.StopPhoneShare()
 }

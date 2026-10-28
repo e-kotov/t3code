@@ -43,6 +43,19 @@ Download the ARM64 APK from an EK release and allow installation from that sourc
 It installs as **T3 Code EK** alongside upstream. Existing upstream app data does
 not transfer automatically. Keep using the fork APK for updates so the signing key matches.
 
+### Share the phone's T3 server
+
+With the phone's Termux T3 runtime installed, sign in under **Settings → Built-in
+Tailscale**, then enable **Share this phone on Tailscale**. Grant T3 Code EK the
+Termux run-command permission if the server needs starting. The app keeps a foreground
+notification with a **Stop** action while sharing is enabled.
+
+Connect another device to the built-in node's Tailscale address on port `3774` and pair
+with the phone's T3 server. Only that server is shared; Tailscale access rules and T3
+pairing still apply. The phone does not need the Tailscale VPN app. Reopen T3 after a
+reboot or force-stop to resume enabled sharing. Stopping sharing closes remote
+connections without stopping the Termux server or its USB access.
+
 ## Linux server
 
 Download the Linux x64 archive and `SHA256SUMS` from the same EK release.

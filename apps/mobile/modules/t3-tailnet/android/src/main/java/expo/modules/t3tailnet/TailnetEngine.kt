@@ -62,7 +62,16 @@ internal object TailnetEngine {
         }
       }
       val observer = object : DefaultLifecycleObserver {
-        override fun onStart(owner: LifecycleOwner) = main.removeCallbacks(stopLater)
+        override fun onStart(owner: LifecycleOwner) {
+          main.removeCallbacks(stopLater)
+          if (PhoneShareService.isEnabled(app)) {
+            try {
+              PhoneShareService.setEnabled(app, true)
+            } catch (error: Exception) {
+              Log.w("T3Tailnet", "Could not restore phone sharing", error)
+            }
+          }
+        }
         override fun onStop(owner: LifecycleOwner) {
           main.removeCallbacks(stopLater)
           main.postDelayed(stopLater, BACKGROUND_GRACE_MS)
