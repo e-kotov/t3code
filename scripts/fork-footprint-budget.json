@@ -87,6 +87,8 @@
     "apps/server/src/provider/acp/AntigravityAcpSupport.test.ts": 35,
     "apps/server/src/provider/acp/AntigravityAcpSupport.ts": 64,
     "apps/server/src/provider/antigravityRelease.ts": 62,
+    "apps/server/src/provider/antigravityUsageLimits.test.ts": 55,
+    "apps/server/src/provider/antigravityUsageLimits.ts": 7,
     "apps/server/src/server.ts": 7,
     "apps/server/src/telemetry/AnalyticsService.ts": 7,
     "apps/server/src/textGeneration/AntigravityTextGeneration.test.ts": 1,

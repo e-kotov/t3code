@@ -228,6 +228,61 @@ describe("Antigravity subscription limits", () => {
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
+  it.effect(
+    "merges Gemini model quotas when summary response only contains third-party models",
+    () =>
+      Effect.gen(function* () {
+        const { probe } = yield* fixture({
+          summary: {
+            groups: [
+              {
+                displayName: "Claude and GPT models",
+                buckets: [
+                  {
+                    bucketId: "3p-weekly",
+                    window: "weekly",
+                    remainingFraction: 1,
+                    resetTime: "2026-10-10T15:28:22Z",
+                  },
+                  {
+                    bucketId: "3p-5h",
+                    window: "5h",
+                    remainingFraction: 1,
+                    resetTime: "2026-10-09T16:06:30Z",
+                  },
+                ],
+              },
+            ],
+          },
+          models: {
+            models: {
+              "gemini-2.5-pro": {
+                modelProvider: "MODEL_PROVIDER_GOOGLE",
+                quotaInfo: { remainingFraction: 0.88, resetTime: "2026-10-09T16:06:01Z" },
+              },
+              "claude-opus-5-5-high": {
+                modelProvider: "MODEL_PROVIDER_ANTHROPIC",
+                quotaInfo: { remainingFraction: 1, resetTime: "2026-10-09T16:06:30Z" },
+              },
+            },
+          },
+        });
+        const limits = yield* probe;
+        expect(limits.windows.map((window) => window.id).toSorted()).toEqual([
+          "3p-5h",
+          "3p-weekly",
+          "gemini-quota",
+        ]);
+        const byId = new Map(limits.windows.map((window) => [window.id, window]));
+        expect(byId.get("gemini-quota")).toMatchObject({
+          label: "Gemini · Reported quota",
+          kind: "other",
+          usedPercent: 12,
+        });
+        expect(byId.get("gemini-quota")?.windowDurationMins).toBeUndefined();
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("falls back to model quotas without inventing a window duration", () =>
     Effect.gen(function* () {
       const { probe } = yield* fixture({
