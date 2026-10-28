@@ -279,55 +279,14 @@ export const makeAntigravityUsageProbe = Effect.fn("makeAntigravityUsageProbe")(
     const summary = yield* fetchWindows("retrieveUserQuotaSummary", (response) =>
       decodeSummary(response).pipe(Effect.map(summaryWindows)),
     );
-    let windows = summary;
-    if (summary.length === 0) {
-      windows = yield* fetchWindows("fetchAvailableModels", (response) =>
-        decodeModels(response).pipe(Effect.map(modelWindows)),
-      );
-    } else if (!summary.some((w) => w.id.startsWith("gemini"))) {
-      const geminiFromModels = yield* fetchWindows("fetchAvailableModels", (response) =>
-        decodeModels(response).pipe(
-          Effect.map((data) => {
-            let worstSession: ServerProviderUsageWindow | undefined;
-            let worstWeekly: ServerProviderUsageWindow | undefined;
-            for (const [modelId, model] of Object.entries(data.models)) {
-              const isGemini =
-                model.modelProvider === "MODEL_PROVIDER_GOOGLE" || modelId.startsWith("gemini-");
-              if (!isGemini) continue;
-              if (model.quotaInfo) {
-                const win = quotaWindow(
-                  "gemini-5h",
-                  "Gemini · 5-hour",
-                  model.quotaInfo,
-                  "session",
-                  5 * 60,
-                );
-                if (win && (!worstSession || win.usedPercent > worstSession.usedPercent)) {
-                  worstSession = win;
-                }
-              }
-              if (model.weeklyQuotaInfo) {
-                const win = quotaWindow(
-                  "gemini-weekly",
-                  "Gemini · Weekly",
-                  model.weeklyQuotaInfo,
-                  "weekly",
-                  7 * 24 * 60,
-                );
-                if (win && (!worstWeekly || win.usedPercent > worstWeekly.usedPercent)) {
-                  worstWeekly = win;
-                }
-              }
-            }
-            const result: ServerProviderUsageWindow[] = [];
-            if (worstWeekly) result.push(worstWeekly);
-            if (worstSession) result.push(worstSession);
-            return result;
-          }),
-        ),
-      );
-      windows = [...summary, ...geminiFromModels];
-    }
+    const models = summary.some((w) => w.id.startsWith("gemini-"))
+      ? []
+      : yield* fetchWindows("fetchAvailableModels", (response) =>
+          decodeModels(response).pipe(Effect.map(modelWindows)),
+        );
+    const windows = summary.length
+      ? [...summary, ...models.filter((w) => w.id.startsWith("gemini-"))]
+      : models;
     if (windows.length === 0) {
       return makeUnavailableUsageLimits({
         checkedAt,

@@ -269,15 +269,15 @@ describe("Antigravity subscription limits", () => {
       expect(limits.windows.map((window) => window.id).toSorted()).toEqual([
         "3p-5h",
         "3p-weekly",
-        "gemini-5h",
+        "gemini-quota",
       ]);
       const byId = new Map(limits.windows.map((window) => [window.id, window]));
-      expect(byId.get("gemini-5h")).toMatchObject({
-        label: "Gemini · 5-hour",
-        kind: "session",
-        windowDurationMins: 300,
+      expect(byId.get("gemini-quota")).toMatchObject({
+        label: "Gemini · Reported quota",
+        kind: "other",
+        usedPercent: 12,
       });
-      expect(byId.get("gemini-5h")?.usedPercent).toBeCloseTo(12);
+      expect(byId.get("gemini-quota")?.windowDurationMins).toBeUndefined();
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
