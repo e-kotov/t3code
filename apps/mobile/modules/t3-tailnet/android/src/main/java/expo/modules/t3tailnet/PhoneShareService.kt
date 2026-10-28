@@ -173,7 +173,9 @@ open class PhoneShareService : Service() {
     try {
       when (probeServer()) {
         ServerHealth.STOPPED -> {
-          main.post { fail("The phone T3 server stopped. Start it and enable sharing again.") }
+          failedServerChecks = 0
+          failedShareChecks = 0
+          update("Server stopped; waiting for restart")
           return
         }
         ServerHealth.WAITING -> {

@@ -121,7 +121,7 @@ class PhoneShareServiceTest {
     PhoneShareService.setEnabled(app, false)
   }
 
-  @Test fun confirmedServerStopFailsOnTheNextCheck() {
+  @Test fun confirmedServerStopIsReportedOnTheNextCheck() {
     val controller = Robolectric.buildService(FakeService::class.java).create()
     val service = controller.get()
     try {
@@ -132,9 +132,12 @@ class PhoneShareServiceTest {
       shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(15))
       service.runNext()
       shadowOf(Looper.getMainLooper()).idle()
-      assertFalse(PhoneShareService.isEnabled(app))
-      assertEquals("The phone T3 server stopped. Start it and enable sharing again.", PhoneShareService.status(app))
-    } finally { controller.destroy() }
+      assertTrue(PhoneShareService.isEnabled(app))
+      assertEquals("Server stopped; waiting for restart", PhoneShareService.status(app))
+    } finally {
+      PhoneShareService.setEnabled(app, false)
+      controller.destroy()
+    }
   }
 
   @Test fun onlyRefusedConnectFailuresMeanTheServerStopped() {
@@ -241,19 +244,21 @@ class PhoneShareServiceTest {
     assertNull(shadowOf(manager).getNotification(73003))
   }
 
-  @Test fun serverFailureRemainsVisibleAfterServiceDestruction() {
+  @Test fun unresponsiveServerFailureRemainsVisibleAfterServiceDestruction() {
     val controller = Robolectric.buildService(FakeService::class.java).create()
     val service = controller.get()
     service.onStartCommand(Intent(), 0, 1)
     service.runNext()
     shadowOf(Looper.getMainLooper()).idle()
-    service.stopped = true
-    shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(15))
-    service.runNext()
-    shadowOf(Looper.getMainLooper()).idle()
+    service.ready = false
+    repeat(3) {
+      shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(15))
+      service.runNext()
+      shadowOf(Looper.getMainLooper()).idle()
+    }
     controller.destroy()
     assertFalse(PhoneShareService.isEnabled(app))
-    assertTrue(PhoneShareService.status(app).contains("server stopped"))
+    assertTrue(PhoneShareService.status(app).contains("server is not responding"))
     val notification = shadowOf(manager).getNotification(73003)
     assertNotNull(notification)
     assertEquals(0, notification.flags and Notification.FLAG_ONGOING_EVENT)
