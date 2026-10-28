@@ -77,6 +77,7 @@ class PhoneShareServiceTest {
     fun health() = probeServer()
     fun refuse() { connection.failure = ConnectException("Connection refused") }
     fun timeOut() { connection.failure = SocketTimeoutException("Read timed out") }
+    fun connectFailure(message: String?) { connection.failure = ConnectException(message) }
   }
 
   @Before fun setUp() {
@@ -134,6 +135,37 @@ class PhoneShareServiceTest {
       assertFalse(PhoneShareService.isEnabled(app))
       assertEquals("The phone T3 server stopped. Start it and enable sharing again.", PhoneShareService.status(app))
     } finally { controller.destroy() }
+  }
+
+  @Test fun onlyRefusedConnectFailuresMeanTheServerStopped() {
+    val service = ProbeService()
+    try {
+      for (message in listOf(null, "Permission denied", "Network is unreachable", "failed to connect to /127.0.0.1:3774: EACCES (Permission denied)")) {
+        service.connectFailure(message)
+        assertEquals(PhoneShareService.ServerHealth.WAITING, service.health())
+      }
+      service.connectFailure("failed to connect to /127.0.0.1:3774: ECONNREFUSED (Connection refused)")
+      assertEquals(PhoneShareService.ServerHealth.STOPPED, service.health())
+    } finally { PhoneShareService.setEnabled(app, false) }
+  }
+
+  @Test fun requiredAccountActionIsReportedWithoutRepairRetries() {
+    for (state in listOf("needs-login", "needs-approval")) {
+      PhoneShareService.setEnabled(app, true)
+      val controller = Robolectric.buildService(FakeService::class.java).create()
+      val service = controller.get()
+      try {
+        service.onStartCommand(Intent(), 0, 1)
+        service.runNext()
+        shadowOf(Looper.getMainLooper()).idle()
+        service.backend = state
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(15))
+        service.runNext()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertFalse(PhoneShareService.isEnabled(app))
+        assertEquals("Sign in or approve built-in Tailscale, then enable sharing again.", PhoneShareService.status(app))
+      } finally { controller.destroy() }
+    }
   }
 
   @Test fun transientShareRepairFailuresRecoverAndResetTheirCount() {
