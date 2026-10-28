@@ -15,10 +15,12 @@ import android.os.Handler
 import android.os.Looper
 import org.json.JSONObject
 import java.net.HttpURLConnection
+import java.net.ConnectException
 import java.net.URL
 
 /** Keeps only the phone's paired T3 endpoint available on its private tailnet. */
 open class PhoneShareService : Service() {
+  enum class ServerHealth { READY, STOPPED, WAITING }
   companion object {
     private const val PREFS = "t3-phone-share"
     private const val CHANNEL = "phone-t3-sharing"
@@ -76,6 +78,8 @@ open class PhoneShareService : Service() {
   private val main = Handler(Looper.getMainLooper())
   private val healthCheck = Runnable { launchWork { checkHealth() } }
   private var started = false
+  private var failedServerChecks = 0
+  private var failedShareChecks = 0
   @Volatile private var failed = false
 
   override fun onCreate() {
@@ -167,16 +171,39 @@ open class PhoneShareService : Service() {
 
   private fun checkHealth() {
     try {
-      check(serverReady()) { "The phone T3 server stopped. Start it and enable sharing again." }
+      when (probeServer()) {
+        ServerHealth.STOPPED -> {
+          failedServerChecks = 0
+          failedShareChecks = 0
+          update("Server stopped; waiting for restart")
+          return
+        }
+        ServerHealth.WAITING -> {
+          failedServerChecks += 1
+          if (failedServerChecks >= 3) main.post { fail("The phone T3 server is not responding. Check it and enable sharing again.") }
+          else update("Waiting for phone T3 server")
+          return
+        }
+        ServerHealth.READY -> failedServerChecks = 0
+      }
       val result = checkReply(tailnetCall("status"))
       when (result.optString("state")) {
         "stopped" -> error("Built-in Tailscale stopped. Enable sharing again.")
-        "needs-login", "needs-approval" -> error("Sign in or approve built-in Tailscale, then enable sharing again.")
-        "running" -> update("Available on your tailnet")
+        "needs-login", "needs-approval" -> {
+          main.post { fail("Sign in or approve built-in Tailscale, then enable sharing again.") }
+          return
+        }
+        "running" -> {
+          checkReply(tailnetCall("startPhoneShare"))
+          failedShareChecks = 0
+          update("Available on your tailnet")
+        }
         else -> update("Reconnecting to Tailscale")
       }
     } catch (error: Exception) {
-      main.post { fail(error.message ?: "Phone sharing failed") }
+      failedShareChecks += 1
+      if (failedShareChecks >= 3) main.post { fail(error.message ?: "Phone sharing failed") }
+      else update("Reconnecting phone sharing")
     }
   }
 
@@ -186,14 +213,22 @@ open class PhoneShareService : Service() {
     return reply.optJSONObject("result") ?: JSONObject()
   }
 
-  protected open fun serverReady(): Boolean = try {
-    val connection = URL("http://127.0.0.1:3774/.well-known/t3/environment").openConnection() as HttpURLConnection
+  protected open fun serverReady() = probeServer() == ServerHealth.READY
+
+  protected open fun serverConnection() =
+    URL("http://127.0.0.1:3774/.well-known/t3/environment").openConnection() as HttpURLConnection
+
+  protected open fun probeServer(): ServerHealth = try {
+    val connection = serverConnection()
     try {
       connection.connectTimeout = 1000
       connection.readTimeout = 1000
-      connection.responseCode == 200 && JSONObject(connection.inputStream.bufferedReader().use { it.readText() }).has("environmentId")
+      if (connection.responseCode == 200 && JSONObject(connection.inputStream.bufferedReader().use { it.readText() }).has("environmentId")) ServerHealth.READY else ServerHealth.WAITING
     } finally { connection.disconnect() }
-  } catch (_: Exception) { false }
+  } catch (error: ConnectException) {
+    if (error.message?.contains("Connection refused", ignoreCase = true) == true) ServerHealth.STOPPED else ServerHealth.WAITING
+  }
+    catch (_: Exception) { ServerHealth.WAITING }
 
   private fun update(text: String) {
     main.post {
