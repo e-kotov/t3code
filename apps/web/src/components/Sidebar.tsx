@@ -396,7 +396,7 @@ function useSidebarThreads(input: {
     threads,
     routeRowThreadKey,
   } = input;
-  const conversationView = useSidebarConversationView();
+  const conversationView = useSidebarConversationView(routeRowThreadKey);
   const workingShelfEnabled = useClientSettings((s) => s.sidebarWorkingShelfEnabled);
   const inboxReturnsVersion = useSyncExternalStore(
     inboxReturns.subscribe,
@@ -816,7 +816,6 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const confirmThreadDelete = useClientSettings((s) => s.confirmThreadDelete);
   const confirmThreadArchive = useClientSettings((s) => s.confirmThreadArchive);
-  const conversationView = useSidebarConversationView();
   const timestampFormat = useClientSettings((s) => s.timestampFormat);
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
   const {
@@ -1006,6 +1005,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
             ),
           ),
         );
+  const conversationView = useSidebarConversationView(routeRowThreadKey);
   const isSearchingThreads = threadSearchQuery.trim().length > 0;
 
   // History, the palette and links can open a thread the scope hides or the list

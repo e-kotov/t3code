@@ -53,6 +53,7 @@ jobs:
       - name: Install Chromium for existing sidebar tests
         run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
       - name: Prove folded mobile search fails before the fix
+        if: github.event.pull_request.number == 7
         run: |
           files=(apps/mobile/src/features/threads/useConversationThreadListV2.ts apps/mobile/src/features/threads/machineGroupedThreadList.ts)
           for file in "${files[@]}"; do

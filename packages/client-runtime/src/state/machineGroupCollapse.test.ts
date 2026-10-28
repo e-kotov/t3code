@@ -27,12 +27,12 @@ describe("machine group visibility", () => {
     const otherClient = AtomRegistry.make();
     try {
       const unsubscribe = client.subscribe(collapsedMachineGroupsAtom, () => {});
-      client.set(collapsedMachineGroupsAtom, (current) => toggleCollapsedMachineGroup(current, "mac"));
-      client.set(collapsedMachineGroupsAtom, (current) => toggleCollapsedMachineGroup(current, "gwdg"));
+      client.set(collapsedMachineGroupsAtom, toggleCollapsedMachineGroup(client.get(collapsedMachineGroupsAtom), "mac"));
+      client.set(collapsedMachineGroupsAtom, toggleCollapsedMachineGroup(client.get(collapsedMachineGroupsAtom), "gwdg"));
       unsubscribe();
       expect(client.get(collapsedMachineGroupsAtom)).toEqual(["mac", "gwdg"]);
       expect(otherClient.get(collapsedMachineGroupsAtom)).toEqual([]);
-      client.set(collapsedMachineGroupsAtom, (current) => toggleCollapsedMachineGroup(current, "mac"));
+      client.set(collapsedMachineGroupsAtom, toggleCollapsedMachineGroup(client.get(collapsedMachineGroupsAtom), "mac"));
       expect(client.get(collapsedMachineGroupsAtom)).toEqual(["gwdg"]);
     } finally {
       client.dispose();

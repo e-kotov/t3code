@@ -1,14 +1,16 @@
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
-import { EnvironmentId } from "@t3tools/contracts";
+import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
   resolveSidebarDropTarget,
+  resolveSidebarRowThreadId,
   planSidebarThreadDrop,
   sidebarListItemId,
   type SidebarListItem,
   type SidebarSection,
 } from "../Sidebar.logic";
+import { makeThreadFixture } from "../../test-fixtures";
 import {
   withConversationSort,
   visibleSidebarThreadKeys,
@@ -101,6 +103,22 @@ describe("groupSidebarRowsByMachine", () => {
     expect(layout(groupSidebarRowsByMachine(threads, "active", selected, rowsOf))).toEqual([
       "[env-local:0/3]", "l2", "[env-alpha:1/3]", "a1", "[env-zulu:2/3]", "z1",
     ]);
+  });
+
+  it("retains an open subagent's resolved ancestor row when its machine is folded", () => {
+    const root = makeThreadFixture({ id: ThreadId.make("root"), environmentId: alpha });
+    const child = makeThreadFixture({ id: ThreadId.make("child"), environmentId: alpha,
+      lineage: { rootThreadId: root.id, parentThreadId: root.id, relationshipToParent: "subagent" },
+    });
+    const hidden = makeThreadFixture({ id: ThreadId.make("hidden"), environmentId: alpha });
+    const rowId = resolveSidebarRowThreadId(child.id, alpha, [root, child, hidden]);
+    const selected = { ...view({ collapsedMachineGroups: [alpha] }), selectedThreadKey: `${alpha}:${rowId}` };
+    expect(layout(groupSidebarRowsByMachine([root, hidden], "active", selected, rowsOf))).toEqual([
+      "[env-alpha:0/1]", "root",
+    ]);
+    expect(visibleSidebarThreadKeys([root, hidden], new Map([
+      [`${alpha}:root`, "active"], [`${alpha}:hidden`, "active"],
+    ]), selected)).toEqual([`${alpha}:root`]);
   });
 
   it("ignores folded machines when grouping is turned off", () => {

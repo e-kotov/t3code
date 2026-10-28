@@ -13,18 +13,14 @@ import { MachineGroupSlurmTime } from "../MachineGroupSlurmTime";
 import type { SidebarListItem } from "../Sidebar.logic";
 import { moveMachineGroup, type SidebarConversationView } from "./sidebarConversationGroups";
 
-import { scopedThreadKey } from "@t3tools/client-runtime/environment";
-import { useThreadRouteRef } from "../../hooks/useThreadRouteTarget";
 import { useMachineGroupCollapse } from "./machineGroupCollapse";
 
-export function useSidebarConversationView(): SidebarConversationView {
+export function useSidebarConversationView(selectedThreadKey: string | null = null): SidebarConversationView {
   const sortOrder = useClientSettings((s) => s.sidebarConversationSortOrder);
   const grouping = useClientSettings((s) => s.sidebarConversationGrouping);
   const machineOrder = useClientSettings((s) => s.sidebarConversationMachineOrder);
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const { collapsedMachineGroups } = useMachineGroupCollapse();
-  const routeThread = useThreadRouteRef();
-  const selectedThreadKey = routeThread ? scopedThreadKey(routeThread) : null;
   return { sortOrder, grouping, machineOrder, primaryEnvironmentId, collapsedMachineGroups, selectedThreadKey };
 }
 
