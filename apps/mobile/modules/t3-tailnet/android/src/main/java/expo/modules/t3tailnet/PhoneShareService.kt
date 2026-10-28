@@ -19,6 +19,7 @@ import java.net.URL
 
 /** Keeps only the phone's paired T3 endpoint available on its private tailnet. */
 open class PhoneShareService : Service() {
+  enum class ServerHealth { READY, STOPPED, WAITING }
   companion object {
     private const val PREFS = "t3-phone-share"
     private const val CHANNEL = "phone-t3-sharing"
@@ -196,14 +197,19 @@ open class PhoneShareService : Service() {
     return reply.optJSONObject("result") ?: JSONObject()
   }
 
-  protected open fun serverReady(): Boolean = try {
-    val connection = URL("http://127.0.0.1:3774/.well-known/t3/environment").openConnection() as HttpURLConnection
+  protected open fun serverReady() = probeServer() == ServerHealth.READY
+
+  protected open fun serverConnection() =
+    URL("http://127.0.0.1:3774/.well-known/t3/environment").openConnection() as HttpURLConnection
+
+  protected open fun probeServer(): ServerHealth = try {
+    val connection = serverConnection()
     try {
       connection.connectTimeout = 1000
       connection.readTimeout = 1000
-      connection.responseCode == 200 && JSONObject(connection.inputStream.bufferedReader().use { it.readText() }).has("environmentId")
+      if (connection.responseCode == 200 && JSONObject(connection.inputStream.bufferedReader().use { it.readText() }).has("environmentId")) ServerHealth.READY else ServerHealth.WAITING
     } finally { connection.disconnect() }
-  } catch (_: Exception) { false }
+  } catch (_: Exception) { ServerHealth.WAITING }
 
   private fun update(text: String) {
     main.post {
