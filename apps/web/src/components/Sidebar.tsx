@@ -8,6 +8,7 @@ import {
 import {
   withConversationSort,
   groupSidebarRowsByMachine,
+  visibleSidebarThreadKeys,
   type SidebarConversationView,
 } from "./sidebar/sidebarConversationGroups";
 import { type EnvironmentId, type ScopedProjectRef } from "@t3tools/contracts";
@@ -519,7 +520,7 @@ function useSidebarThreads(input: {
     renderedSettledThreads,
     visibleSnoozedThreads,
     visibleWorkingThreads,
-    orderedThreadKeys: orderedThreads.map(threadShellKey),
+    orderedThreadKeys: visibleSidebarThreadKeys(orderedThreads, sectionByThreadKey, conversationView),
     threadByKey: new Map(orderedThreads.map((thread) => [threadShellKey(thread), thread] as const)),
     settledThreadKeys: new Set(settledThreads.map(threadShellKey)),
     snoozedThreadKeys: new Set(snoozedThreads.map(threadShellKey)),

@@ -1,3 +1,4 @@
+import { machineGroupThreadVisible } from "@t3tools/client-runtime/state/machine-group-collapse";
 import type { EnvironmentMachineKind, SidebarConversationGrouping } from "@t3tools/contracts";
 
 import {
@@ -94,6 +95,8 @@ export function arrangeMobileConversationList<T extends { readonly type: string 
     readonly machineKinds: ReadonlyMap<string, EnvironmentMachineKind>;
     readonly machineOrder: readonly string[];
     readonly collapsedMachineGroups?: readonly string[];
+    readonly selectedThreadKey?: string | null;
+    readonly searchQuery?: string;
   },
 ): (T | ThreadListV2MachineHeaderListItem)[] {
   const arranged =
@@ -118,12 +121,11 @@ export function arrangeMobileConversationList<T extends { readonly type: string 
   );
   return withContext.flatMap((item): (T | ThreadListV2MachineHeaderListItem)[] => {
     if (isMachineHeader(item)) {
-      return [{ ...item, collapsible: options.grouping === "machine" }];
+      return [{ ...item, collapsible: options.grouping === "machine" && !options.searchQuery?.trim() }];
     }
     if (
-      options.grouping === "machine" &&
       isThreadRow(item) &&
-      options.collapsedMachineGroups?.includes(item.item.thread.environmentId)
+      !machineGroupThreadVisible(item.item.thread, options)
     ) {
       return [];
     }

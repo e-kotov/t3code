@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./state/machine-group-collapse": {
+      "types": "./src/state/machineGroupCollapse.ts",
+      "default": "./src/state/machineGroupCollapse.ts"
+    },
     "./workspace-basename-lookup": {
       "types": "./src/workspaceBasenameLookup.ts",
       "default": "./src/workspaceBasenameLookup.ts"

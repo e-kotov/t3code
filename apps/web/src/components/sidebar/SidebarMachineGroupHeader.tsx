@@ -13,6 +13,8 @@ import { MachineGroupSlurmTime } from "../MachineGroupSlurmTime";
 import type { SidebarListItem } from "../Sidebar.logic";
 import { moveMachineGroup, type SidebarConversationView } from "./sidebarConversationGroups";
 
+import { scopedThreadKey } from "@t3tools/client-runtime/environment";
+import { useThreadRouteRef } from "../../hooks/useThreadRouteTarget";
 import { useMachineGroupCollapse } from "./machineGroupCollapse";
 
 export function useSidebarConversationView(): SidebarConversationView {
@@ -21,7 +23,9 @@ export function useSidebarConversationView(): SidebarConversationView {
   const machineOrder = useClientSettings((s) => s.sidebarConversationMachineOrder);
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const { collapsedMachineGroups } = useMachineGroupCollapse();
-  return { sortOrder, grouping, machineOrder, primaryEnvironmentId, collapsedMachineGroups };
+  const routeThread = useThreadRouteRef();
+  const selectedThreadKey = routeThread ? scopedThreadKey(routeThread) : null;
+  return { sortOrder, grouping, machineOrder, primaryEnvironmentId, collapsedMachineGroups, selectedThreadKey };
 }
 
 export function SidebarMachineGroupHeader(props: {
@@ -35,6 +39,7 @@ export function SidebarMachineGroupHeader(props: {
   const { collapsedMachineGroups, toggleMachineGroup } = useMachineGroupCollapse();
   const collapsed = environmentId !== undefined && collapsedMachineGroups.includes(environmentId);
   const machineById = useEnvironmentMachines();
+  const label = environmentId ? (props.labelById.get(environmentId) ?? "Machine") : "Machine";
   const move = (delta: -1 | 1) => {
     if (!environmentId) return;
     const order = moveMachineGroup(
@@ -55,7 +60,7 @@ export function SidebarMachineGroupHeader(props: {
         />
       ) : null}
       <span className="min-w-0 flex-1 truncate">
-        {environmentId ? (props.labelById.get(environmentId) ?? "Machine") : "Machine"}
+        {label}
         {environmentId ? <MachineGroupSlurmTime environmentId={environmentId} /> : null}
       </span>
       {environmentId ? (
@@ -89,7 +94,7 @@ export function SidebarMachineGroupHeader(props: {
           </button>
           <button
             type="button"
-            aria-label={collapsed ? "Expand machine group" : "Collapse machine group"}
+            aria-label={`${collapsed ? "Expand" : "Collapse"} ${label} machine group`}
             aria-expanded={!collapsed}
             className="rounded p-1 hover:bg-accent"
             onClick={(event) => {

@@ -23,6 +23,8 @@ export function useConversationThreadListV2(
     items: arrangeMobileConversationList(result.items, {
       ...conversation,
       collapsedMachineGroups,
+      selectedThreadKey: input.selectedThreadKey,
+      searchQuery: input.searchQuery,
       grouping: conversation.view.conversationGrouping ?? "none",
     }),
   };

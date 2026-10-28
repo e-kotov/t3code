@@ -45,10 +45,12 @@ it("updates sort and machine grouping while retaining upstream pinned ordering a
     sort,
     grouped,
     search = "",
+    selected = null,
   }: {
     sort: "created_at" | undefined;
     grouped: boolean;
     search?: string;
+    selected?: string | null;
   }) {
     const { toggleMachineGroup } = useMachineGroupCollapse();
     const { items } = useConversationThreadListV2({
@@ -71,7 +73,7 @@ it("updates sort and machine grouping while retaining upstream pinned ordering a
       workingShelfExpanded: true,
       snoozedShelfExpanded: true,
       settledShelfExpanded: true,
-      selectedThreadKey: null,
+      selectedThreadKey: selected,
       conversation: {
         view: { conversationSortOrder: sort, conversationGrouping: grouped ? "machine" : "none" },
         environments: [
@@ -122,8 +124,16 @@ it("updates sort and machine grouping while retaining upstream pinned ordering a
   act(() => host.querySelector("button")!.click());
   expect(titles()).toEqual(["New"]);
   expect([...host.querySelectorAll("li")].map((row) => row.textContent)).toContain("Alpha");
-  act(() => host.querySelector("button")!.click());
-  expect(titles()).toEqual(["Pinned", "New", "Old"]);
   act(() => root.render(<List sort="created_at" grouped search="Old" />));
   expect(titles()).toEqual(["Old"]);
+  act(() => root.render(<List sort="created_at" grouped search="   " />));
+  expect(titles()).toEqual(["New"]);
+  act(() => root.render(<List sort="created_at" grouped selected="a:old" />));
+  expect(titles()).toEqual(["New", "Old"]);
+  act(() => root.render(<List sort="created_at" grouped={false} />));
+  expect(titles()).toEqual(["Pinned", "New", "Old"]);
+  act(() => root.render(<List sort="created_at" grouped />));
+  expect(titles()).toEqual(["New"]);
+  act(() => host.querySelector("button")!.click());
+  expect(titles()).toEqual(["Pinned", "New", "Old"]);
 });

@@ -79,14 +79,14 @@ const ThreadListV2MachineHeader = memo(function ThreadListV2MachineHeader(props:
                       <Pressable
                         key={delta}
                         accessibilityRole="button"
-                        accessibilityLabel={`Move machine group ${delta < 0 ? "up" : "down"}`}
+                        accessibilityLabel={`Move ${props.label} machine group ${delta < 0 ? "up" : "down"}`}
                         accessibilityState={{ disabled }}
                         disabled={disabled}
-                        hitSlop={8}
+                        className="size-7 items-center justify-center"
                         onPress={() => onMove(environmentId, delta)}
                       >
                         <SymbolView
-                          name={delta < 0 ? "chevron.up" : "chevron.down"}
+                          name={delta < 0 ? "arrow.up" : "arrow.down"}
                           size={12}
                           tintColorClassName="accent-foreground-muted"
                           type="monochrome"
@@ -98,13 +98,13 @@ const ThreadListV2MachineHeader = memo(function ThreadListV2MachineHeader(props:
               {environmentId && props.collapsible ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={collapsed ? "Expand machine group" : "Collapse machine group"}
+                  accessibilityLabel={`${collapsed ? "Expand" : "Collapse"} ${props.label} machine group`}
                   accessibilityState={{ expanded: !collapsed }}
-                  hitSlop={8}
+                  className="size-7 items-center justify-center"
                   onPress={() => toggleMachineGroup(environmentId)}
                 >
                   <SymbolView
-                    name={collapsed ? "chevron.right" : "chevron.down"}
+                    name={collapsed ? "chevron.down" : "chevron.up"}
                     size={12}
                     tintColorClassName="accent-foreground-muted"
                     type="monochrome"

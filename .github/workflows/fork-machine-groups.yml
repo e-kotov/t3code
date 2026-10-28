@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/fork-machine-groups.yml"
+      - "apps/web/src/components/Sidebar.tsx"
+      - "packages/client-runtime/src/state/machineGroupCollapse*"
+      - "packages/client-runtime/package.json"
+      - "scripts/fork-footprint-budget.json"
       - "apps/web/src/components/sidebar/*achineGroup*"
       - "apps/web/src/components/sidebar/sidebarConversationGroups*"
       - "apps/mobile/src/features/threads/*achineGroup*"
@@ -36,14 +40,40 @@ jobs:
           git sparse-checkout set --no-cone '/*' '!/.repos/'
           git fetch --no-tags origin main "$CHECKOUT_REF"
           git checkout --detach "$CHECKOUT_REF"
+      - name: Check fork footprint
+        run: |
+          git fetch --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
+          python3 scripts/fork-footprint-budget.py
       - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
         with:
           node-version-file: package.json
           run-install: false
           cache: true
       - run: vp install
+      - name: Install Chromium for existing sidebar tests
+        run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
+      - name: Prove folded mobile search fails before the fix
+        run: |
+          files=(apps/mobile/src/features/threads/useConversationThreadListV2.ts apps/mobile/src/features/threads/machineGroupedThreadList.ts)
+          for file in "${files[@]}"; do
+            cp "$file" "$RUNNER_TEMP/$(basename "$file")"
+          done
+          restore() {
+            for file in "${files[@]}"; do cp "$RUNNER_TEMP/$(basename "$file")" "$file"; done
+          }
+          trap restore EXIT
+          for file in "${files[@]}"; do git show "117691e0424ff6df40509267f8debd68b48dd896:$file" > "$file"; done
+          if vp test run apps/mobile/src/features/threads/useConversationThreadListV2.test.tsx > "$RUNNER_TEMP/fold-regression.log" 2>&1; then
+            cat "$RUNNER_TEMP/fold-regression.log"
+            echo 'The search regression must fail on the previous implementation.'
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/fold-regression.log"
+          rg -q AssertionError "$RUNNER_TEMP/fold-regression.log"
       - name: Check changed code
         run: vp run check:changed origin/main
+      - name: Check surrounding mobile list behavior
+        run: vp test run apps/mobile/src/features/threads/threadListV2.test.ts apps/mobile/src/reactCompilerCoverage.test.ts
       - name: Capture formatting fixes
         if: failure()
         run: |

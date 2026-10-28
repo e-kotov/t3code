@@ -4,12 +4,14 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   resolveSidebarDropTarget,
+  planSidebarThreadDrop,
   sidebarListItemId,
   type SidebarListItem,
   type SidebarSection,
 } from "../Sidebar.logic";
 import {
   withConversationSort,
+  visibleSidebarThreadKeys,
   groupSidebarRowsByMachine,
   moveMachineGroup,
   type SidebarConversationView,
@@ -94,6 +96,13 @@ describe("groupSidebarRowsByMachine", () => {
     ).toEqual(["[env-alpha:0/1]"]);
   });
 
+  it("keeps the open conversation visible in a folded machine without exposing its other rows", () => {
+    const selected = { ...view({ collapsedMachineGroups: [local] }), selectedThreadKey: "env-local:l2" };
+    expect(layout(groupSidebarRowsByMachine(threads, "active", selected, rowsOf))).toEqual([
+      "[env-local:0/3]", "l2", "[env-alpha:1/3]", "a1", "[env-zulu:2/3]", "z1",
+    ]);
+  });
+
   it("ignores folded machines when grouping is turned off", () => {
     expect(
       layout(
@@ -128,7 +137,7 @@ describe("groupSidebarRowsByMachine", () => {
     ).toEqual(["[env-zulu:0/3]", "z1", "[env-local:1/3]", "l1", "l2", "[env-alpha:2/3]", "a1"]);
   });
 
-  it("omits the header while only one machine has rows", () => {
+  it("keeps the single-machine header available before and after expanding", () => {
     expect(
       layout(
         groupSidebarRowsByMachine(
@@ -138,7 +147,7 @@ describe("groupSidebarRowsByMachine", () => {
           rowsOf,
         ),
       ),
-    ).toEqual(["a1", "a2"]);
+    ).toEqual(["[env-alpha:0/1]", "a1", "a2"]);
   });
 
   it("keys headers per shelf so one machine can head several shelves", () => {
@@ -152,6 +161,28 @@ describe("groupSidebarRowsByMachine", () => {
 });
 
 describe("machine headers in sidebar drops", () => {
+  it("reorders visible rows without overwriting a folded machine's reserved pin key", () => {
+    const folded = view({ collapsedMachineGroups: [alpha] });
+    const pinned = [thread("p1", local), thread("hidden", alpha), thread("p2", local)];
+    const items: SidebarListItem[] = [
+      { kind: "marker", marker: "pinned-header" },
+      ...groupSidebarRowsByMachine(pinned, "pinned", folded, rowsOf),
+      { kind: "marker", marker: "pinned-divider" },
+    ];
+    const target = resolveSidebarDropTarget(items, "p1", "p2")!;
+    const keys = new Map([["p1", "f"], ["hidden", "z"], ["p2", "t"]]);
+    const plan = planSidebarThreadDrop({
+      activeKey: "p1", activeSection: "pinned", target,
+      pinnedOrder: ["p1", "hidden", "p2"], pinnedKeysById: keys,
+      activeOrder: [], activeKeysById: new Map(),
+    });
+    expect(plan.kind).toBe("reorder-pinned");
+    if (plan.kind !== "reorder-pinned") throw new Error("Expected a pinned reorder");
+    expect(plan.order).toEqual(["p2", "p1"]);
+    expect(plan.assignments.every(({ id, orderKey }) => id !== "hidden" && orderKey !== "z")).toBe(true);
+    expect(keys.get("hidden")).toBe("z");
+  });
+
   it("are addressed by their own key and never enter a saved order", () => {
     const items: SidebarListItem[] = [
       { kind: "marker", marker: "pinned-header" },
@@ -220,5 +251,29 @@ describe("withConversationSort", () => {
 
   it("keeps each machine's conversations together when grouped", () => {
     expect(ids(withConversationSort(shells, view()))).toEqual(["mid", "old", "new"]);
+  });
+});
+
+
+describe("visibleSidebarThreadKeys", () => {
+  it("uses rendered shelf and machine order for keyboard jumps, ranges and traversal", () => {
+    const shelves = [
+      [thread("pin-a", alpha), thread("pin-l", local)],
+      [thread("a1", alpha), thread("l1", local), thread("a2", alpha), thread("z1", zulu)],
+      [thread("settled-l", local), thread("settled-z", zulu)],
+    ];
+    const folded = view({ machineOrder: [zulu, local, alpha], collapsedMachineGroups: [alpha] });
+    const sections = ["pinned", "active", "settled"] as const;
+    const sectionByKey = new Map(shelves.flatMap((shelf, index) => shelf.map((thread) => [
+      `${thread.environmentId}:${thread.id}`, sections[index]!,
+    ] as const)));
+    const visible = visibleSidebarThreadKeys(shelves.flat(), sectionByKey, folded);
+    const rendered = shelves.flatMap((shelf) =>
+      groupSidebarRowsByMachine(shelf, "active", folded, rowsOf)
+        .flatMap((item) => item.kind === "thread" ? [item.key] : []),
+    );
+    expect(visible).toEqual(["env-local:pin-l", "env-zulu:z1", "env-local:l1", "env-zulu:settled-z", "env-local:settled-l"]);
+    expect(visible.map((key) => key.split(":")[1])).toEqual(rendered);
+    expect(visibleSidebarThreadKeys(shelves.flat(), sectionByKey, { ...folded, grouping: "none" })).toEqual(shelves.flat().map((thread) => `${thread.environmentId}:${thread.id}`));
   });
 });
