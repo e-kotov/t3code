@@ -4,7 +4,7 @@ import {
   collapsedMachineGroupsAtom,
   machineGroupThreadVisible,
   toggleCollapsedMachineGroup,
-} from "./machineGroupCollapse";
+} from "./machineGroupCollapse.ts";
 
 describe("machine group visibility", () => {
   const thread = { environmentId: "mac", id: "same-id" };
