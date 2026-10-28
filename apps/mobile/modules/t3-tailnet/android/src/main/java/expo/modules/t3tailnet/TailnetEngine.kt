@@ -54,7 +54,7 @@ internal object TailnetEngine {
     main.post {
       if (lifecycleObserver != null) return@post
       val stopLater = Runnable {
-        if (directNotificationsEnabled(app)) return@Runnable
+        if (directNotificationsEnabled(app) || PhoneShareService.isEnabled(app)) return@Runnable
         executor.execute {
           // Signing in leaves T3 for the browser; the engine stops an
           // abandoned sign-in on its own after ten minutes.
@@ -62,7 +62,16 @@ internal object TailnetEngine {
         }
       }
       val observer = object : DefaultLifecycleObserver {
-        override fun onStart(owner: LifecycleOwner) = main.removeCallbacks(stopLater)
+        override fun onStart(owner: LifecycleOwner) {
+          main.removeCallbacks(stopLater)
+          if (PhoneShareService.isEnabled(app)) {
+            try {
+              PhoneShareService.setEnabled(app, true)
+            } catch (error: Exception) {
+              Log.w("T3Tailnet", "Could not restore phone sharing", error)
+            }
+          }
+        }
         override fun onStop(owner: LifecycleOwner) {
           main.removeCallbacks(stopLater)
           main.postDelayed(stopLater, BACKGROUND_GRACE_MS)

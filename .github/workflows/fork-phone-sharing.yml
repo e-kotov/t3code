@@ -1,0 +1,78 @@
+name: Fork phone sharing
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/fork-phone-sharing.yml"
+      - "apps/mobile/modules/t3-tailnet/**"
+      - "apps/mobile/src/features/built-in-tailnet/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phone-sharing-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch --no-tags origin main "$CHECKOUT_REF"
+          git checkout --detach "$CHECKOUT_REF"
+      - name: Check fork footprint
+        run: |
+          git fetch --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
+          python3 scripts/fork-footprint-budget.py
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/mobile/modules/t3-tailnet/go/go.mod
+          cache-dependency-path: apps/mobile/modules/t3-tailnet/go/go.sum
+      - name: Test the Tailscale engine
+        working-directory: apps/mobile/modules/t3-tailnet/go
+        run: go test -race ./...
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          node-version-file: package.json
+          run-install: false
+          cache: true
+      - run: vp install
+      - name: Check changed code
+        run: vp run check:changed origin/main
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+      - name: Generate isolated Android project
+        working-directory: apps/mobile
+        run: vp exec expo prebuild --platform android --no-install
+      - name: Compile and test sharing lifecycle
+        working-directory: apps/mobile/android
+        run: ./gradlew :t3-tailnet:testDebugUnitTest --build-cache --no-daemon --max-workers=2
+      - name: Capture formatting fixes
+        if: failure()
+        run: |
+          git diff --name-only --diff-filter=AM -z origin/main HEAD |
+            xargs -0 -r vp fmt --no-error-on-unmatched-pattern
+          git diff --binary > "$RUNNER_TEMP/phone-sharing-format.patch"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: failure()
+        with:
+          name: phone-sharing-format-fixes
+          path: ${{ runner.temp }}/phone-sharing-format.patch
+          retention-days: 3

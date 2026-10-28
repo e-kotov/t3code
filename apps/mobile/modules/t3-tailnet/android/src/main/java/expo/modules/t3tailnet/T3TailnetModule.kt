@@ -40,11 +40,13 @@ class T3TailnetModule : Module() {
 
     AsyncFunction("stop") { promise: Promise ->
       val context = appContext.reactContext ?: return@AsyncFunction promise.resolve(unavailable())
+      PhoneShareService.setEnabled(context, false)
       TailnetEngine.async({ TailnetEngine.stop(context) }) { promise.resolve(it) }
     }
 
     AsyncFunction("logout") { promise: Promise ->
       val context = appContext.reactContext ?: return@AsyncFunction promise.resolve(unavailable())
+      PhoneShareService.setEnabled(context, false)
       TailnetEngine.async({ TailnetEngine.logout(context) }) { promise.resolve(it) }
     }
 
@@ -66,6 +68,16 @@ class T3TailnetModule : Module() {
 
     AsyncFunction("logs") { promise: Promise ->
       TailnetEngine.async({ TailnetEngine.call("logs") }) { promise.resolve(it) }
+    }
+
+    Function("phoneShareStatus") {
+      val context = appContext.reactContext
+      mapOf("enabled" to (context != null && PhoneShareService.isEnabled(context)), "status" to PhoneShareService.status())
+    }
+
+    Function("setPhoneShareEnabled") { enabled: Boolean ->
+      val context = appContext.reactContext ?: error("The app is not ready.")
+      PhoneShareService.setEnabled(context, enabled)
     }
   }
 

@@ -29,4 +29,7 @@ func TestDispatchReportsErrors(t *testing.T) {
 	if out := dispatch("status", ""); !strings.Contains(out, `"state":"stopped"`) {
 		t.Fatalf("status while stopped: %s", out)
 	}
+	if out := dispatch("startPhoneShare", ""); !strings.Contains(out, "not running") {
+		t.Fatalf("share while stopped: %s", out)
+	}
 }

@@ -58,6 +58,7 @@ type Engine struct {
 	mu       sync.Mutex
 	srv      *tsnet.Server
 	forwards map[string]*forward
+	share    *phoneShare
 	// ports remembers each target's port across restarts, so a client that
 	// kept the old address reconnects once the engine is back.
 	ports   map[string]int
@@ -72,6 +73,12 @@ type Engine struct {
 // New returns a stopped engine that logs into logs.
 func New(logs *Ring) *Engine {
 	return &Engine{forwards: map[string]*forward{}, ports: map[string]int{}, logs: logs}
+}
+
+// SetIdleTimeout updates an existing node without starting a new one.
+func (e *Engine) SetIdleTimeout(timeout time.Duration) {
+	e.idleTimeout.Store(int64(timeout))
+	e.touch()
 }
 
 // Start starts the node if it is stopped. On a running engine it only
@@ -137,6 +144,10 @@ func (e *Engine) Stop(reason string) {
 }
 
 func (e *Engine) stopLocked() {
+	if e.share != nil {
+		e.share.close()
+		e.share = nil
+	}
 	for target, f := range e.forwards {
 		f.close()
 		delete(e.forwards, target)
@@ -266,6 +277,9 @@ func (e *Engine) touch() { e.lastUse.Store(time.Now().UnixNano()) }
 func (e *Engine) busy() bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if e.share != nil {
+		return true
+	}
 	for _, f := range e.forwards {
 		if f.active.Load() > 0 {
 			return true

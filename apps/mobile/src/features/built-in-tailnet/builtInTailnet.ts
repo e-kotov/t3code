@@ -1,11 +1,4 @@
-/**
- * Fork: built-in Tailscale on Android. The T3Tailnet native module embeds a
- * Tailscale node in the app process and forwards loopback ports to tailnet
- * servers; the connection driver tries those forwards at a chosen position
- * among the saved routes (see client-runtime connection/builtInTailnet.ts),
- * once the node is enabled and signed in. The node runs while T3 is on
- * screen, and in the background only while direct notifications are on.
- */
+// The embedded node forwards connections without occupying Android's VPN slot.
 import type { BuiltInTailnet } from "@t3tools/client-runtime/connection";
 import { requireOptionalNativeModule } from "expo";
 import * as Effect from "effect/Effect";
@@ -38,6 +31,8 @@ interface TailnetNative {
   waitReady(timeoutMs: number): Promise<string>;
   forward(target: string): Promise<string>;
   logs(): Promise<string>;
+  phoneShareStatus(): { enabled: boolean; status: string };
+  setPhoneShareEnabled(enabled: boolean): void;
 }
 
 interface DirectNotificationsNative {
@@ -68,8 +63,6 @@ export function builtInTailnetAvailable(): boolean {
   return native?.isAvailable?.() === true;
 }
 
-// --- Settings and status store ---------------------------------------------
-
 const POSITIONS: ReadonlyArray<BuiltInTailnetPosition> = [
   "first",
   "before-tailscale",
@@ -83,6 +76,7 @@ interface Snapshot {
   readonly signedIn: boolean;
   readonly status: BuiltInTailnetStatus | null;
   readonly error: string | null;
+  readonly phoneShare: { readonly enabled: boolean; readonly status: string };
 }
 
 function readConfig(): Pick<Snapshot, "enabled" | "position" | "signedIn"> {
@@ -94,7 +88,12 @@ function readConfig(): Pick<Snapshot, "enabled" | "position" | "signedIn"> {
   };
 }
 
-let snapshot: Snapshot = { ...readConfig(), status: null, error: null };
+let snapshot: Snapshot = {
+  ...readConfig(),
+  status: null,
+  error: null,
+  phoneShare: { enabled: false, status: "Off" },
+};
 const listeners = new Set<() => void>();
 
 function publish(patch: Partial<Snapshot>) {
@@ -131,6 +130,13 @@ function publishReply(reply: Reply<BuiltInTailnetStatus>) {
 export async function refreshBuiltInTailnetStatus(): Promise<void> {
   if (!builtInTailnetAvailable()) return;
   publishReply(parse<BuiltInTailnetStatus>(await native!.status()));
+  publish({ phoneShare: native!.phoneShareStatus() });
+}
+
+export function setPhoneSharing(enabled: boolean): void {
+  if (!builtInTailnetAvailable()) throw new Error("Built-in Tailscale is unavailable.");
+  native!.setPhoneShareEnabled(enabled);
+  publish({ phoneShare: native!.phoneShareStatus() });
 }
 
 export async function stopBuiltInTailnet(): Promise<void> {
@@ -176,8 +182,6 @@ export async function beginBuiltInTailnetSignIn(): Promise<string | null> {
 export function endBuiltInTailnetSignIn() {
   signingIn = false;
 }
-
-// --- Connection driver hook ------------------------------------------------
 
 async function forwardTargets(targets: ReadonlyArray<string>): Promise<Map<string, number>> {
   const ports = new Map<string, number>();
@@ -227,6 +231,7 @@ export const builtInTailnet: BuiltInTailnet.BuiltInTailnet | undefined =
 
 /** Keeps the settings status fresh while a screen shows it. */
 export function useBuiltInTailnetStatusPolling(active: boolean) {
+  // oxlint-disable-next-line t3code/react-effect-budget -- Poll the native node while its settings are visible.
   useEffect(() => {
     if (!active || !builtInTailnetAvailable()) return;
     void refreshBuiltInTailnetStatus();

@@ -19,6 +19,7 @@ import {
   type BuiltInTailnetStatus,
   endBuiltInTailnetSignIn,
   setBuiltInTailnetConfig,
+  setPhoneSharing,
   signOutBuiltInTailnet,
   stopBuiltInTailnet,
   useBuiltInTailnet,
@@ -77,13 +78,15 @@ function describeStatus(status: BuiltInTailnetStatus | null, signedIn: boolean):
 
 export function SettingsBuiltInTailscaleRouteScreen() {
   const focused = useIsFocused();
-  const { enabled, position, signedIn, status, error } = useBuiltInTailnet();
+  const { enabled, position, signedIn, status, error, phoneShare } = useBuiltInTailnet();
   const [busy, setBusy] = useState(false);
   const [logs, setLogs] = useState<ReadonlyArray<string> | null>(null);
   useBuiltInTailnetStatusPolling(focused);
+  // oxlint-disable-next-line t3code/react-effect-budget -- Synchronize completion of the native sign-in flow.
   useEffect(() => {
     if (status?.state === "running") endBuiltInTailnetSignIn();
   }, [status?.state]);
+  // oxlint-disable-next-line t3code/react-effect-budget -- Clear the sign-in guard when this screen unmounts.
   useEffect(() => endBuiltInTailnetSignIn, []);
 
   const run = async (work: () => Promise<void>) => {
@@ -130,6 +133,17 @@ export function SettingsBuiltInTailscaleRouteScreen() {
             value={enabled}
             subtitle="Reach servers on your tailnet without the Tailscale app. Other apps and VPNs are not affected."
             onValueChange={(value) => setBuiltInTailnetConfig(value, position)}
+          />
+        </SettingsSection>
+
+        <SettingsSection title="Remote access to this phone">
+          <SettingsSwitchRow
+            icon="point.3.connected.trianglepath.dotted"
+            label="Share this phone on Tailscale"
+            value={phoneShare.enabled}
+            subtitle={`${phoneShare.status}. Starts the phone T3 server and stays on until stopped.`}
+            disabled={!phoneShare.enabled && (!enabled || !signedIn)}
+            onValueChange={(value) => void run(async () => setPhoneSharing(value))}
           />
         </SettingsSection>
 
@@ -189,10 +203,10 @@ export function SettingsBuiltInTailscaleRouteScreen() {
 
         <Text className="text-sm text-foreground-muted">{describeStatus(status, signedIn)}</Text>
         <Text className="text-sm text-foreground-muted">
-          Built-in Tailscale signs in as its own device and runs only while T3 is open. With Direct
-          notifications on, it keeps running in the background so alerts keep arriving. When no
-          connection uses it for five minutes, it stops until one needs it. It carries plain http
-          tailnet addresses, such as http://100.x.y.z:3773.
+          Built-in Tailscale signs in as its own device. It stays active for phone sharing and
+          direct notifications; otherwise it stops when T3 is in the background or after five idle
+          minutes. Phone sharing exposes only this phone's T3 server to your tailnet and requires T3
+          pairing.
         </Text>
         {logs === null ? null : (
           <Text selectable className="font-mono text-xs text-foreground-muted">
