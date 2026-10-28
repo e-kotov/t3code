@@ -75,12 +75,6 @@ func New(logs *Ring) *Engine {
 	return &Engine{forwards: map[string]*forward{}, ports: map[string]int{}, logs: logs}
 }
 
-// SetIdleTimeout updates an existing node without starting a new one.
-func (e *Engine) SetIdleTimeout(timeout time.Duration) {
-	e.idleTimeout.Store(int64(timeout))
-	e.touch()
-}
-
 // Start starts the node if it is stopped. On a running engine it only
 // updates the idle timeout.
 func (e *Engine) Start(cfg Config) (err error) {
@@ -298,19 +292,24 @@ func (e *Engine) idleLoop(srv *tsnet.Server, stopped <-chan struct{}) {
 		case <-ticker.C:
 		}
 		idle := time.Since(time.Unix(0, e.lastUse.Load()))
-		if idle >= loginTimeout && !e.running(srv) {
-			e.stopIf(srv, "sign-in not completed")
-			return
-		}
-		timeout := time.Duration(e.idleTimeout.Load())
-		if timeout <= 0 || e.busy() {
-			continue
-		}
-		if idle >= timeout {
-			e.stopIf(srv, "idle")
+		if reason := e.idleStopReason(idle, func() bool { return e.running(srv) }); reason != "" {
+			e.stopIf(srv, reason)
 			return
 		}
 	}
+}
+
+func (e *Engine) idleStopReason(idle time.Duration, running func() bool) string {
+	if e.busy() {
+		return ""
+	}
+	if idle >= loginTimeout && !running() {
+		return "sign-in not completed"
+	}
+	if timeout := time.Duration(e.idleTimeout.Load()); timeout > 0 && idle >= timeout {
+		return "idle"
+	}
+	return ""
 }
 
 // loginTimeout stops a node that has waited this long for a sign-in that

@@ -102,15 +102,6 @@ func run(method string, args []byte) (any, error) {
 	case "stopPhoneShare":
 		eng.StopPhoneShare()
 		return status(), nil
-	case "setIdleTimeout":
-		var a struct {
-			Seconds int `json:"seconds"`
-		}
-		if err := json.Unmarshal(args, &a); err != nil {
-			return nil, err
-		}
-		eng.SetIdleTimeout(time.Duration(a.Seconds) * time.Second)
-		return status(), nil
 	case "stop":
 		eng.Stop("requested")
 		return status(), nil

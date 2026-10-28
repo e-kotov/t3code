@@ -45,18 +45,15 @@ func listenForward(target string, preferredPort int, dial dialFunc, touch func()
 	if err != nil {
 		return nil, err
 	}
-	f := &forward{
-		target: target,
-		port:   ln.Addr().(*net.TCPAddr).Port,
-		ln:     ln,
-		dial:   dial,
-		touch:  touch,
-		logf:   logf,
-		conns:  map[net.Conn]struct{}{},
-	}
-	go f.serve()
-	logf("engine: forwarding 127.0.0.1:%d to %s", f.port, target)
+	f := serveForward(target, ln.Addr().(*net.TCPAddr).Port, ln, dial, touch, logf)
 	return f, nil
+}
+
+func serveForward(target string, port int, ln net.Listener, dial dialFunc, touch func(), logf func(string, ...any)) *forward {
+	f := &forward{target: target, port: port, ln: ln, dial: dial, touch: touch, logf: logf, conns: map[net.Conn]struct{}{}}
+	go f.serve()
+	logf("engine: forwarding %s to %s", ln.Addr(), target)
+	return f
 }
 
 func (f *forward) serve() {

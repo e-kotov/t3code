@@ -15,6 +15,8 @@ internal class PhoneShareSession {
     worker.execute { if (!closed) work() }
   }
 
+  fun cancel() { closed = true }
+
   fun close(cleanup: () -> Unit) {
     closed = true
     worker.execute(cleanup)

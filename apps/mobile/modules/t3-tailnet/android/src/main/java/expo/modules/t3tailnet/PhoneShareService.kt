@@ -11,60 +11,99 @@ import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.Handler
+import android.os.Looper
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
 /** Keeps only the phone's paired T3 endpoint available on its private tailnet. */
-class PhoneShareService : Service() {
+open class PhoneShareService : Service() {
   companion object {
     private const val PREFS = "t3-phone-share"
     private const val CHANNEL = "phone-t3-sharing"
     private const val ID = 73003
     private const val STOP = "t3.phone-share.STOP"
+    private val stateLock = Any()
+    const val IDLE_SECONDS = 300
     @Volatile private var summary = "Off"
     @Volatile private var instance: PhoneShareService? = null
+    private var restartRequested = false
 
     fun isEnabled(context: Context) = context.getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean("enabled", false)
-    fun status() = summary
+    fun status(context: Context): String = synchronized(stateLock) {
+      if (instance == null) context.getSharedPreferences(PREFS, MODE_PRIVATE).getString("error", null) ?: summary else summary
+    }
+
+    fun restore(context: Context) {
+      synchronized(stateLock) {
+        if (isEnabled(context) && instance == null) setEnabled(context, true)
+      }
+    }
 
     fun setEnabled(context: Context, enabled: Boolean) {
-      val prefs = context.getSharedPreferences(PREFS, MODE_PRIVATE)
-      check(prefs.edit().putBoolean("enabled", enabled).commit()) { "Could not save sharing state." }
-      if (!enabled) {
-        context.stopService(Intent(context, PhoneShareService::class.java))
-        summary = "Off"
-        return
-      }
-      try {
-        if (instance == null) summary = "Starting"
-        val intent = Intent(context, PhoneShareService::class.java)
-        if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(intent) else context.startService(intent)
-      } catch (error: Exception) {
-        prefs.edit().putBoolean("enabled", false).apply()
-        summary = error.message ?: "Could not start phone sharing"
-        throw error
+      synchronized(stateLock) {
+        val prefs = context.getSharedPreferences(PREFS, MODE_PRIVATE)
+        if (isEnabled(context) != enabled) prefs.edit().putBoolean("enabled", enabled).apply()
+        if (!enabled) {
+          restartRequested = false
+          instance?.session?.cancel()
+          context.stopService(Intent(context, PhoneShareService::class.java))
+          context.getSystemService(NotificationManager::class.java).cancel(ID)
+          prefs.edit().remove("error").apply()
+          summary = "Off"
+          return
+        }
+        instance?.let {
+          if (it.session.closed) restartRequested = true
+          return
+        }
+        try {
+          prefs.edit().remove("error").apply()
+          summary = "Starting"
+          val intent = Intent(context, PhoneShareService::class.java)
+          if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(intent) else context.startService(intent)
+        } catch (error: Exception) {
+          summary = error.message ?: "Could not start phone sharing"
+          prefs.edit().putBoolean("enabled", false).putString("error", summary).apply()
+          throw error
+        }
       }
     }
   }
 
   private val session = PhoneShareSession()
+  private val main = Handler(Looper.getMainLooper())
+  private val healthCheck = Runnable { launchWork { checkHealth() } }
   private var started = false
   @Volatile private var failed = false
 
   override fun onCreate() {
     super.onCreate()
-    instance = this
-    if (Build.VERSION.SDK_INT >= 26) {
-      getSystemService(NotificationManager::class.java).createNotificationChannel(
-        NotificationChannel(CHANNEL, "Phone T3 remote access", NotificationManager.IMPORTANCE_LOW)
-      )
+    synchronized(stateLock) { instance = this }
+    try {
+      if (Build.VERSION.SDK_INT >= 26) {
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
+          NotificationChannel(CHANNEL, "Phone T3 remote access", NotificationManager.IMPORTANCE_LOW)
+        )
+      }
+      promoteForeground()
+    } catch (error: Exception) {
+      fail(error.message ?: "Could not keep phone sharing in the foreground")
     }
+  }
+
+  protected open fun promoteForeground() {
     if (Build.VERSION.SDK_INT >= 34) startForeground(ID, notification("Starting"), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
     else startForeground(ID, notification("Starting"))
   }
 
+  protected open fun launchWork(work: () -> Unit) = session.start(work)
+  protected open fun startTailnet() = TailnetEngine.start(applicationContext, IDLE_SECONDS)
+  protected open fun tailnetCall(method: String, args: JSONObject = JSONObject()) = TailnetEngine.call(method, args)
+
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    if (failed) { stopSelf(); return START_NOT_STICKY }
     if (intent?.action == STOP || !isEnabled(this)) {
       setEnabled(this, false)
       stopSelf()
@@ -72,7 +111,7 @@ class PhoneShareService : Service() {
     }
     if (!started) {
       started = true
-      session.start { startSharing() }
+      launchWork { startSharing() }
     }
     return START_STICKY
   }
@@ -97,23 +136,47 @@ class PhoneShareService : Service() {
         check(ready) { "The phone T3 server did not start." }
       }
       if (session.closed || !isEnabled(this)) return
-      checkReply(TailnetEngine.start(this, 0))
-      val result = checkReply(TailnetEngine.call("waitReady", JSONObject().put("timeoutMs", 15000)))
+      checkReply(startTailnet())
+      val result = checkReply(tailnetCall("waitReady", JSONObject().put("timeoutMs", 15000)))
       check(result.optString("state") == "running") { "Sign in to built-in Tailscale first." }
       if (session.closed || !isEnabled(this)) return
-      checkReply(TailnetEngine.call("startPhoneShare"))
+      checkReply(tailnetCall("startPhoneShare"))
       if (session.closed || !isEnabled(this)) {
-        TailnetEngine.call("stopPhoneShare")
+        tailnetCall("stopPhoneShare")
         return
       }
       update("Available on your tailnet")
     } catch (error: Exception) {
-      if (!session.closed) {
-        failed = true
-        update(error.message ?: "Phone sharing failed")
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("enabled", false).apply()
-        stopSelf()
+      main.post { fail(error.message ?: "Phone sharing failed") }
+    }
+  }
+
+  private fun fail(text: String) {
+    synchronized(stateLock) {
+      if (instance !== this || session.closed || !isEnabled(this)) return
+      failed = true
+      session.cancel()
+      summary = text
+      getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("enabled", false).putString("error", text).apply()
+      main.removeCallbacks(healthCheck)
+      stopForeground(STOP_FOREGROUND_DETACH)
+      getSystemService(NotificationManager::class.java).notify(ID, notification(text, ongoing = false))
+      stopSelf()
+    }
+  }
+
+  private fun checkHealth() {
+    try {
+      check(serverReady()) { "The phone T3 server stopped. Start it and enable sharing again." }
+      val result = checkReply(tailnetCall("status"))
+      when (result.optString("state")) {
+        "stopped" -> error("Built-in Tailscale stopped. Enable sharing again.")
+        "needs-login", "needs-approval" -> error("Sign in or approve built-in Tailscale, then enable sharing again.")
+        "running" -> update("Available on your tailnet")
+        else -> update("Reconnecting to Tailscale")
       }
+    } catch (error: Exception) {
+      main.post { fail(error.message ?: "Phone sharing failed") }
     }
   }
 
@@ -123,7 +186,7 @@ class PhoneShareService : Service() {
     return reply.optJSONObject("result") ?: JSONObject()
   }
 
-  private fun serverReady(): Boolean = try {
+  protected open fun serverReady(): Boolean = try {
     val connection = URL("http://127.0.0.1:3774/.well-known/t3/environment").openConnection() as HttpURLConnection
     try {
       connection.connectTimeout = 1000
@@ -133,27 +196,42 @@ class PhoneShareService : Service() {
   } catch (_: Exception) { false }
 
   private fun update(text: String) {
-    summary = text
-    getSystemService(NotificationManager::class.java).notify(ID, notification(text))
+    main.post {
+      synchronized(stateLock) {
+        if (instance !== this || session.closed || !isEnabled(this)) return@post
+        summary = text
+        getSystemService(NotificationManager::class.java).notify(ID, notification(text))
+        main.removeCallbacks(healthCheck)
+        main.postDelayed(healthCheck, 15_000)
+      }
+    }
   }
 
-  private fun notification(text: String): Notification {
+  private fun notification(text: String, ongoing: Boolean = true): Notification {
     val launch = packageManager.getLaunchIntentForPackage(packageName)
     val open = launch?.let { PendingIntent.getActivity(this, ID, it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE) }
     val stop = PendingIntent.getService(this, ID, Intent(this, PhoneShareService::class.java).setAction(STOP), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL) else Notification.Builder(this)
-    return builder.setSmallIcon(R.drawable.phone_share_active).setContentTitle("T3 phone remote access")
-      .setContentText(text).setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
-      .addAction(Notification.Action.Builder(0, "Stop", stop).build()).build()
+    builder.setSmallIcon(R.drawable.phone_share_active).setContentTitle("T3 phone remote access")
+      .setContentText(text).setContentIntent(open).setOngoing(ongoing).setAutoCancel(!ongoing).setOnlyAlertOnce(true)
+    if (ongoing) builder.addAction(Notification.Action.Builder(0, "Stop", stop).build())
+    return builder.build()
   }
 
   override fun onDestroy() {
-    if (instance === this) instance = null
-    session.close {
-      TailnetEngine.call("stopPhoneShare")
-      TailnetEngine.call("setIdleTimeout", JSONObject().put("seconds", 300))
+    synchronized(stateLock) {
+      main.removeCallbacks(healthCheck)
+      session.close { tailnetCall("stopPhoneShare") }
+      if (instance === this) {
+        instance = null
+        if (!failed) summary = if (!isEnabled(this)) "Off" else "Stopped; reopen T3 to reconnect"
+        if (restartRequested && isEnabled(this)) {
+          restartRequested = false
+          val app = applicationContext
+          main.post { try { restore(app) } catch (_: Exception) { /* Saved by setEnabled. */ } }
+        }
+      }
     }
-    if (!failed) summary = if (!isEnabled(this)) "Off" else "Stopped; reopen T3 to reconnect"
     super.onDestroy()
   }
 

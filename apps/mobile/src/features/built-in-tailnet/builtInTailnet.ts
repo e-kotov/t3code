@@ -22,7 +22,7 @@ type Reply<T> =
 
 interface TailnetNative {
   isAvailable(): boolean;
-  getConfig(): { enabled: boolean; position: string; signedIn: boolean };
+  getConfig(): { enabled: boolean; position: string; signedIn: boolean; idleTimeoutSeconds: number };
   setConfig(enabled: boolean, position: string): void;
   start(idleTimeoutSeconds: number): Promise<string>;
   stop(): Promise<string>;
@@ -46,8 +46,6 @@ const notifications =
     ? requireOptionalNativeModule<DirectNotificationsNative>("T3AgentNotifications")
     : null;
 
-/** A node no connection uses, for example while SSH carries it, stops after this long. */
-const IDLE_SECONDS = 300;
 // Well inside the 15 s per route the connection supervisor allows an attempt.
 const READY_TIMEOUT_MS = 10_000;
 
@@ -117,20 +115,20 @@ export function setBuiltInTailnetConfig(enabled: boolean, position: BuiltInTailn
   if (!enabled) void stopBuiltInTailnet();
 }
 
-function publishReply(reply: Reply<BuiltInTailnetStatus>) {
+function publishReply(reply: Reply<BuiltInTailnetStatus>, patch: Partial<Snapshot> = {}) {
   // Native code records the sign-in state from every reply.
   publish(
     reply.ok
-      ? { status: reply.result, error: null, signedIn: readConfig().signedIn }
-      : { error: reply.error },
+      ? { status: reply.result, error: null, signedIn: readConfig().signedIn, ...patch }
+      : { error: reply.error, ...patch },
   );
   return reply.ok ? reply.result : null;
 }
 
 export async function refreshBuiltInTailnetStatus(): Promise<void> {
   if (!builtInTailnetAvailable()) return;
-  publishReply(parse<BuiltInTailnetStatus>(await native!.status()));
-  publish({ phoneShare: native!.phoneShareStatus() });
+  const reply = parse<BuiltInTailnetStatus>(await native!.status());
+  publishReply(reply, { phoneShare: native!.phoneShareStatus() });
 }
 
 export function setPhoneSharing(enabled: boolean): void {
@@ -161,7 +159,9 @@ let signingIn = false;
 
 /** Starts the node and waits until it runs or needs the user. */
 async function startAndWait(): Promise<BuiltInTailnetStatus | null> {
-  const started = publishReply(parse<BuiltInTailnetStatus>(await native!.start(IDLE_SECONDS)));
+  const started = publishReply(
+    parse<BuiltInTailnetStatus>(await native!.start(native!.getConfig().idleTimeoutSeconds)),
+  );
   if (started === null || started.state === "running") return started;
   return publishReply(parse<BuiltInTailnetStatus>(await native!.waitReady(READY_TIMEOUT_MS)));
 }
