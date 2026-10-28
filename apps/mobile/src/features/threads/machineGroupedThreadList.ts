@@ -121,12 +121,11 @@ export function arrangeMobileConversationList<T extends { readonly type: string 
   );
   return withContext.flatMap((item): (T | ThreadListV2MachineHeaderListItem)[] => {
     if (isMachineHeader(item)) {
-      return [{ ...item, collapsible: options.grouping === "machine" && !options.searchQuery?.trim() }];
+      return [
+        { ...item, collapsible: options.grouping === "machine" && !options.searchQuery?.trim() },
+      ];
     }
-    if (
-      isThreadRow(item) &&
-      !machineGroupThreadVisible(item.item.thread, options)
-    ) {
+    if (isThreadRow(item) && !machineGroupThreadVisible(item.item.thread, options)) {
       return [];
     }
     return [item];

@@ -17,8 +17,10 @@ export function machineGroupThreadVisible(
     readonly searchQuery?: string;
   },
 ): boolean {
-  return options.grouping !== "machine" ||
+  return (
+    options.grouping !== "machine" ||
     Boolean(options.searchQuery?.trim()) ||
     !options.collapsedMachineGroups?.includes(thread.environmentId) ||
-    `${thread.environmentId}:${thread.id}` === options.selectedThreadKey;
+    `${thread.environmentId}:${thread.id}` === options.selectedThreadKey
+  );
 }

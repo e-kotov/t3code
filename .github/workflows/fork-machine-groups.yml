@@ -70,7 +70,7 @@ jobs:
             exit 1
           fi
           cat "$RUNNER_TEMP/fold-regression.log"
-          rg -q AssertionError "$RUNNER_TEMP/fold-regression.log"
+          python3 -c 'import os, pathlib; assert "AssertionError" in (pathlib.Path(os.environ["RUNNER_TEMP"]) / "fold-regression.log").read_text()'
       - name: Check changed code
         run: vp run check:changed origin/main
       - name: Check surrounding mobile list behavior

@@ -68,7 +68,9 @@ function sidebarMachineGroups<T extends { readonly environmentId: EnvironmentId 
   return [...groups.keys()].sort(compareMachineGroups(view)).map((id) => groups.get(id)!);
 }
 
-export function visibleSidebarThreadKeys<T extends { readonly environmentId: EnvironmentId; readonly id: string }>(
+export function visibleSidebarKeys<
+  T extends { readonly environmentId: EnvironmentId; readonly id: string },
+>(
   threads: readonly T[],
   sectionByThreadKey: ReadonlyMap<string, SidebarSection>,
   view: Omit<SidebarConversationView, "sortOrder">,
@@ -81,12 +83,16 @@ export function visibleSidebarThreadKeys<T extends { readonly environmentId: Env
     shelf.push(thread);
     shelves.set(section, shelf);
   }
-  return [...shelves.values()].flatMap((list) => sidebarMachineGroups(list, view)
-    .flatMap((group) => group.filter((thread) => machineGroupThreadVisible(thread, view)))
-    .map((thread) => `${thread.environmentId}:${thread.id}`));
+  return [...shelves.values()].flatMap((list) =>
+    sidebarMachineGroups(list, view)
+      .flatMap((group) => group.filter((thread) => machineGroupThreadVisible(thread, view)))
+      .map((thread) => `${thread.environmentId}:${thread.id}`),
+  );
 }
 
-export function groupSidebarRowsByMachine<T extends { readonly environmentId: EnvironmentId; readonly id: string }>(
+export function groupSidebarRowsByMachine<
+  T extends { readonly environmentId: EnvironmentId; readonly id: string },
+>(
   list: readonly T[],
   section: SidebarSection,
   view: Omit<SidebarConversationView, "sortOrder">,
@@ -103,7 +109,10 @@ export function groupSidebarRowsByMachine<T extends { readonly environmentId: En
       groupPosition,
       groupCount: groups.length,
     },
-    ...rowsOf(group.filter((thread) => machineGroupThreadVisible(thread, view)), section),
+    ...rowsOf(
+      group.filter((thread) => machineGroupThreadVisible(thread, view)),
+      section,
+    ),
   ]);
 }
 

@@ -15,13 +15,22 @@ import { moveMachineGroup, type SidebarConversationView } from "./sidebarConvers
 
 import { useMachineGroupCollapse } from "./machineGroupCollapse";
 
-export function useSidebarConversationView(selectedThreadKey: string | null = null): SidebarConversationView {
+export function useSidebarConversationView(
+  selectedThreadKey: string | null = null,
+): SidebarConversationView {
   const sortOrder = useClientSettings((s) => s.sidebarConversationSortOrder);
   const grouping = useClientSettings((s) => s.sidebarConversationGrouping);
   const machineOrder = useClientSettings((s) => s.sidebarConversationMachineOrder);
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const { collapsedMachineGroups } = useMachineGroupCollapse();
-  return { sortOrder, grouping, machineOrder, primaryEnvironmentId, collapsedMachineGroups, selectedThreadKey };
+  return {
+    sortOrder,
+    grouping,
+    machineOrder,
+    primaryEnvironmentId,
+    collapsedMachineGroups,
+    selectedThreadKey,
+  };
 }
 
 export function SidebarMachineGroupHeader(props: {

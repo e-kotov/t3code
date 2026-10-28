@@ -12,8 +12,12 @@ describe("machine group visibility", () => {
 
   it("keeps only the selected scoped conversation when its machine is folded", () => {
     expect(machineGroupThreadVisible(thread, folded)).toBe(false);
-    expect(machineGroupThreadVisible(thread, { ...folded, selectedThreadKey: "mac:same-id" })).toBe(true);
-    expect(machineGroupThreadVisible(thread, { ...folded, selectedThreadKey: "other:same-id" })).toBe(false);
+    expect(machineGroupThreadVisible(thread, { ...folded, selectedThreadKey: "mac:same-id" })).toBe(
+      true,
+    );
+    expect(
+      machineGroupThreadVisible(thread, { ...folded, selectedThreadKey: "other:same-id" }),
+    ).toBe(false);
   });
 
   it("reveals search results and ungrouped rows without clearing the fold", () => {
@@ -27,12 +31,21 @@ describe("machine group visibility", () => {
     const otherClient = AtomRegistry.make();
     try {
       const unsubscribe = client.subscribe(collapsedMachineGroupsAtom, () => {});
-      client.set(collapsedMachineGroupsAtom, toggleCollapsedMachineGroup(client.get(collapsedMachineGroupsAtom), "mac"));
-      client.set(collapsedMachineGroupsAtom, toggleCollapsedMachineGroup(client.get(collapsedMachineGroupsAtom), "gwdg"));
+      client.set(
+        collapsedMachineGroupsAtom,
+        toggleCollapsedMachineGroup(client.get(collapsedMachineGroupsAtom), "mac"),
+      );
+      client.set(
+        collapsedMachineGroupsAtom,
+        toggleCollapsedMachineGroup(client.get(collapsedMachineGroupsAtom), "gwdg"),
+      );
       unsubscribe();
       expect(client.get(collapsedMachineGroupsAtom)).toEqual(["mac", "gwdg"]);
       expect(otherClient.get(collapsedMachineGroupsAtom)).toEqual([]);
-      client.set(collapsedMachineGroupsAtom, toggleCollapsedMachineGroup(client.get(collapsedMachineGroupsAtom), "mac"));
+      client.set(
+        collapsedMachineGroupsAtom,
+        toggleCollapsedMachineGroup(client.get(collapsedMachineGroupsAtom), "mac"),
+      );
       expect(client.get(collapsedMachineGroupsAtom)).toEqual(["gwdg"]);
     } finally {
       client.dispose();
