@@ -94,6 +94,23 @@ func run(method string, args []byte) (any, error) {
 			return nil, err
 		}
 		return map[string]int{"port": port}, nil
+	case "startPhoneShare":
+		if err := eng.StartPhoneShare(); err != nil {
+			return nil, err
+		}
+		return status(), nil
+	case "stopPhoneShare":
+		eng.StopPhoneShare()
+		return status(), nil
+	case "setIdleTimeout":
+		var a struct {
+			Seconds int `json:"seconds"`
+		}
+		if err := json.Unmarshal(args, &a); err != nil {
+			return nil, err
+		}
+		eng.SetIdleTimeout(time.Duration(a.Seconds) * time.Second)
+		return status(), nil
 	case "stop":
 		eng.Stop("requested")
 		return status(), nil

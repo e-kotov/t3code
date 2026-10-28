@@ -54,7 +54,7 @@ internal object TailnetEngine {
     main.post {
       if (lifecycleObserver != null) return@post
       val stopLater = Runnable {
-        if (directNotificationsEnabled(app)) return@Runnable
+        if (directNotificationsEnabled(app) || PhoneShareService.isEnabled(app)) return@Runnable
         executor.execute {
           // Signing in leaves T3 for the browser; the engine stops an
           // abandoned sign-in on its own after ten minutes.

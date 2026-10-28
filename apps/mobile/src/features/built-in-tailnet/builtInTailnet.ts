@@ -38,6 +38,8 @@ interface TailnetNative {
   waitReady(timeoutMs: number): Promise<string>;
   forward(target: string): Promise<string>;
   logs(): Promise<string>;
+  phoneShareStatus(): { enabled: boolean; status: string };
+  setPhoneShareEnabled(enabled: boolean): void;
 }
 
 interface DirectNotificationsNative {
@@ -83,6 +85,7 @@ interface Snapshot {
   readonly signedIn: boolean;
   readonly status: BuiltInTailnetStatus | null;
   readonly error: string | null;
+  readonly phoneShare: { readonly enabled: boolean; readonly status: string };
 }
 
 function readConfig(): Pick<Snapshot, "enabled" | "position" | "signedIn"> {
@@ -94,7 +97,7 @@ function readConfig(): Pick<Snapshot, "enabled" | "position" | "signedIn"> {
   };
 }
 
-let snapshot: Snapshot = { ...readConfig(), status: null, error: null };
+let snapshot: Snapshot = { ...readConfig(), status: null, error: null, phoneShare: { enabled: false, status: "Off" } };
 const listeners = new Set<() => void>();
 
 function publish(patch: Partial<Snapshot>) {
@@ -131,6 +134,13 @@ function publishReply(reply: Reply<BuiltInTailnetStatus>) {
 export async function refreshBuiltInTailnetStatus(): Promise<void> {
   if (!builtInTailnetAvailable()) return;
   publishReply(parse<BuiltInTailnetStatus>(await native!.status()));
+  publish({ phoneShare: native!.phoneShareStatus() });
+}
+
+export function setPhoneSharing(enabled: boolean): void {
+  if (!builtInTailnetAvailable()) throw new Error("Built-in Tailscale is unavailable.");
+  native!.setPhoneShareEnabled(enabled);
+  publish({ phoneShare: native!.phoneShareStatus() });
 }
 
 export async function stopBuiltInTailnet(): Promise<void> {
