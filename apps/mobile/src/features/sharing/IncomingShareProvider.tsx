@@ -23,7 +23,7 @@ import {
 import { createIncomingSharePayloadReader } from "./incoming-share-native";
 import { IncomingShareInbox } from "./incoming-share-inbox";
 import { persistComposerAttachmentFile } from "../../lib/composerImages";
-import { subscribeForkIncomingShareEvents as subscribeAppActive } from "./forkIncomingShareEvents";
+import { subscribeForkIncomingShareEvents } from "./forkIncomingShareEvents";
 import { coalescedRun } from "../../lib/coalescedRun";
 import { rootNavigationRef } from "../../lib/rootNavigation";
 import { selectWorkspaceDetail } from "../workspace/workspace-detail-selection";
@@ -275,7 +275,7 @@ export function presentPendingIncomingShare(): void {
 export function startIncomingShareInbox(): () => void {
   void refreshIncomingShares();
   return receiveSharingEnabled()
-    ? subscribeAppActive(() => void refreshIncomingShares())
+    ? subscribeForkIncomingShareEvents(() => void refreshIncomingShares())
     : () => {};
 }
 
