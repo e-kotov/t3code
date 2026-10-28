@@ -146,7 +146,7 @@ it("keeps overflowing panel tabs scrollable beside all three usage meters when m
   await using _screen = await render(
     <div
       data-chat-workspace
-      className="relative flex h-100 w-screen [--header-usage-reserve:--spacing(40)] [--header-usage-tabs-reserve:calc(--spacing(28)+var(--header-usage-reserve))]"
+      className="relative flex h-100 w-screen [--header-usage-reserve:--spacing(56)] [--header-usage-tabs-reserve:calc(--spacing(28)+var(--header-usage-reserve))]"
       style={
         {
           "--workspace-topbar-height": "48px",

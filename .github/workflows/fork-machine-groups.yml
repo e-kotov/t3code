@@ -1,0 +1,90 @@
+name: Fork machine groups
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/fork-machine-groups.yml"
+      - "apps/web/src/components/Sidebar.tsx"
+      - "apps/web/src/usageCompact/HeaderUsageControl.browser.test.tsx"
+      - "packages/client-runtime/src/state/machineGroupCollapse*"
+      - "packages/client-runtime/package.json"
+      - "scripts/fork-footprint-budget.json"
+      - "apps/web/src/components/sidebar/*achineGroup*"
+      - "apps/web/src/components/sidebar/sidebarConversationGroups*"
+      - "apps/mobile/src/features/threads/*achineGroup*"
+      - "apps/mobile/src/features/threads/conversationListOrder*"
+      - "apps/mobile/src/features/threads/useConversationThreadListV2*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: machine-groups-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch --no-tags origin main "$CHECKOUT_REF"
+          git checkout --detach "$CHECKOUT_REF"
+      - name: Check fork footprint
+        run: |
+          git fetch --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
+          python3 scripts/fork-footprint-budget.py
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          node-version-file: package.json
+          run-install: false
+          cache: true
+      - run: vp install
+      - name: Install Chromium for existing sidebar tests
+        run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
+      - name: Prove folded mobile search fails before the fix
+        if: github.event.pull_request.number == 7
+        run: |
+          files=(apps/mobile/src/features/threads/useConversationThreadListV2.ts apps/mobile/src/features/threads/machineGroupedThreadList.ts)
+          for file in "${files[@]}"; do
+            cp "$file" "$RUNNER_TEMP/$(basename "$file")"
+          done
+          restore() {
+            for file in "${files[@]}"; do cp "$RUNNER_TEMP/$(basename "$file")" "$file"; done
+          }
+          trap restore EXIT
+          for file in "${files[@]}"; do git show "117691e0424ff6df40509267f8debd68b48dd896:$file" > "$file"; done
+          if vp test run apps/mobile/src/features/threads/useConversationThreadListV2.test.tsx > "$RUNNER_TEMP/fold-regression.log" 2>&1; then
+            cat "$RUNNER_TEMP/fold-regression.log"
+            echo 'The search regression must fail on the previous implementation.'
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/fold-regression.log"
+          python3 -c 'import os, pathlib; assert "AssertionError" in (pathlib.Path(os.environ["RUNNER_TEMP"]) / "fold-regression.log").read_text()'
+      - name: Check changed code
+        run: vp run check:changed origin/main
+      - name: Check surrounding mobile list behavior
+        run: vp test run apps/mobile/src/features/threads/threadListV2.test.ts apps/mobile/src/reactCompilerCoverage.test.ts
+      - name: Capture formatting fixes
+        if: failure()
+        run: |
+          git diff --name-only --diff-filter=AM -z origin/main HEAD |
+            xargs -0 -r vp fmt --no-error-on-unmatched-pattern
+          git diff --binary > "$RUNNER_TEMP/machine-groups-format.patch"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: failure()
+        with:
+          name: machine-groups-format-fixes
+          path: ${{ runner.temp }}/machine-groups-format.patch
+          retention-days: 3
