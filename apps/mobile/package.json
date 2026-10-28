@@ -173,6 +173,7 @@
         "@react-native-menu/menu",
         "expo-audio",
         "expo-video",
+        "expo-sharing",
         "expo-network"
       ]
     }
