@@ -1,3 +1,5 @@
+import { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import { scopeThreadRef, scopedThreadKey } from "../environment/scoped.ts";
 import { AtomRegistry } from "effect/reactivity";
 import { describe, expect, it } from "vite-plus/test";
 import {
@@ -12,9 +14,10 @@ describe("machine group visibility", () => {
 
   it("keeps only the selected scoped conversation when its machine is folded", () => {
     expect(machineGroupThreadVisible(thread, folded)).toBe(false);
-    expect(machineGroupThreadVisible(thread, { ...folded, selectedThreadKey: "mac:same-id" })).toBe(
-      true,
+    const selectedThreadKey = scopedThreadKey(
+      scopeThreadRef(EnvironmentId.make(thread.environmentId), ThreadId.make(thread.id)),
     );
+    expect(machineGroupThreadVisible(thread, { ...folded, selectedThreadKey })).toBe(true);
     expect(
       machineGroupThreadVisible(thread, { ...folded, selectedThreadKey: "other:same-id" }),
     ).toBe(false);

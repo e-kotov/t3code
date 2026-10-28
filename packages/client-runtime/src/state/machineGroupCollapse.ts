@@ -1,3 +1,5 @@
+import { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import { scopeThreadRef, scopedThreadKey } from "../environment/scoped.ts";
 import { Atom } from "effect/reactivity";
 
 export const collapsedMachineGroupsAtom = Atom.make<readonly string[]>([]).pipe(Atom.keepAlive);
@@ -21,6 +23,9 @@ export function machineGroupThreadVisible(
     options.grouping !== "machine" ||
     Boolean(options.searchQuery?.trim()) ||
     !options.collapsedMachineGroups?.includes(thread.environmentId) ||
-    `${thread.environmentId}:${thread.id}` === options.selectedThreadKey
+    (options.selectedThreadKey != null &&
+      scopedThreadKey(
+        scopeThreadRef(EnvironmentId.make(thread.environmentId), ThreadId.make(thread.id)),
+      ) === options.selectedThreadKey)
   );
 }

@@ -1,6 +1,7 @@
+import { scopeThreadRef, scopedThreadKey } from "@t3tools/client-runtime/environment";
 import { machineGroupThreadVisible } from "@t3tools/client-runtime/state/machine-group-collapse";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
-import type { EnvironmentId } from "@t3tools/contracts";
+import { ThreadId, type EnvironmentId } from "@t3tools/contracts";
 import type {
   SidebarConversationGrouping,
   SidebarConversationSortOrder,
@@ -77,7 +78,8 @@ export function visibleSidebarKeys<
 ): string[] {
   const shelves = new Map<SidebarSection, T[]>();
   for (const thread of threads) {
-    const section = sectionByThreadKey.get(`${thread.environmentId}:${thread.id}`);
+    const key = scopedThreadKey(scopeThreadRef(thread.environmentId, ThreadId.make(thread.id)));
+    const section = sectionByThreadKey.get(key);
     if (section === undefined) continue;
     const shelf = shelves.get(section) ?? [];
     shelf.push(thread);
@@ -86,7 +88,9 @@ export function visibleSidebarKeys<
   return [...shelves.values()].flatMap((list) =>
     sidebarMachineGroups(list, view)
       .flatMap((group) => group.filter((thread) => machineGroupThreadVisible(thread, view)))
-      .map((thread) => `${thread.environmentId}:${thread.id}`),
+      .map((thread) =>
+        scopedThreadKey(scopeThreadRef(thread.environmentId, ThreadId.make(thread.id))),
+      ),
   );
 }
 
