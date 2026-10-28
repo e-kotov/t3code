@@ -65,7 +65,7 @@ class PhoneShareServiceTest {
   }
 
   class ProbeService : PhoneShareService() {
-    val connection = object : HttpURLConnection(URL("http://127.0.0.1:3774")) {
+    private val connection = object : HttpURLConnection(URL("http://127.0.0.1:3774")) {
       var failure: IOException? = null
       override fun connect() {}
       override fun disconnect() {}
