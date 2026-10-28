@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/fork-machine-groups.yml"
       - "apps/web/src/components/Sidebar.tsx"
+      - "apps/web/src/usageCompact/HeaderUsageControl.browser.test.tsx"
       - "packages/client-runtime/src/state/machineGroupCollapse*"
       - "packages/client-runtime/package.json"
       - "scripts/fork-footprint-budget.json"
