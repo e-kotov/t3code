@@ -1,3 +1,5 @@
+import { scopeThreadRef, scopedThreadKey } from "@t3tools/client-runtime/environment";
+import { machineGroupThreadVisible } from "@t3tools/client-runtime/state/machine-group-collapse";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import type { EnvironmentId } from "@t3tools/contracts";
 import type {
@@ -13,6 +15,8 @@ export interface SidebarConversationView {
   readonly grouping: SidebarConversationGrouping;
   readonly machineOrder: readonly EnvironmentId[];
   readonly primaryEnvironmentId: EnvironmentId | null;
+  readonly collapsedMachineGroups?: readonly string[];
+  readonly selectedThreadKey?: string | null;
 }
 
 /** What a machine-group header marker carries; upstream markers leave it unset. */
@@ -51,36 +55,64 @@ function compareMachineGroups(
   };
 }
 
-/** Rows for one shelf, regrouped by machine with a header per machine once
-    more than one machine is present. */
-export function groupSidebarRowsByMachine<T extends { readonly environmentId: EnvironmentId }>(
+function sidebarMachineGroups<T extends { readonly environmentId: EnvironmentId }>(
   list: readonly T[],
-  section: SidebarSection,
   view: Omit<SidebarConversationView, "sortOrder">,
-  rowsOf: (list: readonly T[], section: SidebarSection) => SidebarListItem[],
-): SidebarListItem[] {
-  if (view.grouping !== "machine") return rowsOf(list, section);
+): T[][] {
+  if (view.grouping !== "machine") return [[...list]];
   const groups = new Map<EnvironmentId, T[]>();
   for (const thread of list) {
     const group = groups.get(thread.environmentId) ?? [];
     group.push(thread);
     groups.set(thread.environmentId, group);
   }
-  const order = [...groups.keys()].sort(compareMachineGroups(view));
-  return order.flatMap((environmentId, groupPosition): SidebarListItem[] => [
-    ...(order.length > 1
-      ? [
-          {
-            kind: "marker" as const,
-            marker: "machine-header" as const,
-            key: `sidebar-machine:${section}:${environmentId}`,
-            environmentId,
-            groupPosition,
-            groupCount: order.length,
-          },
-        ]
-      : []),
-    ...rowsOf(groups.get(environmentId)!, section),
+  return [...groups.keys()].sort(compareMachineGroups(view)).map((id) => groups.get(id)!);
+}
+
+export function visibleSidebarKeys<T extends Pick<EnvironmentThreadShell, "environmentId" | "id">>(
+  threads: readonly T[],
+  sectionByThreadKey: ReadonlyMap<string, SidebarSection>,
+  view: Omit<SidebarConversationView, "sortOrder">,
+): string[] {
+  const shelves = new Map<SidebarSection, T[]>();
+  for (const thread of threads) {
+    const key = scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id));
+    const section = sectionByThreadKey.get(key);
+    if (section === undefined) continue;
+    const shelf = shelves.get(section) ?? [];
+    shelf.push(thread);
+    shelves.set(section, shelf);
+  }
+  return [...shelves.values()].flatMap((list) =>
+    sidebarMachineGroups(list, view)
+      .flatMap((group) => group.filter((thread) => machineGroupThreadVisible(thread, view)))
+      .map((thread) => scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id))),
+  );
+}
+
+export function groupSidebarRowsByMachine<
+  T extends Pick<EnvironmentThreadShell, "environmentId" | "id">,
+>(
+  list: readonly T[],
+  section: SidebarSection,
+  view: Omit<SidebarConversationView, "sortOrder">,
+  rowsOf: (list: readonly T[], section: SidebarSection) => SidebarListItem[],
+): SidebarListItem[] {
+  if (view.grouping !== "machine") return rowsOf(list, section);
+  const groups = sidebarMachineGroups(list, view);
+  return groups.flatMap((group, groupPosition): SidebarListItem[] => [
+    {
+      kind: "marker",
+      marker: "machine-header",
+      key: `sidebar-machine:${section}:${group[0]!.environmentId}`,
+      environmentId: group[0]!.environmentId,
+      groupPosition,
+      groupCount: groups.length,
+    },
+    ...rowsOf(
+      group.filter((thread) => machineGroupThreadVisible(thread, view)),
+      section,
+    ),
   ]);
 }
 

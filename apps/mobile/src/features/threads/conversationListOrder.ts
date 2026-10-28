@@ -21,6 +21,7 @@ export interface ThreadListV2MachineHeaderListItem {
   readonly position: number;
   readonly count: number;
   readonly machineKind?: EnvironmentMachineKind;
+  readonly collapsible?: boolean;
 }
 
 /**
@@ -55,7 +56,8 @@ export function machineHeadersAreEqual(
     header.environmentId === item.environmentId &&
     header.position === item.position &&
     header.count === item.count &&
-    header.machineKind === item.machineKind
+    header.machineKind === item.machineKind &&
+    header.collapsible === item.collapsible
   );
 }
 
