@@ -36,6 +36,19 @@ jobs:
           run-install: false
           cache: true
       - run: vp install
+      - name: Prove a share delivered without a resume fails before the fix
+        run: |
+          source=apps/mobile/src/features/sharing/forkIncomingShareEvents.ts
+          cp "$source" "$RUNNER_TEMP/forkIncomingShareEvents.ts"
+          trap 'cp "$RUNNER_TEMP/forkIncomingShareEvents.ts" "$source"' EXIT
+          git show "92290213e87cfe7993cec791b3da420b1fdb3b0b:$source" > "$source"
+          if vp test run apps/mobile/src/features/sharing/forkIncomingShareEvents.test.ts > "$RUNNER_TEMP/share-regression.log" 2>&1; then
+            cat "$RUNNER_TEMP/share-regression.log"
+            echo 'The incoming-share regression must fail with foreground-only delivery.'
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/share-regression.log"
+          python3 -c 'import os, pathlib; assert "AssertionError" in (pathlib.Path(os.environ["RUNNER_TEMP"]) / "share-regression.log").read_text()'
       - name: Test incoming shares and document imports
         run: |
           vp test run apps/mobile/src/features/sharing/forkIncomingShareEvents.test.ts apps/mobile/src/features/sharing/forkSharedDocuments.test.ts apps/mobile/src/features/sharing/incoming-share-inbox.test.ts apps/mobile/src/features/sharing/incoming-share-model.test.ts apps/mobile/src/features/threads/incomingShareImport.test.ts
