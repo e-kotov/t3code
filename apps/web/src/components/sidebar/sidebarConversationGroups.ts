@@ -13,6 +13,7 @@ export interface SidebarConversationView {
   readonly grouping: SidebarConversationGrouping;
   readonly machineOrder: readonly EnvironmentId[];
   readonly primaryEnvironmentId: EnvironmentId | null;
+  readonly collapsedMachineGroups?: readonly string[];
 }
 
 /** What a machine-group header marker carries; upstream markers leave it unset. */
@@ -68,7 +69,7 @@ export function groupSidebarRowsByMachine<T extends { readonly environmentId: En
   }
   const order = [...groups.keys()].sort(compareMachineGroups(view));
   return order.flatMap((environmentId, groupPosition): SidebarListItem[] => [
-    ...(order.length > 1
+    ...(order.length > 1 || view.collapsedMachineGroups?.includes(environmentId)
       ? [
           {
             kind: "marker" as const,
@@ -80,7 +81,9 @@ export function groupSidebarRowsByMachine<T extends { readonly environmentId: En
           },
         ]
       : []),
-    ...rowsOf(groups.get(environmentId)!, section),
+    ...(view.collapsedMachineGroups?.includes(environmentId)
+      ? []
+      : rowsOf(groups.get(environmentId)!, section)),
   ]);
 }
 

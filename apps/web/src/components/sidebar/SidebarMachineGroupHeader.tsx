@@ -2,7 +2,7 @@ import { sidebarListItemId } from "../Sidebar.logic";
 import { SortableSidebarMarker } from "./SidebarListMarkers";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import type { EnvironmentId } from "@t3tools/contracts";
-import { ArrowDownIcon, ArrowUpIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 
 import { updateClientSettings, useClientSettings } from "../../hooks/useSettings";
 import { useEnvironmentMachines, usePrimaryEnvironmentId } from "../../state/environments";
@@ -13,12 +13,15 @@ import { MachineGroupSlurmTime } from "../MachineGroupSlurmTime";
 import type { SidebarListItem } from "../Sidebar.logic";
 import { moveMachineGroup, type SidebarConversationView } from "./sidebarConversationGroups";
 
+import { useMachineGroupCollapse } from "./machineGroupCollapse";
+
 export function useSidebarConversationView(): SidebarConversationView {
   const sortOrder = useClientSettings((s) => s.sidebarConversationSortOrder);
   const grouping = useClientSettings((s) => s.sidebarConversationGrouping);
   const machineOrder = useClientSettings((s) => s.sidebarConversationMachineOrder);
   const primaryEnvironmentId = usePrimaryEnvironmentId();
-  return { sortOrder, grouping, machineOrder, primaryEnvironmentId };
+  const { collapsedMachineGroups } = useMachineGroupCollapse();
+  return { sortOrder, grouping, machineOrder, primaryEnvironmentId, collapsedMachineGroups };
 }
 
 export function SidebarMachineGroupHeader(props: {
@@ -29,6 +32,8 @@ export function SidebarMachineGroupHeader(props: {
 }) {
   const { environmentId, groupPosition, groupCount } = props.item;
   const view = useSidebarConversationView();
+  const { collapsedMachineGroups, toggleMachineGroup } = useMachineGroupCollapse();
+  const collapsed = environmentId !== undefined && collapsedMachineGroups.includes(environmentId);
   const machineById = useEnvironmentMachines();
   const move = (delta: -1 | 1) => {
     if (!environmentId) return;
@@ -81,6 +86,19 @@ export function SidebarMachineGroupHeader(props: {
             }}
           >
             <ArrowDownIcon className="size-3" />
+          </button>
+          <button
+            type="button"
+            aria-label={collapsed ? "Expand machine group" : "Collapse machine group"}
+            aria-expanded={!collapsed}
+            title={collapsed ? "Expand machine group" : "Collapse machine group"}
+            className="rounded p-1 hover:bg-accent"
+            onClick={(event) => {
+              event.stopPropagation();
+              toggleMachineGroup(environmentId);
+            }}
+          >
+            {collapsed ? <ChevronRightIcon className="size-3" /> : <ChevronDownIcon className="size-3" />}
           </button>
         </span>
       ) : null}

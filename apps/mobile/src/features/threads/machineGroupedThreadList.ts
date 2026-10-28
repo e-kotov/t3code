@@ -7,6 +7,10 @@ import {
 import { withMobileMachineContext } from "./mobileMachineContext";
 import type { ThreadListV2ThreadListItem } from "./threadListV2";
 
+function isMachineHeader(item: { readonly type: string }): item is ThreadListV2MachineHeaderListItem {
+  return item.type === "v2-machine-header";
+}
+
 function isThreadRow<T extends { readonly type: string }>(
   item: T,
 ): item is T & ThreadListV2ThreadListItem {
@@ -87,6 +91,7 @@ export function arrangeMobileConversationList<T extends { readonly type: string 
     }>;
     readonly machineKinds: ReadonlyMap<string, EnvironmentMachineKind>;
     readonly machineOrder: readonly string[];
+    readonly collapsedMachineGroups?: readonly string[];
   },
 ): (T | ThreadListV2MachineHeaderListItem)[] {
   const arranged =
@@ -103,12 +108,23 @@ export function arrangeMobileConversationList<T extends { readonly type: string 
           options.machineKinds,
         )
       : items;
-  return [
-    ...withMobileMachineContext(
-      arranged,
-      options.environments,
-      options.machineKinds,
-      options.machineOrder,
-    ),
-  ];
+  const withContext = withMobileMachineContext(
+    arranged,
+    options.environments,
+    options.machineKinds,
+    options.machineOrder,
+  );
+  return withContext.flatMap((item): (T | ThreadListV2MachineHeaderListItem)[] => {
+    if (isMachineHeader(item)) {
+      return [{ ...item, collapsible: options.grouping === "machine" }];
+    }
+    if (
+      options.grouping === "machine" &&
+      isThreadRow(item) &&
+      options.collapsedMachineGroups?.includes(item.item.thread.environmentId)
+    ) {
+      return [];
+    }
+    return [item];
+  });
 }

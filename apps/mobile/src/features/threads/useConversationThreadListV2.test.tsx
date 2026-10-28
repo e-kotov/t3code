@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { expect, it, vi } from "vite-plus/test";
 import { makeThreadShellFixture } from "../../test-fixtures";
+import { useMachineGroupCollapse } from "./machineGroupCollapse";
 import { useConversationThreadListV2 } from "./useConversationThreadListV2";
 
 // These fixtures are already loaded; paging uses the native runtime outside this test.
@@ -49,6 +50,7 @@ it("updates sort and machine grouping while retaining upstream pinned ordering a
     grouped: boolean;
     search?: string;
   }) {
+    const { toggleMachineGroup } = useMachineGroupCollapse();
     const { items } = useConversationThreadListV2({
       threads,
       pendingTasks: [],
@@ -82,6 +84,7 @@ it("updates sort and machine grouping while retaining upstream pinned ordering a
     });
     return (
       <ol>
+        <button onClick={() => toggleMachineGroup(a)}>Toggle Alpha</button>
         {items.map((item) => (
           <li key={item.key}>
             {item.type === "v2-thread"
@@ -116,6 +119,11 @@ it("updates sort and machine grouping while retaining upstream pinned ordering a
   act(() => root.render(<List sort="created_at" grouped />));
   expect(titles()).toEqual(["Pinned", "New", "Old"]);
   expect([...host.querySelectorAll("li")].map((row) => row.textContent)).toContain("Beta");
+  act(() => host.querySelector("button")!.click());
+  expect(titles()).toEqual(["New"]);
+  expect([...host.querySelectorAll("li")].map((row) => row.textContent)).toContain("Alpha");
+  act(() => host.querySelector("button")!.click());
+  expect(titles()).toEqual(["Pinned", "New", "Old"]);
   act(() => root.render(<List sort="created_at" grouped search="Old" />));
   expect(titles()).toEqual(["Old"]);
 });
