@@ -187,7 +187,10 @@ open class PhoneShareService : Service() {
       val result = checkReply(tailnetCall("status"))
       when (result.optString("state")) {
         "stopped" -> error("Built-in Tailscale stopped. Enable sharing again.")
-        "needs-login", "needs-approval" -> error("Sign in or approve built-in Tailscale, then enable sharing again.")
+        "needs-login", "needs-approval" -> {
+          main.post { fail("Sign in or approve built-in Tailscale, then enable sharing again.") }
+          return
+        }
         "running" -> {
           checkReply(tailnetCall("startPhoneShare"))
           failedShareChecks = 0
@@ -220,7 +223,9 @@ open class PhoneShareService : Service() {
       connection.readTimeout = 1000
       if (connection.responseCode == 200 && JSONObject(connection.inputStream.bufferedReader().use { it.readText() }).has("environmentId")) ServerHealth.READY else ServerHealth.WAITING
     } finally { connection.disconnect() }
-  } catch (_: ConnectException) { ServerHealth.STOPPED }
+  } catch (error: ConnectException) {
+    if (error.message?.contains("Connection refused", ignoreCase = true) == true) ServerHealth.STOPPED else ServerHealth.WAITING
+  }
     catch (_: Exception) { ServerHealth.WAITING }
 
   private fun update(text: String) {
