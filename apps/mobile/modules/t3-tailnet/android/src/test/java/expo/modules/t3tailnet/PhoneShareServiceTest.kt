@@ -191,6 +191,56 @@ class PhoneShareServiceTest {
     }
   }
 
+  @Test fun stoppedServerIsReportedImmediatelyAndRecoversWithoutReenabling() {
+    val controller = Robolectric.buildService(FakeService::class.java).create()
+    val service = controller.get()
+    try {
+      service.onStartCommand(Intent(), 0, 1)
+      service.runNext()
+      shadowOf(Looper.getMainLooper()).idle()
+      service.stopped = true
+      repeat(4) {
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(15))
+        service.runNext()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(PhoneShareService.isEnabled(app))
+        assertEquals("Server stopped; waiting for restart", PhoneShareService.status(app))
+      }
+      service.stopped = false
+      service.sharePresent = false
+      shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(15))
+      service.runNext()
+      shadowOf(Looper.getMainLooper()).idle()
+      assertTrue(PhoneShareService.isEnabled(app))
+      assertTrue(service.sharePresent)
+      assertEquals("Available on your tailnet", PhoneShareService.status(app))
+    } finally {
+      PhoneShareService.setEnabled(app, false)
+      controller.destroy()
+    }
+  }
+
+  @Test fun explicitStopWhileWaitingForServerRemainsOff() {
+    val controller = Robolectric.buildService(FakeService::class.java).create()
+    val service = controller.get()
+    service.onStartCommand(Intent(), 0, 1)
+    service.runNext()
+    shadowOf(Looper.getMainLooper()).idle()
+    service.stopped = true
+    shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(15))
+    service.runNext()
+    shadowOf(Looper.getMainLooper()).idle()
+    assertTrue(PhoneShareService.isEnabled(app))
+    PhoneShareService.setEnabled(app, false)
+    controller.destroy()
+    service.stopped = false
+    shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(60))
+    assertFalse(PhoneShareService.isEnabled(app))
+    assertEquals("Off", PhoneShareService.status(app))
+    assertTrue(service.jobs.isEmpty())
+    assertNull(shadowOf(manager).getNotification(73003))
+  }
+
   @Test fun serverFailureRemainsVisibleAfterServiceDestruction() {
     val controller = Robolectric.buildService(FakeService::class.java).create()
     val service = controller.get()
