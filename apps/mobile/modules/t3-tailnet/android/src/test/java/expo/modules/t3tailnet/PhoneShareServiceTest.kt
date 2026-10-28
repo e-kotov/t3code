@@ -31,10 +31,19 @@ class PhoneShareServiceTest {
     var ready = true
     var backend = "running"
     var promotionError = false
+    var sharePresent = false
+    var rejectShare = false
     override fun launchWork(work: () -> Unit) { jobs.addLast(work) }
     override fun serverReady() = ready
     override fun startTailnet() = reply()
-    override fun tailnetCall(method: String, args: JSONObject) = reply()
+    override fun tailnetCall(method: String, args: JSONObject): String {
+      if (method == "startPhoneShare") {
+        if (rejectShare) return """{"ok":false,"error":"Could not restore phone sharing"}"""
+        sharePresent = true
+      }
+      if (method == "stopPhoneShare") sharePresent = false
+      return reply()
+    }
     override fun promoteForeground() {
       if (promotionError) throw IllegalStateException("Foreground promotion rejected")
       super.promoteForeground()
@@ -121,6 +130,50 @@ class PhoneShareServiceTest {
       while (shadowOf(app).nextStartedService != null) { /* Drain initial start. */ }
       PhoneShareService.restore(app)
       assertNull(shadowOf(app).nextStartedService)
+    } finally {
+      PhoneShareService.setEnabled(app, false)
+      controller.destroy()
+    }
+  }
+
+  @Test fun healthCheckRepairsMissingShareBeforeReportingAvailable() {
+    val controller = Robolectric.buildService(FakeService::class.java).create()
+    val service = controller.get()
+    try {
+      service.onStartCommand(Intent(), 0, 1)
+      service.runNext()
+      shadowOf(Looper.getMainLooper()).idle()
+      service.sharePresent = false
+      shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(15))
+      service.runNext()
+      assertTrue("A running node must have its share restored before publishing Available", service.sharePresent)
+      shadowOf(Looper.getMainLooper()).idle()
+      assertEquals("Available on your tailnet", PhoneShareService.status(app))
+      service.sharePresent = false
+      service.rejectShare = true
+      shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(15))
+      service.runNext()
+      shadowOf(Looper.getMainLooper()).idle()
+      assertFalse(PhoneShareService.isEnabled(app))
+      assertEquals("Could not restore phone sharing", PhoneShareService.status(app))
+    } finally { controller.destroy() }
+  }
+
+  @Test fun slowServerProbesRecoverAndResetFailureCount() {
+    val controller = Robolectric.buildService(FakeService::class.java).create()
+    val service = controller.get()
+    try {
+      service.onStartCommand(Intent(), 0, 1)
+      service.runNext()
+      shadowOf(Looper.getMainLooper()).idle()
+      for (ready in listOf(false, false, true, false, false, true)) {
+        service.ready = ready
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(15))
+        service.runNext()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue("Two consecutive slow probes must leave sharing enabled", PhoneShareService.isEnabled(app))
+      }
+      assertEquals("Available on your tailnet", PhoneShareService.status(app))
     } finally {
       PhoneShareService.setEnabled(app, false)
       controller.destroy()
