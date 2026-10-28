@@ -165,12 +165,10 @@ class PhoneShareServiceTest {
     service.onStartCommand(Intent(), 0, 1)
     service.runNext()
     shadowOf(Looper.getMainLooper()).idle()
-    service.ready = false
-    repeat(3) {
-      shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(15))
-      service.runNext()
-      shadowOf(Looper.getMainLooper()).idle()
-    }
+    service.stopped = true
+    shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(15))
+    service.runNext()
+    shadowOf(Looper.getMainLooper()).idle()
     controller.destroy()
     assertFalse(PhoneShareService.isEnabled(app))
     assertTrue(PhoneShareService.status(app).contains("server stopped"))
@@ -194,9 +192,12 @@ class PhoneShareServiceTest {
       assertEquals("Reconnecting to Tailscale", PhoneShareService.status(app))
       assertTrue(PhoneShareService.isEnabled(app))
       service.backend = "stopped"
-      shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(15))
-      service.runNext()
-      shadowOf(Looper.getMainLooper()).idle()
+      repeat(3) { attempt ->
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(15))
+        service.runNext()
+        shadowOf(Looper.getMainLooper()).idle()
+        if (attempt < 2) assertTrue(PhoneShareService.isEnabled(app))
+      }
       assertFalse(PhoneShareService.isEnabled(app))
       assertTrue(PhoneShareService.status(app).contains("Tailscale stopped"))
     } finally { controller.destroy() }
@@ -229,9 +230,15 @@ class PhoneShareServiceTest {
       assertEquals("Available on your tailnet", PhoneShareService.status(app))
       service.sharePresent = false
       service.rejectShare = true
-      shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(15))
-      service.runNext()
-      shadowOf(Looper.getMainLooper()).idle()
+      repeat(3) { attempt ->
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(15))
+        service.runNext()
+        shadowOf(Looper.getMainLooper()).idle()
+        if (attempt < 2) {
+          assertTrue(PhoneShareService.isEnabled(app))
+          assertEquals("Reconnecting phone sharing", PhoneShareService.status(app))
+        }
+      }
       assertFalse(PhoneShareService.isEnabled(app))
       assertEquals("Could not restore phone sharing", PhoneShareService.status(app))
     } finally { controller.destroy() }
@@ -277,7 +284,7 @@ class PhoneShareServiceTest {
         }
       }
       assertFalse(PhoneShareService.isEnabled(app))
-      assertEquals("The phone T3 server stopped. Start it and enable sharing again.", PhoneShareService.status(app))
+      assertEquals("The phone T3 server is not responding. Check it and enable sharing again.", PhoneShareService.status(app))
     } finally { controller.destroy() }
   }
 

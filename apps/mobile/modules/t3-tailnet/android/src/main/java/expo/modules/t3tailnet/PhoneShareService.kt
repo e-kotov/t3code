@@ -15,6 +15,7 @@ import android.os.Handler
 import android.os.Looper
 import org.json.JSONObject
 import java.net.HttpURLConnection
+import java.net.ConnectException
 import java.net.URL
 
 /** Keeps only the phone's paired T3 endpoint available on its private tailnet. */
@@ -78,6 +79,7 @@ open class PhoneShareService : Service() {
   private val healthCheck = Runnable { launchWork { checkHealth() } }
   private var started = false
   private var failedServerChecks = 0
+  private var failedShareChecks = 0
   @Volatile private var failed = false
 
   override fun onCreate() {
@@ -169,25 +171,34 @@ open class PhoneShareService : Service() {
 
   private fun checkHealth() {
     try {
-      if (!serverReady()) {
-        failedServerChecks += 1
-        check(failedServerChecks < 3) { "The phone T3 server stopped. Start it and enable sharing again." }
-        update("Waiting for phone T3 server")
-        return
+      when (probeServer()) {
+        ServerHealth.STOPPED -> {
+          main.post { fail("The phone T3 server stopped. Start it and enable sharing again.") }
+          return
+        }
+        ServerHealth.WAITING -> {
+          failedServerChecks += 1
+          if (failedServerChecks >= 3) main.post { fail("The phone T3 server is not responding. Check it and enable sharing again.") }
+          else update("Waiting for phone T3 server")
+          return
+        }
+        ServerHealth.READY -> failedServerChecks = 0
       }
-      failedServerChecks = 0
       val result = checkReply(tailnetCall("status"))
       when (result.optString("state")) {
         "stopped" -> error("Built-in Tailscale stopped. Enable sharing again.")
         "needs-login", "needs-approval" -> error("Sign in or approve built-in Tailscale, then enable sharing again.")
         "running" -> {
           checkReply(tailnetCall("startPhoneShare"))
+          failedShareChecks = 0
           update("Available on your tailnet")
         }
         else -> update("Reconnecting to Tailscale")
       }
     } catch (error: Exception) {
-      main.post { fail(error.message ?: "Phone sharing failed") }
+      failedShareChecks += 1
+      if (failedShareChecks >= 3) main.post { fail(error.message ?: "Phone sharing failed") }
+      else update("Reconnecting phone sharing")
     }
   }
 
@@ -209,7 +220,8 @@ open class PhoneShareService : Service() {
       connection.readTimeout = 1000
       if (connection.responseCode == 200 && JSONObject(connection.inputStream.bufferedReader().use { it.readText() }).has("environmentId")) ServerHealth.READY else ServerHealth.WAITING
     } finally { connection.disconnect() }
-  } catch (_: Exception) { ServerHealth.WAITING }
+  } catch (_: ConnectException) { ServerHealth.STOPPED }
+    catch (_: Exception) { ServerHealth.WAITING }
 
   private fun update(text: String) {
     main.post {
