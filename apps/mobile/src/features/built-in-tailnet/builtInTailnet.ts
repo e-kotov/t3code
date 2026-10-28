@@ -22,7 +22,12 @@ type Reply<T> =
 
 interface TailnetNative {
   isAvailable(): boolean;
-  getConfig(): { enabled: boolean; position: string; signedIn: boolean; idleTimeoutSeconds: number };
+  getConfig(): {
+    enabled: boolean;
+    position: string;
+    signedIn: boolean;
+    idleTimeoutSeconds: number;
+  };
   setConfig(enabled: boolean, position: string): void;
   start(idleTimeoutSeconds: number): Promise<string>;
   stop(): Promise<string>;
