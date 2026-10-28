@@ -90,9 +90,11 @@ class PhoneShareServiceTest {
     service.runNext()
     shadowOf(Looper.getMainLooper()).idle()
     service.ready = false
-    shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(15))
-    service.runNext()
-    shadowOf(Looper.getMainLooper()).idle()
+    repeat(3) {
+      shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(15))
+      service.runNext()
+      shadowOf(Looper.getMainLooper()).idle()
+    }
     controller.destroy()
     assertFalse(PhoneShareService.isEnabled(app))
     assertTrue(PhoneShareService.status(app).contains("server stopped"))
@@ -172,12 +174,35 @@ class PhoneShareServiceTest {
         service.runNext()
         shadowOf(Looper.getMainLooper()).idle()
         assertTrue("Two consecutive slow probes must leave sharing enabled", PhoneShareService.isEnabled(app))
+        assertEquals(if (ready) "Available on your tailnet" else "Waiting for phone T3 server", PhoneShareService.status(app))
       }
       assertEquals("Available on your tailnet", PhoneShareService.status(app))
     } finally {
       PhoneShareService.setEnabled(app, false)
       controller.destroy()
     }
+  }
+
+  @Test fun threeConsecutiveSlowProbesStopSharing() {
+    val controller = Robolectric.buildService(FakeService::class.java).create()
+    val service = controller.get()
+    try {
+      service.onStartCommand(Intent(), 0, 1)
+      service.runNext()
+      shadowOf(Looper.getMainLooper()).idle()
+      service.ready = false
+      repeat(3) { attempt ->
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(15))
+        service.runNext()
+        shadowOf(Looper.getMainLooper()).idle()
+        if (attempt < 2) {
+          assertTrue(PhoneShareService.isEnabled(app))
+          assertEquals("Waiting for phone T3 server", PhoneShareService.status(app))
+        }
+      }
+      assertFalse(PhoneShareService.isEnabled(app))
+      assertEquals("The phone T3 server stopped. Start it and enable sharing again.", PhoneShareService.status(app))
+    } finally { controller.destroy() }
   }
 
   @Test fun rapidOffOnRestoresAfterCancelledServiceIsDestroyed() {
