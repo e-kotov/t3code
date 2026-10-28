@@ -1,7 +1,7 @@
 import { scopeThreadRef, scopedThreadKey } from "@t3tools/client-runtime/environment";
 import { machineGroupThreadVisible } from "@t3tools/client-runtime/state/machine-group-collapse";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
-import { ThreadId, type EnvironmentId } from "@t3tools/contracts";
+import type { EnvironmentId } from "@t3tools/contracts";
 import type {
   SidebarConversationGrouping,
   SidebarConversationSortOrder,
@@ -69,16 +69,14 @@ function sidebarMachineGroups<T extends { readonly environmentId: EnvironmentId 
   return [...groups.keys()].sort(compareMachineGroups(view)).map((id) => groups.get(id)!);
 }
 
-export function visibleSidebarKeys<
-  T extends { readonly environmentId: EnvironmentId; readonly id: string },
->(
+export function visibleSidebarKeys<T extends Pick<EnvironmentThreadShell, "environmentId" | "id">>(
   threads: readonly T[],
   sectionByThreadKey: ReadonlyMap<string, SidebarSection>,
   view: Omit<SidebarConversationView, "sortOrder">,
 ): string[] {
   const shelves = new Map<SidebarSection, T[]>();
   for (const thread of threads) {
-    const key = scopedThreadKey(scopeThreadRef(thread.environmentId, ThreadId.make(thread.id)));
+    const key = scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id));
     const section = sectionByThreadKey.get(key);
     if (section === undefined) continue;
     const shelf = shelves.get(section) ?? [];
@@ -88,14 +86,12 @@ export function visibleSidebarKeys<
   return [...shelves.values()].flatMap((list) =>
     sidebarMachineGroups(list, view)
       .flatMap((group) => group.filter((thread) => machineGroupThreadVisible(thread, view)))
-      .map((thread) =>
-        scopedThreadKey(scopeThreadRef(thread.environmentId, ThreadId.make(thread.id))),
-      ),
+      .map((thread) => scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id))),
   );
 }
 
 export function groupSidebarRowsByMachine<
-  T extends { readonly environmentId: EnvironmentId; readonly id: string },
+  T extends Pick<EnvironmentThreadShell, "environmentId" | "id">,
 >(
   list: readonly T[],
   section: SidebarSection,

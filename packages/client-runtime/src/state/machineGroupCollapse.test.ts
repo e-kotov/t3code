@@ -9,14 +9,12 @@ import {
 } from "./machineGroupCollapse.ts";
 
 describe("machine group visibility", () => {
-  const thread = { environmentId: "mac", id: "same-id" };
+  const thread = { environmentId: EnvironmentId.make("mac"), id: ThreadId.make("same-id") };
   const folded = { grouping: "machine", collapsedMachineGroups: ["mac"] };
 
   it("keeps only the selected scoped conversation when its machine is folded", () => {
     expect(machineGroupThreadVisible(thread, folded)).toBe(false);
-    const selectedThreadKey = scopedThreadKey(
-      scopeThreadRef(EnvironmentId.make(thread.environmentId), ThreadId.make(thread.id)),
-    );
+    const selectedThreadKey = scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id));
     expect(machineGroupThreadVisible(thread, { ...folded, selectedThreadKey })).toBe(true);
     expect(
       machineGroupThreadVisible(thread, { ...folded, selectedThreadKey: "other:same-id" }),

@@ -1,4 +1,4 @@
-import { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import type { EnvironmentThreadShell } from "./models.ts";
 import { scopeThreadRef, scopedThreadKey } from "../environment/scoped.ts";
 import { Atom } from "effect/reactivity";
 
@@ -11,7 +11,7 @@ export function toggleCollapsedMachineGroup(current: readonly string[], environm
 }
 
 export function machineGroupThreadVisible(
-  thread: { readonly environmentId: string; readonly id: string },
+  thread: Pick<EnvironmentThreadShell, "environmentId" | "id">,
   options: {
     readonly grouping?: string;
     readonly collapsedMachineGroups?: readonly string[];
@@ -24,8 +24,6 @@ export function machineGroupThreadVisible(
     Boolean(options.searchQuery?.trim()) ||
     !options.collapsedMachineGroups?.includes(thread.environmentId) ||
     (options.selectedThreadKey != null &&
-      scopedThreadKey(
-        scopeThreadRef(EnvironmentId.make(thread.environmentId), ThreadId.make(thread.id)),
-      ) === options.selectedThreadKey)
+      scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)) === options.selectedThreadKey)
   );
 }

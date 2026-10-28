@@ -31,7 +31,10 @@ const view = (overrides: Partial<SidebarConversationView> = {}): SidebarConversa
   ...overrides,
 });
 
-const thread = (id: string, environmentId: EnvironmentId) => ({ id, environmentId });
+const thread = (id: string, environmentId: EnvironmentId) => ({
+  id: ThreadId.make(id),
+  environmentId,
+});
 const rowsOf = (
   list: readonly { readonly id: string }[],
   section: SidebarSection,
