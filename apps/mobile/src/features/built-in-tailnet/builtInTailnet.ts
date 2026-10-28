@@ -1,11 +1,4 @@
-/**
- * Fork: built-in Tailscale on Android. The T3Tailnet native module embeds a
- * Tailscale node in the app process and forwards loopback ports to tailnet
- * servers; the connection driver tries those forwards at a chosen position
- * among the saved routes (see client-runtime connection/builtInTailnet.ts),
- * once the node is enabled and signed in. The node runs while T3 is on
- * screen, and in the background only while direct notifications are on.
- */
+// The embedded node forwards connections without occupying Android's VPN slot.
 import type { BuiltInTailnet } from "@t3tools/client-runtime/connection";
 import { requireOptionalNativeModule } from "expo";
 import * as Effect from "effect/Effect";
@@ -69,8 +62,6 @@ function parse<T>(json: string): Reply<T> {
 export function builtInTailnetAvailable(): boolean {
   return native?.isAvailable?.() === true;
 }
-
-// --- Settings and status store ---------------------------------------------
 
 const POSITIONS: ReadonlyArray<BuiltInTailnetPosition> = [
   "first",
@@ -192,8 +183,6 @@ export function endBuiltInTailnetSignIn() {
   signingIn = false;
 }
 
-// --- Connection driver hook ------------------------------------------------
-
 async function forwardTargets(targets: ReadonlyArray<string>): Promise<Map<string, number>> {
   const ports = new Map<string, number>();
   const config = builtInTailnetAvailable() ? readConfig() : null;
@@ -242,6 +231,7 @@ export const builtInTailnet: BuiltInTailnet.BuiltInTailnet | undefined =
 
 /** Keeps the settings status fresh while a screen shows it. */
 export function useBuiltInTailnetStatusPolling(active: boolean) {
+  // oxlint-disable-next-line t3code/react-effect-budget -- Poll the native node while its settings are visible.
   useEffect(() => {
     if (!active || !builtInTailnetAvailable()) return;
     void refreshBuiltInTailnetStatus();
