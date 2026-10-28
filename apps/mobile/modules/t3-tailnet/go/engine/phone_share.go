@@ -11,12 +11,7 @@ type phoneShare struct{ forward *forward }
 func (s *phoneShare) close() { s.forward.close() }
 
 func newPhoneShare(ln net.Listener, dial dialFunc, touch func(), logf func(string, ...any)) *phoneShare {
-	f := &forward{
-		target: "127.0.0.1:3774", ln: ln, dial: dial,
-		touch: touch, logf: logf, conns: map[net.Conn]struct{}{},
-	}
-	go f.serve()
-	return &phoneShare{forward: f}
+	return &phoneShare{forward: serveForward("127.0.0.1:3774", 3774, ln, dial, touch, logf)}
 }
 
 // StartPhoneShare exposes port 3774 on the app's tailnet node to the phone's

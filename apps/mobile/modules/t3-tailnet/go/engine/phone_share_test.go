@@ -39,15 +39,18 @@ func TestPhoneShareForwardsOnlyToPhoneT3(t *testing.T) {
 
 func TestPhoneShareStopClosesActiveConnectionAndAllowsIdle(t *testing.T) {
 	e := New(NewRing(50))
-	f, err := listenForward(echoServer(t), 0, plainDial, e.touch, t.Logf)
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	e.share = &phoneShare{forward: f}
+	target := echoServer(t)
+	e.share = newPhoneShare(ln, func(ctx context.Context, network, address string) (net.Conn, error) {
+		return plainDial(ctx, network, target)
+	}, e.touch, t.Logf)
 	if !e.busy() {
 		t.Fatal("sharing must prevent the idle timeout even without clients")
 	}
-	c, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", f.port))
+	c, err := net.Dial("tcp", ln.Addr().String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,6 +68,27 @@ func TestPhoneShareStopClosesActiveConnectionAndAllowsIdle(t *testing.T) {
 		t.Fatalf("read after sharing stopped = %v, want EOF", err)
 	}
 	e.StopPhoneShare()
+}
+
+func TestSharingSurvivesSignInTimeoutWithoutClients(t *testing.T) {
+	e := New(NewRing(50))
+	e.idleTimeout.Store(int64(5 * time.Minute))
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.share = newPhoneShare(ln, plainDial, e.touch, t.Logf)
+	defer e.StopPhoneShare()
+	if reason := e.idleStopReason(11*time.Minute, func() bool {
+		t.Fatal("active sharing must not depend on a transient backend status")
+		return false
+	}); reason != "" {
+		t.Fatalf("active share stopped: %s", reason)
+	}
+	e.StopPhoneShare()
+	if reason := e.idleStopReason(11*time.Minute, func() bool { return false }); reason != "sign-in not completed" {
+		t.Fatalf("abandoned sign-in stop reason = %q", reason)
+	}
 }
 
 func TestPhoneShareRequiresRunningTailnet(t *testing.T) {

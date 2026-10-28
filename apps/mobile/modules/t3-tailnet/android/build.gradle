@@ -16,9 +16,15 @@ android {
     versionName '0.0.0'
     consumerProguardFiles 'proguard-rules.pro'
   }
+  testOptions { unitTests.includeAndroidResources = true }
 }
 
 dependencies {
   implementation 'androidx.lifecycle:lifecycle-process:2.9.3'
   testImplementation 'junit:junit:4.13.2'
+  testImplementation 'org.robolectric:robolectric:4.16.1'
+}
+
+tasks.withType(Test).configureEach {
+  javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
 }

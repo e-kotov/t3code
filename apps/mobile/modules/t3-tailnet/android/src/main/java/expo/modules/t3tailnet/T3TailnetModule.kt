@@ -21,11 +21,12 @@ class T3TailnetModule : Module() {
 
     Function("getConfig") {
       val context = appContext.reactContext
-        ?: return@Function mapOf<String, Any>("enabled" to false, "position" to "first", "signedIn" to false)
+        ?: return@Function mapOf<String, Any>("enabled" to false, "position" to "first", "signedIn" to false, "idleTimeoutSeconds" to PhoneShareService.IDLE_SECONDS)
       mapOf<String, Any>(
         "enabled" to TailnetEngine.isEnabled(context),
         "position" to TailnetEngine.position(context),
         "signedIn" to TailnetEngine.isSignedIn(context),
+        "idleTimeoutSeconds" to PhoneShareService.IDLE_SECONDS,
       )
     }
 
@@ -72,7 +73,7 @@ class T3TailnetModule : Module() {
 
     Function("phoneShareStatus") {
       val context = appContext.reactContext
-      mapOf("enabled" to (context != null && PhoneShareService.isEnabled(context)), "status" to PhoneShareService.status())
+      mapOf("enabled" to (context != null && PhoneShareService.isEnabled(context)), "status" to (context?.let { PhoneShareService.status(it) } ?: "Off"))
     }
 
     Function("setPhoneShareEnabled") { enabled: Boolean ->

@@ -66,7 +66,7 @@ internal object TailnetEngine {
           main.removeCallbacks(stopLater)
           if (PhoneShareService.isEnabled(app)) {
             try {
-              PhoneShareService.setEnabled(app, true)
+              PhoneShareService.restore(app)
             } catch (error: Exception) {
               Log.w("T3Tailnet", "Could not restore phone sharing", error)
             }
@@ -138,7 +138,8 @@ internal object TailnetEngine {
   }
 
   fun start(context: Context, idleTimeoutSeconds: Int): String {
-    appContext = context.applicationContext
+    val app = context.applicationContext
+    appContext = app
     val args = JSONObject()
       .put("stateDir", context.filesDir.resolve("tailnet").absolutePath)
       .put("hostname", hostname())
@@ -146,7 +147,7 @@ internal object TailnetEngine {
       .put("interfaces", interfaces())
       .put("defaultInterface", defaultInterface(context) ?: "")
     val result = call("start", args)
-    watchNetworks(context)
+    watchNetworks(app)
     return result
   }
 
