@@ -56,6 +56,7 @@ export async function openUrlInPreview<E>(input: {
   readonly openPreview: OpenPreviewMutation<E>;
   readonly profileId?: PreviewOpenInput["profileId"];
   readonly background?: boolean;
+  readonly proxyUrl?: string;
 }): Promise<AtomCommandResult<void, E | BrowserSettingsReadError>> {
   const defaults = await resolveBrowserDefaults().catch(
     (cause: unknown) => new BrowserSettingsReadError({ cause }),
@@ -77,6 +78,7 @@ export async function openUrlInPreview<E>(input: {
       url: input.url,
       viewport: defaults.viewport,
       profileId: input.profileId ?? defaults.profileId,
+      ...(input.proxyUrl === undefined ? {} : { proxyUrl: input.proxyUrl }),
       ...(runtime === undefined ? {} : { runtime }),
     },
   });
@@ -148,6 +150,7 @@ export async function openFileInPreview<AssetError, PreviewError>(input: {
   return openUrlInPreview({
     threadRef: input.threadRef,
     url: assetUrl,
+    proxyUrl: "",
     openPreview: input.openPreview,
   });
 }

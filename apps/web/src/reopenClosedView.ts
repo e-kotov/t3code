@@ -87,6 +87,8 @@ export function pullRequestsSearchForRestore<S extends PullRequestsSearchLike>(
   } as S & PullRequestListPreferences;
 }
 
+import { browserProxyRestoreInput } from "./browser/browserProxyRestore";
+
 export async function reopenClosedView(
   view: ClosedView,
   options: {
@@ -102,6 +104,7 @@ export async function reopenClosedView(
     const result = await openPreviewSession({
       openPreview: options.openPreview,
       threadRef: ref,
+      ...browserProxyRestoreInput(view.snapshot),
       ...(url === undefined ? {} : { url }),
       ...(view.snapshot.viewport === undefined ? {} : { viewport: view.snapshot.viewport }),
       ...(view.snapshot.profileId === undefined ? {} : { profileId: view.snapshot.profileId }),

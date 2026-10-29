@@ -23,7 +23,6 @@ import {
   type PreviewAutomationHoverInput,
   type PreviewAutomationNavigateInput,
   type PreviewAutomationNetworkEntry,
-  type PreviewAutomationOpenInput,
   type PreviewAutomationPressInput,
   type PreviewAutomationRequest,
   type PreviewAutomationResizeInput,
@@ -82,7 +81,17 @@ import * as PreviewManager from "./Manager.ts";
 import * as ServerBrowserPage from "./ServerBrowserPage.ts";
 import * as PreviewBrowser from "./PreviewBrowser.ts";
 import * as PreviewBrowserHost from "./PreviewBrowserHost.ts";
-import { presentAsChrome, ServerBrowserContexts } from "./ServerBrowserContexts.ts";
+import { presentAsChrome } from "./ServerBrowserContexts.ts";
+import { BrowserProxyContexts as ServerBrowserContexts } from "./BrowserProxyContexts.ts";
+import { acquireBrowserProxyPage, closeProtectedBrowserPopup } from "./BrowserProxyPage.ts";
+import { browserProxyRequestReuse } from "@t3tools/contracts";
+import {
+  browserProxyOpenInput,
+  resolveBrowserProxyOpen,
+  selectBrowserProxyTab,
+  assertBrowserProxyTarget,
+} from "./browserProxyOpen.ts";
+import * as ServerSettings from "../serverSettings.ts";
 import { BrowserControlInterrupted, SessionControl } from "./SessionControl.ts";
 import { installPdfDocumentNavigation, isPdfAssetUrl } from "./PdfDocumentNavigation.ts";
 
@@ -295,6 +304,7 @@ interface ServerTab {
 
   readonly desktop: { readonly close: () => Promise<void> } | null;
   readonly profileId: string | undefined;
+  readonly proxyUrl: string | undefined;
   readonly openerTabId: string | undefined;
 
   readonly downloads: Array<ServerDownload>;
@@ -449,6 +459,7 @@ const CLIPBOARD_SCRIPT = `(() => {
 
 const make = Effect.gen(function* () {
   const config = yield* ServerConfig.ServerConfig;
+  const proxySettings = yield* ServerSettings.ServerSettingsService;
   const host = { platform: yield* HostProcess.Platform, arch: yield* HostProcess.Architecture };
   const manager = yield* PreviewManager.PreviewManager;
   const broker = yield* PreviewAutomationBroker.PreviewAutomationBroker;
@@ -728,16 +739,14 @@ const make = Effect.gen(function* () {
       desktop === null &&
       ((snapshot.automationOwner !== undefined && snapshot.profileId === undefined) ||
         snapshot.profileId === INCOGNITO_BROWSER_PROFILE_ID);
-    const context =
-      adopted?.page.context() ??
-      desktop?.page.context() ??
-      (await contexts.contextFor(
-        snapshot.profileId ?? "default",
-        isolatedContext ? tabKey(snapshot.threadId, snapshot.tabId) : undefined,
-      ));
-    if (adopted?.page.isClosed()) throw new Error("The popup closed before it opened.");
-    if (!desktop) await prepareContext(context);
-    const page = adopted?.page ?? desktop?.page ?? (await context.newPage());
+    const { context, page } = await acquireBrowserProxyPage({
+      contexts,
+      snapshot,
+      isolationKey: isolatedContext ? tabKey(snapshot.threadId, snapshot.tabId) : undefined,
+      ...(adopted === undefined ? {} : { adopted: adopted.page }),
+      ...(desktop === null ? {} : { desktop: desktop.page }),
+      prepare: prepareContext,
+    });
     const cdp = await context.newCDPSession(page);
     await installPdfDocumentNavigation(cdp);
     // The desktop's page is already a normal browser. A popup's first request
@@ -768,6 +777,7 @@ const make = Effect.gen(function* () {
       isolatedContext,
       desktop: desktop === null ? null : { close: desktop.close },
       profileId: snapshot.profileId,
+      proxyUrl: snapshot.proxyUrl,
       openerTabId: adopted?.openerTabId,
       downloads: [],
       fileChooser: null,
@@ -1183,6 +1193,7 @@ const make = Effect.gen(function* () {
   };
 
   const adoptPopup = async (opener: ServerTab, popup: Page) => {
+    if (await closeProtectedBrowserPopup(opener.proxyUrl, popup)) return;
     const agentId = opener.control.agentId;
     if (opener.closing || (agentId !== null && atTabLimit(agentId))) {
       await popup.close().catch(constVoid);
@@ -1198,6 +1209,7 @@ const make = Effect.gen(function* () {
         threadId: opener.threadId,
         ...(/^https?:/i.test(url) ? { url } : {}),
         runtime: "server",
+        ...(opener.proxyUrl === undefined ? {} : { proxyUrl: opener.proxyUrl }),
         ...(opener.profileId === undefined ? {} : { profileId: opener.profileId }),
         ...(opener.control.agentId === null
           ? {}
@@ -1377,6 +1389,7 @@ const make = Effect.gen(function* () {
       url: url === "about:blank" ? null : url,
       title: null,
       loading: tab.loading,
+      ...(tab.proxyUrl === undefined ? {} : { proxyUrl: tab.proxyUrl }),
       control: {
         owner: tabOwner(tab),
         ownedByCaller: tab.control.agentId === agentSessionId,
@@ -1392,6 +1405,7 @@ const make = Effect.gen(function* () {
         .filter((candidate) => candidate.threadId === tab.threadId)
         .map((candidate) => ({
           tabId: candidate.tabId,
+          ...(candidate.proxyUrl === undefined ? {} : { proxyUrl: candidate.proxyUrl }),
           url: candidate.page.url() === "about:blank" ? null : candidate.page.url(),
           ...(candidate.openerTabId === undefined ? {} : { openerTabId: candidate.openerTabId }),
           owner: tabOwner(candidate),
@@ -1427,6 +1441,7 @@ const make = Effect.gen(function* () {
     readiness: "load" | "domContentLoaded" | "none",
     timeout: number,
   ) => {
+    assertBrowserProxyTarget(tab.proxyUrl, url);
     const navigation = tab.page.goto(url, {
       timeout,
       waitUntil:
@@ -1730,9 +1745,11 @@ const make = Effect.gen(function* () {
           throw new BrowserControlInterrupted(
             "The agent session is missing. Reconnect the provider.",
           );
-        const open = input as PreviewAutomationOpenInput;
+        const open = browserProxyOpenInput(request);
         const url = open.url === undefined ? undefined : normalizePreviewUrl(open.url);
-        const reuse = open.reuseExistingTab ?? true;
+        const savedProxy = (await runPromise(proxySettings.getSettings)).browserProxy;
+        const defaultProxyUrl = savedProxy.enabled ? savedProxy.url : "";
+        const reuse = browserProxyRequestReuse(open);
         if (
           reuse &&
           !request.tabIdExplicit &&
@@ -1770,11 +1787,19 @@ const make = Effect.gen(function* () {
               : "The requested server preview tab does not exist.",
           );
         }
+        const { proxyUrl } = resolveBrowserProxyOpen(
+          open,
+          defaultProxyUrl,
+          request.tabIdExplicit && found ? (found.proxyUrl ?? "") : undefined,
+        );
         // Reusing another session's tab requires explicit tabId; reading it grants no implicit takeover.
-        const existing =
+        const existing = selectBrowserProxyTab(
           found && (request.tabIdExplicit || found.control.agentId === request.agentSessionId)
             ? found
-            : undefined;
+            : undefined,
+          proxyUrl,
+          request.tabIdExplicit === true,
+        );
         const navigationTimeout = Math.min(request.timeoutMs, NAVIGATION_TIMEOUT_MS);
         const profileId = existing ? undefined : resolveOpenProfile(open.profileId);
         if (!existing) {
@@ -1792,6 +1817,7 @@ const make = Effect.gen(function* () {
                 runtime: "server",
                 reveal: false,
                 automationOwner: request.agentSessionId,
+                ...(open.proxyUrl !== undefined || defaultProxyUrl ? { proxyUrl } : {}),
               }),
             ),
           ));
@@ -2214,6 +2240,7 @@ const make = Effect.gen(function* () {
       case "navigate":
         if (typeof message.url === "string") {
           const url = normalizePreviewUrl(message.url);
+          assertBrowserProxyTarget(tab.proxyUrl, url);
           tab.control.trackUntilHandoff(tab.page.goto(url, VIEWER_NAVIGATION_OPTIONS));
         }
         return;

@@ -25,9 +25,10 @@ export function alternatePreviewRuntime(
   environmentId: EnvironmentId,
   primaryEnvironmentId: EnvironmentId | null,
   serverBrowser: boolean,
-  snapshot: Pick<PreviewSessionSnapshot, "runtime"> | null | undefined,
+  snapshot: Pick<PreviewSessionSnapshot, "runtime" | "proxyUrl"> | null | undefined,
 ): PreviewRuntime | null {
-  if (!snapshot || !serverBrowser || !isPreviewSupportedInRuntime()) return null;
+  if (!snapshot || snapshot.proxyUrl || !serverBrowser || !isPreviewSupportedInRuntime())
+    return null;
   if (environmentId === primaryEnvironmentId) return null;
   return snapshot.runtime === "server" ? "desktop" : "server";
 }

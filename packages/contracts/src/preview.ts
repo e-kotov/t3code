@@ -148,7 +148,10 @@ export const PreviewStreamHostSetup = Schema.Struct({
 export type PreviewStreamHostSetup = typeof PreviewStreamHostSetup.Type;
 export const PREVIEW_STREAM_HOST_SETUP_CLOSE_CODE = 4503;
 
+import { BrowserProxyError, browserProxyTabFields } from "./browserProxy.ts";
+
 export const PreviewSessionSnapshot = Schema.Struct({
+  ...browserProxyTabFields,
   threadId: TrimmedNonEmptyString,
   tabId: PreviewTabId,
   navStatus: PreviewNavStatus,
@@ -170,6 +173,7 @@ export const PreviewSessionSnapshot = Schema.Struct({
 export type PreviewSessionSnapshot = typeof PreviewSessionSnapshot.Type;
 
 export const PreviewOpenInput = Schema.Struct({
+  ...browserProxyTabFields,
   threadId: ThreadId,
   url: Schema.optional(Url),
   viewport: Schema.optional(PreviewViewportSetting),
@@ -399,6 +403,7 @@ export class PreviewClearProfileError extends Schema.TaggedError<PreviewClearPro
 }
 
 export const PreviewError = Schema.Union([
+  BrowserProxyError,
   PreviewSessionLookupError,
   PreviewInvalidUrlError,
   PreviewControlRequiredError,

@@ -16,6 +16,8 @@ import {
 } from "./browserLinkTarget";
 import { BrowserSettingsReadError, openUrlInPreview } from "./openFileInPreview";
 
+import { reportBrowserProxyFailure } from "./browserProxyFailure";
+
 const NO_MODIFIER = { metaKey: false, ctrlKey: false } as const;
 
 /** Rejects on settings read failure without opening a browser, or if the system-browser fallback fails. */
@@ -52,6 +54,7 @@ export function useOpenLink(threadRef: ScopedThreadRef | null | undefined): (
       const failure = squashAtomCommandFailure(result);
       if (failure instanceof BrowserSettingsReadError) throw failure;
       console.error(result.cause);
+      if (reportBrowserProxyFailure(result.cause)) return;
     }
     const api = readLocalApi();
     if (!api) throw new Error("Link opening is unavailable.");

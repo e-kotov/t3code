@@ -1547,6 +1547,8 @@ function BrowserProfilesSetting({ disabled }: { readonly disabled: boolean }) {
   );
 }
 
+import { BrowserProxySetting } from "./BrowserProxySetting";
+
 export function BrowserSettingsPanel() {
   const desktopOnly = !isElectron;
   const desktopOnlyMessage = desktopOnly ? "Only available in the desktop app." : undefined;
@@ -1564,6 +1566,7 @@ export function BrowserSettingsPanel() {
         </SettingsUnavailableGroup>
         {/* Not desktop-only: web clients search from server-run browser tabs too. */}
         <BrowserSearchEngineSetting />
+        <BrowserProxySetting />
         <AdvancedSettings
           targetIds={[
             searchableSetting("browser-default-viewport").id,

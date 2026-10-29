@@ -216,6 +216,7 @@ import {
   nodeToPlainText,
 } from "./chat/MarkdownCodeBlock.logic";
 import { reportMarkdownActionFailure } from "./chat/markdownActionFailure";
+import { reportBrowserProxyFailure } from "../browser/browserProxyFailure";
 
 const isAssetNotFoundError = Schema.is(AssetWorkspaceAssetNotFoundError);
 
@@ -1204,6 +1205,7 @@ const CHAT_MARKDOWN_COMPONENTS = {
                 result.cause,
               );
               if (squashAtomCommandFailure(result) instanceof BrowserSettingsReadError) return;
+              if (reportBrowserProxyFailure(result.cause)) return;
               void readLocalApi()?.shell.openExternal(href);
             });
           }}

@@ -10,6 +10,8 @@ import { recordVisitForThread } from "~/browserHistoryStore";
 import { applyPreviewServerSnapshot } from "~/previewStateStore";
 import { useRightPanelStore } from "~/rightPanelStore";
 
+import { reportBrowserProxyFailure } from "~/browser/browserProxyFailure";
+
 const terminalLinkErrorContext = {
   environmentId: Schema.String,
   threadId: Schema.String,
@@ -77,7 +79,7 @@ export async function openTerminalLinkInPreview<E>(
         cause: result.cause,
       }),
     );
-    input.fallbackToBrowser();
+    if (!reportBrowserProxyFailure(result.cause)) input.fallbackToBrowser();
     return;
   }
   recordVisitForThread(input.threadRef, input.url);

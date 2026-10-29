@@ -268,6 +268,7 @@ export const make = Effect.gen(function* () {
         : {}),
       ...(desktopAppUpdate ? { desktopAppUpdate: true } : {}),
       serverBrowser: true,
+      browserProxy: true,
       peerLinks: true,
       mcpModeLimitHeader: true,
       linkFence: true,

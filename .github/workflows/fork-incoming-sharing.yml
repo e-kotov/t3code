@@ -97,6 +97,9 @@ jobs:
           fi
           cat "$RUNNER_TEMP/observe-regression.log"
           python3 -c 'import os, pathlib; assert "Project ID is required to send observability metrics" in (pathlib.Path(os.environ["RUNNER_TEMP"]) / "observe-regression.log").read_text()'
+      - name: Install Chromium for candidate checks
+        if: github.event_name != 'push'
+        run: node apps/web/node_modules/playwright/cli.js install --with-deps chromium
       - name: Check changed code for a candidate
         if: github.event_name != 'push'
         run: |

@@ -71,7 +71,10 @@ export const PreviewAutomationProfile = Schema.Struct({
 });
 export type PreviewAutomationProfile = typeof PreviewAutomationProfile.Type;
 
+import { browserProxyTabFields, BrowserProxyUrl } from "./browserProxy.ts";
+
 export const PreviewAutomationStatus = Schema.Struct({
+  ...browserProxyTabFields,
   available: Schema.Boolean,
   visible: Schema.Boolean,
   tabId: Schema.NullOr(PreviewTabId),
@@ -121,6 +124,7 @@ export const PreviewAutomationStatus = Schema.Struct({
         ownedByCaller: Schema.optional(Schema.Boolean),
         visible: Schema.optional(Schema.Boolean),
         profileId: Schema.optional(BrowserProfileId),
+        ...browserProxyTabFields,
       }),
     ),
   ),
@@ -137,6 +141,10 @@ export const PreviewAutomationDialogInput = Schema.Struct({
 export type PreviewAutomationDialogInput = typeof PreviewAutomationDialogInput.Type;
 
 export const PreviewAutomationOpenInput = Schema.Struct({
+  proxyUrl: Schema.optional(BrowserProxyUrl).annotate({
+    description:
+      "Proxy for this tab: HTTP(S) or SOCKS5 URL reachable from this environment. Empty string forces direct access; omit for the Browser setting. An explicit proxyUrl opens a new tab by default. Routing is fixed for a tab; use reuseExistingTab=false to change it. Proxy tabs have separate logins and run on the environment host.",
+  }),
   ...PreviewAutomationTabTargetFields,
   url: Schema.optional(BoundedUrl).annotate({
     description: `First page URL. ${URL_GUIDANCE} Omit to open a blank tab.`,

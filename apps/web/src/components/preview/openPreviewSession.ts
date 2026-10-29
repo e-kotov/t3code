@@ -25,6 +25,7 @@ interface OpenPreviewSessionInput<E> {
   viewport?: PreviewViewportSetting;
   profileId?: string;
   runtime?: PreviewRuntime;
+  proxyUrl?: string;
 }
 
 export async function openPreviewSession<E>(
@@ -45,6 +46,7 @@ export async function openPreviewSession<E>(
       ...(input.url === undefined ? {} : { url: input.url }),
       viewport: input.viewport ?? defaults.viewport,
       profileId: input.profileId ?? defaults.profileId,
+      ...(input.proxyUrl === undefined ? {} : { proxyUrl: input.proxyUrl }),
       ...(runtime === undefined || runtime === "desktop" ? {} : { runtime }),
     },
   });
