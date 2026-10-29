@@ -39,76 +39,75 @@ for (const { platform, editor, installPath, onPath } of [
   { platform: "win32", editor: "gram", installPath: "bin/gram.exe", onPath: true },
 ] as const) {
   for (const target of ["/workspace with spaces", "/workspace with spaces/file.R:12:4"]) {
-    it.effect.skipIf(windowsHost)(
-      `discovers and opens ${editor} on ${platform}: ${target}`,
-      () =>
-        Effect.gen(function* () {
-          const fs = yield* FileSystem.FileSystem;
-          const path = yield* Path.Path;
-          const home = yield* fs.makeTempDirectoryScoped({ prefix: "t3-fork-editors-" });
-          const executable = path.join(home, installPath);
-          yield* fs.makeDirectory(path.dirname(executable), { recursive: true });
-          yield* fs.writeFileString(executable, "#!/bin/sh\n");
-          yield* fs.chmod(executable, 0o755);
+    it.effect.skipIf(windowsHost)(`discovers and opens ${editor} on ${platform}: ${target}`, () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const home = yield* fs.makeTempDirectoryScoped({ prefix: "t3-fork-editors-" });
+        const executable = path.join(home, installPath);
+        yield* fs.makeDirectory(path.dirname(executable), { recursive: true });
+        yield* fs.writeFileString(executable, "#!/bin/sh\n");
+        yield* fs.chmod(executable, 0o755);
 
-          const spawned: ChildProcess.StandardCommand[] = [];
-          const spawner = Layer.succeed(
-            ChildProcessSpawner.ChildProcessSpawner,
-            ChildProcessSpawner.make((command) =>
-              Effect.sync(() => {
-                assert.ok(ChildProcess.isStandardCommand(command));
-                if (!ChildProcess.isStandardCommand(command)) throw new Error("Expected command");
-                spawned.push(command);
-                return ChildProcessSpawner.makeHandle({
-                  pid: ChildProcessSpawner.ProcessId(1),
-                  exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(0)),
-                  isRunning: Effect.succeed(true),
-                  kill: () => Effect.void,
-                  unref: Effect.succeed(Effect.void),
-                  stdin: Sink.drain,
-                  stdout: Stream.empty,
-                  stderr: Stream.empty,
-                  all: Stream.empty,
-                  getInputFd: () => Sink.drain,
-                  getOutputFd: () => Stream.empty,
-                });
-              }),
-            ),
-          );
+        const spawned: ChildProcess.StandardCommand[] = [];
+        const spawner = Layer.succeed(
+          ChildProcessSpawner.ChildProcessSpawner,
+          ChildProcessSpawner.make((command) =>
+            Effect.sync(() => {
+              assert.ok(ChildProcess.isStandardCommand(command));
+              if (!ChildProcess.isStandardCommand(command)) throw new Error("Expected command");
+              spawned.push(command);
+              return ChildProcessSpawner.makeHandle({
+                pid: ChildProcessSpawner.ProcessId(1),
+                exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(0)),
+                isRunning: Effect.succeed(true),
+                kill: () => Effect.void,
+                unref: Effect.succeed(Effect.void),
+                stdin: Sink.drain,
+                stdout: Stream.empty,
+                stderr: Stream.empty,
+                all: Stream.empty,
+                getInputFd: () => Sink.drain,
+                getOutputFd: () => Stream.empty,
+              });
+            }),
+          ),
+        );
 
-          yield* Effect.gen(function* () {
-            const launcher = yield* ExternalLauncher.ExternalLauncher;
-            assert.include(yield* launcher.resolveAvailableEditors(), editor);
-            yield* launcher.launchEditor({ editor, cwd: target });
-          }).pipe(
-            Effect.provide(
-              Layer.mergeAll(
-                ExternalLauncher.layer.pipe(Layer.provide(Layer.merge(NodeServices.layer, spawner))),
-                Layer.succeed(HostProcess.Platform, platform),
-                Layer.succeed(SpawnExecutableResolution, () => executable),
-                ConfigProvider.layer(
-                  ConfigProvider.fromEnv({
-                    env: {
-                      HOME: home,
-                      LOCALAPPDATA: home,
-                      PATH: path.join(home, onPath ? "bin" : "empty"),
-                      PATHEXT: ".EXE;.CMD",
-                    },
-                  }),
-                ),
+        yield* Effect.gen(function* () {
+          const launcher = yield* ExternalLauncher.ExternalLauncher;
+          assert.include(yield* launcher.resolveAvailableEditors(), editor);
+          yield* launcher.launchEditor({ editor, cwd: target });
+        }).pipe(
+          Effect.provide(
+            Layer.mergeAll(
+              ExternalLauncher.layer.pipe(Layer.provide(Layer.merge(NodeServices.layer, spawner))),
+              Layer.succeed(HostProcess.Platform, platform),
+              Layer.succeed(HostProcess.Environment, { DISPLAY: ":0" }),
+              Layer.succeed(SpawnExecutableResolution, () => executable),
+              ConfigProvider.layer(
+                ConfigProvider.fromEnv({
+                  env: {
+                    HOME: home,
+                    LOCALAPPDATA: home,
+                    PATH: path.join(home, onPath ? "bin" : "empty"),
+                    PATHEXT: ".EXE;.CMD",
+                  },
+                }),
               ),
             ),
-          );
+          ),
+        );
 
-          assert.lengthOf(spawned, 1);
-          // POSIX spawns preserve the PATH command; Windows resolves its extension first.
-          assert.equal(spawned[0]?.command, platform === "linux" && onPath ? editor : executable);
-          assert.deepEqual(
-            spawned[0]?.args,
-            editor === "positron" && target.endsWith(":12:4") ? ["--goto", target] : [target],
-          );
-          assert.equal(spawned[0]?.options.detached, true);
-        }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+        assert.lengthOf(spawned, 1);
+        // POSIX spawns preserve the PATH command; Windows resolves its extension first.
+        assert.equal(spawned[0]?.command, platform === "linux" && onPath ? editor : executable);
+        assert.deepEqual(
+          spawned[0]?.args,
+          editor === "positron" && target.endsWith(":12:4") ? ["--goto", target] : [target],
+        );
+        assert.equal(spawned[0]?.options.detached, true);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
     );
   }
 }

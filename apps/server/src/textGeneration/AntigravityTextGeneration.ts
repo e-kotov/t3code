@@ -31,7 +31,7 @@ type AntigravityTextRuntime = Pick<
   | "getConfigOptions"
   | "getEvents"
   | "setModel"
-  | "setSessionModel"
+  | "setConfigOption"
   | "prompt"
   | "cancel"
   | "handleSessionUpdate"
@@ -212,7 +212,6 @@ export const makeAntigravityTextGeneration = Effect.fn("makeAntigravityTextGener
             yield* runtime.setMode("default");
             yield* applyAntigravityAcpModelSelection({
               runtime,
-              models: started.sessionSetupResult.models,
               model: input.modelSelection.model,
               defaultModel: yield* options.defaultModel ?? Effect.undefined,
               mapError: (cause) =>

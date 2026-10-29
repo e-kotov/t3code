@@ -17,7 +17,6 @@ import {
   applyAntigravityAcpModelSelection,
   buildAntigravityPrompt,
 } from "./AntigravityAcpSupport.ts";
-import { antigravity143Session } from "./antigravity143.fixture.ts";
 
 const modelConfig = {
   id: "model",
@@ -35,20 +34,23 @@ function makeModelRuntime(
   failure?: EffectAcpErrors.AcpError,
 ) {
   const selections: string[] = [];
-  const sessionModelSelections: string[] = [];
   const setModel = Effect.fn("AntigravityAcpSupportTest.setModel")(function* (model: string) {
     if (failure) return yield* failure;
     selections.push(model);
   });
-  const setSessionModel = (model: string) =>
-    Effect.sync(() => {
-      sessionModelSelections.push(model);
-      return {};
-    });
+  const setConfigOption = Effect.fn("AntigravityAcpSupportTest.setConfigOption")(function* (
+    configId: string,
+    value: string | boolean,
+    options?: { readonly allowUnlistedValue?: boolean },
+  ) {
+    selections.push(
+      `${configId}=${String(value)}${options?.allowUnlistedValue === true ? " (unlisted)" : ""}`,
+    );
+    return { configOptions };
+  });
   return {
-    runtime: { getConfigOptions: Effect.succeed(configOptions), setModel, setSessionModel },
+    runtime: { getConfigOptions: Effect.succeed(configOptions), setModel, setConfigOption },
     selections,
-    sessionModelSelections,
   };
 }
 
@@ -146,28 +148,27 @@ describe("applyAntigravityAcpModelSelection", () => {
     }),
   );
 
-  it.effect("selects concrete models when ACP 1.4 groups thinking levels by family", () =>
+  it.effect("passes a model ID saved on runtime 1.3 to the agent as its 1.4 family", () =>
     Effect.gen(function* () {
-      const { runtime, selections, sessionModelSelections } = makeModelRuntime(
-        antigravity143Session.configOptions,
-      );
-      const select = (model: string) =>
-        applyAntigravityAcpModelSelection({
-          runtime,
-          models: antigravity143Session.models,
-          model,
-          defaultModel: "gemini-3.8-flash-high",
-          mapError: (cause) => cause,
-        });
+      // The cold-resume model has no thinking option, so the level is unknown locally.
+      const { runtime, selections } = makeModelRuntime([
+        {
+          ...modelConfig,
+          currentValue: "gpt-oss-120b-medium",
+          options: [
+            { value: "gemini-3.8-flash", name: "Gemini 3.8 Flash" },
+            { value: "gpt-oss-120b-medium", name: "GPT-OSS 120B (Medium)" },
+          ],
+        },
+      ]);
+      const model = yield* applyAntigravityAcpModelSelection({
+        runtime,
+        model: "gemini-3.8-flash-low",
+        mapError: (cause) => cause,
+      });
 
-      expect(yield* select("claude-sonnet-5-5-low")).toBe("claude-sonnet-5-5-low");
-      expect(yield* select(ANTIGRAVITY_DEFAULT_MODEL)).toBe("gemini-3.8-flash-high");
-      expect(sessionModelSelections).toEqual(["claude-sonnet-5-5-low", "gemini-3.8-flash-high"]);
-      expect(selections).toEqual([]);
-
-      const error = yield* select("claude-opus-5-5-low").pipe(Effect.flip);
-      expect(error).toMatchObject({ _tag: "AcpRequestError", code: -32602 });
-      expect(sessionModelSelections).toHaveLength(2);
+      expect(model).toBe("gemini-3.8-flash");
+      expect(selections).toEqual(["model=gemini-3.8-flash-low (unlisted)"]);
     }),
   );
 });

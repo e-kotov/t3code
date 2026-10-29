@@ -28,7 +28,6 @@ import {
   buildAntigravityModelsFromSession,
   makeAntigravityProvider,
 } from "./AntigravityProvider.ts";
-import { antigravity143Session } from "./acp/antigravity143.fixture.ts";
 
 const decodeSettings = Schema.decodeSync(AntigravitySettings);
 const instanceId = ProviderInstanceId.make("antigravity-test");
@@ -215,6 +214,69 @@ describe("Antigravity model catalog", () => {
       "gemini-pro-agent",
     );
   });
+
+  it("labels models that share a display name with their IDs", () => {
+    const models = buildAntigravityModelsFromSession({
+      configOptions: [
+        {
+          ...modelConfig,
+          currentValue: "gemini-3.8-flash",
+          options: [
+            { value: "gemini-3.8-flash", name: "Gemini 3.8 Flash" },
+            { value: "gemini-3.8-flash-preview", name: "Gemini 3.8 Flash" },
+          ],
+        },
+      ],
+    });
+    expect(models.map((model) => model.name)).toEqual([
+      "Gemini 3.8 Flash",
+      "Gemini 3.8 Flash (gemini-3.8-flash-preview)",
+    ]);
+  });
+
+  it("offers each model the thinking levels it reported when selected", () => {
+    const thinking = (currentValue: string) =>
+      ({
+        id: "thinking_level",
+        name: "Thinking Level",
+        category: "thought_level",
+        type: "select",
+        currentValue,
+        options: [
+          { value: "low", name: "Low" },
+          { value: "high", name: "High" },
+        ],
+      }) satisfies EffectAcpSchema.SessionConfigOption;
+    const models = buildAntigravityModelsFromSession(
+      {
+        configOptions: [
+          {
+            ...modelConfig,
+            currentValue: "gemini",
+            options: [
+              { value: "gemini", name: "Gemini" },
+              { value: "claude", name: "Claude" },
+              { value: "plain", name: "Plain" },
+              { value: "unseen", name: "Unseen" },
+            ],
+          },
+          thinking("high"),
+        ],
+      },
+      new Map([
+        ["claude", thinking("low")],
+        ["plain", null],
+      ]),
+    );
+    const thinkingOf = (slug: string) =>
+      models.find((model) => model.slug === slug)?.capabilities?.optionDescriptors?.[0];
+
+    expect(thinkingOf("gemini")).toMatchObject({ id: "thinking_level", currentValue: "high" });
+    expect(thinkingOf("claude")).toMatchObject({ id: "thinking_level", currentValue: "low" });
+    expect(thinkingOf("plain")).toBeUndefined();
+    expect(thinkingOf("unseen")).toMatchObject({ id: "thinking_level" });
+    expect(thinkingOf("unseen")).not.toHaveProperty("currentValue");
+  });
 });
 
 it.layer(layerTest)("Antigravity provider snapshots", (it) => {
@@ -355,81 +417,6 @@ it.layer(layerTest)("Antigravity provider snapshots", (it) => {
         });
         yield* harness.provider.onConfigOptionsUpdated([]);
         expect((yield* harness.provider.snapshot.getSnapshot).models).toEqual([]);
-      }),
-    ),
-  );
-
-  it.effect("lists ACP 1.4 concrete models through grouped thinking-level updates", () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const harness = yield* makeHarness();
-        yield* harness.initialize;
-        yield* harness.provider.onSessionStarted({
-          ...started,
-          sessionSetupResult: antigravity143Session,
-        });
-        const snapshot = yield* harness.provider.snapshot.getSnapshot;
-        expect(snapshot.models.map((model) => model.slug)).toEqual(
-          antigravity143Session.models.availableModels.map((model) => model.modelId),
-        );
-        expect(snapshot.models.find((model) => model.isDefault)?.slug).toBe(
-          "gemini-3.8-flash-high",
-        );
-
-        yield* harness.provider.onConfigOptionsUpdated(
-          antigravity143Session.configOptions.map((option) =>
-            option.id === "model"
-              ? { ...option, currentValue: "claude-sonnet-5-5" }
-              : { ...option, currentValue: "low" },
-          ),
-        );
-        expect((yield* harness.provider.snapshot.getSnapshot).models).toEqual(snapshot.models);
-      }),
-    ),
-  );
-
-  it.effect("defaults to the concrete model a grouped session selected", () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const harness = yield* makeHarness();
-        yield* harness.initialize;
-        yield* harness.provider.onSessionStarted({
-          ...started,
-          sessionSetupResult: antigravity143Session,
-        });
-        yield* harness.provider.onModelSelected("claude-sonnet-5-5-low");
-        yield* harness.provider.onConfigOptionsUpdated(
-          antigravity143Session.configOptions.map((option) =>
-            option.id === "model"
-              ? { ...option, currentValue: "claude-sonnet-5-5" }
-              : { ...option, currentValue: "low" },
-          ),
-        );
-        const models = (yield* harness.provider.snapshot.getSnapshot).models;
-        expect(models.filter((model) => model.isDefault).map((model) => model.slug)).toEqual([
-          "claude-sonnet-5-5-low",
-        ]);
-      }),
-    ),
-  );
-
-  it.effect("lists models added by config updates to ungrouped sessions", () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const harness = yield* makeHarness();
-        yield* harness.initialize;
-        yield* harness.provider.onSessionStarted(started);
-
-        const configOptions = [
-          {
-            ...modelConfig,
-            options: [...modelOptions, { value: "gemini-4-argon-high", name: "Gemini 4 Argon" }],
-          },
-        ];
-        yield* harness.provider.onConfigOptionsUpdated(configOptions);
-        expect((yield* harness.provider.snapshot.getSnapshot).models).toEqual(
-          buildAntigravityModelsFromSession({ configOptions }),
-        );
       }),
     ),
   );

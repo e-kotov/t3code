@@ -225,7 +225,7 @@ jobs:
               echo "Claude asked for a decision; nothing is pushed or promoted:"
               echo
               cat .claude-needs-decision.md
-            } >> "$GITHUB_STEP_SUMMARY"
+            } | tee -a "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
           read -r -a unresolved_files < "$RUNNER_TEMP/unresolved"
@@ -244,6 +244,15 @@ jobs:
           Claude-Follow-Up: $FOLLOW_UP")
           git branch -f resolved "$merged"
           git bundle create "$RUNNER_TEMP/resolved.bundle" refs/remotes/origin/main..resolved
+      - name: Save requested decision
+        if: always() && steps.prepare.outputs.branch != '' && hashFiles('.claude-needs-decision.md') != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: claude-decision
+          path: .claude-needs-decision.md
+          include-hidden-files: true
+          retention-days: 7
+
       - if: steps.prepare.outputs.branch != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:

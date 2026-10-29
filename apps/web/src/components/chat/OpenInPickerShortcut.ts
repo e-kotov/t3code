@@ -47,11 +47,16 @@ export function useOpenFavoriteEditorShortcut({
 }) {
   const { preferredEditor, open, remote } = useConfiguredEditors(environmentId, availableEditors);
 
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- subscribes a window keydown listener for the open-in-editor shortcut while enabled locally
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- subscribes a window keydown listener for the open-in-editor shortcut while enabled
   useEffect(() => {
-    if (!enabled || remote.mode !== "local-exec") return;
+    if (!enabled || remote.mode === "remote-unavailable") return;
     const handler = (event: globalThis.KeyboardEvent) => {
-      if (event.defaultPrevented || !isOpenFavoriteEditorShortcut(event, keybindings)) return;
+      if (
+        event.repeat ||
+        event.defaultPrevented ||
+        !isOpenFavoriteEditorShortcut(event, keybindings)
+      )
+        return;
       if (!openInCwd || !preferredEditor) return;
 
       event.preventDefault();

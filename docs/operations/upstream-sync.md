@@ -58,8 +58,10 @@ Platform key `ANTHROPIC_API_KEY`, in a workspace with a monthly spend limit:
    it as `sync/claude-<UTC time>` from a job that runs no repository code, and dispatches this
    workflow with `promote_only`. The usual checks decide promotion; the branch is deleted after
    it. If they fail after the follow-up is used, or Claude writes `.claude-needs-decision.md`, the
-   run fails (GitHub emails it) and the branch stays for Egor. While a `sync/claude-*` branch
-   exists, no new resolution starts; delete it to re-enable automatic resolution.
+   run fails (GitHub emails it) and the branch stays for Egor. Decision requests also appear in
+   the job log and the downloadable `claude-decision` artifact, so `gh run view --log-failed` or
+   `gh run download -n claude-decision` can retrieve them without a browser login. While a
+   `sync/claude-*` branch exists, no new resolution starts; delete it to re-enable automatic resolution.
 
 Each Claude run has a spend cap (`--max-budget-usd`: fix 10, review 4, follow-up 8 US dollars), so
 one sync costs at most about 22 dollars of Platform credits and usually far less. The job that runs

@@ -11,6 +11,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Exit from "effect/Exit";
+import * as Semaphore from "effect/Semaphore";
 import * as Scope from "effect/Scope";
 import * as EffectAcpErrors from "effect-acp/errors";
 
@@ -24,18 +25,17 @@ import {
   buildAntigravityPrompt,
   type AntigravityAcpRuntimeInput,
 } from "../../provider/acp/AntigravityAcpSupport.ts";
-import {
-  readAntigravityClientTextFile,
-  writeAntigravityClientTextFile,
-} from "../../provider/acp/AntigravityClientFiles.ts";
+import { readAntigravityClientTextFile } from "../../provider/acp/AntigravityClientFiles.ts";
 import {
   antigravityApprovalOptions,
   antigravitySubagentOutput,
   classifyAntigravitySubagentToolCall,
   extractAntigravityUserInputQuestion,
+  makeAntigravityReadRepair,
   makeAntigravityUserInputResponse,
   normalizeAntigravityToolCall,
 } from "../../provider/acp/AntigravityProtocol.ts";
+import { isAntigravitySignInRequiredError } from "../../provider/antigravityAuthSupport.ts";
 import {
   AcpProviderCapabilitiesV2,
   makeAcpAdapterV2,
@@ -79,12 +79,11 @@ export interface AntigravityAdapterV2Options {
     cwd: string,
   ) => Effect.Effect<void>;
   readonly onSessionEvent?: AcpAdapterV2Flavor["onSessionEvent"];
-  readonly onModelSelected?: (modelId: string) => Effect.Effect<void>;
   readonly nativeLogging?: Parameters<typeof makeAcpAdapterV2>[0]["nativeLogging"];
   readonly continuationRequests?: Parameters<typeof makeAcpAdapterV2>[0]["continuationRequests"];
 }
 
-/** ACP 1.1.1 reports `start_subagent` tools without child session ids. */
+/** Native subagent tools report no child session ids. */
 const extractAntigravitySubagentUpdate: NonNullable<AcpAdapterV2Flavor["extractSubagentUpdate"]> = (
   toolCall,
 ) => {
@@ -128,13 +127,47 @@ export function makeAntigravityAcpAdapterFlavor(
           Scope.close(scope, Exit.void),
           options.makeRuntime({
             ...input,
-            clientFileSystem: true,
+            clientFileReads: true,
             additionalDirectories: [options.host.paths.attachmentsDir],
           }),
         )
         .pipe(Effect.provideService(Scope.Scope, scope));
+      // Repair keeps state across updates, so each runtime must have one session-update handler.
+      const reads = makeAntigravityReadRepair();
+      // Served reads are reported from the read handler, so they take turns with agent updates.
+      const updates = yield* Semaphore.make(1);
+      let projectUpdate: Parameters<typeof runtime.handleSessionUpdate>[0] | undefined;
       return {
         ...runtime,
+        handleReadTextFile: (handler) =>
+          runtime.handleReadTextFile((request, context) =>
+            handler(request, context).pipe(
+              Effect.onExit((exit) => {
+                const served = reads.attempted(request.path, Exit.isSuccess(exit));
+                if (served === undefined || projectUpdate === undefined) return Effect.void;
+                return updates
+                  .withPermit(
+                    projectUpdate({
+                      sessionId: served.sessionId,
+                      update: {
+                        sessionUpdate: "tool_call_update",
+                        toolCallId: served.toolCallId,
+                        status: "completed",
+                      },
+                    }),
+                  )
+                  .pipe(Effect.ignore);
+              }),
+            ),
+          ),
+        prompt: (payload, promptOptions) =>
+          Effect.sync(reads.reset).pipe(Effect.andThen(runtime.prompt(payload, promptOptions))),
+        handleSessionUpdate: (handler) => {
+          projectUpdate = handler;
+          return runtime.handleSessionUpdate((notification) =>
+            updates.withPermit(handler(reads.repair(notification))),
+          );
+        },
         start: () =>
           runtime
             .start()
@@ -143,7 +176,7 @@ export function makeAntigravityAcpAdapterFlavor(
                 (started) => options.onSessionStarted?.(started, input.cwd) ?? Effect.void,
               ),
             ),
-      };
+      } satisfies typeof runtime;
     },
     Effect.provideService(Crypto.Crypto, options.crypto),
     Effect.mapError((cause): EffectAcpErrors.AcpError =>
@@ -173,34 +206,21 @@ export function makeAntigravityAcpAdapterFlavor(
     ...(options.onSessionEvent === undefined ? {} : { onSessionEvent: options.onSessionEvent }),
     applyModelSelection: Effect.fn("AntigravityAdapterV2.applyModelSelection")(function* ({
       runtime,
-      startResult,
       modelSelection,
     }) {
       const defaultModel = yield* options.defaultModel;
-      const selected = yield* applyAntigravityAcpModelSelection({
+      return yield* applyAntigravityAcpModelSelection({
         runtime,
-        models: startResult.sessionSetupResult.models,
         model:
           modelSelection.model === ANTIGRAVITY_DEFAULT_MODEL ? undefined : modelSelection.model,
         defaultModel,
         mapError: (cause) => cause,
       });
-      if (selected !== undefined && options.onModelSelected) {
-        yield* options.onModelSelected(selected);
-      }
-      return selected;
     }),
     sessionModeForPolicy: (policy) => antigravityPermissionMode(policy.runtimeMode),
     clientFileSystem: {
       readTextFile: (request, cwd) =>
         readAntigravityClientTextFile({
-          fileSystem: options.fileSystem,
-          path: options.path,
-          allowedRoots: antigravityClientFileRoots(cwd),
-          request,
-        }),
-      writeTextFile: (request, cwd) =>
-        writeAntigravityClientTextFile({
           fileSystem: options.fileSystem,
           path: options.path,
           allowedRoots: antigravityClientFileRoots(cwd),
@@ -220,6 +240,7 @@ export function makeAntigravityAcpAdapterFlavor(
     extractSubagentUpdate: extractAntigravitySubagentUpdate,
     supportsImagePrompts: true,
     supportsCompaction: true,
+    requiresSignIn: isAntigravitySignInRequiredError,
   };
 }
 

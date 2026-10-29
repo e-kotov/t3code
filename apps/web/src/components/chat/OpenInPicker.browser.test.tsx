@@ -76,6 +76,16 @@ const selected = EnvironmentId.make("selected");
 const editors: readonly EditorId[] = ["vscode"];
 
 async function setup() {
+  await using stack = new AsyncDisposableStack();
+  stack.use(fakeTimers());
+  // Announcements outlive the rendered tree. Drain them before restoring real timers
+  // so a remote-editor success cannot speak during the next test's failed launch.
+  stack.defer(async () => {
+    await act(async () => vi.runAllTimersAsync());
+    for (const region of document.querySelectorAll('body > [aria-live="polite"]')) {
+      region.textContent = "";
+    }
+  });
   state.allowed.clear();
   state.remote = { mode: "local-exec" };
   state.clientEditors = editors;
@@ -86,7 +96,6 @@ async function setup() {
   state.listeners.clear();
   window.localStorage.clear();
 
-  await using stack = new AsyncDisposableStack();
   const _platform = vi.spyOn(navigator, "platform", "get").mockReturnValue("Linux");
   stack.use(_platform);
   const _storage = { [Symbol.dispose]: () => window.localStorage.clear() };
@@ -189,16 +198,28 @@ describe("host editor access", () => {
   });
 });
 
+describe("remote editor links", () => {
+  it("opens the link from the fallback when the picker is not mounted", async () => {
+    await using fixture = await setup();
+    const { screen, pressOpenFavorite, FavoriteEditorFallback } = fixture;
+    state.remote = { mode: "remote-links", host: { kind: "ssh-alias", host: "sol" } };
+    await act(async () => screen.rerender(<FavoriteEditorFallback />));
+
+    expect((await pressOpenFavorite()).defaultPrevented).toBe(true);
+    expect(state.openUrl).toHaveBeenCalledWith(expect.stringContaining("ssh-remote+sol"));
+    expect(state.run).not.toHaveBeenCalled();
+  });
+});
+
 describe("open in editor announcement", () => {
   it("speaks only after the shortcut opened the editor, from the picker or the fallback", async () => {
     await using fixture = await setup();
     const { screen, renderPicker, pressOpenFavorite, FavoriteEditorFallback } = fixture;
     state.allowed.add(selected);
     await renderPicker();
-    using _timers = fakeTimers();
     const regions = () => [...document.querySelectorAll('body > [aria-live="polite"]')];
     const spoken = async () => {
-      await act(async () => vi.runAllTimers());
+      await act(async () => vi.runAllTimersAsync());
       return regions()
         .map((region) => region.textContent)
         .join("");

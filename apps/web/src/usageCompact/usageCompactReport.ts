@@ -90,3 +90,23 @@ export function compactUsageReport(presentations: LimitPresentations) {
     authNotices: [...authNotices],
   };
 }
+
+export function disconnectedEnvironmentLabels(
+  presentations: Iterable<{
+    readonly entry: { readonly target: { readonly label: string } };
+    readonly connection: { readonly phase: string };
+  }>,
+): string[] {
+  const disconnected = [...presentations].filter(
+    ({ connection }) => connection.phase !== "connected",
+  );
+  const unnamedCount = disconnected.filter(({ entry }) => !entry.target.label.trim()).length;
+  let unnamedIndex = 0;
+  return disconnected
+    .map(
+      ({ entry }) =>
+        entry.target.label.trim() ||
+        (unnamedCount > 1 ? `Unnamed environment ${++unnamedIndex}` : "An unnamed environment"),
+    )
+    .toSorted((a, b) => a.localeCompare(b));
+}
