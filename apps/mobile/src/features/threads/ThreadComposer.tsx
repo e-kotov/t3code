@@ -1,3 +1,4 @@
+import { useForkShareSubmissionLocked } from "../sharing/forkShareSubmissionLock";
 import { useSidebarWorkspaceTabs } from "../workspace/useSystemWorkspaceTabBar";
 import { Button } from "../../components/ui/Button";
 import * as Dialog from "../../components/ui/Dialog";
@@ -563,8 +564,9 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
     onChangeDraftMessage: (text) => setComposerDraftText(composerDraftKey, text),
     onChangeSelection: composerMenu.onSelectionChange,
   });
+  const forkShareLocked = useForkShareSubmissionLocked(composerDraftKey);
   const isSubmissionLocked =
-    props.interactionLocked === true || queuedEdit?.saving === true || voiceInput.blocksSubmission;
+    forkShareLocked || props.interactionLocked === true || queuedEdit?.saving === true || voiceInput.blocksSubmission;
   const voicePresentation = resolveVoiceComposerPresentation(
     voiceInput.state,
     voiceInput.elapsedSeconds,

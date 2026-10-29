@@ -1,3 +1,4 @@
+import { isForkShareSubmissionLocked } from "../features/sharing/forkShareSubmissionLock";
 import { useComposerAttachmentActions } from "./use-composer-attachment-actions";
 import * as Dialog from "../components/ui/Dialog";
 import { AuthOrchestrationOperateScope } from "@t3tools/contracts";
@@ -514,7 +515,7 @@ export function useThreadComposerState() {
 
     const threadKey = scopedThreadKey(selectedThreadShell.environmentId, selectedThreadShell.id);
     const draft = getComposerDraftSnapshot(threadKey);
-    if (appAtomRegistry.get(composerContextImportsAtom)[threadKey]) return null;
+    if (appAtomRegistry.get(composerContextImportsAtom)[threadKey] || isForkShareSubmissionLocked(threadKey)) return null;
     const thread = selectedThreadShell;
     const text = draft.text.trim();
     const attachments = draft.attachments;
@@ -611,7 +612,7 @@ export function useThreadComposerState() {
       if (!response) return null;
       // A context paste still landing, or any draft or settings change while approvals were
       // declined, means this snapshot is no longer what the user sent.
-      if (appAtomRegistry.get(composerContextImportsAtom)[threadKey]) return null;
+      if (appAtomRegistry.get(composerContextImportsAtom)[threadKey] || isForkShareSubmissionLocked(threadKey)) return null;
       const current = getComposerDraftSnapshot(threadKey);
       if (
         current.text !== draft.text ||

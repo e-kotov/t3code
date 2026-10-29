@@ -4,6 +4,9 @@ export function sameForkShareDestination(
   left: IncomingShareDestination,
   right: IncomingShareDestination,
 ): boolean {
-  return left.environmentId === right.environmentId &&
-    left.projectId === right.projectId && left.threadId === right.threadId;
+  return (
+    left.environmentId === right.environmentId &&
+    left.projectId === right.projectId &&
+    left.threadId === right.threadId
+  );
 }

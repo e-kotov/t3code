@@ -28,7 +28,10 @@ import { coalescedRun } from "../../lib/coalescedRun";
 import { rootNavigationRef } from "../../lib/rootNavigation";
 import { selectWorkspaceDetail } from "../workspace/workspace-detail-selection";
 import { isDraftThreadRoute } from "../threads/thread-route-state";
-import { makeForkIncomingShareImports as makeIncomingShareImports, presentForkShareDestinations } from "./forkShareDestinations";
+import {
+  makeForkIncomingShareImports as makeIncomingShareImports,
+  presentForkShareDestinations,
+} from "./forkShareDestinations";
 import { liveNewTaskFlowKeys } from "../threads/new-task-flow-state";
 import { appAtomRegistry } from "../../state/atom-registry";
 import { serverEnvironment } from "../../state/server";

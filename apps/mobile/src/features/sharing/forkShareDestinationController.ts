@@ -1,4 +1,8 @@
-import { makeIncomingShareImports, type ShareImportDeps, type ShareImportTarget } from "../threads/incomingShareImport";
+import {
+  makeIncomingShareImports,
+  type ShareImportDeps,
+  type ShareImportTarget,
+} from "../threads/incomingShareImport";
 import type { IncomingShareDestination, IncomingShareDraft } from "./incoming-share-model";
 import { sameForkShareDestination } from "./forkShareDestination";
 
@@ -6,6 +10,7 @@ export interface ForkShareThread extends IncomingShareDestination {
   readonly threadId: string;
   readonly title: string;
   readonly projectName: string;
+  readonly environmentName: string;
   readonly updatedAt: string;
 }
 
@@ -20,9 +25,13 @@ export interface ForkShareDestinationSnapshot {
 
 export function filterForkShareThreads(threads: readonly ForkShareThread[], query: string) {
   const words = query.toLocaleLowerCase().trim().split(/\s+/);
-  return threads.filter((thread) => words.every((word) =>
-    `${thread.title} ${thread.projectName}`.toLocaleLowerCase().includes(word),
-  )).toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  return threads
+    .filter((thread) =>
+      words.every((word) =>
+        `${thread.title} ${thread.projectName}`.toLocaleLowerCase().includes(word),
+      ),
+    )
+    .toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }
 
 export function makeForkShareDestinationController(options: {
@@ -38,7 +47,9 @@ export function makeForkShareDestinationController(options: {
   let target: ShareImportTarget | null = null;
   const handedOff = new Set<string>();
   const listeners = new Set<() => void>();
-  const notify = () => { for (const listener of listeners) listener(); };
+  const notify = () => {
+    for (const listener of listeners) listener();
+  };
   const manager = makeIncomingShareImports({
     ...options.imports,
     mergeIntoDraft: (key, content) => {
@@ -48,7 +59,12 @@ export function makeForkShareDestinationController(options: {
     },
     onImportFailure: (_target, error) => {
       if (snapshot) {
-        snapshot = { ...snapshot, busy: false, visible: true, error: error instanceof Error ? error.message : "The shared content could not be saved." };
+        snapshot = {
+          ...snapshot,
+          busy: false,
+          visible: true,
+          error: error instanceof Error ? error.message : "The shared content could not be saved.",
+        };
         notify();
       }
     },
@@ -75,8 +91,49 @@ export function makeForkShareDestinationController(options: {
       return;
     }
     target = null;
-    snapshot = { share, current: options.currentThread(), busy: false, error: null, retryAvailable: false, visible: true };
+    snapshot = {
+      share,
+      current: options.currentThread(),
+      busy: false,
+      error: null,
+      retryAvailable: false,
+      visible: true,
+    };
     notify();
+  }
+
+  function recovery() {
+    const destination = target?.destination ?? snapshot?.share.destination;
+    const merged = !!(snapshot && destination?.threadId && options.imports.readDraft(options.draftKey(destination)).importedShareIds?.includes(snapshot.share.id));
+    return { destination, merged };
+  }
+
+  async function resolvePending(keep: boolean) {
+    if (!snapshot || snapshot.busy) return;
+    const { destination, merged } = recovery();
+    if (keep !== merged) return;
+    const share = snapshot.share;
+    snapshot = { ...snapshot, busy: true, error: null };
+    notify();
+    try {
+      if (keep && destination) {
+        await options.imports.mergeIntoDraft(options.draftKey(destination), {
+          text: "", attachments: [], sourceShareId: share.id,
+        });
+      } else if (destination) {
+        await options.imports.release(share.id, destination);
+      }
+      await options.imports.consume(share.id);
+      options.imports.releaseUnusedAttachments(share.attachments);
+      snapshot = null;
+      target = null;
+      await manager.prune(new Set());
+      notify();
+      present(drafts);
+    } catch (error) {
+      snapshot = { ...snapshot!, busy: false, visible: true, error: error instanceof Error ? error.message : "The shared content could not be saved." };
+      notify();
+    }
   }
 
   async function finishAttempt() {
@@ -94,8 +151,37 @@ export function makeForkShareDestinationController(options: {
 
   return {
     present,
+    recovery,
+    keepDraft: () => resolvePending(true),
+    discard: () => resolvePending(false),
+    async changeDestination() {
+      if (!snapshot || snapshot.busy) return;
+      const {destination, merged} = recovery();
+      if (!destination || merged) return;
+      snapshot = {...snapshot, busy: true};
+      notify();
+      try {
+        await options.imports.release(snapshot.share.id, destination);
+        target = null;
+        snapshot = {...snapshot!, busy: false, error: null, retryAvailable: false};
+      } catch (error) {
+        snapshot = {...snapshot!, busy: false, error: error instanceof Error ? error.message : "Could not change destination."};
+      }
+      notify();
+    },
+    reopen() {
+      if (!snapshot) return;
+      snapshot = {...snapshot, visible: true};
+      notify();
+    },
     getSnapshot: () => snapshot,
-    subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
+    getTarget: () => target,
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
     close(shareId: string) {
       if (!snapshot || snapshot.share.id !== shareId) return;
       if (snapshot.busy) {
@@ -103,35 +189,46 @@ export function makeForkShareDestinationController(options: {
         notify();
         return;
       }
-      handedOff.add(snapshot.share.id);
-      snapshot = null;
-      target = null;
+      snapshot = { ...snapshot, visible: false };
       notify();
-      present(drafts);
     },
     newConversation() {
       if (!snapshot || snapshot.busy || snapshot.share.destination) return;
       const id = snapshot.share.id;
       handedOff.add(id);
       snapshot = null;
+      target = null;
       notify();
       options.openNew(id);
     },
     async choose(destination: IncomingShareDestination) {
       if (!snapshot || snapshot.busy || !destination.threadId) return;
-      if (snapshot.share.destination && !sameForkShareDestination(snapshot.share.destination, destination)) return;
-      try { options.validate(destination); } catch (error) {
-        snapshot = { ...snapshot, error: error instanceof Error ? error.message : "That conversation is unavailable." };
+      if (
+        snapshot.share.destination &&
+        !sameForkShareDestination(snapshot.share.destination, destination)
+      )
+        return;
+      try {
+        options.validate(destination);
+      } catch (error) {
+        snapshot = {
+          ...snapshot,
+          error: error instanceof Error ? error.message : "That conversation is unavailable.",
+        };
         notify();
         return;
       }
       target = {
-        flowKey: `fork-share:${snapshot.share.id}`, routeKey: `fork-share:${snapshot.share.id}`,
-        draftKey: options.draftKey(destination), destination, shareId: snapshot.share.id,
+        flowKey: `fork-share:${snapshot.share.id}`,
+        routeKey: `fork-share:${snapshot.share.id}`,
+        draftKey: options.draftKey(destination),
+        destination,
+        shareId: snapshot.share.id,
       };
       snapshot = { ...snapshot, busy: true, error: null, retryAvailable: true };
       notify();
-      if (options.imports.registry.get(manager.phaseAtom(target)) === "failed") manager.retry(target);
+      if (options.imports.registry.get(manager.phaseAtom(target)) === "failed")
+        manager.retry(target);
       await finishAttempt();
     },
     async retry() {
