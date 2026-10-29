@@ -43,6 +43,18 @@ Download the ARM64 APK from an EK release and allow installation from that sourc
 It installs as **T3 Code EK** alongside upstream. Existing upstream app data does
 not transfer automatically. Keep using the fork APK for updates so the signing key matches.
 
+### Share content into a conversation
+
+From another Android app, share a supported image, document or text to T3 Code EK.
+Choose the current conversation, search loaded conversations by title or project,
+or start a new conversation. Content is added to the unsent draft alongside existing
+text and attachments. File attachments require support from the connected server.
+
+If you close the chooser, tap **Shared content waiting** to return. An unfinished
+import blocks sending in its selected conversation until you retry, keep its saved
+draft, or discard an unimported share. A share that has not merged can also be moved
+to another conversation.
+
 ### Share the phone's T3 server
 
 With the phone's Termux T3 runtime installed, sign in under **Settings → Built-in
