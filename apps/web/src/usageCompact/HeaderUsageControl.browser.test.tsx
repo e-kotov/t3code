@@ -35,7 +35,7 @@ vi.mock(import("./useHeaderUsage"), () => ({
     drivers: new Set(["codex", "claudeAgent", "antigravity"]),
     notices: [],
     authNotices: [],
-    disconnected: false,
+    disconnected: [],
     onOpenFullView: () => {},
   }),
 }));

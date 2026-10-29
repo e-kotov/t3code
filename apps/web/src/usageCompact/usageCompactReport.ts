@@ -90,3 +90,15 @@ export function compactUsageReport(presentations: LimitPresentations) {
     authNotices: [...authNotices],
   };
 }
+
+export function disconnectedEnvironmentLabels(
+  presentations: Iterable<{
+    readonly entry: { readonly target: { readonly label: string } };
+    readonly connection: { readonly phase: string };
+  }>,
+): string[] {
+  return [...presentations]
+    .filter((presentation) => presentation.connection.phase !== "connected")
+    .map((presentation) => presentation.entry.target.label.trim() || "An environment")
+    .toSorted((a, b) => a.localeCompare(b));
+}

@@ -15,14 +15,14 @@ export function CompactUsageControl({
   drivers,
   notices = [],
   authNotices = [],
-  disconnected = false,
+  disconnected = [],
   onOpenFullView,
 }: {
   accounts: Parameters<typeof compactUsage>[0];
   drivers?: Parameters<typeof compactUsage>[2];
   notices?: readonly string[];
   authNotices?: readonly string[];
-  disconnected?: boolean;
+  disconnected?: readonly string[];
   onOpenFullView: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -48,7 +48,7 @@ export function CompactUsageControl({
         render={
           <button
             type="button"
-            aria-label={`Usage remaining: ${summary}${notices.length > 0 ? ". Partial report" : ""}${disconnected ? ". Environment disconnected" : ""}${authNotices.length > 0 ? ". Session sign-in unconfirmed" : ""}. Open full usage`}
+            aria-label={`Usage remaining: ${summary}${notices.length > 0 ? ". Partial report" : ""}${disconnected.length > 0 ? `. ${disconnectedNotice(disconnected)}` : ""}${authNotices.length > 0 ? ". Session sign-in unconfirmed" : ""}. Open full usage`}
             data-header-usage
             className="relative flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 text-(--contrast-toolbar-foreground) outline-hidden [-webkit-app-region:no-drag] hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-popup-open:bg-accent"
             onClick={() => {
@@ -93,7 +93,7 @@ export function CompactUsageControl({
             </span>
           </span>
         ))}
-        {notices.length > 0 || disconnected || authNotices.length > 0 ? (
+        {notices.length > 0 || disconnected.length > 0 || authNotices.length > 0 ? (
           <span aria-hidden className="absolute top-1 right-0.5 size-1 rounded-full bg-warning" />
         ) : null}
       </PopoverTrigger>
@@ -131,9 +131,10 @@ export function CompactUsageControl({
             </ul>
           </div>
         ) : null}
-        {disconnected ? (
+        {disconnected.length > 0 ? (
           <p className="mt-1 text-3xs text-warning-foreground">
-            An environment is disconnected; its values may be out of date.
+            {disconnectedNotice(disconnected)}; {disconnected.length === 1 ? "its" : "their"} values
+            may be out of date.
           </p>
         ) : null}
         <div
@@ -221,6 +222,11 @@ export function CompactUsageControl({
       </PopoverPopup>
     </Popover>
   );
+}
+
+function disconnectedNotice(labels: readonly string[]) {
+  const names = new Intl.ListFormat("en", { type: "conjunction" }).format(labels);
+  return `${names} ${labels.length === 1 ? "is" : "are"} disconnected`;
 }
 
 function percent(remaining: number | null) {

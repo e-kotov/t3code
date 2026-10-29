@@ -7,7 +7,7 @@ import {
   type UsageLimitSourceSnapshots,
 } from "@t3tools/contracts";
 import { expect, it } from "vite-plus/test";
-import { compactUsageReport } from "./usageCompactReport";
+import { compactUsageReport, disconnectedEnvironmentLabels } from "./usageCompactReport";
 
 const checkedAt = "2026-10-26T12:00:00Z";
 const verifiedLimits = {
@@ -179,4 +179,20 @@ it("rejects signed-out, unverified, stale or mismatched quota authentication evi
   );
   expect([...report.drivers]).toEqual([]);
   expect(report.accounts).toEqual([]);
+});
+
+it("names every environment that is not connected so stale quotas can be traced", () => {
+  const environment = (label: string, phase: string) => ({
+    entry: { target: { label } },
+    connection: { phase },
+  });
+  expect(
+    disconnectedEnvironmentLabels([
+      environment("mba15e", "connected"),
+      environment("Phone", "offline"),
+      environment("GWDG", "reconnecting"),
+      environment(" ", "error"),
+    ]),
+  ).toEqual(["An environment", "GWDG", "Phone"]);
+  expect(disconnectedEnvironmentLabels([environment("mba15e", "connected")])).toEqual([]);
 });
