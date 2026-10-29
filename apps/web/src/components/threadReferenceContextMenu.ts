@@ -2,10 +2,7 @@ import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environ
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import type { ContextMenuItem } from "@t3tools/contracts";
 import type { useNewThreadHandler } from "../hooks/useHandleNewThread";
-import {
-  readEnvironmentServerConfigLoaded,
-  readProject,
-} from "../state/entities";
+import { readEnvironmentServerConfigLoaded, readProject } from "../state/entities";
 import { stackedThreadToast, toastManager } from "./ui/toast";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { threadContextRecord } from "@t3tools/shared/composerContextReferences";
