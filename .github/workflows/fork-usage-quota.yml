@@ -92,21 +92,8 @@ jobs:
       - name: Verify merged upstream regression cases
         run: |
           vp test run apps/server/src/orchestration-v2/ProjectionStore.test.ts apps/server/src/storageCleanup.test.ts apps/mobile/src/features/threads/git/GitBranchesSheet.occupancy.test.tsx -t 'lists every thread in the shell snapshot past SQLite|compares the checked-out branch without a full status|recognizes both the main checkout'
-      - name: Diagnose editor shortcut announcements in isolation
-        run: |
-          source=apps/web/src/components/chat/OpenInPicker.browser.test.tsx
-          cp "$source" "$RUNNER_TEMP/open-in-picker-test.tsx"
-          trap 'cp "$RUNNER_TEMP/open-in-picker-test.tsx" "$source"' EXIT
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('apps/web/src/components/chat/OpenInPicker.browser.test.tsx')
-          source = path.read_text()
-          old = '      return regions()\n        .map((region) => region.textContent)\n        .join("");'
-          new = '      const message = regions().map((region) => region.textContent).join("");\n      console.log("EDITOR_ANNOUNCEMENT", { calls: state.run.mock.calls.length, timers: vi.getTimerCount(), message });\n      return message;'
-          assert old in source
-          path.write_text(source.replace(old, new))
-          PY
-          vp test run apps/web/src/components/chat/OpenInPicker.browser.test.tsx -t 'speaks only after the shortcut opened the editor' --reporter=verbose
+      - name: Verify editor launches and shortcut announcements
+        run: vp test run apps/server/src/process/forkEditors.test.ts apps/web/src/components/chat/OpenInPicker.browser.test.tsx
       - name: Check changed code
         run: vp run check:changed origin/main
       - name: Verify upstream integration and fork mounts

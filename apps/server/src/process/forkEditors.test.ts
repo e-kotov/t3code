@@ -100,14 +100,16 @@ for (const { platform, editor, installPath, onPath } of [
             ),
           );
 
-          assert.lengthOf(spawned, 1);
+          // Headless Linux also probes the graphical session through busctl.
+          const launches = spawned.filter((command) => command.command !== "busctl");
+          assert.lengthOf(launches, 1);
           // POSIX spawns preserve the PATH command; Windows resolves its extension first.
-          assert.equal(spawned[0]?.command, platform === "linux" && onPath ? editor : executable);
+          assert.equal(launches[0]?.command, platform === "linux" && onPath ? editor : executable);
           assert.deepEqual(
-            spawned[0]?.args,
+            launches[0]?.args,
             editor === "positron" && target.endsWith(":12:4") ? ["--goto", target] : [target],
           );
-          assert.equal(spawned[0]?.options.detached, true);
+          assert.equal(launches[0]?.options.detached, true);
         }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
     );
   }
