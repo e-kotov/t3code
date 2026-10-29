@@ -1,7 +1,6 @@
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import type { ReactNode } from "react";
 
-import { CACHE_WARMING_EXPLANATION } from "../CacheWarmingToggle";
 import { ThreadCachePolicyControl } from "../ThreadCachePolicyControl";
 import { CacheHud } from "../chat/CacheHud";
 
@@ -16,17 +15,6 @@ export function SidebarCacheHudSlot(props: { readonly hud: CacheThread["cacheHud
     <span className="flex shrink-0">
       <CacheHud hud={props.hud} compact />
     </span>
-  );
-}
-
-function ThreadWarmToggle(props: { readonly thread: CacheThread }) {
-  return (
-    <ThreadCachePolicyControl
-      environmentId={props.thread.environmentId}
-      threadId={props.thread.id}
-      driver={props.thread.cacheHud?.driver}
-      instanceId={props.thread.modelSelection.instanceId}
-    />
   );
 }
 
@@ -50,27 +38,6 @@ export function SidebarThreadCacheTitle(props: {
           <SidebarThreadCachePolicy thread={props.thread} />
         </>
       ) : null}
-    </span>
-  );
-}
-
-/** The legacy sidebar's single-line row: readout and toggle beside the title. */
-export function SidebarThreadCacheControls(props: { readonly thread: CacheThread }) {
-  return (
-    <>
-      <SidebarCacheHudSlot hud={props.thread.cacheHud} />
-      <ThreadWarmToggle thread={props.thread} />
-    </>
-  );
-}
-
-/** Title tooltip note for providers the warmer supports. */
-export function CacheWarmingTitleHint(props: { readonly thread: CacheThread }) {
-  const driver = props.thread.cacheHud?.driver;
-  if (driver !== "codex" && driver !== "claudeAgent") return null;
-  return (
-    <span className="mt-1 block max-w-xs text-2xs text-muted-foreground">
-      {CACHE_WARMING_EXPLANATION}
     </span>
   );
 }
