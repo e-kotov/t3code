@@ -1,5 +1,6 @@
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import type { MenuAction } from "@react-native-menu/menu";
+import { useProjects } from "../../state/entities";
 import { uuidv4 } from "../../lib/uuid";
 import { useSelectWorkspaceDetail } from "../workspace/useSelectWorkspaceDetail";
 import { newThreadDraftRoute, newThreadReferenceRoute } from "./newThreadReference";
@@ -9,6 +10,13 @@ const ACTION = "new-thread-with-reference";
 
 export function useNewThreadReferenceMenu(thread: EnvironmentThreadShell) {
   const selectDetail = useSelectWorkspaceDetail();
+  const projects = useProjects();
+  const scratch = projects.some(
+    (project) =>
+      project.environmentId === thread.environmentId &&
+      project.id === thread.projectId &&
+      project.isScratch === true,
+  );
   const actions: MenuAction[] = [
     ...(!thread.branch
       ? [{ id: NEW_THREAD_IN_PROJECT, title: "New thread", image: "square.and.pencil" }]
@@ -25,8 +33,8 @@ export function useNewThreadReferenceMenu(thread: EnvironmentThreadShell) {
     if (event !== ACTION && event !== NEW_THREAD_IN_PROJECT) return false;
     const draft =
       event === ACTION
-        ? newThreadReferenceRoute(thread, uuidv4())
-        : newThreadDraftRoute(thread, uuidv4());
+        ? newThreadReferenceRoute(thread, uuidv4(), scratch)
+        : newThreadDraftRoute(thread, uuidv4(), scratch);
     selectDetail({ name: "Thread", params: { draft } });
     return true;
   };

@@ -2,6 +2,8 @@ import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environ
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import type { ContextMenuItem } from "@t3tools/contracts";
 import type { useNewThreadHandler } from "../hooks/useHandleNewThread";
+import { readProject } from "../state/entities";
+import { stackedThreadToast, toastManager } from "./ui/toast";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { threadContextRecord } from "@t3tools/shared/composerContextReferences";
 
@@ -40,11 +42,23 @@ export async function showThreadReferenceContextMenu<T extends string>(
   const selected = await show(menu, position);
   if (selected !== NEW_THREAD_WITH_REFERENCE && selected !== NEW_THREAD_IN_PROJECT)
     return selected as T | null;
-  const opened = await start(scopeProjectRef(thread.environmentId, thread.projectId), {
-    branch: thread.branch,
-    worktreePath: thread.worktreePath,
-    envMode: thread.worktreePath ? "worktree" : "local",
+  const projectRef = scopeProjectRef(thread.environmentId, thread.projectId);
+  const scratch = readProject(projectRef)?.isScratch === true;
+  const worktreePath = scratch ? null : thread.worktreePath;
+  const opened = await start(projectRef, {
+    branch: scratch ? null : thread.branch,
+    worktreePath,
+    envMode: worktreePath ? "worktree" : "local",
     startFromOrigin: false,
+  }).catch((error: unknown) => {
+    toastManager.add(
+      stackedThreadToast({
+        type: "error",
+        title: "Could not create thread",
+        description: error instanceof Error ? error.message : "An error occurred.",
+      }),
+    );
+    return null;
   });
   if (opened && selected === NEW_THREAD_WITH_REFERENCE) {
     useComposerDraftStore

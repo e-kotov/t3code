@@ -7,7 +7,12 @@ import {
   type StartReferencedThread,
 } from "./threadReferenceContextMenu";
 
-const state = vi.hoisted(() => ({ add: vi.fn() }));
+const state = vi.hoisted(() => ({ add: vi.fn(), readProject: vi.fn(), toast: vi.fn() }));
+vi.mock("../state/entities", () => ({ readProject: state.readProject }));
+vi.mock("./ui/toast", () => ({
+  toastManager: { add: state.toast },
+  stackedThreadToast: (value: unknown) => value,
+}));
 vi.mock("../composerDraftStore", () => ({
   useComposerDraftStore: { getState: () => ({ addThreadContexts: state.add }) },
   DraftId: { make: (value: string) => value },
@@ -24,7 +29,10 @@ const items: ContextMenuItem<"new-thread-on-branch" | "rename">[] = [
   { id: "new-thread-on-branch", label: "New thread on main" },
   { id: "rename", label: "Rename thread" },
 ];
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  state.readProject.mockReset();
+});
 
 it.each(["main", null])(
   "offers referenced creation with branch %s in the clicked workspace",
@@ -118,6 +126,73 @@ it("opens a plain branch-less draft without attaching the source", async () => {
   expect(start).toHaveBeenCalledWith(
     { environmentId: thread.environmentId, projectId: thread.projectId },
     { branch: null, worktreePath: null, envMode: "local", startFromOrigin: false },
+  );
+  expect(state.add).not.toHaveBeenCalled();
+});
+
+it.each(["new-thread-in-project", "new-thread-with-reference"])(
+  "allocates a fresh scratch workspace for %s",
+  async (action) => {
+    state.readProject.mockReturnValue({ isScratch: true });
+    const start = vi.fn<StartReferencedThread>(async () => ({
+      draftId: DraftId.make("scratch-draft"),
+      threadId: ThreadId.make("scratch-thread"),
+    }));
+    await showThreadReferenceContextMenu(
+      { ...thread, branch: null, worktreePath: "/scratch/old-thread" },
+      items.filter((item) => item.id !== "new-thread-on-branch"),
+      undefined,
+      start,
+      async () => action,
+    );
+    expect(start).toHaveBeenCalledWith(
+      { environmentId: thread.environmentId, projectId: thread.projectId },
+      { branch: null, worktreePath: null, envMode: "local", startFromOrigin: false },
+    );
+    expect(state.readProject).toHaveBeenCalledWith({
+      environmentId: thread.environmentId,
+      projectId: thread.projectId,
+    });
+    expect(state.add).toHaveBeenCalledTimes(action === "new-thread-with-reference" ? 1 : 0);
+  },
+);
+
+it("preserves an ordinary branch-less project's existing workspace", async () => {
+  state.readProject.mockReturnValue({ isScratch: false });
+  const start = vi.fn<StartReferencedThread>(async () => null);
+  await showThreadReferenceContextMenu(
+    { ...thread, branch: null, worktreePath: "/detached-worktree" },
+    [],
+    undefined,
+    start,
+    async () => "new-thread-in-project",
+  );
+  expect(start.mock.calls[0]?.[1]).toEqual({
+    branch: null,
+    worktreePath: "/detached-worktree",
+    envMode: "worktree",
+    startFromOrigin: false,
+  });
+});
+
+it("reports a failed plain draft creation and leaves its context untouched", async () => {
+  const start = vi.fn<StartReferencedThread>(async () => {
+    throw new Error("Navigation failed");
+  });
+  expect(
+    await showThreadReferenceContextMenu(
+      { ...thread, branch: null },
+      [],
+      undefined,
+      start,
+      async () => "new-thread-in-project",
+    ),
+  ).toBeNull();
+  expect(state.toast).toHaveBeenCalledWith(
+    expect.objectContaining({
+      title: "Could not create thread",
+      description: "Navigation failed",
+    }),
   );
   expect(state.add).not.toHaveBeenCalled();
 });

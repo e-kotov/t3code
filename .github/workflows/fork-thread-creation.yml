@@ -2,14 +2,28 @@ name: Fork thread creation
 
 on:
   workflow_dispatch:
+    inputs:
+      regression_ref:
+        description: Optional pre-fix commit to prove the scratch regression
+        type: string
+        default: ""
+  pull_request:
+    branches: [main]
+    paths: &thread-paths
+      - ".github/workflows/fork-thread-creation.yml"
+      - "apps/web/src/components/threadReferenceContextMenu*"
+      - "apps/mobile/src/features/threads/useNewThreadReferenceMenu*"
+      - "apps/mobile/src/features/threads/newThreadReference*"
+      - "apps/mobile/src/features/threads/seedThreadReferenceDraft*"
   push:
-    branches: ["fix/no-git-thread-actions"]
+    branches: [main]
+    paths: *thread-paths
 
 permissions:
   contents: read
 
 concurrency:
-  group: thread-creation-${{ github.ref }}
+  group: thread-creation-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -23,7 +37,7 @@ jobs:
     steps:
       - name: Checkout without vendored gitlinks
         env:
-          CHECKOUT_REF: ${{ github.sha }}
+          CHECKOUT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           git init .
           git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
@@ -36,9 +50,14 @@ jobs:
           run-install: false
           cache: true
       - run: vp install
-      - name: Prove branch-less menus fail before the fix
+      - name: Prove the scratch regression on an explicit pre-fix revision
+        if: github.event_name == 'workflow_dispatch' && inputs.regression_ref != ''
+        env:
+          REGRESSION_REF: ${{ inputs.regression_ref }}
         run: |
-          sources=(apps/web/src/components/threadReferenceContextMenu.ts apps/mobile/src/features/threads/useNewThreadReferenceMenu.ts)
+          git fetch --no-tags origin "$REGRESSION_REF"
+          baseline=$(git rev-parse FETCH_HEAD)
+          sources=(apps/web/src/components/threadReferenceContextMenu.ts apps/mobile/src/features/threads/useNewThreadReferenceMenu.ts apps/mobile/src/features/threads/newThreadReference.ts)
           for index in "${!sources[@]}"; do
             cp "${sources[$index]}" "$RUNNER_TEMP/menu-$index.ts"
           done
@@ -48,22 +67,30 @@ jobs:
             done
           }
           trap restore EXIT
-          base=$(git merge-base origin/main HEAD)
-          for source in "${sources[@]}"; do git show "$base:$source" > "$source"; done
+          for source in "${sources[@]}"; do git show "$baseline:$source" > "$source"; done
           tests=(apps/web/src/components/threadReferenceContextMenu.test.ts apps/mobile/src/features/threads/useNewThreadReferenceMenu.test.ts)
           for index in "${!tests[@]}"; do
-            log="$RUNNER_TEMP/menu-regression-$index.log"
-            if vp test run "${tests[$index]}" -t 'branch null|without Git' > "$log" 2>&1; then
-              cat "$log"
-              echo 'The branch-less menu regression must fail before the fix.'
+            report="$RUNNER_TEMP/menu-regression-$index.json"
+            if vp test run "${tests[$index]}" -t 'allocates a fresh scratch workspace' --reporter=json --outputFile="$report"; then
+              echo 'The scratch regression must fail on the selected pre-fix revision.'
               exit 1
             fi
-            cat "$log"
-            python3 -c 'import pathlib, sys; assert "AssertionError" in pathlib.Path(sys.argv[1]).read_text()' "$log"
+            python3 - "$report" <<'PYTHON'
+          import json, pathlib, sys
+          result = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          failed = [test for suite in result['testResults'] for test in suite.get('assertionResults', []) if test['status'] == 'failed']
+          assert result['numFailedTests'] == len(failed) == 2, result
+          for test in failed:
+              assert 'allocates a fresh scratch workspace' in test['fullName'], test
+              messages = '\n'.join(test['failureMessages'])
+              assert 'AssertionError' in messages and 'worktreePath' in messages, test
+          PYTHON
           done
       - name: Check changed code and thread creation
         run: |
-          vp run check:changed origin/main
+          base=$(git merge-base origin/main HEAD)
+          if [ "$base" = "$(git rev-parse HEAD)" ]; then base=HEAD^; fi
+          vp run check:changed "$base"
           vp test run apps/web/src/components/threadReferenceContextMenu.test.ts apps/mobile/src/features/threads/useNewThreadReferenceMenu.test.ts apps/mobile/src/features/threads/newThreadReference.test.ts apps/mobile/src/features/threads/seedThreadReferenceDraft.test.ts
       - name: Capture formatting fixes
         if: failure()

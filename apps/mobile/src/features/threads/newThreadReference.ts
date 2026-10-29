@@ -9,22 +9,24 @@ export function newThreadDraftRoute(
     "environmentId" | "id" | "projectId" | "title" | "branch" | "worktreePath"
   >,
   requestId: string,
+  scratch = false,
 ): NewTaskDraftRouteParams {
   return {
     requestId,
     environmentId: String(thread.environmentId),
     projectId: String(thread.projectId),
-    branch: thread.branch,
-    worktreePath: thread.worktreePath,
+    branch: scratch ? null : thread.branch,
+    worktreePath: scratch ? null : thread.worktreePath,
   };
 }
 
 export function newThreadReferenceRoute(
   thread: Parameters<typeof newThreadDraftRoute>[0],
   requestId: string,
+  scratch = false,
 ): NewTaskDraftRouteParams {
   return {
-    ...newThreadDraftRoute(thread, requestId),
+    ...newThreadDraftRoute(thread, requestId, scratch),
     referenceThread: threadContextRecord(
       scopeThreadRef(thread.environmentId, thread.id),
       thread.title,
