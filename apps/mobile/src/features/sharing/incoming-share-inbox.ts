@@ -1,6 +1,7 @@
 import type { SharePayload } from "expo-sharing";
 
 import { SerializedAsyncQueue } from "../../lib/serialized-async-queue";
+import { sameForkShareDestination } from "./forkShareDestination";
 import {
   hasIncomingShareContent,
   type IncomingShareDestination,
@@ -141,10 +142,7 @@ export class IncomingShareInbox {
         throw new Error("The shared content is no longer available.");
       }
       if (target.destination) {
-        if (
-          target.destination.environmentId !== destination.environmentId ||
-          target.destination.projectId !== destination.projectId
-        ) {
+        if (!sameForkShareDestination(target.destination, destination)) {
           throw new Error("The shared content is already reserved for another project draft.");
         }
         return sortAndDedupeIncomingShares(persisted);
@@ -171,10 +169,7 @@ export class IncomingShareInbox {
       if (!target.destination) {
         return sortAndDedupeIncomingShares(persisted);
       }
-      if (
-        target.destination.environmentId !== expectedDestination.environmentId ||
-        target.destination.projectId !== expectedDestination.projectId
-      ) {
+      if (!sameForkShareDestination(target.destination, expectedDestination)) {
         throw new Error("The shared content reservation changed before it could be released.");
       }
 

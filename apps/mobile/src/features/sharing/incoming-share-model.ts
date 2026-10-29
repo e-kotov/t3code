@@ -29,11 +29,13 @@ export interface IncomingShareDraft {
 export interface IncomingShareDestination {
   readonly environmentId: string;
   readonly projectId: string;
+  readonly threadId?: string;
 }
 
 const IncomingShareDestinationSchema = Schema.Struct({
   environmentId: Schema.String,
   projectId: Schema.String,
+  threadId: Schema.optional(Schema.String),
 });
 
 export const IncomingShareDraftSchema = Schema.Struct({

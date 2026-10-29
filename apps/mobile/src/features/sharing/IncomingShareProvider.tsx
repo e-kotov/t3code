@@ -28,7 +28,7 @@ import { coalescedRun } from "../../lib/coalescedRun";
 import { rootNavigationRef } from "../../lib/rootNavigation";
 import { selectWorkspaceDetail } from "../workspace/workspace-detail-selection";
 import { isDraftThreadRoute } from "../threads/thread-route-state";
-import { makeIncomingShareImports } from "../threads/incomingShareImport";
+import { makeForkIncomingShareImports as makeIncomingShareImports, presentForkShareDestinations } from "./forkShareDestinations";
 import { liveNewTaskFlowKeys } from "../threads/new-task-flow-state";
 import { appAtomRegistry } from "../../state/atom-registry";
 import { serverEnvironment } from "../../state/server";
@@ -262,6 +262,7 @@ export function presentPendingIncomingShare(): void {
   if (!rootNavigationRef.isReady()) return;
   const state = rootNavigationRef.getRootState();
   if (!state) return;
+  if (presentForkShareDestinations(snapshot.drafts)) return;
   const transition = transitionIncomingSharePresentation(presentation, {
     isShareSheetPresented: isDraftThreadRoute(state.routes[state.index]),
     pendingShareId: snapshot.drafts[0]?.id ?? null,

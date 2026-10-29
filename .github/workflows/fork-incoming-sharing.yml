@@ -3,7 +3,7 @@ name: Fork incoming sharing
 on:
   workflow_dispatch:
   push:
-    branches: ["sync/android-file-sharing"]
+    branches: ["sync/android-file-sharing", "sync/android-share-destination"]
 
 permissions:
   contents: read
@@ -36,6 +36,11 @@ jobs:
           run-install: false
           cache: true
       - run: vp install
+      - name: Test incoming shares and document imports
+        run: |
+          vp test run apps/mobile/src/features/sharing/forkIncomingShareEvents.test.ts apps/mobile/src/features/sharing/forkSharedDocuments.test.ts apps/mobile/src/features/sharing/forkShareDestinationController.test.ts apps/mobile/src/features/sharing/incoming-share-inbox.test.ts apps/mobile/src/features/sharing/incoming-share-model.test.ts apps/mobile/src/features/threads/incomingShareImport.test.ts
+      - name: Check changed code
+        run: vp run check:changed origin/main
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -72,11 +77,6 @@ jobs:
           fi
           cat "$RUNNER_TEMP/share-regression.log"
           python3 -c 'import os, pathlib; assert "AssertionError" in (pathlib.Path(os.environ["RUNNER_TEMP"]) / "share-regression.log").read_text()'
-      - name: Test incoming shares and document imports
-        run: |
-          vp test run apps/mobile/src/features/sharing/forkIncomingShareEvents.test.ts apps/mobile/src/features/sharing/forkSharedDocuments.test.ts apps/mobile/src/features/sharing/incoming-share-inbox.test.ts apps/mobile/src/features/sharing/incoming-share-model.test.ts apps/mobile/src/features/threads/incomingShareImport.test.ts
-      - name: Check changed code
-        run: vp run check:changed origin/main
       - name: Capture formatting fixes
         if: failure()
         run: |
