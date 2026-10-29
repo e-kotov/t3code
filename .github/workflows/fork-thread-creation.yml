@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       regression_ref:
-        description: Optional pre-fix commit to prove the scratch regression
+        description: Optional pre-fix commit to prove workspace regressions
         type: string
         default: ""
   pull_request:
@@ -15,6 +15,8 @@ on:
       - "apps/mobile/src/features/threads/useNewThreadReferenceMenu*"
       - "apps/mobile/src/features/threads/newThreadReference*"
       - "apps/mobile/src/features/threads/seedThreadReferenceDraft*"
+      - "apps/mobile/src/features/threads/ReferencedNewTaskDraftScreen*"
+      - "apps/mobile/fork-react-tests.ts"
   push:
     branches: [main]
     paths: *thread-paths
@@ -50,14 +52,14 @@ jobs:
           run-install: false
           cache: true
       - run: vp install
-      - name: Prove the scratch regression on an explicit pre-fix revision
+      - name: Prove workspace regressions on an explicit pre-fix revision
         if: github.event_name == 'workflow_dispatch' && inputs.regression_ref != ''
         env:
           REGRESSION_REF: ${{ inputs.regression_ref }}
         run: |
           git fetch --no-tags origin "$REGRESSION_REF"
           baseline=$(git rev-parse FETCH_HEAD)
-          sources=(apps/web/src/components/threadReferenceContextMenu.ts apps/mobile/src/features/threads/useNewThreadReferenceMenu.ts apps/mobile/src/features/threads/newThreadReference.ts)
+          sources=(apps/web/src/components/threadReferenceContextMenu.ts apps/mobile/src/features/threads/useNewThreadReferenceMenu.ts apps/mobile/src/features/threads/newThreadReference.ts apps/mobile/src/features/threads/ReferencedNewTaskDraftScreen.tsx apps/mobile/src/features/threads/seedThreadReferenceDraft.ts)
           for index in "${!sources[@]}"; do
             cp "${sources[$index]}" "$RUNNER_TEMP/menu-$index.ts"
           done
@@ -68,10 +70,10 @@ jobs:
           }
           trap restore EXIT
           for source in "${sources[@]}"; do git show "$baseline:$source" > "$source"; done
-          tests=(apps/web/src/components/threadReferenceContextMenu.test.ts apps/mobile/src/features/threads/useNewThreadReferenceMenu.test.ts)
+          tests=(apps/web/src/components/threadReferenceContextMenu.test.ts apps/mobile/src/features/threads/useNewThreadReferenceMenu.test.ts apps/mobile/src/features/threads/ReferencedNewTaskDraftScreen.test.tsx)
           for index in "${!tests[@]}"; do
             report="$RUNNER_TEMP/menu-regression-$index.json"
-            if vp test run "${tests[$index]}" -t 'allocates a fresh scratch workspace' --reporter=json --outputFile="$report"; then
+            if vp test run "${tests[$index]}" -t 'allocates a fresh scratch workspace|persists an explicit branch-less workspace' --reporter=json --outputFile="$report"; then
               echo 'The scratch regression must fail on the selected pre-fix revision.'
               exit 1
             fi
@@ -81,7 +83,7 @@ jobs:
           failed = [test for suite in result['testResults'] for test in suite.get('assertionResults', []) if test['status'] == 'failed']
           assert result['numFailedTests'] == len(failed) == 2, result
           for test in failed:
-              assert 'allocates a fresh scratch workspace' in test['fullName'], test
+              assert any(name in test['fullName'] for name in ['allocates a fresh scratch workspace', 'persists an explicit branch-less workspace']), test
               messages = '\n'.join(test['failureMessages'])
               assert 'AssertionError' in messages and 'worktreePath' in messages, test
           PYTHON
@@ -91,7 +93,7 @@ jobs:
           base=$(git merge-base origin/main HEAD)
           if [ "$base" = "$(git rev-parse HEAD)" ]; then base=HEAD^; fi
           vp run check:changed "$base"
-          vp test run apps/web/src/components/threadReferenceContextMenu.test.ts apps/mobile/src/features/threads/useNewThreadReferenceMenu.test.ts apps/mobile/src/features/threads/newThreadReference.test.ts apps/mobile/src/features/threads/seedThreadReferenceDraft.test.ts
+          vp test run apps/web/src/components/threadReferenceContextMenu.test.ts apps/mobile/src/features/threads/useNewThreadReferenceMenu.test.ts apps/mobile/src/features/threads/newThreadReference.test.ts apps/mobile/src/features/threads/seedThreadReferenceDraft.test.ts apps/mobile/src/features/threads/ReferencedNewTaskDraftScreen.test.tsx
       - name: Capture formatting fixes
         if: failure()
         run: |

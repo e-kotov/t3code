@@ -3,6 +3,7 @@ import { formatComposerContextReference } from "@t3tools/shared/composerContextR
 import {
   getComposerDraftSnapshot,
   insertComposerDraftContext,
+  updateComposerDraftSettings,
 } from "../../state/use-composer-drafts";
 
 export function seedThreadReferenceDraft(
@@ -28,4 +29,25 @@ export function seedThreadReferenceDraft(
   )
     ? "applied"
     : "failed";
+}
+
+export function seedBranchlessThreadWorkspace(
+  draftKey: string,
+  source: { environmentId: string; projectId: string; worktreePath: string | null },
+): boolean {
+  const draft = getComposerDraftSnapshot(draftKey);
+  if (
+    draft.project?.environmentId !== source.environmentId ||
+    draft.project.projectId !== source.projectId
+  )
+    return false;
+  updateComposerDraftSettings(draftKey, {
+    workspaceSelection: {
+      mode: "local",
+      branch: null,
+      worktreePath: source.worktreePath,
+      startFromOrigin: false,
+    },
+  });
+  return true;
 }
