@@ -15,6 +15,8 @@ import {
   makeUsageLimits,
 } from "@t3tools/provider-core/server/usageLimits";
 
+import { antigravityQuotaFamily, antigravityQuotaUserAgent } from "./forkAntigravityQuota.ts";
+
 const ENDPOINTS = [
   "https://daily-cloudcode-pa.googleapis.com",
   "https://cloudcode-pa.googleapis.com",
@@ -104,11 +106,7 @@ function summaryWindows(summary: typeof Summary.Type) {
   for (const group of groups ?? []) {
     for (const bucket of group.buckets ?? []) {
       if (bucket.disabled) continue;
-      const family = bucket.bucketId.startsWith("gemini-")
-        ? "Gemini"
-        : bucket.bucketId.startsWith("3p-")
-          ? "Claude & GPT (shared)"
-          : group.displayName?.trim() || bucket.bucketId;
+      const family = antigravityQuotaFamily(bucket.bucketId, group.displayName);
       const weekly = bucket.window === "weekly";
       const session = bucket.window === "5h";
       const window = quotaWindow(
@@ -160,6 +158,8 @@ function modelWindows(models: typeof Models.Type) {
 export const makeAntigravityUsageProbe = Effect.fn("makeAntigravityUsageProbe")(function* (input: {
   readonly profileDirectory: string;
   readonly authMethod: AntigravitySettings["authMethod"];
+  readonly runtimeVersion?: Effect.Effect<string | null>;
+  readonly summaryOnly?: boolean;
 }) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -245,6 +245,9 @@ export const makeAntigravityUsageProbe = Effect.fn("makeAntigravityUsageProbe")(
       accessToken = cached.accessToken;
       account = cached.account;
     }
+    const userAgent = antigravityQuotaUserAgent(
+      yield* (input.runtimeVersion ?? Effect.succeed(null)), platform, architecture,
+    );
     // Merge endpoints because quota groups differ; keep each bucket's most-used reading.
     const fetchWindows = Effect.fn("AntigravityUsageProbe.fetchWindows")(function* <E>(
       operation: string,
@@ -257,7 +260,7 @@ export const makeAntigravityUsageProbe = Effect.fn("makeAntigravityUsageProbe")(
             HttpClientRequest.post(`${endpoint}/v1internal:${operation}`).pipe(
               HttpClientRequest.setHeaders({
                 Authorization: `Bearer ${accessToken}`,
-                "User-Agent": `antigravity/hub/1.0.0 (aidev_client; os_type=${platform}; arch=${architecture}; cl=963137146)`,
+                "User-Agent": userAgent,
               }),
               HttpClientRequest.bodyJsonUnsafe(
                 token.project_id ? { project: token.project_id } : {},
@@ -279,7 +282,7 @@ export const makeAntigravityUsageProbe = Effect.fn("makeAntigravityUsageProbe")(
     const summary = yield* fetchWindows("retrieveUserQuotaSummary", (response) =>
       decodeSummary(response).pipe(Effect.map(summaryWindows)),
     );
-    const models = summary.some((w) => w.id.startsWith("gemini-"))
+    const models = input.summaryOnly || summary.some((w) => w.id.startsWith("gemini-"))
       ? []
       : yield* fetchWindows("fetchAvailableModels", (response) =>
           decodeModels(response).pipe(Effect.map(modelWindows)),
