@@ -47,7 +47,7 @@ it("names disconnected machines while keeping Gemini and Argon quotas distinct",
   await expect.element(popup).toBeVisible();
   await expect
     .element(
-      page.getByText("Phone and GWDG are disconnected; their values may be out of date.", {
+      page.getByText("Phone and GWDG are not connected; their values may be out of date.", {
         exact: true,
       }),
     )

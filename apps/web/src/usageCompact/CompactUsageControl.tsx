@@ -226,7 +226,7 @@ export function CompactUsageControl({
 
 function disconnectedNotice(labels: readonly string[]) {
   const names = new Intl.ListFormat("en", { type: "conjunction" }).format(labels);
-  return `${names} ${labels.length === 1 ? "is" : "are"} disconnected`;
+  return `${names} ${labels.length === 1 ? "is" : "are"} not connected`;
 }
 
 function percent(remaining: number | null) {

@@ -98,7 +98,7 @@ export function disconnectedEnvironmentLabels(
   }>,
 ): string[] {
   const disconnected = [...presentations].filter(
-    ({ connection }) => !["connected", "connecting", "reconnecting"].includes(connection.phase),
+    ({ connection }) => connection.phase !== "connected",
   );
   const unnamedCount = disconnected.filter(({ entry }) => !entry.target.label.trim()).length;
   let unnamedIndex = 0;
