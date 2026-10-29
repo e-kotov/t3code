@@ -71,7 +71,8 @@ function fakeDriver(script: {
 }) {
   const attempts: Array<ReadonlyArray<string | null>> = [];
   const driver = ConnectionDriver.ConnectionDriver.of({
-    preflight: (_entry, route) => Effect.succeed(script.answers.has(routeHttpBaseUrl(route) ?? "")),
+    preflight: (_entry, route) =>
+      Effect.succeed(script.answers.has(routeHttpBaseUrl(route) ?? "") ? "ready" : "silent"),
     checkHost: (prepared) =>
       Effect.succeed(script.answers.has(prepared.httpBaseUrl) ? "answered" : "silent"),
     connect: (entry) => {
@@ -263,10 +264,10 @@ describe("built-in Tailscale routes", () => {
       });
       const first = withBuiltInTailnet(driver, fakeTailnet("first").tailnet);
       expect((yield* connect(first))._tag).toBe("Success");
-      expect(yield* first.preflight(ENTRY, SSH_TUNNEL)).toBe(false);
+      expect(yield* first.preflight(ENTRY, SSH_TUNNEL)).toBe("unchecked");
       const before = withBuiltInTailnet(driver, fakeTailnet("before-tailscale").tailnet);
       expect((yield* connect(before))._tag).toBe("Success");
-      expect(yield* before.preflight(ENTRY, SSH_TUNNEL)).toBe(true);
+      expect(yield* before.preflight(ENTRY, SSH_TUNNEL)).toBe("ready");
     }),
   );
 
@@ -274,9 +275,9 @@ describe("built-in Tailscale routes", () => {
     Effect.gen(function* () {
       const { driver } = fakeDriver({ answers: new Set([FORWARDED_URL]), connects: new Set() });
       const first = withBuiltInTailnet(driver, fakeTailnet("first").tailnet);
-      expect(yield* first.preflight(ENTRY, TAILNET)).toBe(true);
+      expect(yield* first.preflight(ENTRY, TAILNET)).toBe("ready");
       const last = withBuiltInTailnet(driver, fakeTailnet("last").tailnet);
-      expect(yield* last.preflight(ENTRY, TAILNET)).toBe(false);
+      expect(yield* last.preflight(ENTRY, TAILNET)).toBe("silent");
     }),
   );
 

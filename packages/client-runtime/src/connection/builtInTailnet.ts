@@ -157,7 +157,9 @@ export function withBuiltInTailnet(
     Effect.forEach(
       connectionRoutes(entry),
       (route) =>
-        routeHttpBaseUrl(route) === null ? Effect.succeed(true) : driver.preflight(entry, route),
+        routeHttpBaseUrl(route) === null
+          ? Effect.succeed(true)
+          : driver.preflight(entry, route).pipe(Effect.map((check) => check === "ready")),
       { concurrency: "unbounded" },
     ).pipe(Effect.map((checks) => checks.some(Boolean)));
 
@@ -229,22 +231,24 @@ export function withBuiltInTailnet(
     const id = connectionRouteId(route.target);
     const aheadOfBuiltIn = before.some((saved) => connectionRouteId(saved.target) === id);
     if (onBuiltIn.has(entry.target.environmentId)) {
-      return aheadOfBuiltIn ? driver.preflight(entry, route) : Effect.succeed(false);
+      return aheadOfBuiltIn
+        ? driver.preflight(entry, route)
+        : Effect.succeed<ConnectionDriver.RoutePreflight>("unchecked");
     }
     const target = builtInTailnetTarget(route);
     if (aheadOfBuiltIn || target === null) return driver.preflight(entry, route);
     return driver.preflight(entry, route).pipe(
-      Effect.flatMap((direct) =>
-        direct
-          ? Effect.succeed(true)
-          : tailnet.forward([target]).pipe(
-              Effect.flatMap((ports) => {
-                const port = ports.get(target);
-                return port === undefined
-                  ? Effect.succeed(false)
-                  : driver.preflight(entry, forwardedRoute(route, port));
-              }),
-            ),
+      Effect.filterOrElse(
+        (direct) => direct === "ready",
+        (direct) =>
+          tailnet.forward([target]).pipe(
+            Effect.flatMap((ports) => {
+              const port = ports.get(target);
+              return port === undefined
+                ? Effect.succeed(direct)
+                : driver.preflight(entry, forwardedRoute(route, port));
+            }),
+          ),
       ),
     );
   });
