@@ -16,6 +16,7 @@ import { previewEnvironment } from "~/state/preview";
 import { environmentSession, sessionHasScope } from "~/state/session";
 
 export interface ProfileReport {
+  readonly proxyUrl?: string;
   readonly profiles: ClientSettings["browserProfiles"];
   readonly defaultProfileId: ClientSettings["browserDefaultProfileId"];
   readonly recordingFrameRate: ClientSettings["browserRecordingFrameRate"];
@@ -47,6 +48,7 @@ export function startBrowserProfileReporting(): () => void {
       profiles: settings.browserProfiles,
       defaultProfileId: settings.browserDefaultProfileId,
       recordingFrameRate: settings.browserRecordingFrameRate,
+      proxyUrl: settings.browserProxy.enabled ? settings.browserProxy.url : "",
     };
     const targets = appAtomRegistry.get(reportTargetsAtom);
     for (const environmentId of takeDueProfileReports(reported, targets, input)) {
@@ -101,6 +103,6 @@ function sameReportInput(left: ProfileReport, right: ProfileReport): boolean {
   return (
     left.profiles === right.profiles &&
     left.defaultProfileId === right.defaultProfileId &&
-    left.recordingFrameRate === right.recordingFrameRate
+    left.recordingFrameRate === right.recordingFrameRate && left.proxyUrl === right.proxyUrl
   );
 }

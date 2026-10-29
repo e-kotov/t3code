@@ -1,3 +1,4 @@
+import { browserProxyRequestReuse } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Record from "effect/Record";
@@ -45,7 +46,7 @@ function normalizePreviewOpenInput(input: PreviewAutomationOpenInput): PreviewAu
   return {
     ...input,
     ...(open === undefined ? {} : { open, show: open }),
-    reuseExistingTab: input.reuseExistingTab ?? true,
+    reuseExistingTab: browserProxyRequestReuse(input),
   };
 }
 

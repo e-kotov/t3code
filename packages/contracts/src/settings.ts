@@ -1,3 +1,4 @@
+import { browserProxySettingsFields, browserProxyPatchFields } from "./browserProxy.ts";
 import { EasDeviceHostConfigs, SimlockDeviceHostConfigs, SshDeviceHostConfigs } from "./device.ts";
 import {
   AuthOrchestrationOperateScope,
@@ -361,6 +362,7 @@ export type ModelPreferences = {
 };
 
 export const ClientSettingsSchema = Schema.Struct({
+  ...browserProxySettingsFields,
   notificationMode: NotificationMode.pipe(
     Schema.withDecodingDefault(Effect.succeed("off" as const)),
   ),
@@ -1720,6 +1722,7 @@ export function requiredScopesForProjectMutation(
 }
 
 export const ClientSettingsPatch = Schema.Struct({
+  ...browserProxyPatchFields,
   notificationMode: Schema.optionalKey(NotificationMode),
   inAppNotificationsEnabled: Schema.optionalKey(Schema.Boolean),
   diffColorScheme: Schema.optionalKey(DiffColorScheme),

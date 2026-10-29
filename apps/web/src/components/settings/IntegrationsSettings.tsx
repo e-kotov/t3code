@@ -1,3 +1,4 @@
+import { BrowserProxySetting } from "./BrowserProxySetting";
 import { EditorSettings } from "./EditorSettings";
 import { DeviceHostUpdates } from "../device/DeviceHostUpdates";
 import { DeviceToolVersions } from "../device/DeviceToolVersions";
@@ -1564,6 +1565,7 @@ export function BrowserSettingsPanel() {
         </SettingsUnavailableGroup>
         {/* Not desktop-only: web clients search from server-run browser tabs too. */}
         <BrowserSearchEngineSetting />
+        <BrowserProxySetting />
         <AdvancedSettings
           targetIds={[
             searchableSetting("browser-default-viewport").id,

@@ -384,6 +384,7 @@ export function PreviewView({
       viewport,
       ...(snapshot.profileId === undefined ? {} : { profileId: snapshot.profileId }),
       runtime: moveTarget,
+      ...(snapshot.proxyUrl === undefined ? {} : { proxyUrl: snapshot.proxyUrl }),
     });
     if (result._tag === "Failure") {
       if (isAtomCommandInterrupted(result)) return;

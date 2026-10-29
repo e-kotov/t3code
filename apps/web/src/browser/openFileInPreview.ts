@@ -1,3 +1,4 @@
+import { browserProxyOpenInput } from "~/browser/browserProxy";
 import type {
   AssetCreateUrlResult,
   AssetResource,
@@ -77,6 +78,7 @@ export async function openUrlInPreview<E>(input: {
       url: input.url,
       viewport: defaults.viewport,
       profileId: input.profileId ?? defaults.profileId,
+      ...browserProxyOpenInput(),
       ...(runtime === undefined ? {} : { runtime }),
     },
   });

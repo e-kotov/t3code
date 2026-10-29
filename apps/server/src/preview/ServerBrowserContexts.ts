@@ -8,6 +8,7 @@ import * as NodePath from "node:path";
 import type { Browser, BrowserContext, CDPSession } from "playwright-core";
 
 import { sandboxDisabled } from "./PreviewBrowserHost.ts";
+import { browserProxyLaunchOptions } from "./BrowserProxyLaunch.ts";
 
 // Playwright needs its files on disk. createRequire also resolves it from a Node SEA executable.
 const requirePlaywright = NodeModule.createRequire(import.meta.url);
@@ -15,6 +16,7 @@ const loadPlaywright = () =>
   requirePlaywright("playwright-core") as typeof import("playwright-core");
 
 interface Options {
+  readonly proxyUrl?: string;
   readonly profilesDir: string;
   readonly executable: () => Promise<string>;
   readonly diagnose?: (executable: string, cause: unknown) => Promise<unknown>;
@@ -84,6 +86,7 @@ export class ServerBrowserContexts {
     return {
       executablePath,
       env,
+      ...browserProxyLaunchOptions(this.options.proxyUrl),
       args: [
         "--disable-gpu",
         "--force-device-scale-factor=2",

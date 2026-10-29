@@ -1,3 +1,4 @@
+import { browserProxyTabOptions } from "@t3tools/contracts";
 import {
   type PreviewCloseInput,
   type PreviewEvent,
@@ -174,7 +175,7 @@ export const make = Effect.gen(function* PreviewManagerMake() {
 
   const open: PreviewManager["Service"]["open"] = Effect.fn("PreviewManager.open")(
     function* (input) {
-      const runtime = input.runtime;
+      const runtime = input.proxyUrl ? "server" : input.runtime;
       // Persisted client surfaces must not bind to a different tab after a server restart.
       const tabId = `${newPreviewTabId()}${runtime === "server" ? `_${serverEpoch}` : ""}`;
       const updatedAt = yield* currentIsoTimestamp;
@@ -189,6 +190,7 @@ export const make = Effect.gen(function* PreviewManagerMake() {
         viewport: input.viewport ?? FILL_PREVIEW_VIEWPORT,
         ...(input.profileId === undefined ? {} : { profileId: input.profileId }),
         ...(runtime === undefined ? {} : { runtime }),
+        ...browserProxyTabOptions(input.proxyUrl),
         ...(runtime === "server" && input.automationOwner !== undefined
           ? { automationOwner: input.automationOwner }
           : {}),

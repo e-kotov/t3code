@@ -82,7 +82,9 @@ import * as PreviewManager from "./Manager.ts";
 import * as ServerBrowserPage from "./ServerBrowserPage.ts";
 import * as PreviewBrowser from "./PreviewBrowser.ts";
 import * as PreviewBrowserHost from "./PreviewBrowserHost.ts";
-import { presentAsChrome, ServerBrowserContexts } from "./ServerBrowserContexts.ts";
+import { presentAsChrome } from "./ServerBrowserContexts.ts";
+import { BrowserProxyContexts as ServerBrowserContexts } from "./BrowserProxyContexts.ts";
+import { resolveBrowserProxyOpen } from "./browserProxyOpen.ts";
 import { BrowserControlInterrupted, SessionControl } from "./SessionControl.ts";
 import { installPdfDocumentNavigation, isPdfAssetUrl } from "./PdfDocumentNavigation.ts";
 
@@ -295,6 +297,7 @@ interface ServerTab {
 
   readonly desktop: { readonly close: () => Promise<void> } | null;
   readonly profileId: string | undefined;
+  readonly proxyUrl: string | undefined;
   readonly openerTabId: string | undefined;
 
   readonly downloads: Array<ServerDownload>;
@@ -734,6 +737,7 @@ const make = Effect.gen(function* () {
       (await contexts.contextFor(
         snapshot.profileId ?? "default",
         isolatedContext ? tabKey(snapshot.threadId, snapshot.tabId) : undefined,
+        snapshot.proxyUrl,
       ));
     if (adopted?.page.isClosed()) throw new Error("The popup closed before it opened.");
     if (!desktop) await prepareContext(context);
@@ -768,6 +772,7 @@ const make = Effect.gen(function* () {
       isolatedContext,
       desktop: desktop === null ? null : { close: desktop.close },
       profileId: snapshot.profileId,
+      proxyUrl: snapshot.proxyUrl,
       openerTabId: adopted?.openerTabId,
       downloads: [],
       fileChooser: null,
@@ -1198,6 +1203,7 @@ const make = Effect.gen(function* () {
         threadId: opener.threadId,
         ...(/^https?:/i.test(url) ? { url } : {}),
         runtime: "server",
+        ...(opener.proxyUrl === undefined ? {} : { proxyUrl: opener.proxyUrl }),
         ...(opener.profileId === undefined ? {} : { profileId: opener.profileId }),
         ...(opener.control.agentId === null
           ? {}
@@ -1313,10 +1319,12 @@ const make = Effect.gen(function* () {
   // Agent recordings encode here, so they need the client's Browser recording frame rate. The
   // last report outlives the client, which lets agents record while no client is connected.
   let recordingFrameRate = DEFAULT_BROWSER_RECORDING_FRAME_RATE;
+  let defaultProxyUrl = "";
 
   const reportProfiles: ServerBrowser["Service"]["reportProfiles"] = (input) =>
     Effect.sync(() => {
       if (input.recordingFrameRate !== undefined) recordingFrameRate = input.recordingFrameRate;
+      if (input.proxyUrl !== undefined) defaultProxyUrl = input.proxyUrl;
       const profiles = resolveBrowserProfiles(input.profiles);
       reportedProfiles = {
         profiles,
@@ -1377,6 +1385,7 @@ const make = Effect.gen(function* () {
       url: url === "about:blank" ? null : url,
       title: null,
       loading: tab.loading,
+      ...(tab.proxyUrl === undefined ? {} : { proxyUrl: tab.proxyUrl }),
       control: {
         owner: tabOwner(tab),
         ownedByCaller: tab.control.agentId === agentSessionId,
@@ -1392,6 +1401,7 @@ const make = Effect.gen(function* () {
         .filter((candidate) => candidate.threadId === tab.threadId)
         .map((candidate) => ({
           tabId: candidate.tabId,
+          ...(candidate.proxyUrl === undefined ? {} : { proxyUrl: candidate.proxyUrl }),
           url: candidate.page.url() === "about:blank" ? null : candidate.page.url(),
           ...(candidate.openerTabId === undefined ? {} : { openerTabId: candidate.openerTabId }),
           owner: tabOwner(candidate),
@@ -1732,7 +1742,7 @@ const make = Effect.gen(function* () {
           );
         const open = input as PreviewAutomationOpenInput;
         const url = open.url === undefined ? undefined : normalizePreviewUrl(open.url);
-        const reuse = open.reuseExistingTab ?? true;
+        const { proxyUrl, reuse } = resolveBrowserProxyOpen(open, defaultProxyUrl);
         if (
           reuse &&
           !request.tabIdExplicit &&
@@ -1775,6 +1785,9 @@ const make = Effect.gen(function* () {
           found && (request.tabIdExplicit || found.control.agentId === request.agentSessionId)
             ? found
             : undefined;
+        if (existing && open.proxyUrl !== undefined && (existing.proxyUrl ?? "") !== proxyUrl) {
+          throw new BrowserControlInterrupted("Routing is fixed for this tab. Open a new tab with proxyUrl and reuseExistingTab=false.");
+        }
         const navigationTimeout = Math.min(request.timeoutMs, NAVIGATION_TIMEOUT_MS);
         const profileId = existing ? undefined : resolveOpenProfile(open.profileId);
         if (!existing) {
@@ -1792,6 +1805,7 @@ const make = Effect.gen(function* () {
                 runtime: "server",
                 reveal: false,
                 automationOwner: request.agentSessionId,
+                ...(open.proxyUrl !== undefined || defaultProxyUrl ? { proxyUrl } : {}),
               }),
             ),
           ));

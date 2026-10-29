@@ -1,3 +1,4 @@
+import { browserProxyOpenInput } from "~/browser/browserProxy";
 import type { ScopedThreadRef } from "@t3tools/contracts";
 import { isAtomCommandInterrupted } from "@t3tools/client-runtime/state/runtime";
 import * as Schema from "effect/Schema";
@@ -64,6 +65,7 @@ export async function openTerminalLinkInPreview<E>(
       url: input.url,
       viewport: defaults.viewport,
       profileId: defaults.profileId,
+      ...browserProxyOpenInput(),
       ...(runtime === undefined ? {} : { runtime }),
     },
   });
