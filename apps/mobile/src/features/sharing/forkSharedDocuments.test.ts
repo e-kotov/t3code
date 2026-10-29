@@ -155,9 +155,13 @@ describe("Android shared documents", () => {
         ...drafts[0]!.attachments[0],
         id: "shared-document_file_0",
       });
-      expect(draft.context?.records).toEqual([
-        expect.objectContaining({ kind: "file", attachmentId: draft.attachments[0]!.id }),
-      ]);
+      if (shareType === "video") {
+        expect(draft.context).toBeUndefined();
+      } else {
+        expect(draft.context?.records).toEqual([
+          expect.objectContaining({ kind: "file", attachmentId: draft.attachments[0]!.id }),
+        ]);
+      }
       expect(mergeComposerDraftContentState(merged, "environment:thread", content)).toBe(merged);
     },
   );
