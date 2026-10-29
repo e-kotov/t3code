@@ -99,15 +99,14 @@ for (const { platform, editor, installPath, onPath } of [
           ),
         );
 
-        const launches = spawned;
-        assert.lengthOf(launches, 1);
+        assert.lengthOf(spawned, 1);
         // POSIX spawns preserve the PATH command; Windows resolves its extension first.
-        assert.equal(launches[0]?.command, platform === "linux" && onPath ? editor : executable);
+        assert.equal(spawned[0]?.command, platform === "linux" && onPath ? editor : executable);
         assert.deepEqual(
-          launches[0]?.args,
+          spawned[0]?.args,
           editor === "positron" && target.endsWith(":12:4") ? ["--goto", target] : [target],
         );
-        assert.equal(launches[0]?.options.detached, true);
+        assert.equal(spawned[0]?.options.detached, true);
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
     );
   }

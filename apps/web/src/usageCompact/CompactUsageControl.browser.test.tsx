@@ -144,6 +144,12 @@ it("shows every reported window of all harnesses in one shared popup", async () 
       { id: "gemini-5h", kind: "session", label: "Gemini · 5-hour", usedPercent: 0 },
       { id: "gemini-weekly", kind: "weekly", label: "Gemini · Weekly", usedPercent: 12 },
       {
+        id: "gemini-argon-wtu-weekly",
+        kind: "weekly",
+        label: "Gemini 4 Argon · Weekly",
+        usedPercent: 99,
+      },
+      {
         id: "3p-weekly",
         kind: "weekly",
         label: "Claude & GPT (shared) · Weekly",
@@ -155,19 +161,27 @@ it("shows every reported window of all harnesses in one shared popup", async () 
     <CompactUsageControl
       accounts={accounts}
       drivers={new Set(["codex", "claudeAgent", "antigravity"])}
+      disconnected={["Phone", "GWDG"]}
       onOpenFullView={() => {}}
     />,
   );
   await expect
     .element(
       page.getByRole("button", {
-        name: "Usage remaining: Codex 35%, Claude 33%, Antigravity 74%. Open full usage",
+        name: "Usage remaining: Codex 35%, Claude 33%, Antigravity 1%. Phone and GWDG are not connected. Open full usage",
       }),
     )
     .toBeVisible();
   await userEvent.hover(trigger());
   const popup = page.getByRole("dialog");
   await expect.element(popup).toBeVisible();
+  await expect
+    .element(
+      popup.getByText("Phone and GWDG are not connected; their values may be out of date.", {
+        exact: true,
+      }),
+    )
+    .toBeVisible();
   const codex = popup.getByRole("region", { name: "Codex" });
   await expect.element(codex.getByText("5h", { exact: true })).toBeVisible();
   await expect.element(codex.getByText("Week", { exact: true })).toBeVisible();
@@ -178,6 +192,8 @@ it("shows every reported window of all harnesses in one shared popup", async () 
   await expect.element(claude.getByText("83%", { exact: true })).toBeVisible();
   const agy = popup.getByRole("region", { name: "Antigravity" });
   await expect.element(agy.getByText("Gemini", { exact: true })).toBeVisible();
+  await expect.element(agy.getByText("Gemini 4 Argon", { exact: true })).toBeVisible();
+  await expect.element(agy.getByText("1%", { exact: true }).last()).toBeVisible();
   await expect.element(agy.getByText("Claude & GPT (shared)", { exact: true })).toBeVisible();
   await expect.element(agy.getByText("5-hour", { exact: true })).toBeVisible();
 });
