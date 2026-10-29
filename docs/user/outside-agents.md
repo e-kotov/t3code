@@ -98,8 +98,8 @@ Agents without OAuth support cannot connect.
 Scratch folder, including when the caller supplies the Scratch project's ID.
 Branch and existing-folder hints do not select another thread's Scratch folder.
 Use the returned thread ID with `t3_thread_read` to check the allocated
-`worktreePath` before working with its files. Subagents continue sharing their
-parent's workspace.
+`worktreePath` before working with its files. `create_threads` starts its threads
+in the caller's current folder, including a Scratch folder.
 
 ## Scripts on the host
 
