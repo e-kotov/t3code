@@ -85,7 +85,11 @@ import * as PreviewBrowserHost from "./PreviewBrowserHost.ts";
 import { presentAsChrome } from "./ServerBrowserContexts.ts";
 import { BrowserProxyContexts as ServerBrowserContexts } from "./BrowserProxyContexts.ts";
 import { acquireBrowserProxyPage, closeProtectedBrowserPopup } from "./BrowserProxyPage.ts";
-import { resolveBrowserProxyOpen, selectBrowserProxyTab, assertBrowserProxyTarget } from "./browserProxyOpen.ts";
+import {
+  resolveBrowserProxyOpen,
+  selectBrowserProxyTab,
+  assertBrowserProxyTarget,
+} from "./browserProxyOpen.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import { BrowserControlInterrupted, SessionControl } from "./SessionControl.ts";
 import { installPdfDocumentNavigation, isPdfAssetUrl } from "./PdfDocumentNavigation.ts";
@@ -735,7 +739,9 @@ const make = Effect.gen(function* () {
       ((snapshot.automationOwner !== undefined && snapshot.profileId === undefined) ||
         snapshot.profileId === INCOGNITO_BROWSER_PROFILE_ID);
     const { context, page } = await acquireBrowserProxyPage({
-      contexts, snapshot, isolationKey: isolatedContext ? tabKey(snapshot.threadId, snapshot.tabId) : undefined,
+      contexts,
+      snapshot,
+      isolationKey: isolatedContext ? tabKey(snapshot.threadId, snapshot.tabId) : undefined,
       ...(adopted === undefined ? {} : { adopted: adopted.page }),
       ...(desktop === null ? {} : { desktop: desktop.page }),
       prepare: prepareContext,
@@ -1782,7 +1788,9 @@ const make = Effect.gen(function* () {
         }
         // Reusing another session's tab requires explicit tabId; reading it grants no implicit takeover.
         const existing = selectBrowserProxyTab(
-          found && (request.tabIdExplicit || found.control.agentId === request.agentSessionId) ? found : undefined,
+          found && (request.tabIdExplicit || found.control.agentId === request.agentSessionId)
+            ? found
+            : undefined,
           proxyUrl,
           request.tabIdExplicit,
         );

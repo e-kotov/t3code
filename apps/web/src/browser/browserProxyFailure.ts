@@ -10,6 +10,10 @@ const isProxyError = Schema.is(BrowserProxyError);
 export function reportBrowserProxyFailure(cause: Cause.Cause<unknown>): boolean {
   const failure = Cause.findErrorOption(cause);
   if (Option.isNone(failure) || !isProxyError(failure.value)) return false;
-  toastManager.add({ type: "error", title: "Browser proxy unavailable", description: failure.value.message });
+  toastManager.add({
+    type: "error",
+    title: "Browser proxy unavailable",
+    description: failure.value.message,
+  });
   return true;
 }

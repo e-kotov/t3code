@@ -1,4 +1,8 @@
-import { BrowserProxyError, browserProxyTargetError, resolveBrowserProxyRoute } from "@t3tools/contracts";
+import {
+  BrowserProxyError,
+  browserProxyTargetError,
+  resolveBrowserProxyRoute,
+} from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
@@ -13,16 +17,36 @@ const make = Effect.gen(function* () {
   return PreviewManager.PreviewManager.of({
     ...manager,
     open: Effect.fn("BrowserProxyManager.open")(function* (input) {
-      const current = yield* settings.getSettings.pipe(Effect.mapError(() => new BrowserProxyError({ message: "Could not read the environment's browser proxy settings." })));
-      const proxyUrl = resolveBrowserProxyRoute(input.url, input.proxyUrl, current.browserProxy.enabled ? current.browserProxy.url : "");
+      const current = yield* settings.getSettings.pipe(
+        Effect.mapError(
+          () =>
+            new BrowserProxyError({
+              message: "Could not read the environment's browser proxy settings.",
+            }),
+        ),
+      );
+      const proxyUrl = resolveBrowserProxyRoute(
+        input.url,
+        input.proxyUrl,
+        current.browserProxy.enabled ? current.browserProxy.url : "",
+      );
       const blocked = browserProxyTargetError(input.url, proxyUrl);
       if (blocked) return yield* blocked;
       if (proxyUrl) {
-        yield* browser.executable.pipe(Effect.mapError((cause) => new BrowserProxyError({ message: `Proxy browsing is unavailable on this environment. ${cause.message}` })));
+        yield* browser.executable.pipe(
+          Effect.mapError(
+            (cause) =>
+              new BrowserProxyError({
+                message: `Proxy browsing is unavailable on this environment. ${cause.message}`,
+              }),
+          ),
+        );
       }
       return yield* manager.open({ ...input, proxyUrl });
     }),
   });
 });
 
-export const layer = Layer.effect(PreviewManager.PreviewManager, make).pipe(Layer.provide(PreviewManager.layer));
+export const layer = Layer.effect(PreviewManager.PreviewManager, make).pipe(
+  Layer.provide(PreviewManager.layer),
+);

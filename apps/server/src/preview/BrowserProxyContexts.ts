@@ -22,7 +22,9 @@ export class BrowserProxyContexts {
   private readonly options: Options;
   private closed = false;
 
-  constructor(options: Options) { this.options = options; }
+  constructor(options: Options) {
+    this.options = options;
+  }
 
   private async routePool(route: string): Promise<RoutePool> {
     await this.retiring.get(route);
@@ -33,7 +35,9 @@ export class BrowserProxyContexts {
     const pool = new ServerBrowserContexts({
       ...this.options,
       proxyUrl: route,
-      profilesDir: route ? NodePath.join(`${this.options.profilesDir}-proxy-routes`, this.routeId(route)) : this.options.profilesDir,
+      profilesDir: route
+        ? NodePath.join(`${this.options.profilesDir}-proxy-routes`, this.routeId(route))
+        : this.options.profilesDir,
       onContextClose: (context) => {
         contexts.delete(context);
         this.options.onContextClose?.(context);
@@ -46,11 +50,17 @@ export class BrowserProxyContexts {
   }
 
   private retire(route: string, record: RoutePool) {
-    if (!route || record.pending || record.contexts.size || this.pools.get(route) !== record) return;
+    if (!route || record.pending || record.contexts.size || this.pools.get(route) !== record)
+      return;
     this.pools.delete(route);
     const closing = record.pool.close();
     this.retiring.set(route, closing);
-    void closing.then(() => { if (this.retiring.get(route) === closing) this.retiring.delete(route); }, () => {});
+    void closing.then(
+      () => {
+        if (this.retiring.get(route) === closing) this.retiring.delete(route);
+      },
+      () => {},
+    );
   }
 
   private routeId(route: string) {
@@ -59,9 +69,15 @@ export class BrowserProxyContexts {
 
   private withProfile<A>(profileId: string, operation: () => Promise<A>): Promise<A> {
     const pending = (this.profileOperations.get(profileId) ?? Promise.resolve()).then(operation);
-    const settled = pending.then(() => {}, () => {});
+    const settled = pending.then(
+      () => {},
+      () => {},
+    );
     this.profileOperations.set(profileId, settled);
-    void settled.then(() => { if (this.profileOperations.get(profileId) === settled) this.profileOperations.delete(profileId); });
+    void settled.then(() => {
+      if (this.profileOperations.get(profileId) === settled)
+        this.profileOperations.delete(profileId);
+    });
     return pending;
   }
 
@@ -72,13 +88,19 @@ export class BrowserProxyContexts {
     try {
       const context = await record.pool.contextFor(profileId, isolationKey);
       if (route && !this.watched.has(context)) {
-        await context.route((url) => isProtectedBrowserAsset(url.href), (request) => request.abort("blockedbyclient"));
+        await context.route(
+          (url) => isProtectedBrowserAsset(url.href),
+          (request) => request.abort("blockedbyclient"),
+        );
         this.watched.add(context);
-        context.on("page", (page) => page.once("close", () => {
-          void this.withProfile(profileId, async () => {
-            if (!context.pages().some((candidate) => !candidate.isClosed())) await context.close();
-          }).catch(() => {});
-        }));
+        context.on("page", (page) =>
+          page.once("close", () => {
+            void this.withProfile(profileId, async () => {
+              if (!context.pages().some((candidate) => !candidate.isClosed()))
+                await context.close();
+            }).catch(() => {});
+          }),
+        );
       }
       record.contexts.add(context);
       return context;
@@ -92,28 +114,41 @@ export class BrowserProxyContexts {
     return this.withProfile(profileId, () => this.acquire(profileId, isolationKey, proxyUrl));
   }
 
-  pageFor(profileId: string, isolationKey: string | undefined, proxyUrl: string | undefined, prepare: (context: BrowserContext) => Promise<void>) {
+  pageFor(
+    profileId: string,
+    isolationKey: string | undefined,
+    proxyUrl: string | undefined,
+    prepare: (context: BrowserContext) => Promise<void>,
+  ) {
     return this.withProfile(profileId, async () => {
       const context = await this.acquire(profileId, isolationKey, proxyUrl);
       try {
         await prepare(context);
         return { context, page: await context.newPage() };
       } catch (cause) {
-        if (!context.pages().some((page) => !page.isClosed())) await context.close().catch(() => {});
+        if (!context.pages().some((page) => !page.isClosed()))
+          await context.close().catch(() => {});
         throw cause;
       }
     });
   }
 
-  async scratchPage() { return (await this.routePool("")).pool.scratchPage(); }
-  async connectDesktopPage(endpoint: string) { return (await this.routePool("")).pool.connectDesktopPage(endpoint); }
+  async scratchPage() {
+    return (await this.routePool("")).pool.scratchPage();
+  }
+  async connectDesktopPage(endpoint: string) {
+    return (await this.routePool("")).pool.connectDesktopPage(endpoint);
+  }
 
   clearProfile(profileId: string) {
     return this.withProfile(profileId, async () => {
       const live = [...this.pools.entries()];
-      const cleared = new Set(live.filter(([route]) => route).map(([route]) => this.routeId(route)));
+      const cleared = new Set(
+        live.filter(([route]) => route).map(([route]) => this.routeId(route)),
+      );
       for (const [, record] of live) await record.pool.clearProfile(profileId);
-      if (!live.some(([route]) => route === "")) await (await this.routePool("")).pool.clearProfile(profileId);
+      if (!live.some(([route]) => route === ""))
+        await (await this.routePool("")).pool.clearProfile(profileId);
       await Promise.all(this.retiring.values());
       const root = `${this.options.profilesDir}-proxy-routes`;
       const routes = await NodeFSP.readdir(root).catch((cause: NodeJS.ErrnoException) => {
@@ -122,8 +157,15 @@ export class BrowserProxyContexts {
       });
       for (const route of routes) {
         if (!/^[a-f0-9]{64}$/.test(route) || cleared.has(route)) continue;
-        const pool = new ServerBrowserContexts({ ...this.options, profilesDir: NodePath.join(root, route) });
-        try { await pool.clearProfile(profileId); } finally { await pool.close(); }
+        const pool = new ServerBrowserContexts({
+          ...this.options,
+          profilesDir: NodePath.join(root, route),
+        });
+        try {
+          await pool.clearProfile(profileId);
+        } finally {
+          await pool.close();
+        }
       }
     });
   }

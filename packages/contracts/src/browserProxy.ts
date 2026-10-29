@@ -48,9 +48,12 @@ export const BrowserProxySettings = Schema.Struct({
 );
 export type BrowserProxySettings = typeof BrowserProxySettings.Type;
 
-export class BrowserProxyError extends Schema.TaggedError<BrowserProxyError>()("BrowserProxyError", {
-  message: Schema.String,
-}) {}
+export class BrowserProxyError extends Schema.TaggedError<BrowserProxyError>()(
+  "BrowserProxyError",
+  {
+    message: Schema.String,
+  },
+) {}
 
 export const browserProxySettingsFields = {
   browserProxy: BrowserProxySettings.pipe(
@@ -81,11 +84,27 @@ export function isDirectBrowserTarget(value: string | undefined): boolean {
     const url = new URL(/^(?:https?|file):\/\//i.test(value) ? value : `http://${value}`);
     const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
     if (url.protocol === "file:") return true;
-    if (["localhost", "::1", "0.0.0.0"].includes(host) || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".ts.net")) return true;
+    if (
+      ["localhost", "::1", "0.0.0.0"].includes(host) ||
+      host.endsWith(".localhost") ||
+      host.endsWith(".local") ||
+      host.endsWith(".ts.net")
+    )
+      return true;
     const octets = host.split(".").map(Number);
-    if (octets.length === 4 && octets.every((part) => Number.isInteger(part) && part >= 0 && part <= 255)) {
+    if (
+      octets.length === 4 &&
+      octets.every((part) => Number.isInteger(part) && part >= 0 && part <= 255)
+    ) {
       const [a, b] = octets;
-      return a === 127 || a === 10 || (a === 192 && b === 168) || (a === 172 && b! >= 16 && b! <= 31) || (a === 169 && b === 254) || (a === 100 && b! >= 64 && b! <= 127);
+      return (
+        a === 127 ||
+        a === 10 ||
+        (a === 192 && b === 168) ||
+        (a === 172 && b! >= 16 && b! <= 31) ||
+        (a === 169 && b === 254) ||
+        (a === 100 && b! >= 64 && b! <= 127)
+      );
     }
     return /^(?:f[cd][0-9a-f]{2}|fe[89ab][0-9a-f]):/i.test(host);
   } catch {
@@ -93,7 +112,11 @@ export function isDirectBrowserTarget(value: string | undefined): boolean {
   }
 }
 
-export function resolveBrowserProxyRoute(url: string | undefined, override: string | undefined, defaultProxyUrl: string): string {
+export function resolveBrowserProxyRoute(
+  url: string | undefined,
+  override: string | undefined,
+  defaultProxyUrl: string,
+): string {
   if (override !== undefined) return normalizeBrowserProxyUrl(override);
   return isDirectBrowserTarget(url) ? "" : normalizeBrowserProxyUrl(defaultProxyUrl);
 }
@@ -106,17 +129,20 @@ export function browserProxyRequestReuse(input: {
   return input.reuseExistingTab ?? (input.proxyUrl === undefined || input.tabId !== undefined);
 }
 
-
 export function isProtectedBrowserAsset(value: string | undefined): boolean {
   if (!value) return false;
   try {
     const path = decodeURIComponent(new URL(value).pathname);
     return /^\/api\/assets\/[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}(?:\/|$)/.test(path);
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 }
 
 export function browserProxyTargetError(url: string | undefined, proxyUrl: string) {
   return proxyUrl && isProtectedBrowserAsset(url)
-    ? new BrowserProxyError({ message: 'Open signed app assets in a direct tab with proxyUrl set to an empty string.' })
+    ? new BrowserProxyError({
+        message: "Open signed app assets in a direct tab with proxyUrl set to an empty string.",
+      })
     : undefined;
 }

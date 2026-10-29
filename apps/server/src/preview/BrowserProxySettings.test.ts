@@ -18,18 +18,20 @@ const environment = SecretStore.layer.pipe(
   Layer.provideMerge(NodeServices.layer),
 );
 
-it.effect("reloads the environment proxy after the settings service restarts without clients", () => Effect.gen(function* () {
-  const proxy = { enabled: true, url: "socks5://127.0.0.1:1080" };
-  yield* Effect.gen(function* () {
-    const settings = yield* Settings.ServerSettings;
-    yield* settings.updateSettings({ browserProxy: proxy });
-  }).pipe(Effect.provide(Layer.fresh(Settings.layer)));
-  const fs = yield* FileSystem.FileSystem;
-  const config = yield* ServerConfig.ServerConfig;
-  expect(JSON.parse(yield* fs.readFileString(config.settingsPath)).browserProxy).toEqual(proxy);
-  const restored = yield* Effect.gen(function* () {
-    const settings = yield* Settings.ServerSettings;
-    return (yield* settings.getSettings).browserProxy;
-  }).pipe(Effect.provide(Layer.fresh(Settings.layer)));
-  expect(restored).toEqual(proxy);
-}).pipe(Effect.provide(environment)));
+it.effect("reloads the environment proxy after the settings service restarts without clients", () =>
+  Effect.gen(function* () {
+    const proxy = { enabled: true, url: "socks5://127.0.0.1:1080" };
+    yield* Effect.gen(function* () {
+      const settings = yield* Settings.ServerSettings;
+      yield* settings.updateSettings({ browserProxy: proxy });
+    }).pipe(Effect.provide(Layer.fresh(Settings.layer)));
+    const fs = yield* FileSystem.FileSystem;
+    const config = yield* ServerConfig.ServerConfig;
+    expect(JSON.parse(yield* fs.readFileString(config.settingsPath)).browserProxy).toEqual(proxy);
+    const restored = yield* Effect.gen(function* () {
+      const settings = yield* Settings.ServerSettings;
+      return (yield* settings.getSettings).browserProxy;
+    }).pipe(Effect.provide(Layer.fresh(Settings.layer)));
+    expect(restored).toEqual(proxy);
+  }).pipe(Effect.provide(environment)),
+);

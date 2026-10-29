@@ -20,16 +20,28 @@ export function resolveBrowserProxyOpen(
   if (blocked) throw blocked;
   return {
     proxyUrl,
-    reuse: browserProxyRequestReuse(input) && (currentProxyUrl === undefined || sameRoute(currentProxyUrl, proxyUrl)),
+    reuse:
+      browserProxyRequestReuse(input) &&
+      (currentProxyUrl === undefined || sameRoute(currentProxyUrl, proxyUrl)),
   };
 }
 
-export function selectBrowserProxyTab<T extends { readonly proxyUrl: string | undefined }>(tab: T | undefined, proxyUrl: string, explicit: boolean): T | undefined {
+export function selectBrowserProxyTab<T extends { readonly proxyUrl: string | undefined }>(
+  tab: T | undefined,
+  proxyUrl: string,
+  explicit: boolean,
+): T | undefined {
   if (!tab || sameRoute(tab.proxyUrl, proxyUrl)) return tab;
-  if (explicit) throw new BrowserControlInterrupted("Routing is fixed for this tab. Open a new tab with proxyUrl and reuseExistingTab=false.");
+  if (explicit)
+    throw new BrowserControlInterrupted(
+      "Routing is fixed for this tab. Open a new tab with proxyUrl and reuseExistingTab=false.",
+    );
   return undefined;
 }
 
 export function assertBrowserProxyTarget(proxyUrl: string | undefined, url: string) {
-  if (proxyUrl && (isDirectBrowserTarget(url) || isProtectedBrowserAsset(url))) throw new BrowserControlInterrupted("Open local or app resources in a new direct tab with proxyUrl set to an empty string.");
+  if (proxyUrl && (isDirectBrowserTarget(url) || isProtectedBrowserAsset(url)))
+    throw new BrowserControlInterrupted(
+      "Open local or app resources in a new direct tab with proxyUrl set to an empty string.",
+    );
 }

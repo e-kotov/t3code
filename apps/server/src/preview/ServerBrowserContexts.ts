@@ -155,7 +155,11 @@ export class ServerBrowserContexts {
   }
 
   private async createContext(profileId: string, isolationKey?: string) {
-    const contextOptions = { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, ...browserProxyContextOptions(this.options.proxyUrl) };
+    const contextOptions = {
+      viewport: { width: 1280, height: 800 },
+      deviceScaleFactor: 2,
+      ...browserProxyContextOptions(this.options.proxyUrl),
+    };
     if (isolationKey !== undefined || profileId === INCOGNITO_BROWSER_PROFILE_ID) {
       const browser = await this.sharedBrowser();
       return browser.newContext(contextOptions);

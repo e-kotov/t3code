@@ -9,6 +9,8 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import { BrowserProxyContexts } from "./BrowserProxyContexts.ts";
 
+vi.mock("node:fs/promises", { spy: true });
+
 const listen = (server: NodeNet.Server, host = "127.0.0.1") =>
   new Promise<number>((resolve, reject) => {
     server.once("error", reject);
@@ -30,7 +32,10 @@ describe("browser proxy routes", () => {
     const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-proxy-"));
     const requests: string[] = [];
     let directRequests = 0;
-    const directTarget = NodeHttp.createServer((request, response) => { if (request.url === "/probe") directRequests += 1; response.end("reachable directly"); });
+    const directTarget = NodeHttp.createServer((request, response) => {
+      if (request.url === "/probe") directRequests += 1;
+      response.end("reachable directly");
+    });
     const local = NodeHttp.createServer((_request, response) => response.end("direct localhost"));
     const target = NodeHttp.createServer((_request, response) => response.end("SOCKS route"));
     const protectedUrl = `http://route-check.invalid/api/assets/cGF5bG9hZA.${"a".repeat(43)}/report.html`;
@@ -86,7 +91,9 @@ describe("browser proxy routes", () => {
       };
       socket.on("data", receive);
     });
-    const address = Object.values(NodeOS.networkInterfaces()).flat().find((entry) => entry?.family === "IPv4" && !entry.internal)?.address;
+    const address = Object.values(NodeOS.networkInterfaces())
+      .flat()
+      .find((entry) => entry?.family === "IPv4" && !entry.internal)?.address;
     const pool = new BrowserProxyContexts({
       args: address ? [`--host-resolver-rules=MAP proxy-direct.test ${address}`] : [],
       profilesDir: NodePath.join(root, "profiles"),
@@ -113,14 +120,20 @@ describe("browser proxy routes", () => {
       expect(requests).toContain("http://route-check.invalid/");
       expect(socksHosts).toContain("route-check.invalid");
       await expect(httpPage.goto(protectedUrl)).rejects.toThrow();
-      await expect(httpPage.goto("http://route-check.invalid/redirect-protected")).rejects.toThrow();
+      await expect(
+        httpPage.goto("http://route-check.invalid/redirect-protected"),
+      ).rejects.toThrow();
       expect(requests).not.toContain(protectedUrl);
       await httpPage.goto("http://route-check.invalid/api/assets/public/report.js");
       expect(await httpPage.textContent("body")).toBe("HTTP route");
       const blockedPopup = Promise.withResolvers<void>();
-      httpContext.on("requestfailed", (request) => { if (request.url() === protectedUrl) blockedPopup.resolve(); });
+      httpContext.on("requestfailed", (request) => {
+        if (request.url() === protectedUrl) blockedPopup.resolve();
+      });
       const popupOpened = httpPage.waitForEvent("popup");
-      await httpPage.evaluate((url) => { window.open(url); }, protectedUrl);
+      await httpPage.evaluate((url) => {
+        window.open(url);
+      }, protectedUrl);
       const popup = await popupOpened;
       await blockedPopup.promise;
       expect(requests).not.toContain(protectedUrl);
@@ -140,9 +153,7 @@ describe("browser proxy routes", () => {
       directRequests = 0;
       for (const socket of sockets) socket.destroy();
       await close(socksProxy);
-      await expect(
-        (await socksContext.newPage()).goto(directUrl),
-      ).rejects.toThrow();
+      await expect((await socksContext.newPage()).goto(directUrl)).rejects.toThrow();
       expect(directRequests).toBe(0);
       // A failed SOCKS route must not change the independently working HTTP route.
       await httpPage.goto("http://route-check.invalid/");
@@ -151,7 +162,9 @@ describe("browser proxy routes", () => {
       await pool.close();
       for (const socket of sockets) socket.destroy();
       await Promise.all(
-        [local, target, httpProxy, socksProxy, directTarget].filter((server) => server.listening).map(close),
+        [local, target, httpProxy, socksProxy, directTarget]
+          .filter((server) => server.listening)
+          .map(close),
       );
       await NodeFSP.rm(root, { recursive: true, force: true });
     }
@@ -196,20 +209,24 @@ describe("browser proxy routes", () => {
   });
 });
 
-
 it("waits for all route deletion before reopening a profile", async () => {
   const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-proxy-clear-"));
   const profilesDir = NodePath.join(root, "profiles");
-  const pool = new BrowserProxyContexts({ profilesDir, env: { ...process.env, T3CODE_SERVER_BROWSER_SANDBOX: "0" }, executable: async () => chromium.executablePath() });
+  const pool = new BrowserProxyContexts({
+    profilesDir,
+    env: { ...process.env, T3CODE_SERVER_BROWSER_SANDBOX: "0" },
+    executable: async () => chromium.executablePath(),
+  });
   const route = "http://127.0.0.1:1";
   try {
     await pool.contextFor("work", undefined, route);
     const [routeId] = await NodeFSP.readdir(`${profilesDir}-proxy-routes`);
     const directory = NodePath.join(`${profilesDir}-proxy-routes`, routeId!, "work");
-    const remove = NodeFSP.rm;
+    const remove = (await vi.importActual<typeof NodeFSP>("node:fs/promises")).rm;
     let reopening: ReturnType<BrowserProxyContexts["contextFor"]> | undefined;
     let deletions = 0;
-    using _remove = vi.spyOn(NodeFSP, "rm").mockImplementation(async (path, options) => {
+    const removeMock = vi.mocked(NodeFSP.rm);
+    removeMock.mockImplementation(async (path, options) => {
       if (String(path) === directory) {
         deletions += 1;
         if (deletions === 1) reopening = pool.contextFor("work", undefined, route);
@@ -217,10 +234,14 @@ it("waits for all route deletion before reopening a profile", async () => {
       }
       return remove(path, options);
     });
-    await pool.clearProfile("work");
-    expect(reopening).toBeDefined();
-    await reopening;
-    expect((await NodeFSP.stat(directory)).isDirectory()).toBe(true);
+    try {
+      await pool.clearProfile("work");
+      expect(reopening).toBeDefined();
+      await reopening;
+      expect((await NodeFSP.stat(directory)).isDirectory()).toBe(true);
+    } finally {
+      removeMock.mockRestore();
+    }
   } finally {
     await pool.close();
     await NodeFSP.rm(root, { recursive: true, force: true });
@@ -229,7 +250,11 @@ it("waits for all route deletion before reopening a profile", async () => {
 
 it("releases idle route browsers before a proxy is used again", async () => {
   const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-proxy-idle-"));
-  const pool = new BrowserProxyContexts({ profilesDir: NodePath.join(root, "profiles"), env: { ...process.env, T3CODE_SERVER_BROWSER_SANDBOX: "0" }, executable: async () => chromium.executablePath() });
+  const pool = new BrowserProxyContexts({
+    profilesDir: NodePath.join(root, "profiles"),
+    env: { ...process.env, T3CODE_SERVER_BROWSER_SANDBOX: "0" },
+    executable: async () => chromium.executablePath(),
+  });
   try {
     const first = await pool.contextFor("default", "agent", "socks5://127.0.0.1:1");
     const browser = first.browser();
@@ -244,10 +269,13 @@ it("releases idle route browsers before a proxy is used again", async () => {
   }
 });
 
-
 it("keeps a new page lease alive when the previous last page closes", async () => {
   const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-proxy-lease-"));
-  const pool = new BrowserProxyContexts({ profilesDir: NodePath.join(root, "profiles"), env: { ...process.env, T3CODE_SERVER_BROWSER_SANDBOX: "0" }, executable: async () => chromium.executablePath() });
+  const pool = new BrowserProxyContexts({
+    profilesDir: NodePath.join(root, "profiles"),
+    env: { ...process.env, T3CODE_SERVER_BROWSER_SANDBOX: "0" },
+    executable: async () => chromium.executablePath(),
+  });
   try {
     const route = "socks5://127.0.0.1:1";
     const first = await pool.pageFor("default", "agent", route, async () => {});

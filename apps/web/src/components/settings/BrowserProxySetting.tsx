@@ -4,7 +4,11 @@ import { useState } from "react";
 import { DraftInput } from "../ui/draft-input";
 import { Switch } from "../ui/switch";
 import { useSettingsScope } from "./SettingsScopeContext";
-import { useScopedSettings, useUpdateScopedSettings, useScopedSettingsWriteAllowed } from "./useScopedSettings";
+import {
+  useScopedSettings,
+  useUpdateScopedSettings,
+  useScopedSettingsWriteAllowed,
+} from "./useScopedSettings";
 import { SettingsRow } from "./settingsLayout";
 import { searchableSetting } from "./settingsSearch";
 
@@ -14,14 +18,26 @@ export function BrowserProxySetting() {
   const update = useUpdateScopedSettings();
   const writable = useScopedSettingsWriteAllowed();
   const [error, setError] = useState<string | null>(null);
-  const supported = context.connectedEnvironments.length > 0 && context.connectedEnvironments.every((target) => target.serverConfig?.environment.capabilities.browserProxy === true);
-  const disabled = !writable || !supported || context.scope.kind === "project" || context.scope.kind === "checkout";
+  const supported =
+    context.connectedEnvironments.length > 0 &&
+    context.connectedEnvironments.every(
+      (target) => target.serverConfig?.environment.capabilities.browserProxy === true,
+    );
+  const disabled =
+    !writable ||
+    !supported ||
+    context.scope.kind === "project" ||
+    context.scope.kind === "checkout";
   return (
     <SettingsRow
       {...searchableSetting("browser-proxy")}
       serverScoped
       settingKeys={["browserProxy"]}
-      description={supported ? "Default route for this environment's agents and new external tabs. Existing tabs keep their route. Local and app resources stay direct." : "Update the selected environment's T3 Code server to configure its browser proxy."}
+      description={
+        supported
+          ? "Default route for this environment's agents and new external tabs. Existing tabs keep their route. Local and app resources stay direct."
+          : "Update the selected environment's T3 Code server to configure its browser proxy."
+      }
       control={
         <Switch
           aria-label="Use browser proxy"
@@ -48,7 +64,11 @@ export function BrowserProxySetting() {
             }
           }}
         />
-        {error ? <p role="alert" className="mt-2 text-sm text-destructive">{error}</p> : null}
+        {error ? (
+          <p role="alert" className="mt-2 text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
       </div>
     </SettingsRow>
   );

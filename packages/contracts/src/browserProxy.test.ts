@@ -58,7 +58,6 @@ describe("browser proxy configuration", () => {
   });
 });
 
-
 it("stores defaults only in the environment settings", () => {
   expect(decodeServerSettings({}).browserProxy).toEqual({ enabled: false, url: "" });
   expect(decodeClientSettings({})).not.toHaveProperty("browserProxy");

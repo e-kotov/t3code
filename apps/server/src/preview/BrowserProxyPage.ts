@@ -25,7 +25,6 @@ export async function acquireBrowserProxyPage(input: {
   );
 }
 
-
 export async function closeProtectedBrowserPopup(proxyUrl: string | undefined, popup: Page) {
   if (!proxyUrl || !isProtectedBrowserAsset(popup.url())) return false;
   await popup.close();

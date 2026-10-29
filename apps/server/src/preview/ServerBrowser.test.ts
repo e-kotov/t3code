@@ -348,7 +348,10 @@ const dependencies = Layer.mergeAll(
 );
 import * as ProxySettings from "../serverSettings.ts";
 
-const layer = ServerBrowser.layer.pipe(Layer.provide(ProxySettings.ServerSettings.layerTest()), Layer.provideMerge(dependencies));
+const layer = ServerBrowser.layer.pipe(
+  Layer.provide(ProxySettings.ServerSettings.layerTest()),
+  Layer.provideMerge(dependencies),
+);
 const ready = Effect.gen(function* () {
   const browser = yield* ServerBrowser.ServerBrowser;
   const broker = yield* Broker.PreviewAutomationBroker;

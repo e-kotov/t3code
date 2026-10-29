@@ -452,7 +452,12 @@ const layerTerminal = TerminalManager.layer.pipe(
 import * as BrowserProxyManager from "./preview/BrowserProxyManager.ts";
 
 const layerPreview = Layer.empty.pipe(
-  Layer.provideMerge(BrowserProxyManager.layer.pipe(Layer.provide(layerServerSettings), Layer.provide(PreviewBrowser.layer))),
+  Layer.provideMerge(
+    BrowserProxyManager.layer.pipe(
+      Layer.provide(layerServerSettings),
+      Layer.provide(PreviewBrowser.layer),
+    ),
+  ),
   Layer.provideMerge(layerPortScanner),
 );
 
