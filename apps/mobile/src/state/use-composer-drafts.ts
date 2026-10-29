@@ -71,7 +71,10 @@ import {
 } from "./thread-outbox-model";
 import { flushThreadOutbox, threadOutboxManager } from "./thread-outbox";
 import { composerDraftEnvironmentId } from "../lib/composerAttachmentUploadQueue";
-import { forkRepairPersistedSharedDrafts } from "../features/sharing/forkSharedAttachmentIds";
+import {
+  forkAttachmentIdBase,
+  forkRepairPersistedSharedDrafts,
+} from "../features/sharing/forkSharedAttachmentIds";
 
 const COMPOSER_DRAFTS_SCHEMA_VERSION = 1;
 const COMPOSER_DRAFTS_DIRECTORY = "composer-drafts";
@@ -568,7 +571,7 @@ function restoreMissingComposerFileReferences(
         candidate.attachmentId === attachment.id,
     );
     if (!record) {
-      const baseId = attachment.id.replace(/[^a-z0-9_-]/gi, "_").slice(0, 110) || "file";
+      const baseId = forkAttachmentIdBase(attachment.id);
       let contextId = baseId;
       for (let suffix = 2; usedIds.has(contextId); suffix += 1) contextId = `${baseId}_${suffix}`;
       usedIds.add(contextId);
@@ -758,6 +761,7 @@ async function writePersistedComposerState(
     );
     const document = {
       schemaVersion: COMPOSER_DRAFTS_SCHEMA_VERSION,
+      sharedAttachmentIdsVersion: 1,
       drafts: nonEmptyDrafts,
       ...(stickyModelSelection ? { stickyModelSelection } : {}),
       ...(Object.keys(appAtomRegistry.get(modelOptionMemoryAtom)).length > 0

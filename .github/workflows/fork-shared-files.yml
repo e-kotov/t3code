@@ -11,12 +11,12 @@ on:
     branches: [main]
     paths: &shared-file-paths
       - ".github/workflows/fork-shared-files.yml"
-      - "apps/mobile/src/features/sharing/forkSharedAttachmentIds.ts"
-      - "apps/mobile/src/features/sharing/forkSharedDocuments.test.ts"
+      - "apps/mobile/src/features/sharing/**"
+      - "packages/contracts/src/**"
       - "apps/mobile/src/state/use-composer-drafts.ts"
       - "apps/mobile/src/features/threads/incomingShareImport.ts"
   push:
-    branches: ["sync/android-share-send"]
+    branches: [main]
     paths: *shared-file-paths
 
 permissions:
@@ -58,7 +58,7 @@ jobs:
         run: |
           git fetch --no-tags origin "$REGRESSION_REF"
           baseline=$(git rev-parse FETCH_HEAD)
-          sources=(apps/mobile/src/state/use-composer-drafts.ts apps/mobile/src/features/threads/incomingShareImport.ts)
+          sources=(apps/mobile/src/state/use-composer-drafts.ts apps/mobile/src/features/sharing/incoming-share-model.ts)
           for index in "${!sources[@]}"; do
             cp "${sources[$index]}" "$RUNNER_TEMP/shared-file-source-$index.ts"
           done
@@ -77,15 +77,20 @@ jobs:
           import json, os, pathlib
           result = json.loads((pathlib.Path(os.environ['RUNNER_TEMP']) / 'shared-file-regression.json').read_text())
           failed = [test for suite in result['testResults'] for test in suite.get('assertionResults', []) if test['status'] == 'failed']
-          assert result['numFailedTests'] == len(failed) == 6, result
+          assert result['numFailedTests'] == len(failed) and failed, result
+          groups = ['content provider', 'uploaded transcript', 'record was already discarded', 'generated image IDs', 'pending inbox share', 'unfamiliar attachment IDs']
+          for group in groups:
+              assert any(group in test['fullName'] for test in failed), (group, result)
           for test in failed:
               assert 'AssertionError' in '\n'.join(test['failureMessages']), test
+          print(f'Proved {len(failed)} assertion failures across all {len(groups)} shared-file regression groups.')
           PYTHON
       - name: Check changed code and shared-file sending
         run: |
           base=$(git merge-base origin/main HEAD)
+          if [ "$base" = "$(git rev-parse HEAD)" ]; then base=HEAD^; fi
           vp run check:changed "$base"
-          vp test run apps/mobile/src/features/sharing/forkSharedDocuments.test.ts apps/mobile/src/state/use-composer-drafts.test.ts apps/mobile/src/lib/composerContext.test.ts apps/mobile/src/features/sharing/forkShareDestinationController.test.ts apps/mobile/src/features/threads/incomingShareImport.test.ts
+          vp test run apps/mobile/src/features/sharing/forkSharedDocuments.test.ts apps/mobile/src/features/sharing/incoming-share-model.test.ts apps/mobile/src/state/use-composer-drafts.test.ts apps/mobile/src/lib/composerContext.test.ts apps/mobile/src/features/sharing/forkShareDestinationController.test.ts apps/mobile/src/features/threads/incomingShareImport.test.ts
           python3 scripts/fork-footprint-budget.py
       - name: Capture formatting fixes
         if: failure()

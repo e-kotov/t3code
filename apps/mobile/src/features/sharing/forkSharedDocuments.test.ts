@@ -14,9 +14,11 @@ import { makeIncomingShareImports } from "../threads/incomingShareImport";
 import { IncomingShareInbox } from "./incoming-share-inbox";
 import {
   buildIncomingShareDraft,
+  decodeIncomingShareDraft,
   selectIncomingShareAttachmentsForServer,
   type IncomingShareDraft,
 } from "./incoming-share-model";
+import { forkRepairPersistedSharedDrafts } from "./forkSharedAttachmentIds";
 
 const isChatAttachmentId = Schema.is(ChatAttachmentId);
 
@@ -68,91 +70,97 @@ async function importIntoDraft(share: IncomingShareDraft, draftKey: string) {
 
 describe("Android shared documents", () => {
   it.each([
-    { name: "Episode transcript.txt", mimeType: "text/plain" },
-    { name: "Paper.pdf", mimeType: "application/pdf" },
-  ])("keeps $name from a content provider in the durable inbox", async ({ name, mimeType }) => {
-    let payloads: ReadonlyArray<SharePayload> = [
-      {
-        shareType: "file",
-        value: "content://sender.provider/shared/123",
-        originalName: name,
-        mimeType,
-      },
-    ];
-    const stored = new Map<string, IncomingShareDraft>();
-    const localUri = `file:///documents/${encodeURIComponent(name)}`;
-    const readBase64 = vi.fn(async () => "unused");
-    const persistFile = vi.fn(async () => localUri);
-    const inbox = new IncomingShareInbox({
-      loadDrafts: async () => [...stored.values()],
-      writeDraft: async (draft) => void stored.set(draft.id, draft),
-      removeDraft: async (id) => void stored.delete(id),
-      getPayloads: () => payloads,
-      clearPayloads: () => {
-        payloads = [];
-      },
-      buildDraft: async (input) => ({
-        draft: await buildIncomingShareDraft({
-          ...input,
-          resolvedPayloads: [],
-          fileReader: {
-            readBase64,
-            persistFile,
-            readSize: async (uri) => (uri.startsWith("content:") ? 0 : 55 * 1024),
-            removeOwnedFile: async () => {},
-          },
+    { name: "Episode transcript.txt", mimeType: "text/plain", shareType: "file" as const },
+    { name: "Paper.pdf", mimeType: "application/pdf", shareType: "file" as const },
+    { name: "Episode.mp3", mimeType: "audio/mpeg", shareType: "audio" as const },
+    { name: "Clip.mp4", mimeType: "video/mp4", shareType: "video" as const },
+  ])(
+    "keeps $name from a content provider in the durable inbox",
+    async ({ name, mimeType, shareType }) => {
+      let payloads: ReadonlyArray<SharePayload> = [
+        {
+          shareType,
+          value: "content://sender.provider/shared/123",
+          originalName: name,
+          mimeType,
+        },
+      ];
+      const stored = new Map<string, IncomingShareDraft>();
+      const localUri = `file:///documents/${encodeURIComponent(name)}`;
+      const readBase64 = vi.fn(async () => "unused");
+      const persistFile = vi.fn(async () => localUri);
+      const inbox = new IncomingShareInbox({
+        loadDrafts: async () => [...stored.values()],
+        writeDraft: async (draft) => void stored.set(draft.id, draft),
+        removeDraft: async (id) => void stored.delete(id),
+        getPayloads: () => payloads,
+        clearPayloads: () => {
+          payloads = [];
+        },
+        buildDraft: async (input) => ({
+          draft: await buildIncomingShareDraft({
+            ...input,
+            resolvedPayloads: [],
+            fileReader: {
+              readBase64,
+              persistFile,
+              readSize: async (uri) => (uri.startsWith("content:") ? 0 : 55 * 1024),
+              removeOwnedFile: async () => {},
+            },
+          }),
+          cleanup: async () => {},
         }),
-        cleanup: async () => {},
-      }),
-      idForPayloads: async () => "shared-document",
-      now: () => "2026-10-28T21:00:00.000Z",
-    });
+        idForPayloads: async () => "shared-document",
+        now: () => "2026-10-28T21:00:00.000Z",
+      });
 
-    const drafts = await inbox.refresh({ ingestNative: true });
-    expect(drafts).toHaveLength(1);
-    expect(drafts[0]?.warnings).toEqual([]);
-    expect(drafts[0]?.attachments).toEqual([
-      {
-        id: "shared-document:file:0",
-        type: "file",
-        name,
-        mimeType,
-        sizeBytes: 55 * 1024,
-        fileUri: localUri,
-      },
-    ]);
-    expect(payloads).toEqual([]);
-    expect(persistFile).toHaveBeenCalledTimes(1);
-    expect(persistFile).toHaveBeenCalledWith("content://sender.provider/shared/123", name);
-    expect(readBase64).not.toHaveBeenCalled();
-    expect(await inbox.refresh({ ingestNative: true })).toEqual(drafts);
-    expect(persistFile).toHaveBeenCalledTimes(1);
-    expect(
-      selectIncomingShareAttachmentsForServer({
-        attachments: drafts[0]!.attachments,
-        serverConfig: {
-          environment: {
-            capabilities: {
-              fileAttachments: { maxUploadBytes: 50 * 1024 * 1024 },
+      const drafts = await inbox.refresh({ ingestNative: true });
+      expect(drafts).toHaveLength(1);
+      expect(drafts[0]?.warnings).toEqual([]);
+      expect(isChatAttachmentId(drafts[0]!.attachments[0]!.id)).toBe(true);
+      expect(drafts[0]?.attachments).toEqual([
+        {
+          id: "shared-document_file_0",
+          type: "file",
+          name,
+          mimeType,
+          sizeBytes: 55 * 1024,
+          fileUri: localUri,
+        },
+      ]);
+      expect(payloads).toEqual([]);
+      expect(persistFile).toHaveBeenCalledTimes(1);
+      expect(persistFile).toHaveBeenCalledWith("content://sender.provider/shared/123", name);
+      expect(readBase64).not.toHaveBeenCalled();
+      expect(await inbox.refresh({ ingestNative: true })).toEqual(drafts);
+      expect(persistFile).toHaveBeenCalledTimes(1);
+      expect(
+        selectIncomingShareAttachmentsForServer({
+          attachments: drafts[0]!.attachments,
+          serverConfig: {
+            environment: {
+              capabilities: {
+                fileAttachments: { maxUploadBytes: 50 * 1024 * 1024 },
+              },
             },
           },
-        },
-      }),
-    ).toEqual({ status: "ready", attachments: drafts[0]!.attachments, warnings: [] });
-    const content = { ...drafts[0]!, sourceShareId: drafts[0]!.id };
-    const merged = await importIntoDraft(drafts[0]!, "environment:thread");
-    const draft = merged["environment:thread"]!;
-    expect(composerContextSendBlockReason(draft.context)).toBeNull();
-    expect(isChatAttachmentId(draft.attachments[0]!.id)).toBe(true);
-    expect(draft.attachments[0]).toEqual({
-      ...drafts[0]!.attachments[0],
-      id: "shared-document_file_0",
-    });
-    expect(draft.context?.records).toEqual([
-      expect.objectContaining({ kind: "file", attachmentId: draft.attachments[0]!.id }),
-    ]);
-    expect(mergeComposerDraftContentState(merged, "environment:thread", content)).toBe(merged);
-  });
+        }),
+      ).toEqual({ status: "ready", attachments: drafts[0]!.attachments, warnings: [] });
+      const content = { ...drafts[0]!, sourceShareId: drafts[0]!.id };
+      const merged = await importIntoDraft(drafts[0]!, "environment:thread");
+      const draft = merged["environment:thread"]!;
+      expect(composerContextSendBlockReason(draft.context)).toBeNull();
+      expect(isChatAttachmentId(draft.attachments[0]!.id)).toBe(true);
+      expect(draft.attachments[0]).toEqual({
+        ...drafts[0]!.attachments[0],
+        id: "shared-document_file_0",
+      });
+      expect(draft.context?.records).toEqual([
+        expect.objectContaining({ kind: "file", attachmentId: draft.attachments[0]!.id }),
+      ]);
+      expect(mergeComposerDraftContentState(merged, "environment:thread", content)).toBe(merged);
+    },
+  );
 
   it.each([false, true])(
     "recovers an already uploaded transcript without losing its chip (archived: %s)",
@@ -191,6 +199,9 @@ describe("Android shared documents", () => {
           ? { signedOutDrafts: { account: { drafts: { thread: original }, queuedMessages: [] } } }
           : {}),
       };
+      const migrated = forkRepairPersistedSharedDrafts(document);
+      expect(migrated).toHaveProperty("sharedAttachmentIdsVersion", 1);
+      expect(forkRepairPersistedSharedDrafts(migrated)).toBe(migrated);
       const decoded = decodePersistedComposerState(document);
       const draft = (
         archived ? decoded.cloudDrafts.signedOut.account?.drafts.thread : decoded.drafts.thread
@@ -244,33 +255,69 @@ describe("Android shared documents", () => {
     expect(composerContextSendBlockReason(draft.context)).toBeNull();
   });
 
-  it.each(["share-photo:image:0", "ordinary-picker-uuid"])(
-    "keeps %s usable by attachment uploads",
-    async (id) => {
-      const attachment = {
-        id,
-        type: "image" as const,
-        name: "Photo.png",
-        mimeType: "image/png",
-        sizeBytes: 3,
-        dataUrl: "data:image/png;base64,YWJj",
-        previewUri: "data:image/png;base64,YWJj",
-      };
-      const draft = (
-        await importIntoDraft(
-          {
-            schemaVersion: 1,
-            id: "share-photo",
-            createdAt: "2026-10-29T13:00:00.000Z",
-            text: "Describe",
-            attachments: [attachment],
-            warnings: [],
-          },
-          "thread",
-        )
-      ).thread!;
-      expect(isChatAttachmentId(draft.attachments[0]!.id)).toBe(true);
-      expect(draft.attachments[0]).toEqual({ ...attachment, id: id.replaceAll(":", "_") });
-    },
-  );
+  it("accepts generated image IDs before importing", async () => {
+    const share = await buildIncomingShareDraft({
+      id: "share-photo",
+      createdAt: "2026-10-29T13:00:00.000Z",
+      payloads: [{ shareType: "image", value: "file:///photo.png", mimeType: "image/png" }],
+      resolvedPayloads: [],
+      fileReader: { readBase64: async () => "YWJj", removeOwnedFile: async () => {} },
+    });
+    expect(share.attachments).toHaveLength(1);
+    expect(isChatAttachmentId(share.attachments[0]!.id)).toBe(true);
+    const draft = (await importIntoDraft(share, "thread")).thread!;
+    expect(draft.attachments).toEqual(share.attachments);
+  });
+
+  it("loads a pending inbox share with legacy IDs before importing", async () => {
+    const original = {
+      schemaVersion: 1,
+      id: "share-pending",
+      createdAt: "2026-10-29T13:00:00.000Z",
+      text: "Summarize",
+      attachments: [
+        {
+          id: "share-pending:audio:0",
+          type: "file",
+          name: "Transcript.txt",
+          mimeType: "text/plain",
+          sizeBytes: 55 * 1024,
+          fileUri: "file:///transcript.txt",
+        },
+      ],
+      warnings: [],
+    };
+    const share = decodeIncomingShareDraft(original);
+    expect(share.id).toBe(original.id);
+    expect(share.attachments[0]?.id).toBe("share-pending_audio_0");
+    const draft = (await importIntoDraft(share, "thread")).thread!;
+    expect(composerContextSendBlockReason(draft.context)).toBeNull();
+    expect(draft.importedShareIds).toEqual([original.id]);
+    expect(original.attachments[0]?.id).toBe("share-pending:audio:0");
+  });
+
+  it.each([
+    { id: "share:audio:0", base: "share_audio_0" },
+    { id: "share/v2?document#0", base: "share_v2_document_0" },
+    { id: "x".repeat(140), base: "x".repeat(110) },
+    { id: "", base: "file" },
+  ])("recovers unfamiliar attachment IDs without overwriting a valid ID: $id", ({ id, base }) => {
+    const file = {
+      id,
+      type: "file",
+      name: "Transcript.txt",
+      mimeType: "text/plain",
+      sizeBytes: 55 * 1024,
+      fileUri: "file:///transcript.txt",
+    };
+    const valid = { ...file, id: base, fileUri: "file:///other.txt" };
+    const draft = decodePersistedComposerState({
+      schemaVersion: 1,
+      drafts: { thread: { text: "Summarize", attachments: [file, valid] } },
+    }).drafts.thread!;
+    expect(draft.attachments).toEqual([{ ...file, id: `${base}_2` }, valid]);
+    expect(draft.context?.records).toHaveLength(2);
+    expect(composerContextSendBlockReason(draft.context)).toBeNull();
+    expect(draft.attachments.every((attachment) => isChatAttachmentId(attachment.id))).toBe(true);
+  });
 });

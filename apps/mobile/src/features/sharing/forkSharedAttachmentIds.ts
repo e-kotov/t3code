@@ -1,22 +1,35 @@
+import { ChatAttachmentId } from "@t3tools/contracts";
+import * as Schema from "effect/Schema";
+
+const isAttachmentId = Schema.is(ChatAttachmentId);
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function repairedId(id: string): string {
-  return /^[a-z0-9_-]{1,110}:(file|image):[0-9]{1,6}$/i.test(id) ? id.replaceAll(":", "_") : id;
+export function forkAttachmentIdBase(id: string): string {
+  return id.replace(/[^a-z0-9_-]/gi, "_").slice(0, 110) || "file";
 }
 
-export function forkRepairSharedDraft<
-  T extends { readonly attachments: readonly unknown[] } | null | undefined,
->(draft: T): T;
-export function forkRepairSharedDraft(draft: unknown): unknown;
 export function forkRepairSharedDraft(draft: unknown): unknown {
   if (!isObject(draft) || !Array.isArray(draft.attachments)) return draft;
   const ids = new Map<string, string>();
+  const used = new Set(
+    draft.attachments.flatMap((attachment: unknown) =>
+      isObject(attachment) && typeof attachment.id === "string" && isAttachmentId(attachment.id)
+        ? [attachment.id]
+        : [],
+    ),
+  );
   const attachments = draft.attachments.map((attachment: unknown) => {
     if (!isObject(attachment) || typeof attachment.id !== "string") return attachment;
-    const id = repairedId(attachment.id);
-    if (id === attachment.id) return attachment;
+    if (isAttachmentId(attachment.id)) return attachment;
+    const existingId = ids.get(attachment.id);
+    if (existingId) return { ...attachment, id: existingId };
+    const base = forkAttachmentIdBase(attachment.id);
+    let id = base;
+    for (let suffix = 2; used.has(id); suffix += 1) id = `${base}_${suffix}`;
+    used.add(id);
     ids.set(attachment.id, id);
     return { ...attachment, id };
   });
@@ -52,9 +65,10 @@ function repairDrafts(drafts: unknown): unknown {
 
 // Repair bindings before ForwardCompatibleArray can discard invalid context records.
 export function forkRepairPersistedSharedDrafts(document: unknown): unknown {
-  if (!isObject(document)) return document;
+  if (!isObject(document) || document.sharedAttachmentIdsVersion === 1) return document;
   return {
     ...document,
+    sharedAttachmentIdsVersion: 1,
     drafts: repairDrafts(document.drafts),
     ...(isObject(document.signedOutDrafts)
       ? {
