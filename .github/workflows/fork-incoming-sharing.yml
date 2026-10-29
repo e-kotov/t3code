@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
+      T3CODE_FORK_BUILD: "1"
       NODE_OPTIONS: --max-old-space-size=6144
       ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
     steps:
@@ -78,6 +79,7 @@ jobs:
           dependencies = (pathlib.Path(os.environ['RUNNER_TEMP']) / 'sharing-dependencies.log').read_text()
           assert 'project :expo-sharing' in dependencies, 'Patched expo-sharing source is absent from the Android runtime classpath'
           assert 'host.exp.exponent:expo.modules.sharing:' not in dependencies, 'The unpatched precompiled sharing library is linked'
+          assert 'expo-observe' not in dependencies and 'expo.modules.observe' not in dependencies, 'Unconfigured native Observe must not initialize during standalone startup'
           PY
       - name: Test the Android transcript and PDF parser
         working-directory: apps/mobile/android

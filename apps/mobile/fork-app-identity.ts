@@ -5,5 +5,12 @@ export function withForkAppIdentity(
   forkBuild: boolean,
   version?: string,
 ): ExpoConfig {
-  return forkBuild ? { ...config, scheme: "t3code-ek", version: version ?? "0.0.45" } : config;
+  return forkBuild
+    ? {
+        ...config,
+        scheme: "t3code-ek",
+        version: version ?? "0.0.45",
+        plugins: [...(config.plugins ?? []), "./plugins/withForkObserve.cjs"],
+      }
+    : config;
 }
