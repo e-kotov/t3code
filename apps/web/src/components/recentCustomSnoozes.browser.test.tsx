@@ -53,11 +53,7 @@ it("makes custom dates available to context and bulk menus while preserving pres
   resolveCustomSnooze({ mode: "date", date: "invalid", time: "15:47" }, now);
   expect(saved).toBeNull();
   const selected = resolveCustomSnooze({ mode: "date", date: "2026-10-24", time: "15:47" }, now);
-  const presets = resolveSnoozePresets(
-    now,
-    "24-hour",
-    EnvironmentId.make("test-environment"),
-  );
+  const presets = resolveSnoozePresets(now, "24-hour", EnvironmentId.make("test-environment"));
   expect(presets[0]?.id).toBe("after:60");
   expect(presets.filter((preset) => preset.id.startsWith("recent:"))).toHaveLength(1);
   const action = `snooze:recent:${selected}`;

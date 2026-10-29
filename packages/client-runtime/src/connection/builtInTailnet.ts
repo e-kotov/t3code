@@ -157,9 +157,7 @@ export function withBuiltInTailnet(
     Effect.forEach(
       connectionRoutes(entry),
       (route) =>
-        routeHttpBaseUrl(route) === null
-          ? Effect.succeed(true)
-          : driver.preflight(entry, route),
+        routeHttpBaseUrl(route) === null ? Effect.succeed(true) : driver.preflight(entry, route),
       { concurrency: "unbounded" },
     ).pipe(Effect.map((checks) => checks.some(Boolean)));
 
