@@ -1,4 +1,4 @@
-import { BrowserProxyError, browserProxyTargetError, normalizeBrowserProxyUrl, resolveBrowserProxyRoute } from "@t3tools/contracts";
+import { BrowserProxyError, browserProxyTargetError, resolveBrowserProxyRoute } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
@@ -14,7 +14,7 @@ const make = Effect.gen(function* () {
     ...manager,
     open: Effect.fn("BrowserProxyManager.open")(function* (input) {
       const current = yield* settings.getSettings.pipe(Effect.mapError(() => new BrowserProxyError({ message: "Could not read the environment's browser proxy settings." })));
-      const proxyUrl = input.inheritedProxyRoute ? normalizeBrowserProxyUrl(input.proxyUrl ?? "") : resolveBrowserProxyRoute(input.url, input.proxyUrl, current.browserProxy.enabled ? current.browserProxy.url : "");
+      const proxyUrl = resolveBrowserProxyRoute(input.url, input.proxyUrl, current.browserProxy.enabled ? current.browserProxy.url : "");
       const blocked = browserProxyTargetError(input.url, proxyUrl);
       if (blocked) return yield* blocked;
       if (proxyUrl) {

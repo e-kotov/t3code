@@ -1203,7 +1203,6 @@ const make = Effect.gen(function* () {
         ...(/^https?:/i.test(url) ? { url } : {}),
         runtime: "server",
         ...(opener.proxyUrl === undefined ? {} : { proxyUrl: opener.proxyUrl }),
-        inheritedProxyRoute: true,
         ...(opener.profileId === undefined ? {} : { profileId: opener.profileId }),
         ...(opener.control.agentId === null
           ? {}

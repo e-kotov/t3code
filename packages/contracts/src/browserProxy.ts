@@ -94,7 +94,8 @@ export function isDirectBrowserTarget(value: string | undefined): boolean {
 }
 
 export function resolveBrowserProxyRoute(url: string | undefined, override: string | undefined, defaultProxyUrl: string): string {
-  return isDirectBrowserTarget(url) ? "" : normalizeBrowserProxyUrl(override ?? defaultProxyUrl);
+  if (override !== undefined) return normalizeBrowserProxyUrl(override);
+  return isDirectBrowserTarget(url) ? "" : normalizeBrowserProxyUrl(defaultProxyUrl);
 }
 
 export function browserProxyRequestReuse(input: {
