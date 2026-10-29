@@ -63,9 +63,9 @@ jobs:
       - name: Install Python packaging test dependency
         if: steps.plan.outputs.changed == 'true'
         run: python3 -m pip install PyYAML==6.0.3
-      - name: Install headless Chromium
+      - name: Install Chromium for web and server browser tests
         if: steps.plan.outputs.changed == 'true'
-        run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
+        run: node apps/web/node_modules/playwright/cli.js install --with-deps chromium
       - name: Validate the exact nightly candidate
         if: steps.plan.outputs.changed == 'true'
         run: scripts/fork-upstream-sync.sh checks

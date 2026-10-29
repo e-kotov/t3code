@@ -102,10 +102,10 @@ jobs:
             .split("\0").filter(file => /\.[cm]?[jt]sx?$/.test(file) && existsSync(file));
           if (files.length) process.exit(spawnSync("vp", ["lint", ...files], { stdio: "inherit" }).status ?? 1);
           JS
-      - name: Install headless Chromium for web tests
+      - name: Install Chromium for web and server browser tests
         if: steps.merge.outputs.changed == 'true'
         run: |
-          node apps/web/node_modules/playwright/cli.js install --only-shell chromium
+          node apps/web/node_modules/playwright/cli.js install chromium
           browser=$(find "$HOME/.cache/ms-playwright" -name chrome-headless-shell -type f -print -quit)
           test -n "$browser"
           if ldd "$browser" | grep '=> not found'; then
