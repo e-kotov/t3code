@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { ClaudeSettings, ProviderInstanceId, type ModelSelection } from "@t3tools/contracts";
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 import { makeClaudeQueryOptions } from "../orchestration-v2/Adapters/ClaudeAdapterV2.ts";
@@ -13,35 +14,57 @@ const selection = (artifacts?: boolean): ModelSelection => ({
 });
 
 describe("Claude Artifacts session option", () => {
-  it.effect("advertises Artifacts alongside model options for built-in and custom models", function* () {
-    const capabilities = {
-      optionDescriptors: [{ id: "fastMode", label: "Fast Mode", type: "boolean" as const }],
-    };
-    const provider = yield* makePendingClaudeProvider(Schema.decodeSync(ClaudeSettings)({
-      customModels: [{ slug: "claude-custom", name: "Custom", capabilities }],
-    }));
-    expect(provider.models.some((model) => !model.isCustom)).toBe(true);
-    for (const model of provider.models) {
-      expect(model.capabilities?.optionDescriptors?.map((option) => option.id)).toContain("artifacts");
-    }
-    expect(provider.models.find((model) => model.slug === "claude-custom")?.capabilities?.optionDescriptors?.map((option) => option.id)).toEqual(["fastMode", "artifacts"]);
-    expect(capabilities.optionDescriptors).toHaveLength(1);
-  });
+  it.effect(
+    "advertises Artifacts alongside model options for built-in and custom models",
+    () =>
+      Effect.gen(function* () {
+        const capabilities = {
+          optionDescriptors: [{ id: "fastMode", label: "Fast Mode", type: "boolean" as const }],
+        };
+        const provider = yield* makePendingClaudeProvider(
+          Schema.decodeSync(ClaudeSettings)({
+            customModels: [{ slug: "claude-custom", name: "Custom", capabilities }],
+          }),
+        );
+        expect(provider.models.some((model) => !model.isCustom)).toBe(true);
+        for (const model of provider.models) {
+          expect(model.capabilities?.optionDescriptors?.map((option) => option.id)).toContain(
+            "artifacts",
+          );
+        }
+        expect(
+          provider.models
+            .find((model) => model.slug === "claude-custom")
+            ?.capabilities?.optionDescriptors?.map((option) => option.id),
+        ).toEqual(["fastMode", "artifacts"]);
+        expect(capabilities.optionDescriptors).toHaveLength(1);
+      }),
+  );
 
   it("opts only the selected query in and preserves explicit disable settings", () => {
     const environment = { PATH: "/bin", CLAUDE_CODE_DISABLE_ARTIFACT: "1" };
-    const sdkSettings = { enableArtifact: false, env: { KEEP: "value", CLAUDE_CODE_ARTIFACT: "0" } };
-    const query = (artifacts?: boolean) => makeClaudeQueryOptions({
-      modelSelection: selection(artifacts),
-      nativeThreadId: "artifact-test",
-      resume: false,
-      cwd: "/workspace",
-      environment,
-      sdkSettings,
-    });
+    const sdkSettings = {
+      enableArtifact: false,
+      env: { KEEP: "value", CLAUDE_CODE_ARTIFACT: "0" },
+    };
+    const query = (artifacts?: boolean) =>
+      makeClaudeQueryOptions({
+        modelSelection: selection(artifacts),
+        nativeThreadId: "artifact-test",
+        resume: false,
+        cwd: "/workspace",
+        environment,
+        sdkSettings,
+      });
     const enabled = query(true);
-    expect(enabled.env).toMatchObject({ CLAUDE_CODE_ARTIFACT: "1", CLAUDE_CODE_DISABLE_ARTIFACT: "1" });
-    expect(enabled.settings).toMatchObject({ enableArtifact: false, env: { KEEP: "value", CLAUDE_CODE_ARTIFACT: "1" } });
+    expect(enabled.env).toMatchObject({
+      CLAUDE_CODE_ARTIFACT: "1",
+      CLAUDE_CODE_DISABLE_ARTIFACT: "1",
+    });
+    expect(enabled.settings).toMatchObject({
+      enableArtifact: false,
+      env: { KEEP: "value", CLAUDE_CODE_ARTIFACT: "1" },
+    });
     expect(query(false).env?.CLAUDE_CODE_ARTIFACT).toBe("0");
     expect(query().env).toBe(environment);
     expect(environment).not.toHaveProperty("CLAUDE_CODE_ARTIFACT");

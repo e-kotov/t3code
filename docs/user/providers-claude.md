@@ -47,7 +47,7 @@ Enable **Claude Artifacts (experimental)** in a thread's model options to let Cl
 publish artifacts to claude.ai. Ask Claude to create or update an artifact and return
 its link. Availability still depends on your Claude account and organization settings.
 
-An agent can enable it for one delegated child using `delegate_task` with
+An agent can select a Claude provider and enable it for one child using `delegate_task` with
 `target.options: { artifacts: true }`. Combine it with other options advertised by
 `orchestrator_capabilities`, such as effort. Set `artifacts: false` to turn it off for
 that child. This changes the child's settings without changing its parent or the

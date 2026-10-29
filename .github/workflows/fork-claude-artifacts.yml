@@ -71,17 +71,27 @@ jobs:
           assert result['numFailedTests'] == len(failed) == 2, result
           assert all('AssertionError' in '\n'.join(case['failureMessages']) for case in failed), failed
           PY
-      - name: Check changed code and Claude integration
+      - name: Select the changed-code base
+        id: base
         run: |
-          python3 scripts/fork-footprint-budget.py
           base=$(git merge-base origin/main HEAD)
           if [ "$base" = "$(git rev-parse HEAD)" ]; then base=HEAD^; fi
-          vp run check:changed "$base"
-          vp test run apps/server/src/provider/claudeArtifacts.test.ts apps/server/src/provider/ClaudeProvider.test.ts apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.test.ts
+          echo "ref=$base" >> "$GITHUB_OUTPUT"
+      - name: Check changed code and Claude integration
+        env:
+          CHECK_BASE: ${{ steps.base.outputs.ref }}
+        run: |
+          python3 scripts/fork-footprint-budget.py
+          vp run check:changed "$CHECK_BASE"
+          vp test run apps/server/src/provider/claudeArtifacts.test.ts apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.test.ts
       - name: Capture formatting fixes
         if: failure()
+        env:
+          CHECK_BASE: ${{ steps.base.outputs.ref }}
         run: |
-          git diff --name-only --diff-filter=AM -z origin/main HEAD |
+          base=${CHECK_BASE:-$(git merge-base origin/main HEAD)}
+          if [ "$base" = "$(git rev-parse HEAD)" ]; then base=HEAD^; fi
+          git diff --name-only --diff-filter=AM -z "$base" HEAD |
             xargs -0 -r vp fmt --no-error-on-unmatched-pattern
           git diff --binary > "$RUNNER_TEMP/artifact-format.patch"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
