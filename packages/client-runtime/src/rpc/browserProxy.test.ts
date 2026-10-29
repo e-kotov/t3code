@@ -19,30 +19,63 @@ import { RpcPermissionGuard } from "./client.ts";
 import { openWithBrowserProxy } from "./browserProxy.ts";
 
 it.effect(
-  "rejects older servers before sending a proxied request and rejects wrong acknowledgements",
+  "checks server routes and keeps proxy failures distinct from ordinary direct opens",
   () =>
     Effect.gen(function* () {
-      for (const scenario of ["old", "wrong", "correct"] as const) {
+      const proxyUrl = "socks5://proxy:1080";
+      const scenarios = [
+        "old",
+        "wrong",
+        "correct",
+        "implicit",
+        "implicit-failed",
+        "failed",
+        "cleanup-failed",
+        "direct",
+        "disabled",
+        "local",
+      ] as const;
+      for (const scenario of scenarios) {
         const calls: string[] = [];
-        const proxyUrl = "socks5://proxy:1080";
+        let configReads = 0;
+        const implicit = scenario === "implicit" || scenario === "implicit-failed";
+        const useDefault = implicit || scenario === "disabled" || scenario === "local";
+        const expectedProxy =
+          scenario === "direct"
+            ? ""
+            : scenario === "disabled" || scenario === "local"
+              ? undefined
+              : proxyUrl;
         const snapshot = {
           threadId: "thread",
           tabId: "tab",
-          proxyUrl: scenario === "correct" ? proxyUrl : undefined,
+          proxyUrl:
+            scenario === "wrong" || scenario === "cleanup-failed" ? undefined : expectedProxy,
         } as PreviewSessionSnapshot;
         const client = {
           [WS_METHODS.serverGetConfig]: () =>
-            Effect.succeed({
-              environment: { capabilities: scenario === "old" ? {} : { browserProxy: true } },
-            } as ServerConfig),
-          [WS_METHODS.previewOpen]: () =>
             Effect.sync(() => {
+              configReads += 1;
+              return {
+                environment: { capabilities: scenario === "old" ? {} : { browserProxy: true } },
+                settings: {
+                  browserProxy: { enabled: implicit || scenario === "local", url: proxyUrl },
+                },
+              } as ServerConfig;
+            }),
+          [WS_METHODS.previewOpen]: (input: { proxyUrl?: string }) =>
+            Effect.gen(function* () {
               calls.push("open");
+              expect(input.proxyUrl).toBe(expectedProxy);
+              if (scenario === "failed" || scenario === "implicit-failed")
+                return yield* Effect.fail(new Error("Transport failed."));
               return snapshot;
             }),
           [WS_METHODS.previewClose]: () =>
-            Effect.sync(() => {
+            Effect.gen(function* () {
               calls.push("close");
+              if (scenario === "cleanup-failed")
+                return yield* Effect.fail(new Error("Transport failed."));
             }),
         } as unknown as WsRpcProtocolClient;
         const session = yield* SubscriptionRef.make(Option.some({ client } as RpcSession));
@@ -52,20 +85,29 @@ it.effect(
         } as Supervisor.EnvironmentSupervisor["Service"];
         const result = yield* openWithBrowserProxy({
           threadId: ThreadId.make("thread"),
-          proxyUrl,
+          url: scenario === "local" ? "http://localhost:3000" : "https://example.com",
+          ...(useDefault ? {} : { proxyUrl: scenario === "direct" ? "" : proxyUrl }),
         }).pipe(
           Effect.result,
           Effect.provideService(Supervisor.EnvironmentSupervisor, supervisor),
           Effect.provideService(RpcPermissionGuard, { authorize: () => Effect.void }),
         );
-        if (scenario === "correct") expect(result._tag).toBe("Success");
+        if (
+          ["correct", "implicit", "direct", "disabled", "local"].some((name) => name === scenario)
+        )
+          expect(result._tag).toBe("Success");
         else {
           expect(result._tag).toBe("Failure");
           if (result._tag === "Failure") expect(result.failure).toBeInstanceOf(BrowserProxyError);
         }
         expect(calls).toEqual(
-          scenario === "old" ? [] : scenario === "wrong" ? ["open", "close"] : ["open"],
+          scenario === "old"
+            ? []
+            : scenario === "wrong" || scenario === "cleanup-failed"
+              ? ["open", "close"]
+              : ["open"],
         );
+        expect(configReads).toBe(scenario === "direct" || scenario === "local" ? 0 : 1);
       }
     }),
 );

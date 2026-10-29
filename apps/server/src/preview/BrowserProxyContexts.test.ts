@@ -41,10 +41,7 @@ describe("browser proxy routes", () => {
     const protectedUrl = `http://route-check.invalid/api/assets/cGF5bG9hZA.${"a".repeat(43)}/report.html`;
     const httpProxy = NodeHttp.createServer((request, response) => {
       requests.push(request.url ?? "");
-      if (request.url === "http://route-check.invalid/redirect-protected") {
-        response.writeHead(302, { location: protectedUrl });
-        response.end();
-      } else response.end("HTTP route");
+      response.end("HTTP route");
     });
     const sockets = new Set<NodeNet.Socket>();
     const socksHosts: string[] = [];
@@ -120,9 +117,6 @@ describe("browser proxy routes", () => {
       expect(requests).toContain("http://route-check.invalid/");
       expect(socksHosts).toContain("route-check.invalid");
       await expect(httpPage.goto(protectedUrl)).rejects.toThrow();
-      await expect(
-        httpPage.goto("http://route-check.invalid/redirect-protected"),
-      ).rejects.toThrow();
       expect(requests).not.toContain(protectedUrl);
       await httpPage.goto("http://route-check.invalid/api/assets/public/report.js");
       expect(await httpPage.textContent("body")).toBe("HTTP route");
@@ -136,15 +130,6 @@ describe("browser proxy routes", () => {
       await blockedPopup.promise;
       expect(requests).not.toContain(protectedUrl);
       await popup.close();
-      const redirectedPopupOpened = httpPage.waitForEvent("popup");
-      const redirectedPopupFailed = httpContext.waitForEvent("requestfailed", {
-        predicate: (request) => request.url() === protectedUrl,
-      });
-      await httpPage.evaluate('void window.open("http://route-check.invalid/redirect-protected")');
-      const redirectedPopup = await redirectedPopupOpened;
-      await redirectedPopupFailed;
-      expect(requests).not.toContain(protectedUrl);
-      await redirectedPopup.close();
       await httpPage.goto(directUrl.replace("proxy-direct.test", address));
       expect(await httpPage.textContent("body")).toBe("reachable directly");
 

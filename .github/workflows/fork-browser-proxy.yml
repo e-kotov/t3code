@@ -53,23 +53,23 @@ jobs:
         run: node apps/web/node_modules/playwright/cli.js install --with-deps chromium
       - name: Prove routing and lifecycle regressions against the reviewed revision
         run: |
-          sources=(apps/server/src/preview/BrowserProxyContexts.ts apps/server/src/preview/browserProxyOpen.ts packages/contracts/src/settings.ts)
+          sources=(apps/server/src/preview/BrowserProxyContexts.ts apps/server/src/preview/browserProxyOpen.ts packages/contracts/src/settings.ts apps/web/src/browser/useOpenLink.ts)
           for index in "${!sources[@]}"; do cp "${sources[$index]}" "$RUNNER_TEMP/proxy-source-$index"; done
           restore() {
             for index in "${!sources[@]}"; do cp "$RUNNER_TEMP/proxy-source-$index" "${sources[$index]}"; done
           }
           trap restore EXIT
           for source in "${sources[@]}"; do git show "6efea0ea2179bac74f65f54565c15aa5c580fb60:$source" > "$source"; done
-          if vp test run apps/server/src/preview/BrowserProxyContexts.test.ts apps/server/src/preview/browserProxyOpen.test.ts packages/contracts/src/browserProxy.test.ts -t 'waits for all route deletion|releases idle route browsers|does not reuse a tab|keeps local and signed|stores defaults only' --reporter=json --outputFile="$RUNNER_TEMP/proxy-regressions.json"; then
-            echo 'The five regressions must fail on the reviewed revision.'
+          if vp test run apps/server/src/preview/BrowserProxyContexts.test.ts apps/server/src/preview/browserProxyOpen.test.ts packages/contracts/src/browserProxy.test.ts apps/web/src/browser/useOpenLink.proxy.test.ts -t 'waits for all route deletion|releases idle route browsers|does not reuse a tab|keeps local and signed|stores defaults only|keeps an explicitly selected tab|does not open the system browser' --reporter=json --outputFile="$RUNNER_TEMP/proxy-regressions.json"; then
+            echo 'The seven regressions must fail on the reviewed revision.'
             exit 1
           fi
           python3 - <<'PYTHON'
           import json, os, pathlib
           result = json.loads((pathlib.Path(os.environ['RUNNER_TEMP']) / 'proxy-regressions.json').read_text())
           failed = [case for suite in result['testResults'] for case in suite.get('assertionResults', []) if case['status'] == 'failed']
-          assert result['numFailedTests'] == len(failed) == 5, result
-          names = ['waits for all route deletion', 'releases idle route browsers', 'does not reuse a tab', 'keeps local and signed', 'stores defaults only']
+          assert result['numFailedTests'] == len(failed) == 7, result
+          names = ['waits for all route deletion', 'releases idle route browsers', 'does not reuse a tab', 'keeps local and signed', 'stores defaults only', 'keeps an explicitly selected tab', 'does not open the system browser']
           for name in names:
               cases = [case for case in failed if name in case['fullName']]
               assert len(cases) == 1, failed

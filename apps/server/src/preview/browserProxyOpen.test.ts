@@ -9,6 +9,20 @@ describe("per-request browser proxy", () => {
     });
   });
 
+  it("keeps an explicitly selected tab on its recorded route", () => {
+    for (const current of ["", "socks5://original:1080"]) {
+      const open = { tabId: "tab" };
+      expect(resolveBrowserProxyOpen(open, "socks5://default:1080", current)).toEqual({
+        proxyUrl: current,
+        reuse: true,
+      });
+    }
+    expect(
+      resolveBrowserProxyOpen({ tabId: "tab", proxyUrl: "" }, "", "socks5://original:1080")
+        .proxyUrl,
+    ).toBe("");
+  });
+
   it("starts an independent tab for explicit proxy and direct requests", () => {
     expect(resolveBrowserProxyOpen({ proxyUrl: "http://proxy:8080" }, "")).toEqual({
       proxyUrl: "http://proxy:8080",

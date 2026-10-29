@@ -23,7 +23,6 @@ import {
   type PreviewAutomationHoverInput,
   type PreviewAutomationNavigateInput,
   type PreviewAutomationNetworkEntry,
-  type PreviewAutomationOpenInput,
   type PreviewAutomationPressInput,
   type PreviewAutomationRequest,
   type PreviewAutomationResizeInput,
@@ -85,7 +84,9 @@ import * as PreviewBrowserHost from "./PreviewBrowserHost.ts";
 import { presentAsChrome } from "./ServerBrowserContexts.ts";
 import { BrowserProxyContexts as ServerBrowserContexts } from "./BrowserProxyContexts.ts";
 import { acquireBrowserProxyPage, closeProtectedBrowserPopup } from "./BrowserProxyPage.ts";
+import { browserProxyRequestReuse } from "@t3tools/contracts";
 import {
+  browserProxyOpenInput,
   resolveBrowserProxyOpen,
   selectBrowserProxyTab,
   assertBrowserProxyTarget,
@@ -1744,11 +1745,11 @@ const make = Effect.gen(function* () {
           throw new BrowserControlInterrupted(
             "The agent session is missing. Reconnect the provider.",
           );
-        const open = input as PreviewAutomationOpenInput;
+        const open = browserProxyOpenInput(request);
         const url = open.url === undefined ? undefined : normalizePreviewUrl(open.url);
         const savedProxy = (await runPromise(proxySettings.getSettings)).browserProxy;
         const defaultProxyUrl = savedProxy.enabled ? savedProxy.url : "";
-        const { proxyUrl, reuse } = resolveBrowserProxyOpen(open, defaultProxyUrl);
+        const reuse = browserProxyRequestReuse(open);
         if (
           reuse &&
           !request.tabIdExplicit &&
@@ -1786,13 +1787,18 @@ const make = Effect.gen(function* () {
               : "The requested server preview tab does not exist.",
           );
         }
+        const { proxyUrl } = resolveBrowserProxyOpen(
+          open,
+          defaultProxyUrl,
+          request.tabIdExplicit && found ? found.proxyUrl ?? "" : undefined,
+        );
         // Reusing another session's tab requires explicit tabId; reading it grants no implicit takeover.
         const existing = selectBrowserProxyTab(
           found && (request.tabIdExplicit || found.control.agentId === request.agentSessionId)
             ? found
             : undefined,
           proxyUrl,
-          request.tabIdExplicit,
+          request.tabIdExplicit === true,
         );
         const navigationTimeout = Math.min(request.timeoutMs, NAVIGATION_TIMEOUT_MS);
         const profileId = existing ? undefined : resolveOpenProfile(open.profileId);

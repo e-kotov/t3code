@@ -5,17 +5,28 @@ import {
   isDirectBrowserTarget,
   resolveBrowserProxyRoute,
   type PreviewAutomationOpenInput,
+  type PreviewAutomationRequest,
 } from "@t3tools/contracts";
 import { BrowserControlInterrupted } from "./SessionControl.ts";
 
 const sameRoute = (current: string | undefined, next: string) => (current ?? "") === next;
+
+export function browserProxyOpenInput(
+  request: PreviewAutomationRequest,
+): PreviewAutomationOpenInput {
+  return {
+    ...(request.input as PreviewAutomationOpenInput),
+    ...(request.tabIdExplicit && request.tabId !== undefined ? { tabId: request.tabId } : {}),
+  };
+}
 
 export function resolveBrowserProxyOpen(
   input: PreviewAutomationOpenInput,
   defaultProxyUrl: string,
   currentProxyUrl?: string,
 ) {
-  const proxyUrl = resolveBrowserProxyRoute(input.url, input.proxyUrl, defaultProxyUrl);
+  const override = input.proxyUrl ?? (input.tabId === undefined ? undefined : currentProxyUrl);
+  const proxyUrl = resolveBrowserProxyRoute(input.url, override, defaultProxyUrl);
   const blocked = browserProxyTargetError(input.url, proxyUrl);
   if (blocked) throw blocked;
   return {
