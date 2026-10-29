@@ -32,6 +32,7 @@ type AntigravityTextRuntime = Pick<
   | "getEvents"
   | "setModel"
   | "setSessionModel"
+  | "setConfigOption"
   | "prompt"
   | "cancel"
   | "handleSessionUpdate"

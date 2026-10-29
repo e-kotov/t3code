@@ -5,6 +5,7 @@ import "vite-plus/test/config";
 import { FORK_REACT_TESTS } from "./fork-react-tests";
 
 const reactTests = [
+  "src/features/threads/git/GitBranchesSheet.occupancy.test.tsx",
   "src/features/files/useFileTreeEntries.test.tsx",
   "src/features/projects/AddProjectScreen.test.ts",
   "src/lib/useMediaVideoPlayback.test.tsx",

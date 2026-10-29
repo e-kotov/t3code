@@ -45,8 +45,18 @@ function makeModelRuntime(
       sessionModelSelections.push(model);
       return {};
     });
+  const setConfigOption = Effect.fn("AntigravityAcpSupportTest.setConfigOption")(function* (
+    configId: string,
+    value: string | boolean,
+    options?: { readonly allowUnlistedValue?: boolean },
+  ) {
+    selections.push(
+      `${configId}=${String(value)}${options?.allowUnlistedValue === true ? " (unlisted)" : ""}`,
+    );
+    return { configOptions };
+  });
   return {
-    runtime: { getConfigOptions: Effect.succeed(configOptions), setModel, setSessionModel },
+    runtime: { getConfigOptions: Effect.succeed(configOptions), setModel, setSessionModel, setConfigOption },
     selections,
     sessionModelSelections,
   };
@@ -168,6 +178,30 @@ describe("applyAntigravityAcpModelSelection", () => {
       const error = yield* select("claude-opus-5-5-low").pipe(Effect.flip);
       expect(error).toMatchObject({ _tag: "AcpRequestError", code: -32602 });
       expect(sessionModelSelections).toHaveLength(2);
+    }),
+  );
+
+  it.effect("passes a model ID saved on runtime 1.3 to the agent as its 1.4 family", () =>
+    Effect.gen(function* () {
+      // The cold-resume model has no thinking option, so the level is unknown locally.
+      const { runtime, selections } = makeModelRuntime([
+        {
+          ...modelConfig,
+          currentValue: "gpt-oss-120b-medium",
+          options: [
+            { value: "gemini-3.8-flash", name: "Gemini 3.8 Flash" },
+            { value: "gpt-oss-120b-medium", name: "GPT-OSS 120B (Medium)" },
+          ],
+        },
+      ]);
+      const model = yield* applyAntigravityAcpModelSelection({
+        runtime,
+        model: "gemini-3.8-flash-low",
+        mapError: (cause) => cause,
+      });
+
+      expect(model).toBe("gemini-3.8-flash");
+      expect(selections).toEqual(["model=gemini-3.8-flash-low (unlisted)"]);
     }),
   );
 });
