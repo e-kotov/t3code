@@ -38,6 +38,7 @@ vi.mock("../localApi", () => ({
     },
   }),
 }));
+vi.mock("./threadReferenceContextMenu", () => ({ showThreadReferenceContextMenu: vi.fn() }));
 
 import { showThreadCachePolicyMenu } from "./threadCachePolicyContextMenu";
 const thread = {

@@ -8,6 +8,7 @@ const config: ExpoConfig = {
   version: "future-upstream-version",
   scheme: "t3code-preview",
   extra: { future: true },
+  plugins: ["expo-asset"],
 };
 
 it("retains upstream scheme and version for ordinary builds", () => {
@@ -18,6 +19,7 @@ it("overrides fork identity without depending on the upstream version line", () 
     ...config,
     scheme: "t3code-ek",
     version: "0.1.2-ek.1",
+    plugins: ["expo-asset", "./plugins/withForkObserve.cjs"],
   });
   expect(withForkAppIdentity(config, true).version).toBe("0.0.45");
   expect(config.version).toBe("future-upstream-version");
