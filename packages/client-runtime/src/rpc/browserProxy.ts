@@ -1,8 +1,4 @@
-import {
-  BrowserProxyError,
-  type PreviewOpenInput,
-  WS_METHODS,
-} from "@t3tools/contracts";
+import { BrowserProxyError, type PreviewOpenInput, WS_METHODS } from "@t3tools/contracts";
 import {
   browserProxyTargetError,
   isDirectBrowserTarget,
