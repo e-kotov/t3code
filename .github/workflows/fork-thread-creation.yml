@@ -1,0 +1,115 @@
+name: Fork thread creation
+
+on:
+  workflow_dispatch:
+    inputs:
+      regression_ref:
+        description: Optional pre-fix commit to prove workspace regressions
+        type: string
+        default: ""
+  pull_request:
+    branches: [main]
+    paths: &thread-paths
+      - ".github/workflows/fork-thread-creation.yml"
+      - "apps/web/src/components/threadReferenceContextMenu*"
+      - "apps/mobile/src/features/threads/useNewThreadReferenceMenu*"
+      - "apps/mobile/src/features/threads/newThreadReference*"
+      - "apps/mobile/src/features/threads/seedThreadReferenceDraft*"
+      - "apps/mobile/src/features/threads/ReferencedNewTaskDraftScreen*"
+      - "apps/mobile/fork-react-tests.ts"
+  push:
+    branches: [main]
+    paths: *thread-paths
+
+permissions:
+  contents: read
+
+concurrency:
+  group: thread-creation-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch --no-tags origin main "$CHECKOUT_REF"
+          git checkout --detach "$CHECKOUT_REF"
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          node-version-file: package.json
+          run-install: false
+          cache: true
+      - run: vp install
+      - name: Check formatting before regression proofs
+        run: |
+          base=$(git merge-base origin/main HEAD)
+          if [ "$base" = "$(git rev-parse HEAD)" ]; then base=HEAD^; fi
+          git diff --name-only --diff-filter=AM -z "$base" HEAD |
+            xargs -0 -r vp fmt --check
+      - name: Prove workspace regressions on an explicit pre-fix revision
+        if: github.event_name == 'workflow_dispatch' && inputs.regression_ref != ''
+        env:
+          REGRESSION_REF: ${{ inputs.regression_ref }}
+        run: |
+          git fetch --no-tags origin "$REGRESSION_REF"
+          baseline=$(git rev-parse FETCH_HEAD)
+          sources=(apps/web/src/components/threadReferenceContextMenu.ts apps/mobile/src/features/threads/useNewThreadReferenceMenu.ts apps/mobile/src/features/threads/newThreadReference.ts apps/mobile/src/features/threads/ReferencedNewTaskDraftScreen.tsx apps/mobile/src/features/threads/seedThreadReferenceDraft.ts)
+          for index in "${!sources[@]}"; do
+            cp "${sources[$index]}" "$RUNNER_TEMP/menu-$index.ts"
+          done
+          restore() {
+            for index in "${!sources[@]}"; do
+              cp "$RUNNER_TEMP/menu-$index.ts" "${sources[$index]}"
+            done
+          }
+          trap restore EXIT
+          for source in "${sources[@]}"; do git show "$baseline:$source" > "$source"; done
+          tests=(apps/web/src/components/threadReferenceContextMenu.test.ts apps/mobile/src/features/threads/useNewThreadReferenceMenu.test.ts apps/mobile/src/features/threads/ReferencedNewTaskDraftScreen.test.tsx)
+          for index in "${!tests[@]}"; do
+            report="$RUNNER_TEMP/menu-regression-$index.json"
+            if vp test run "${tests[$index]}" -t 'allocates a fresh scratch workspace|persists an explicit branch-less workspace' --reporter=json --outputFile="$report"; then
+              echo 'The scratch regression must fail on the selected pre-fix revision.'
+              exit 1
+            fi
+            python3 - "$report" <<'PYTHON'
+          import json, pathlib, sys
+          result = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          failed = [test for suite in result['testResults'] for test in suite.get('assertionResults', []) if test['status'] == 'failed']
+          assert result['numFailedTests'] == len(failed) == 2, result
+          for test in failed:
+              assert any(name in test['fullName'] for name in ['allocates a fresh scratch workspace', 'persists an explicit branch-less workspace']), test
+              messages = '\n'.join(test['failureMessages'])
+              assert 'AssertionError' in messages, test
+              assert any(folder in messages for folder in ['/scratch/old-thread', '/old-folder']), test
+          PYTHON
+          done
+      - name: Check changed code and thread creation
+        run: |
+          base=$(git merge-base origin/main HEAD)
+          if [ "$base" = "$(git rev-parse HEAD)" ]; then base=HEAD^; fi
+          vp run check:changed "$base"
+          vp test run apps/web/src/components/threadReferenceContextMenu.test.ts apps/mobile/src/features/threads/useNewThreadReferenceMenu.test.ts apps/mobile/src/features/threads/newThreadReference.test.ts apps/mobile/src/features/threads/seedThreadReferenceDraft.test.ts apps/mobile/src/features/threads/ReferencedNewTaskDraftScreen.test.tsx
+      - name: Capture formatting fixes
+        if: failure()
+        run: |
+          git diff --name-only --diff-filter=AM -z origin/main HEAD |
+            xargs -0 -r vp fmt --no-error-on-unmatched-pattern
+          git diff --binary > "$RUNNER_TEMP/thread-creation-format.patch"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: failure()
+        with:
+          name: thread-creation-format-fixes
+          path: ${{ runner.temp }}/thread-creation-format.patch
+          retention-days: 3
