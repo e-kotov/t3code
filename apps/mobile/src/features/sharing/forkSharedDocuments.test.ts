@@ -198,14 +198,14 @@ describe("Android shared documents", () => {
       };
       const document = {
         schemaVersion: 1,
+        sharedAttachmentIdsVersion: 1,
         drafts: archived ? {} : { thread: original },
         ...(archived
           ? { signedOutDrafts: { account: { drafts: { thread: original }, queuedMessages: [] } } }
           : {}),
       };
       const migrated = forkRepairPersistedSharedDrafts(document);
-      expect(migrated).toHaveProperty("sharedAttachmentIdsVersion", 1);
-      expect(forkRepairPersistedSharedDrafts(migrated)).toBe(migrated);
+      expect(forkRepairPersistedSharedDrafts(migrated)).toEqual(migrated);
       const decoded = decodePersistedComposerState(document);
       const draft = (
         archived ? decoded.cloudDrafts.signedOut.account?.drafts.thread : decoded.drafts.thread

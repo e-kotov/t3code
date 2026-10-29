@@ -2061,7 +2061,6 @@ describe("mobile composer drafts", () => {
 
     expect(JSON.parse(composerDraftFileMocks.getDocument())).toEqual({
       schemaVersion: 1,
-      sharedAttachmentIdsVersion: 1,
       drafts: {
         "environment-2:thread-2": { text: "keep", attachments: [] },
       },

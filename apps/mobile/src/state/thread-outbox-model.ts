@@ -29,6 +29,7 @@ import type { ComposerDispatchMode } from "@t3tools/client-runtime/state/compose
 import type { DraftComposerAttachment } from "../lib/composerImages";
 import { scopedThreadKey } from "../lib/scopedEntities";
 import { resolveProviderInteractionMode } from "./legacy-plan-mode";
+import { forkRepairSharedDraft } from "../features/sharing/forkSharedAttachmentIds";
 
 // Keep current writes until a compatible native baseline includes the v4 reader.
 const THREAD_OUTBOX_SCHEMA_VERSION = 3;
@@ -134,7 +135,9 @@ export function encodeQueuedThreadMessage(message: QueuedThreadMessage): unknown
 }
 
 export function decodeQueuedThreadMessage(value: unknown): QueuedThreadMessage {
-  const { schemaVersion: _, ...message } = decodeStoredQueuedThreadMessage(value);
+  const { schemaVersion: _, ...message } = decodeStoredQueuedThreadMessage(
+    forkRepairSharedDraft(value),
+  );
   return message;
 }
 

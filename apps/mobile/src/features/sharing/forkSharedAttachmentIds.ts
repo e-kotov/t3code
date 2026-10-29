@@ -7,7 +7,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function forkAttachmentIdBase(id: string): string {
+function attachmentIdBase(id: string): string {
   return id.replace(/[^a-z0-9_-]/gi, "_").slice(0, 110) || "file";
 }
 
@@ -26,7 +26,7 @@ export function forkRepairSharedDraft(draft: unknown): unknown {
     if (isAttachmentId(attachment.id)) return attachment;
     const existingId = ids.get(attachment.id);
     if (existingId) return { ...attachment, id: existingId };
-    const base = forkAttachmentIdBase(attachment.id);
+    const base = attachmentIdBase(attachment.id);
     let id = base;
     for (let suffix = 2; used.has(id); suffix += 1) id = `${base}_${suffix}`;
     used.add(id);
@@ -65,17 +65,24 @@ function repairDrafts(drafts: unknown): unknown {
 
 // Repair bindings before ForwardCompatibleArray can discard invalid context records.
 export function forkRepairPersistedSharedDrafts(document: unknown): unknown {
-  if (!isObject(document) || document.sharedAttachmentIdsVersion === 1) return document;
+  if (!isObject(document)) return document;
   return {
     ...document,
-    sharedAttachmentIdsVersion: 1,
     drafts: repairDrafts(document.drafts),
     ...(isObject(document.signedOutDrafts)
       ? {
           signedOutDrafts: Object.fromEntries(
             Object.entries(document.signedOutDrafts).map(([account, saved]) => [
               account,
-              isObject(saved) ? { ...saved, drafts: repairDrafts(saved.drafts) } : saved,
+              isObject(saved)
+                ? {
+                    ...saved,
+                    drafts: repairDrafts(saved.drafts),
+                    ...(Array.isArray(saved.queuedMessages)
+                      ? { queuedMessages: saved.queuedMessages.map(forkRepairSharedDraft) }
+                      : {}),
+                  }
+                : saved,
             ]),
           ),
         }
