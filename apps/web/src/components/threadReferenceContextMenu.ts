@@ -31,9 +31,7 @@ export async function showThreadReferenceContextMenu<T extends string>(
     icon: "message-square-plus",
   };
   const menu: ContextMenuItem<string>[] = thread.branch
-    ? items.flatMap((item) =>
-        item.id === "new-thread-on-branch" ? [item, referenceItem] : [item],
-      )
+    ? items.flatMap((item) => (item.id === "new-thread-on-branch" ? [item, referenceItem] : [item]))
     : [
         { id: NEW_THREAD_IN_PROJECT, label: "New thread", icon: "message-square-plus" },
         referenceItem,

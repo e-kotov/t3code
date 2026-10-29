@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vite-plus/test";
+import { EnvironmentId, ProjectId, ThreadId } from "@t3tools/contracts";
 import { makeThreadShellFixture } from "../../test-fixtures";
 import { useNewThreadReferenceMenu } from "./useNewThreadReferenceMenu";
 
@@ -12,7 +13,14 @@ it.each(["new-thread-in-project", "new-thread-with-reference"])(
   "offers %s without Git and preserves the selected workspace",
   (action) => {
     state.select.mockClear();
-    const thread = makeThreadShellFixture({ branch: null, worktreePath: null });
+    const thread = makeThreadShellFixture({
+      environmentId: EnvironmentId.make("remote"),
+      projectId: ProjectId.make("selected-project"),
+      id: ThreadId.make("selected-thread"),
+      title: "Selected conversation",
+      branch: null,
+      worktreePath: null,
+    });
     const menu = useNewThreadReferenceMenu(thread);
     expect(menu.actions.map((item) => [item.id, item.title])).toEqual([
       ["new-thread-in-project", "New thread"],

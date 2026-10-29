@@ -26,45 +26,48 @@ const items: ContextMenuItem<"new-thread-on-branch" | "rename">[] = [
 ];
 beforeEach(() => vi.clearAllMocks());
 
-it.each(["main", null])("offers referenced creation with branch %s in the clicked workspace", async (branch) => {
-  const source = { ...thread, branch };
-  const sourceItems = branch ? items : items.filter((item) => item.id !== "new-thread-on-branch");
-  const start = vi.fn<StartReferencedThread>(async () => ({
-    draftId: DraftId.make("new-draft"),
-    threadId: ThreadId.make("new-thread"),
-  }));
-  const show = vi.fn(async (_items: readonly ContextMenuItem[]) => "new-thread-with-reference");
-  expect(
-    await showThreadReferenceContextMenu(source, sourceItems, { x: 4, y: 5 }, start, show),
-  ).toBeNull();
-  expect(show.mock.calls[0]?.[0].map((item) => item.id)).toEqual([
-    branch ? "new-thread-on-branch" : "new-thread-in-project",
-    "new-thread-with-reference",
-    "rename",
-  ]);
-  expect(show.mock.calls[0]?.[0].map((item) => item.label)).toEqual([
-    branch ? "New thread on main" : "New thread",
-    branch ? "New thread on main with reference" : "New thread with reference",
-    "Rename thread",
-  ]);
-  expect(start).toHaveBeenCalledWith(
-    { environmentId: thread.environmentId, projectId: thread.projectId },
-    {
-      branch,
-      worktreePath: null,
-      envMode: "local",
-      startFromOrigin: false,
-    },
-  );
-  expect(state.add).toHaveBeenCalledWith("new-draft", [
-    expect.objectContaining({
-      kind: "thread",
-      threadId: thread.id,
-      environmentId: thread.environmentId,
-      title: thread.title,
-    }),
-  ]);
-});
+it.each(["main", null])(
+  "offers referenced creation with branch %s in the clicked workspace",
+  async (branch) => {
+    const source = { ...thread, branch };
+    const sourceItems = branch ? items : items.filter((item) => item.id !== "new-thread-on-branch");
+    const start = vi.fn<StartReferencedThread>(async () => ({
+      draftId: DraftId.make("new-draft"),
+      threadId: ThreadId.make("new-thread"),
+    }));
+    const show = vi.fn(async (_items: readonly ContextMenuItem[]) => "new-thread-with-reference");
+    expect(
+      await showThreadReferenceContextMenu(source, sourceItems, { x: 4, y: 5 }, start, show),
+    ).toBeNull();
+    expect(show.mock.calls[0]?.[0].map((item) => item.id)).toEqual([
+      branch ? "new-thread-on-branch" : "new-thread-in-project",
+      "new-thread-with-reference",
+      "rename",
+    ]);
+    expect(show.mock.calls[0]?.[0].map((item) => item.label)).toEqual([
+      branch ? "New thread on main" : "New thread",
+      branch ? "New thread on main with reference" : "New thread with reference",
+      "Rename thread",
+    ]);
+    expect(start).toHaveBeenCalledWith(
+      { environmentId: thread.environmentId, projectId: thread.projectId },
+      {
+        branch,
+        worktreePath: null,
+        envMode: "local",
+        startFromOrigin: false,
+      },
+    );
+    expect(state.add).toHaveBeenCalledWith("new-draft", [
+      expect.objectContaining({
+        kind: "thread",
+        threadId: thread.id,
+        environmentId: thread.environmentId,
+        title: thread.title,
+      }),
+    ]);
+  },
+);
 
 it("preserves the selected worktree and branch", async () => {
   const start = vi.fn<StartReferencedThread>(async () => null);
@@ -84,18 +87,21 @@ it("preserves the selected worktree and branch", async () => {
   expect(state.add).not.toHaveBeenCalled();
 });
 
-it.each(["main", null])("leaves other actions and dismissal alone with branch %s", async (branch) => {
-  const source = { ...thread, branch };
-  const start = vi.fn<StartReferencedThread>(async () => null);
-  expect(
-    await showThreadReferenceContextMenu(source, items, undefined, start, async () => "rename"),
-  ).toBe("rename");
-  expect(
-    await showThreadReferenceContextMenu(source, items, undefined, start, async () => null),
-  ).toBeNull();
-  expect(start).not.toHaveBeenCalled();
-  expect(state.add).not.toHaveBeenCalled();
-});
+it.each(["main", null])(
+  "leaves other actions and dismissal alone with branch %s",
+  async (branch) => {
+    const source = { ...thread, branch };
+    const start = vi.fn<StartReferencedThread>(async () => null);
+    expect(
+      await showThreadReferenceContextMenu(source, items, undefined, start, async () => "rename"),
+    ).toBe("rename");
+    expect(
+      await showThreadReferenceContextMenu(source, items, undefined, start, async () => null),
+    ).toBeNull();
+    expect(start).not.toHaveBeenCalled();
+    expect(state.add).not.toHaveBeenCalled();
+  },
+);
 
 it("opens a plain branch-less draft without attaching the source", async () => {
   const start = vi.fn<StartReferencedThread>(async () => ({
