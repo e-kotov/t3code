@@ -1,4 +1,3 @@
-import { browserProxyOpenInput } from "~/browser/browserProxy";
 import type {
   EnvironmentId,
   PreviewOpenInput,
@@ -47,8 +46,8 @@ export async function openPreviewSession<E>(
       ...(input.url === undefined ? {} : { url: input.url }),
       viewport: input.viewport ?? defaults.viewport,
       profileId: input.profileId ?? defaults.profileId,
-      ...browserProxyOpenInput(input.proxyUrl),
-      ...(runtime === undefined || runtime === "desktop" ? {} : { runtime }),
+      ...(input.proxyUrl === undefined ? {} : { proxyUrl: input.proxyUrl }),
+      ...(runtime === undefined ? {} : { runtime }),
     },
   });
   if (result._tag === "Failure") {

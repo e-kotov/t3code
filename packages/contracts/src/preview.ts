@@ -1,4 +1,3 @@
-import { browserProxyTabFields } from "./browserProxy.ts";
 import { Schema } from "effect";
 import { NonNegativeInt, PositiveInt, ThreadId, TrimmedNonEmptyString } from "./baseSchemas.ts";
 import { BROWSER_PROFILE_MAX_COUNT, BrowserProfile, BrowserProfileId } from "./browserProfile.ts";
@@ -149,6 +148,8 @@ export const PreviewStreamHostSetup = Schema.Struct({
 export type PreviewStreamHostSetup = typeof PreviewStreamHostSetup.Type;
 export const PREVIEW_STREAM_HOST_SETUP_CLOSE_CODE = 4503;
 
+import { BrowserProxyError, browserProxyTabFields } from "./browserProxy.ts";
+
 export const PreviewSessionSnapshot = Schema.Struct({
   ...browserProxyTabFields,
   threadId: TrimmedNonEmptyString,
@@ -221,7 +222,6 @@ export type BrowserRecordingFrameRate = typeof BrowserRecordingFrameRate.Type;
 export const DEFAULT_BROWSER_RECORDING_FRAME_RATE: BrowserRecordingFrameRate = 30;
 
 export const PreviewReportProfilesInput = Schema.Struct({
-  ...browserProxyTabFields,
   profiles: Schema.Array(BrowserProfile).check(Schema.isMaxLength(BROWSER_PROFILE_MAX_COUNT)),
   defaultProfileId: BrowserProfileId,
   /** Optional so older clients keep reporting; omitting it keeps the last reported rate. */
@@ -403,6 +403,7 @@ export class PreviewClearProfileError extends Schema.TaggedError<PreviewClearPro
 }
 
 export const PreviewError = Schema.Union([
+  BrowserProxyError,
   PreviewSessionLookupError,
   PreviewInvalidUrlError,
   PreviewControlRequiredError,

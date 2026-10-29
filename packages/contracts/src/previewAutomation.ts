@@ -1,4 +1,3 @@
-import { browserProxyTabFields, BrowserProxyUrl } from "./browserProxy.ts";
 import { Schema } from "effect";
 
 import { EnvironmentId, ThreadId, TrimmedNonEmptyString } from "./baseSchemas.ts";
@@ -71,6 +70,8 @@ export const PreviewAutomationProfile = Schema.Struct({
   incognito: Schema.optional(Schema.Boolean),
 });
 export type PreviewAutomationProfile = typeof PreviewAutomationProfile.Type;
+
+import { browserProxyTabFields, BrowserProxyUrl } from "./browserProxy.ts";
 
 export const PreviewAutomationStatus = Schema.Struct({
   ...browserProxyTabFields,

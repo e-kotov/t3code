@@ -346,7 +346,9 @@ const dependencies = Layer.mergeAll(
   Layer.provideMerge(ServerConfig.layerTest(process.cwd(), { prefix: "t3-server-browser-" })),
   Layer.provideMerge(NodeServices.layer),
 );
-const layer = ServerBrowser.layer.pipe(Layer.provideMerge(dependencies));
+import * as ProxySettings from "../serverSettings.ts";
+
+const layer = ServerBrowser.layer.pipe(Layer.provide(ProxySettings.ServerSettings.layerTest()), Layer.provideMerge(dependencies));
 const ready = Effect.gen(function* () {
   const browser = yield* ServerBrowser.ServerBrowser;
   const broker = yield* Broker.PreviewAutomationBroker;

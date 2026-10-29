@@ -10,6 +10,8 @@ import {
   createEnvironmentRpcSubscriptionAtomFamily,
 } from "./runtime.ts";
 
+import { openWithBrowserProxy } from "../rpc/browserProxy.ts";
+
 export function createPreviewEnvironmentAtoms<R, E>(
   runtime: Atom.AtomRuntime<EnvironmentRegistry | R, E>,
 ) {
@@ -41,6 +43,7 @@ export function createPreviewEnvironmentAtoms<R, E>(
     }),
     open: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:preview:open",
+      execute: openWithBrowserProxy,
       tag: WS_METHODS.previewOpen,
       scheduler: lifecycleScheduler,
       concurrency: lifecycleConcurrency,

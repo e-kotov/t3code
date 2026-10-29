@@ -8,8 +8,14 @@ import { expect } from "vite-plus/test";
 
 import * as ServerConfig from "../config.ts";
 import * as PreviewManager from "./Manager.ts";
+import * as ProxyManager from "./BrowserProxyManager.ts";
+import * as ProxySettings from "../serverSettings.ts";
+import * as PreviewBrowser from "./PreviewBrowser.ts";
+import * as Option from "effect/Option";
 
-const layer = PreviewManager.layer.pipe(
+const layer = ProxyManager.layer.pipe(
+  Layer.provideMerge(ProxySettings.ServerSettings.layerTest()),
+  Layer.provide(Layer.succeed(PreviewBrowser.PreviewBrowser, { executable: Effect.succeed("/fixture/chrome"), installed: Effect.succeed(Option.none()) })),
   Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "t3-proxy-manager-" })),
   Layer.provide(NodeCrypto.layer),
   Layer.provide(NodeServices.layer),
@@ -21,6 +27,13 @@ it.layer(layer)("proxy tab ownership", (it) => {
       const manager = yield* PreviewManager.PreviewManager;
       const threadId = ThreadId.make("proxy-thread");
       const proxyUrl = "socks5://127.0.0.1:1080";
+      const settings = yield* ProxySettings.ServerSettings;
+      yield* settings.updateSettings({ browserProxy: { enabled: true, url: proxyUrl } });
+      const scheduled = yield* manager.open({ threadId, url: "https://example.com" });
+      expect(scheduled.proxyUrl).toBe(proxyUrl);
+      const local = yield* manager.open({ threadId, runtime: "desktop", url: "https://host.example/api/assets/private-token/report.html" });
+      expect(local.runtime).toBe("desktop");
+      expect(local.proxyUrl).toBe("");
       const opened = yield* manager.open({ threadId, runtime: "desktop", proxyUrl });
       expect(opened.runtime).toBe("server");
       expect(opened.headless).toBe(true);
@@ -41,3 +54,17 @@ it.layer(layer)("proxy tab ownership", (it) => {
     }),
   );
 });
+
+
+it.effect("rejects unsupported proxy hosts before publishing a tab", () => Effect.gen(function* () {
+  const manager = yield* PreviewManager.PreviewManager;
+  const threadId = ThreadId.make("unsupported");
+  const result = yield* manager.open({ threadId, url: "https://example.com", proxyUrl: "socks5://proxy:1080" }).pipe(Effect.result);
+  expect(result._tag).toBe("Failure");
+  expect((yield* manager.list({ threadId })).sessions).toEqual([]);
+}).pipe(Effect.provide(ProxyManager.layer.pipe(
+  Layer.provide(ProxySettings.ServerSettings.layerTest()),
+  Layer.provide(Layer.succeed(PreviewBrowser.PreviewBrowser, { executable: Effect.fail(new PreviewBrowser.PreviewBrowserUnsupportedError({ platform: "android", arch: "arm64" })), installed: Effect.succeed(Option.none()) })),
+  Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "t3-proxy-unsupported-" })),
+  Layer.provide(NodeCrypto.layer), Layer.provide(NodeServices.layer),
+))));

@@ -1,30 +1,32 @@
 import { normalizeBrowserProxyUrl } from "@t3tools/contracts";
 import { useState } from "react";
 
-import {
-  useClientSettings,
-  useClientSettingsHydrated,
-  useUpdatePrimarySettings,
-} from "~/hooks/useSettings";
 import { DraftInput } from "../ui/draft-input";
 import { Switch } from "../ui/switch";
+import { useSettingsScope } from "./SettingsScopeContext";
+import { useScopedSettings, useUpdateScopedSettings, useScopedSettingsWriteAllowed } from "./useScopedSettings";
 import { SettingsRow } from "./settingsLayout";
 import { searchableSetting } from "./settingsSearch";
 
 export function BrowserProxySetting() {
-  const settings = useClientSettings((value) => value.browserProxy);
-  const hydrated = useClientSettingsHydrated();
-  const update = useUpdatePrimarySettings();
+  const settings = useScopedSettings((value) => value.browserProxy);
+  const context = useSettingsScope();
+  const update = useUpdateScopedSettings();
+  const writable = useScopedSettingsWriteAllowed();
   const [error, setError] = useState<string | null>(null);
+  const supported = context.connectedEnvironments.length > 0 && context.connectedEnvironments.every((target) => target.serverConfig?.environment.capabilities.browserProxy === true);
+  const disabled = !writable || !supported || context.scope.kind === "project" || context.scope.kind === "checkout";
   return (
     <SettingsRow
       {...searchableSetting("browser-proxy")}
-      description="Use a proxy for new tabs. Proxy tabs run on the environment host with separate logins. Local development sites stay direct. Existing tabs keep their route."
+      serverScoped
+      settingKeys={["browserProxy"]}
+      description={supported ? "Default route for this environment's agents and new external tabs. Existing tabs keep their route. Local and app resources stay direct." : "Update the selected environment's T3 Code server to configure its browser proxy."}
       control={
         <Switch
           aria-label="Use browser proxy"
           checked={settings.enabled}
-          disabled={!hydrated || (!settings.enabled && (!settings.url || error !== null))}
+          disabled={disabled || (!settings.enabled && (!settings.url || error !== null))}
           onCheckedChange={(enabled) => update({ browserProxy: { ...settings, enabled } })}
         />
       }
@@ -33,7 +35,7 @@ export function BrowserProxySetting() {
         <DraftInput
           aria-label="Browser proxy URL"
           aria-invalid={error !== null}
-          disabled={!hydrated}
+          disabled={disabled}
           placeholder="socks5://127.0.0.1:1080"
           value={settings.url}
           onCommit={(value) => {
@@ -46,11 +48,7 @@ export function BrowserProxySetting() {
             }
           }}
         />
-        {error ? (
-          <p role="alert" className="mt-2 text-sm text-destructive">
-            {error}
-          </p>
-        ) : null}
+        {error ? <p role="alert" className="mt-2 text-sm text-destructive">{error}</p> : null}
       </div>
     </SettingsRow>
   );

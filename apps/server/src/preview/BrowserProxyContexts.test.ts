@@ -5,14 +5,14 @@ import * as NodeNet from "node:net";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { chromium } from "playwright-core";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { BrowserProxyContexts } from "./BrowserProxyContexts.ts";
 
-const listen = (server: NodeNet.Server) =>
+const listen = (server: NodeNet.Server, host = "127.0.0.1") =>
   new Promise<number>((resolve, reject) => {
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
+    server.listen(0, host, () => {
       server.off("error", reject);
       const address = server.address();
       if (!address || typeof address === "string") reject(new Error("Missing fixture port."));
@@ -29,6 +29,8 @@ describe("browser proxy routes", () => {
   it("routes HTTP and SOCKS5 tabs independently, keeps localhost direct and fails closed", async () => {
     const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-proxy-"));
     const requests: string[] = [];
+    let directRequests = 0;
+    const directTarget = NodeHttp.createServer((request, response) => { if (request.url === "/probe") directRequests += 1; response.end("reachable directly"); });
     const local = NodeHttp.createServer((_request, response) => response.end("direct localhost"));
     const target = NodeHttp.createServer((_request, response) => response.end("SOCKS route"));
     const httpProxy = NodeHttp.createServer((request, response) => {
@@ -87,6 +89,9 @@ describe("browser proxy routes", () => {
     });
     try {
       const localPort = await listen(local);
+      const address = Object.values(NodeOS.networkInterfaces()).flat().find((entry) => entry?.family === "IPv4" && !entry.internal)?.address;
+      if (!address) throw new Error("The proxy fixture needs a non-loopback IPv4 address.");
+      const directUrl = `http://${address}:${await listen(directTarget, "0.0.0.0")}/probe`;
       const httpUrl = `http://127.0.0.1:${await listen(httpProxy)}`;
       const socksUrl = `socks5://127.0.0.1:${await listen(socksProxy)}`;
       const httpContext = await pool.contextFor("default", "agent", httpUrl);
@@ -108,12 +113,16 @@ describe("browser proxy routes", () => {
       expect(await socksContext.cookies("http://route-check.invalid")).toEqual([]);
       await httpPage.goto(`http://127.0.0.1:${localPort}`);
       expect(await httpPage.textContent("body")).toBe("direct localhost");
-      await socksPage.close();
+      const directPage = await directContext.newPage();
+      await directPage.goto(directUrl);
+      expect(await directPage.textContent("body")).toBe("reachable directly");
+      directRequests = 0;
       for (const socket of sockets) socket.destroy();
       await close(socksProxy);
       await expect(
-        (await socksContext.newPage()).goto("http://route-check.invalid/"),
+        (await socksContext.newPage()).goto(directUrl),
       ).rejects.toThrow();
+      expect(directRequests).toBe(0);
       // A failed SOCKS route must not change the independently working HTTP route.
       await httpPage.goto("http://route-check.invalid/");
       expect(await httpPage.textContent("body")).toBe("HTTP route");
@@ -121,7 +130,7 @@ describe("browser proxy routes", () => {
       await pool.close();
       for (const socket of sockets) socket.destroy();
       await Promise.all(
-        [local, target, httpProxy, socksProxy].filter((server) => server.listening).map(close),
+        [local, target, httpProxy, socksProxy, directTarget].filter((server) => server.listening).map(close),
       );
       await NodeFSP.rm(root, { recursive: true, force: true });
     }
@@ -164,4 +173,52 @@ describe("browser proxy routes", () => {
       await NodeFSP.rm(root, { recursive: true, force: true });
     }
   });
+});
+
+
+it("waits for all route deletion before reopening a profile", async () => {
+  const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-proxy-clear-"));
+  const profilesDir = NodePath.join(root, "profiles");
+  const pool = new BrowserProxyContexts({ profilesDir, env: { ...process.env, T3CODE_SERVER_BROWSER_SANDBOX: "0" }, executable: async () => chromium.executablePath() });
+  const route = "http://127.0.0.1:1";
+  try {
+    await pool.contextFor("work", undefined, route);
+    const [routeId] = await NodeFSP.readdir(`${profilesDir}-proxy-routes`);
+    const directory = NodePath.join(`${profilesDir}-proxy-routes`, routeId!, "work");
+    const remove = NodeFSP.rm;
+    let reopening: ReturnType<BrowserProxyContexts["contextFor"]> | undefined;
+    let deletions = 0;
+    using _remove = vi.spyOn(NodeFSP, "rm").mockImplementation(async (path, options) => {
+      if (String(path) === directory) {
+        deletions += 1;
+        if (deletions === 1) reopening = pool.contextFor("work", undefined, route);
+        else await reopening;
+      }
+      return remove(path, options);
+    });
+    await pool.clearProfile("work");
+    expect(reopening).toBeDefined();
+    await reopening;
+    expect((await NodeFSP.stat(directory)).isDirectory()).toBe(true);
+  } finally {
+    await pool.close();
+    await NodeFSP.rm(root, { recursive: true, force: true });
+  }
+});
+
+it("releases idle route browsers before a proxy is used again", async () => {
+  const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-proxy-idle-"));
+  const pool = new BrowserProxyContexts({ profilesDir: NodePath.join(root, "profiles"), env: { ...process.env, T3CODE_SERVER_BROWSER_SANDBOX: "0" }, executable: async () => chromium.executablePath() });
+  try {
+    const first = await pool.contextFor("default", "agent", "socks5://127.0.0.1:1");
+    const browser = first.browser();
+    const page = await first.newPage();
+    await page.close();
+    const next = await pool.contextFor("default", "agent", "socks5://127.0.0.1:1");
+    expect(next).not.toBe(first);
+    expect(browser?.isConnected()).toBe(false);
+  } finally {
+    await pool.close();
+    await NodeFSP.rm(root, { recursive: true, force: true });
+  }
 });

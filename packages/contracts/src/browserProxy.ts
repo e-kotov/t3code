@@ -46,6 +46,11 @@ export const BrowserProxySettings = Schema.Struct({
 }).check(
   Schema.makeFilter((value) => !value.enabled || value.url !== "" || "Enter a proxy URL first."),
 );
+export type BrowserProxySettings = typeof BrowserProxySettings.Type;
+
+export class BrowserProxyError extends Schema.TaggedError<BrowserProxyError>()("BrowserProxyError", {
+  message: Schema.String,
+}) {}
 
 export const browserProxySettingsFields = {
   browserProxy: BrowserProxySettings.pipe(
@@ -57,13 +62,39 @@ export const browserProxyPatchFields = { browserProxy: Schema.optionalKey(Browse
 
 export const browserProxyTabFields = { proxyUrl: Schema.optional(BrowserProxyUrl) };
 
-export function browserProxyTabOptions(proxyUrl: string | undefined) {
+export function browserProxyTabOptions(proxyUrl: string | undefined): {
+  readonly proxyUrl?: string;
+  readonly runtime?: "server";
+  readonly headless?: boolean;
+} {
   return proxyUrl === undefined
     ? {}
     : {
         proxyUrl: normalizeBrowserProxyUrl(proxyUrl),
         ...(proxyUrl ? { runtime: "server" as const, headless: true } : {}),
       };
+}
+
+export function isDirectBrowserTarget(value: string | undefined): boolean {
+  if (!value) return false;
+  try {
+    const url = new URL(/^(?:https?|file):\/\//i.test(value) ? value : `http://${value}`);
+    const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    if (url.protocol === "file:" || /^\/api\/assets(?:\/|$)/.test(url.pathname)) return true;
+    if (["localhost", "::1", "0.0.0.0"].includes(host) || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".ts.net")) return true;
+    const octets = host.split(".").map(Number);
+    if (octets.length === 4 && octets.every((part) => Number.isInteger(part) && part >= 0 && part <= 255)) {
+      const [a, b] = octets;
+      return a === 127 || a === 10 || (a === 192 && b === 168) || (a === 172 && b! >= 16 && b! <= 31) || (a === 169 && b === 254) || (a === 100 && b! >= 64 && b! <= 127);
+    }
+    return /^(?:f[cd][0-9a-f]{2}|fe[89ab][0-9a-f]):/i.test(host);
+  } catch {
+    return false;
+  }
+}
+
+export function resolveBrowserProxyRoute(url: string | undefined, override: string | undefined, defaultProxyUrl: string): string {
+  return isDirectBrowserTarget(url) ? "" : normalizeBrowserProxyUrl(override ?? defaultProxyUrl);
 }
 
 export function browserProxyRequestReuse(input: {

@@ -1,4 +1,3 @@
-import { browserProxyOpenInput } from "~/browser/browserProxy";
 import type { ScopedThreadRef } from "@t3tools/contracts";
 import { isAtomCommandInterrupted } from "@t3tools/client-runtime/state/runtime";
 import * as Schema from "effect/Schema";
@@ -10,6 +9,8 @@ import { isPreviewAvailableFor, previewRuntimeFor } from "~/browser/previewRunti
 import { recordVisitForThread } from "~/browserHistoryStore";
 import { applyPreviewServerSnapshot } from "~/previewStateStore";
 import { useRightPanelStore } from "~/rightPanelStore";
+
+import { reportBrowserProxyFailure } from "~/browser/browserProxyFailure";
 
 const terminalLinkErrorContext = {
   environmentId: Schema.String,
@@ -65,7 +66,6 @@ export async function openTerminalLinkInPreview<E>(
       url: input.url,
       viewport: defaults.viewport,
       profileId: defaults.profileId,
-      ...browserProxyOpenInput(),
       ...(runtime === undefined ? {} : { runtime }),
     },
   });
@@ -79,7 +79,7 @@ export async function openTerminalLinkInPreview<E>(
         cause: result.cause,
       }),
     );
-    input.fallbackToBrowser();
+    if (!reportBrowserProxyFailure(result.cause)) input.fallbackToBrowser();
     return;
   }
   recordVisitForThread(input.threadRef, input.url);

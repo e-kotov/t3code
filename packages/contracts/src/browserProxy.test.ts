@@ -3,12 +3,13 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { BrowserProxySettings, BrowserProxyUrl, normalizeBrowserProxyUrl } from "./browserProxy.ts";
 import { PreviewAutomationOpenInput } from "./previewAutomation.ts";
-import { ClientSettingsSchema, ClientSettingsPatch } from "./settings.ts";
+import { ClientSettingsSchema, ServerSettings, ServerSettingsPatch } from "./settings.ts";
 
 const decodeProxyUrl = Schema.decodeSync(BrowserProxyUrl);
 const decodeProxySettings = Schema.decodeSync(BrowserProxySettings);
 const decodeClientSettings = Schema.decodeSync(ClientSettingsSchema);
-const decodeClientPatch = Schema.decodeSync(ClientSettingsPatch);
+const decodeServerSettings = Schema.decodeSync(ServerSettings);
+const decodeServerPatch = Schema.decodeSync(ServerSettingsPatch);
 const decodeOpenInput = Schema.decodeSync(PreviewAutomationOpenInput);
 
 describe("browser proxy configuration", () => {
@@ -43,16 +44,22 @@ describe("browser proxy configuration", () => {
   });
 
   it("preserves old settings and validates disabled, enabled and direct request overrides", () => {
-    expect(decodeClientSettings({}).browserProxy).toEqual({
+    expect(decodeServerSettings({}).browserProxy).toEqual({
       enabled: false,
       url: "",
     });
     expect(() => decodeProxySettings({ enabled: true, url: "" })).toThrow();
     expect(
-      decodeClientPatch({
+      decodeServerPatch({
         browserProxy: { enabled: false, url: "socks5://proxy:1080" },
       }).browserProxy?.url,
     ).toBe("socks5://proxy:1080");
     expect(decodeOpenInput({ proxyUrl: "" }).proxyUrl).toBe("");
   });
+});
+
+
+it("stores defaults only in the environment settings", () => {
+  expect(decodeServerSettings({}).browserProxy).toEqual({ enabled: false, url: "" });
+  expect(decodeClientSettings({})).not.toHaveProperty("browserProxy");
 });

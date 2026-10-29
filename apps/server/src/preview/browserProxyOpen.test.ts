@@ -25,3 +25,16 @@ describe("per-request browser proxy", () => {
     expect(resolveBrowserProxyOpen({ tabId: "tab", proxyUrl: "" }, "").reuse).toBe(true);
   });
 });
+
+
+it("does not reuse a tab when the configured default route changed", () => {
+  expect(resolveBrowserProxyOpen({}, "socks5://proxy:1080", "").reuse).toBe(false);
+  expect(resolveBrowserProxyOpen({}, "", "socks5://proxy:1080").reuse).toBe(false);
+  expect(resolveBrowserProxyOpen({}, "socks5://proxy:1080", "socks5://proxy:1080").reuse).toBe(true);
+});
+
+it("keeps local and signed app resources direct", () => {
+  for (const url of ["http://localhost:3000", "http://10.1.2.3:3000", "http://127.0.0.1:3000", "https://host.example/api/assets/private-token/report.html"]) {
+    expect(resolveBrowserProxyOpen({ url }, "socks5://proxy:1080").proxyUrl).toBe("");
+  }
+});

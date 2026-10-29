@@ -84,7 +84,8 @@ import * as PreviewBrowser from "./PreviewBrowser.ts";
 import * as PreviewBrowserHost from "./PreviewBrowserHost.ts";
 import { presentAsChrome } from "./ServerBrowserContexts.ts";
 import { BrowserProxyContexts as ServerBrowserContexts } from "./BrowserProxyContexts.ts";
-import { resolveBrowserProxyOpen } from "./browserProxyOpen.ts";
+import { resolveBrowserProxyOpen, selectBrowserProxyTab, assertBrowserProxyTarget } from "./browserProxyOpen.ts";
+import * as ServerSettings from "../serverSettings.ts";
 import { BrowserControlInterrupted, SessionControl } from "./SessionControl.ts";
 import { installPdfDocumentNavigation, isPdfAssetUrl } from "./PdfDocumentNavigation.ts";
 
@@ -452,6 +453,7 @@ const CLIPBOARD_SCRIPT = `(() => {
 
 const make = Effect.gen(function* () {
   const config = yield* ServerConfig.ServerConfig;
+  const proxySettings = yield* ServerSettings.ServerSettings;
   const host = { platform: yield* HostProcess.Platform, arch: yield* HostProcess.Architecture };
   const manager = yield* PreviewManager.PreviewManager;
   const broker = yield* PreviewAutomationBroker.PreviewAutomationBroker;
@@ -1319,12 +1321,10 @@ const make = Effect.gen(function* () {
   // Agent recordings encode here, so they need the client's Browser recording frame rate. The
   // last report outlives the client, which lets agents record while no client is connected.
   let recordingFrameRate = DEFAULT_BROWSER_RECORDING_FRAME_RATE;
-  let defaultProxyUrl = "";
 
   const reportProfiles: ServerBrowser["Service"]["reportProfiles"] = (input) =>
     Effect.sync(() => {
       if (input.recordingFrameRate !== undefined) recordingFrameRate = input.recordingFrameRate;
-      if (input.proxyUrl !== undefined) defaultProxyUrl = input.proxyUrl;
       const profiles = resolveBrowserProfiles(input.profiles);
       reportedProfiles = {
         profiles,
@@ -1437,6 +1437,7 @@ const make = Effect.gen(function* () {
     readiness: "load" | "domContentLoaded" | "none",
     timeout: number,
   ) => {
+    assertBrowserProxyTarget(tab.proxyUrl, url);
     const navigation = tab.page.goto(url, {
       timeout,
       waitUntil:
@@ -1742,6 +1743,8 @@ const make = Effect.gen(function* () {
           );
         const open = input as PreviewAutomationOpenInput;
         const url = open.url === undefined ? undefined : normalizePreviewUrl(open.url);
+        const savedProxy = (await runPromise(proxySettings.getSettings)).browserProxy;
+        const defaultProxyUrl = savedProxy.enabled ? savedProxy.url : "";
         const { proxyUrl, reuse } = resolveBrowserProxyOpen(open, defaultProxyUrl);
         if (
           reuse &&
@@ -1781,15 +1784,11 @@ const make = Effect.gen(function* () {
           );
         }
         // Reusing another session's tab requires explicit tabId; reading it grants no implicit takeover.
-        const existing =
-          found && (request.tabIdExplicit || found.control.agentId === request.agentSessionId)
-            ? found
-            : undefined;
-        if (existing && open.proxyUrl !== undefined && (existing.proxyUrl ?? "") !== proxyUrl) {
-          throw new BrowserControlInterrupted(
-            "Routing is fixed for this tab. Open a new tab with proxyUrl and reuseExistingTab=false.",
-          );
-        }
+        const existing = selectBrowserProxyTab(
+          found && (request.tabIdExplicit || found.control.agentId === request.agentSessionId) ? found : undefined,
+          proxyUrl,
+          request.tabIdExplicit,
+        );
         const navigationTimeout = Math.min(request.timeoutMs, NAVIGATION_TIMEOUT_MS);
         const profileId = existing ? undefined : resolveOpenProfile(open.profileId);
         if (!existing) {

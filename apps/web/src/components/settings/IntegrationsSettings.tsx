@@ -1,4 +1,3 @@
-import { BrowserProxySetting } from "./BrowserProxySetting";
 import { EditorSettings } from "./EditorSettings";
 import { DeviceHostUpdates } from "../device/DeviceHostUpdates";
 import { DeviceToolVersions } from "../device/DeviceToolVersions";
@@ -1547,6 +1546,8 @@ function BrowserProfilesSetting({ disabled }: { readonly disabled: boolean }) {
     </SettingsRow>
   );
 }
+
+import { BrowserProxySetting } from "./BrowserProxySetting";
 
 export function BrowserSettingsPanel() {
   const desktopOnly = !isElectron;

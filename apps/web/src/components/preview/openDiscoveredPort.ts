@@ -24,6 +24,7 @@ export async function openDiscoveredPort<E>(input: {
     openPreview: input.openPreview,
     threadRef: input.threadRef,
     url: resolvedUrl,
+    proxyUrl: "",
   });
   return mapAtomCommandResult(result, (snapshot) => {
     recordVisitForThread(input.threadRef, input.port.url);

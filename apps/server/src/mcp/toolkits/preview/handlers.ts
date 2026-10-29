@@ -1,4 +1,3 @@
-import { browserProxyRequestReuse } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Record from "effect/Record";
@@ -41,6 +40,8 @@ import { PreviewSnapshotToolkit, PreviewStandardToolkit, PreviewToolkit } from "
  * preference, which is desktop-local and unreadable from here — filling in
  * `true` would silently override it for every `preview_open`.
  */
+import { browserProxyRequestReuse } from "@t3tools/contracts";
+
 function normalizePreviewOpenInput(input: PreviewAutomationOpenInput): PreviewAutomationOpenInput {
   const open = input.open ?? input.show;
   return {

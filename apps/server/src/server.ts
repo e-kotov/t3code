@@ -77,7 +77,6 @@ import * as McpSessionRegistry from "./mcp/McpSessionRegistry.ts";
 import * as PreviewAutomationBroker from "./mcp/PreviewAutomationBroker.ts";
 import * as DeviceService from "./device/DeviceService.ts";
 import * as DeviceHubProxy from "./device/DeviceHubProxy.ts";
-import * as PreviewManager from "./preview/Manager.ts";
 import * as PortScanner from "./preview/PortScanner.ts";
 import * as ServerBrowser from "./preview/ServerBrowser.ts";
 import * as PreviewAgentActivity from "./preview/PreviewAgentActivity.ts";
@@ -450,8 +449,10 @@ const layerTerminal = TerminalManager.layer.pipe(
   Layer.provide(layerNativeTelemetry),
 );
 
+import * as BrowserProxyManager from "./preview/BrowserProxyManager.ts";
+
 const layerPreview = Layer.empty.pipe(
-  Layer.provideMerge(PreviewManager.layer),
+  Layer.provideMerge(BrowserProxyManager.layer.pipe(Layer.provide(layerServerSettings))),
   Layer.provideMerge(layerPortScanner),
 );
 
@@ -765,6 +766,7 @@ const layerMakeRoutes = Layer.mergeAll(
   // The same activity instance RunExecutionService reports to, by layer memoization.
   Layer.provide(
     ServerBrowser.layer.pipe(
+      Layer.provide(layerServerSettings),
       Layer.provide(Layer.merge(DesktopBrowserChannel.layer, PreviewAgentActivity.layer)),
     ),
   ),
