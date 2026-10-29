@@ -80,7 +80,7 @@ export function isDirectBrowserTarget(value: string | undefined): boolean {
   try {
     const url = new URL(/^(?:https?|file):\/\//i.test(value) ? value : `http://${value}`);
     const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-    if (url.protocol === "file:" || /^\/api\/assets(?:\/|$)/.test(url.pathname)) return true;
+    if (url.protocol === "file:") return true;
     if (["localhost", "::1", "0.0.0.0"].includes(host) || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".ts.net")) return true;
     const octets = host.split(".").map(Number);
     if (octets.length === 4 && octets.every((part) => Number.isInteger(part) && part >= 0 && part <= 255)) {
@@ -103,4 +103,19 @@ export function browserProxyRequestReuse(input: {
   readonly reuseExistingTab?: boolean | undefined;
 }) {
   return input.reuseExistingTab ?? (input.proxyUrl === undefined || input.tabId !== undefined);
+}
+
+
+export function isProtectedBrowserAsset(value: string | undefined): boolean {
+  if (!value) return false;
+  try {
+    const path = decodeURIComponent(new URL(value).pathname);
+    return /^\/api\/assets\/[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}(?:\/|$)/.test(path);
+  } catch { return false; }
+}
+
+export function browserProxyTargetError(url: string | undefined, proxyUrl: string) {
+  return proxyUrl && isProtectedBrowserAsset(url)
+    ? new BrowserProxyError({ message: 'Open signed app assets in a direct tab with proxyUrl set to an empty string.' })
+    : undefined;
 }

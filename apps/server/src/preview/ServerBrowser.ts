@@ -84,6 +84,7 @@ import * as PreviewBrowser from "./PreviewBrowser.ts";
 import * as PreviewBrowserHost from "./PreviewBrowserHost.ts";
 import { presentAsChrome } from "./ServerBrowserContexts.ts";
 import { BrowserProxyContexts as ServerBrowserContexts } from "./BrowserProxyContexts.ts";
+import { acquireBrowserProxyPage, closeProtectedBrowserPopup } from "./BrowserProxyPage.ts";
 import { resolveBrowserProxyOpen, selectBrowserProxyTab, assertBrowserProxyTarget } from "./browserProxyOpen.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import { BrowserControlInterrupted, SessionControl } from "./SessionControl.ts";
@@ -733,17 +734,12 @@ const make = Effect.gen(function* () {
       desktop === null &&
       ((snapshot.automationOwner !== undefined && snapshot.profileId === undefined) ||
         snapshot.profileId === INCOGNITO_BROWSER_PROFILE_ID);
-    const context =
-      adopted?.page.context() ??
-      desktop?.page.context() ??
-      (await contexts.contextFor(
-        snapshot.profileId ?? "default",
-        isolatedContext ? tabKey(snapshot.threadId, snapshot.tabId) : undefined,
-        snapshot.proxyUrl,
-      ));
-    if (adopted?.page.isClosed()) throw new Error("The popup closed before it opened.");
-    if (!desktop) await prepareContext(context);
-    const page = adopted?.page ?? desktop?.page ?? (await context.newPage());
+    const { context, page } = await acquireBrowserProxyPage({
+      contexts, snapshot, isolationKey: isolatedContext ? tabKey(snapshot.threadId, snapshot.tabId) : undefined,
+      ...(adopted === undefined ? {} : { adopted: adopted.page }),
+      ...(desktop === null ? {} : { desktop: desktop.page }),
+      prepare: prepareContext,
+    });
     const cdp = await context.newCDPSession(page);
     await installPdfDocumentNavigation(cdp);
     // The desktop's page is already a normal browser. A popup's first request
@@ -1190,6 +1186,7 @@ const make = Effect.gen(function* () {
   };
 
   const adoptPopup = async (opener: ServerTab, popup: Page) => {
+    if (await closeProtectedBrowserPopup(opener.proxyUrl, popup)) return;
     const agentId = opener.control.agentId;
     if (opener.closing || (agentId !== null && atTabLimit(agentId))) {
       await popup.close().catch(constVoid);
@@ -1206,6 +1203,7 @@ const make = Effect.gen(function* () {
         ...(/^https?:/i.test(url) ? { url } : {}),
         runtime: "server",
         ...(opener.proxyUrl === undefined ? {} : { proxyUrl: opener.proxyUrl }),
+        inheritedProxyRoute: true,
         ...(opener.profileId === undefined ? {} : { profileId: opener.profileId }),
         ...(opener.control.agentId === null
           ? {}
@@ -2229,6 +2227,7 @@ const make = Effect.gen(function* () {
       case "navigate":
         if (typeof message.url === "string") {
           const url = normalizePreviewUrl(message.url);
+          assertBrowserProxyTarget(tab.proxyUrl, url);
           tab.control.trackUntilHandoff(tab.page.goto(url, VIEWER_NAVIGATION_OPTIONS));
         }
         return;

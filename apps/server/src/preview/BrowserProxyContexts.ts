@@ -1,5 +1,5 @@
 // @effect-diagnostics nodeBuiltinImport:off - Owns Playwright resources outside the Effect runtime.
-import { normalizeBrowserProxyUrl } from "@t3tools/contracts";
+import { isProtectedBrowserAsset, normalizeBrowserProxyUrl } from "@t3tools/contracts";
 import * as NodeCrypto from "node:crypto";
 import * as NodeFSP from "node:fs/promises";
 import * as NodePath from "node:path";
@@ -65,25 +65,42 @@ export class BrowserProxyContexts {
     return pending;
   }
 
+  private async acquire(profileId: string, isolationKey?: string, proxyUrl?: string) {
+    const route = normalizeBrowserProxyUrl(proxyUrl ?? "");
+    const record = await this.routePool(route);
+    record.pending += 1;
+    try {
+      const context = await record.pool.contextFor(profileId, isolationKey);
+      if (route && !this.watched.has(context)) {
+        await context.route((url) => isProtectedBrowserAsset(url.href), (request) => request.abort("blockedbyclient"));
+        this.watched.add(context);
+        context.on("page", (page) => page.once("close", () => {
+          void this.withProfile(profileId, async () => {
+            if (!context.pages().some((candidate) => !candidate.isClosed())) await context.close();
+          }).catch(() => {});
+        }));
+      }
+      record.contexts.add(context);
+      return context;
+    } finally {
+      record.pending -= 1;
+      this.retire(route, record);
+    }
+  }
+
   contextFor(profileId: string, isolationKey?: string, proxyUrl?: string) {
+    return this.withProfile(profileId, () => this.acquire(profileId, isolationKey, proxyUrl));
+  }
+
+  pageFor(profileId: string, isolationKey: string | undefined, proxyUrl: string | undefined, prepare: (context: BrowserContext) => Promise<void>) {
     return this.withProfile(profileId, async () => {
-      const route = normalizeBrowserProxyUrl(proxyUrl ?? "");
-      const record = await this.routePool(route);
-      record.pending += 1;
+      const context = await this.acquire(profileId, isolationKey, proxyUrl);
       try {
-        const context = await record.pool.contextFor(profileId, isolationKey);
-        record.contexts.add(context);
-        if (route && !this.watched.has(context)) {
-          this.watched.add(context);
-          context.on("page", (page) => page.once("close", () => {
-            if (context.pages().some((candidate) => !candidate.isClosed())) return;
-            void this.withProfile(profileId, () => context.close()).catch(() => {});
-          }));
-        }
-        return context;
-      } finally {
-        record.pending -= 1;
-        this.retire(route, record);
+        await prepare(context);
+        return { context, page: await context.newPage() };
+      } catch (cause) {
+        if (!context.pages().some((page) => !page.isClosed())) await context.close().catch(() => {});
+        throw cause;
       }
     });
   }

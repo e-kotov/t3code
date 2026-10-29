@@ -31,9 +31,11 @@ it.layer(layer)("proxy tab ownership", (it) => {
       yield* settings.updateSettings({ browserProxy: { enabled: true, url: proxyUrl } });
       const scheduled = yield* manager.open({ threadId, url: "https://example.com" });
       expect(scheduled.proxyUrl).toBe(proxyUrl);
-      const local = yield* manager.open({ threadId, runtime: "desktop", url: "https://host.example/api/assets/private-token/report.html" });
+      const local = yield* manager.open({ threadId, runtime: "desktop", url: "https://host.example/api/assets/private-token/report.html", proxyUrl: "" });
       expect(local.runtime).toBe("desktop");
       expect(local.proxyUrl).toBe("");
+      const inherited = yield* manager.open({ threadId, url: "http://localhost:3000", proxyUrl, inheritedProxyRoute: true });
+      expect(inherited.proxyUrl).toBe(proxyUrl);
       const opened = yield* manager.open({ threadId, runtime: "desktop", proxyUrl });
       expect(opened.runtime).toBe("server");
       expect(opened.headless).toBe(true);

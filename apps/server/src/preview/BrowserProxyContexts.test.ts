@@ -33,9 +33,13 @@ describe("browser proxy routes", () => {
     const directTarget = NodeHttp.createServer((request, response) => { if (request.url === "/probe") directRequests += 1; response.end("reachable directly"); });
     const local = NodeHttp.createServer((_request, response) => response.end("direct localhost"));
     const target = NodeHttp.createServer((_request, response) => response.end("SOCKS route"));
+    const protectedUrl = `http://route-check.invalid/api/assets/cGF5bG9hZA.${"a".repeat(43)}/report.html`;
     const httpProxy = NodeHttp.createServer((request, response) => {
       requests.push(request.url ?? "");
-      response.end("HTTP route");
+      if (request.url === "http://route-check.invalid/redirect-protected") {
+        response.writeHead(302, { location: protectedUrl });
+        response.end();
+      } else response.end("HTTP route");
     });
     const sockets = new Set<NodeNet.Socket>();
     const socksHosts: string[] = [];
@@ -82,16 +86,17 @@ describe("browser proxy routes", () => {
       };
       socket.on("data", receive);
     });
+    const address = Object.values(NodeOS.networkInterfaces()).flat().find((entry) => entry?.family === "IPv4" && !entry.internal)?.address;
     const pool = new BrowserProxyContexts({
+      args: address ? [`--host-resolver-rules=MAP proxy-direct.test ${address}`] : [],
       profilesDir: NodePath.join(root, "profiles"),
       env: { ...process.env, T3CODE_SERVER_BROWSER_SANDBOX: "0" },
       executable: async () => chromium.executablePath(),
     });
     try {
       const localPort = await listen(local);
-      const address = Object.values(NodeOS.networkInterfaces()).flat().find((entry) => entry?.family === "IPv4" && !entry.internal)?.address;
       if (!address) throw new Error("The proxy fixture needs a non-loopback IPv4 address.");
-      const directUrl = `http://${address}:${await listen(directTarget, "0.0.0.0")}/probe`;
+      const directUrl = `http://proxy-direct.test:${await listen(directTarget, "0.0.0.0")}/probe`;
       const httpUrl = `http://127.0.0.1:${await listen(httpProxy)}`;
       const socksUrl = `socks5://127.0.0.1:${await listen(socksProxy)}`;
       const httpContext = await pool.contextFor("default", "agent", httpUrl);
@@ -107,6 +112,22 @@ describe("browser proxy routes", () => {
       expect(await socksPage.textContent("body")).toBe("SOCKS route");
       expect(requests).toContain("http://route-check.invalid/");
       expect(socksHosts).toContain("route-check.invalid");
+      await expect(httpPage.goto(protectedUrl)).rejects.toThrow();
+      await expect(httpPage.goto("http://route-check.invalid/redirect-protected")).rejects.toThrow();
+      expect(requests).not.toContain(protectedUrl);
+      await httpPage.goto("http://route-check.invalid/api/assets/public/report.js");
+      expect(await httpPage.textContent("body")).toBe("HTTP route");
+      const blockedPopup = Promise.withResolvers<void>();
+      httpContext.on("requestfailed", (request) => { if (request.url() === protectedUrl) blockedPopup.resolve(); });
+      const popupOpened = httpPage.waitForEvent("popup");
+      await httpPage.evaluate((url) => { window.open(url); }, protectedUrl);
+      const popup = await popupOpened;
+      await blockedPopup.promise;
+      expect(requests).not.toContain(protectedUrl);
+      await popup.close();
+      await httpPage.goto(directUrl.replace("proxy-direct.test", address));
+      expect(await httpPage.textContent("body")).toBe("reachable directly");
+
       await httpContext.addCookies([
         { name: "route", value: "http", url: "http://route-check.invalid" },
       ]);
@@ -217,6 +238,31 @@ it("releases idle route browsers before a proxy is used again", async () => {
     const next = await pool.contextFor("default", "agent", "socks5://127.0.0.1:1");
     expect(next).not.toBe(first);
     expect(browser?.isConnected()).toBe(false);
+  } finally {
+    await pool.close();
+    await NodeFSP.rm(root, { recursive: true, force: true });
+  }
+});
+
+
+it("keeps a new page lease alive when the previous last page closes", async () => {
+  const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-proxy-lease-"));
+  const pool = new BrowserProxyContexts({ profilesDir: NodePath.join(root, "profiles"), env: { ...process.env, T3CODE_SERVER_BROWSER_SANDBOX: "0" }, executable: async () => chromium.executablePath() });
+  try {
+    const route = "socks5://127.0.0.1:1";
+    const first = await pool.pageFor("default", "agent", route, async () => {});
+    const preparing = Promise.withResolvers<void>();
+    const resume = Promise.withResolvers<void>();
+    const opening = pool.pageFor("default", "agent", route, async () => {
+      preparing.resolve();
+      await resume.promise;
+    });
+    await preparing.promise;
+    await first.page.close();
+    resume.resolve();
+    const next = await opening;
+    expect(next.page.isClosed()).toBe(false);
+    expect(await next.page.evaluate(() => 1 + 1)).toBe(2);
   } finally {
     await pool.close();
     await NodeFSP.rm(root, { recursive: true, force: true });

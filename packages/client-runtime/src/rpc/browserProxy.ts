@@ -1,10 +1,12 @@
-import { BrowserProxyError, resolveBrowserProxyRoute, type PreviewOpenInput, WS_METHODS } from "@t3tools/contracts";
+import { BrowserProxyError, browserProxyTargetError, resolveBrowserProxyRoute, type PreviewOpenInput, WS_METHODS } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 
 import { request, requestGuarded } from "./client.ts";
 
 export const openWithBrowserProxy = Effect.fn("BrowserProxy.open")(function* (input: PreviewOpenInput) {
   const proxyUrl = input.proxyUrl === undefined ? undefined : resolveBrowserProxyRoute(input.url, input.proxyUrl, "");
+  const blocked = browserProxyTargetError(input.url, proxyUrl ?? "");
+  if (blocked) return yield* blocked;
   if (proxyUrl) {
     const config = yield* request(WS_METHODS.serverGetConfig, {}).pipe(Effect.mapError(() => new BrowserProxyError({ message: "Could not verify proxy support. The page was not opened." })));
     if (config.environment.capabilities.browserProxy !== true) {

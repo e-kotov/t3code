@@ -34,7 +34,11 @@ it("does not reuse a tab when the configured default route changed", () => {
 });
 
 it("keeps local and signed app resources direct", () => {
-  for (const url of ["http://localhost:3000", "http://10.1.2.3:3000", "http://127.0.0.1:3000", "https://host.example/api/assets/private-token/report.html"]) {
+  const asset = `https://host.example/api/assets/cGF5bG9hZA.${"a".repeat(43)}/report.html`;
+  expect(() => resolveBrowserProxyOpen({ url: asset }, "socks5://proxy:1080")).toThrow("direct tab");
+  expect(resolveBrowserProxyOpen({ url: asset, proxyUrl: "" }, "socks5://proxy:1080").proxyUrl).toBe("");
+  expect(resolveBrowserProxyOpen({ url: "https://external.example/api/assets/public/file" }, "socks5://proxy:1080").proxyUrl).toBe("socks5://proxy:1080");
+  for (const url of ["http://localhost:3000", "http://10.1.2.3:3000", "http://127.0.0.1:3000"]) {
     expect(resolveBrowserProxyOpen({ url }, "socks5://proxy:1080").proxyUrl).toBe("");
   }
 });

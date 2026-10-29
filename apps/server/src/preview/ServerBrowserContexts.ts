@@ -8,7 +8,7 @@ import * as NodePath from "node:path";
 import type { Browser, BrowserContext, CDPSession } from "playwright-core";
 
 import { sandboxDisabled } from "./PreviewBrowserHost.ts";
-import { browserProxyLaunchOptions } from "./BrowserProxyLaunch.ts";
+import { browserProxyLaunchOptions, browserProxyContextOptions } from "./BrowserProxyLaunch.ts";
 
 // Playwright needs its files on disk. createRequire also resolves it from a Node SEA executable.
 const requirePlaywright = NodeModule.createRequire(import.meta.url);
@@ -17,6 +17,7 @@ const loadPlaywright = () =>
 
 interface Options {
   readonly proxyUrl?: string;
+  readonly args?: ReadonlyArray<string>;
   readonly profilesDir: string;
   readonly executable: () => Promise<string>;
   readonly diagnose?: (executable: string, cause: unknown) => Promise<unknown>;
@@ -88,6 +89,7 @@ export class ServerBrowserContexts {
       env,
       ...browserProxyLaunchOptions(this.options.proxyUrl),
       args: [
+        ...(this.options.args ?? []),
         "--disable-gpu",
         "--force-device-scale-factor=2",
         "--disable-blink-features=AutomationControlled",
@@ -153,7 +155,7 @@ export class ServerBrowserContexts {
   }
 
   private async createContext(profileId: string, isolationKey?: string) {
-    const contextOptions = { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 };
+    const contextOptions = { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, ...browserProxyContextOptions(this.options.proxyUrl) };
     if (isolationKey !== undefined || profileId === INCOGNITO_BROWSER_PROFILE_ID) {
       const browser = await this.sharedBrowser();
       return browser.newContext(contextOptions);

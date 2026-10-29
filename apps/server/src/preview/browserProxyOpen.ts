@@ -1,5 +1,7 @@
 import {
   browserProxyRequestReuse,
+  browserProxyTargetError,
+  isProtectedBrowserAsset,
   isDirectBrowserTarget,
   resolveBrowserProxyRoute,
   type PreviewAutomationOpenInput,
@@ -14,6 +16,8 @@ export function resolveBrowserProxyOpen(
   currentProxyUrl?: string,
 ) {
   const proxyUrl = resolveBrowserProxyRoute(input.url, input.proxyUrl, defaultProxyUrl);
+  const blocked = browserProxyTargetError(input.url, proxyUrl);
+  if (blocked) throw blocked;
   return {
     proxyUrl,
     reuse: browserProxyRequestReuse(input) && (currentProxyUrl === undefined || sameRoute(currentProxyUrl, proxyUrl)),
@@ -27,5 +31,5 @@ export function selectBrowserProxyTab<T extends { readonly proxyUrl: string | un
 }
 
 export function assertBrowserProxyTarget(proxyUrl: string | undefined, url: string) {
-  if (proxyUrl && isDirectBrowserTarget(url)) throw new BrowserControlInterrupted("Open local or app resources in a new direct tab with proxyUrl set to an empty string.");
+  if (proxyUrl && (isDirectBrowserTarget(url) || isProtectedBrowserAsset(url))) throw new BrowserControlInterrupted("Open local or app resources in a new direct tab with proxyUrl set to an empty string.");
 }
