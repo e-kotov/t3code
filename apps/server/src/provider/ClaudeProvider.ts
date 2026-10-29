@@ -31,10 +31,10 @@ import {
   DEFAULT_TIMEOUT_MS,
   isCommandMissingCause,
   parseGenericCliVersion,
-  providerModelsFromSettings,
   spawnAndCollect,
   type ServerProviderDraft,
 } from "@t3tools/provider-core/server/snapshotProbe";
+import { claudeArtifactModels as providerModelsFromSettings } from "./claudeArtifacts.ts";
 import { resolveClaudeSdkExecutablePath } from "./Drivers/ClaudeExecutable.ts";
 import { hasClaudeManagedMcpConfig, makeClaudeEnvironment } from "./Drivers/ClaudeHome.ts";
 import { discoverClaudeSkills } from "./Drivers/ClaudeSkills.ts";

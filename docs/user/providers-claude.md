@@ -41,6 +41,19 @@ Claude Code's verbose mode can stay enabled when you use Claude for text generat
 thread titles, branch names, commit messages, and pull request descriptions. On a remote connection,
 T3 Code uses the Claude configuration on the connected server.
 
+## Claude Artifacts
+
+Enable **Claude Artifacts (experimental)** in a thread's model options to let Claude
+publish artifacts to claude.ai. Ask Claude to create or update an artifact and return
+its link. Availability still depends on your Claude account and organization settings.
+
+An agent can enable it for one delegated child using `delegate_task` with
+`target.options: { artifacts: true }`. Combine it with other options advertised by
+`orchestrator_capabilities`, such as effort. Set `artifacts: false` to turn it off for
+that child. This changes the child's settings without changing its parent or the
+provider's defaults. Changing this option restarts that thread's Claude process;
+finish or stop its background work first.
+
 ## Compact long conversations
 
 Set **Auto-compact after** in the Claude provider settings to an integer between

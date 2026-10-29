@@ -1,0 +1,92 @@
+name: Fork Claude Artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      regression_ref:
+        description: Optional pre-feature revision to prove discovery and SDK opt-in regressions
+        type: string
+        default: ""
+  push:
+    branches: [main, "sync/claude-artifacts-*"]
+    paths:
+      - ".github/workflows/fork-claude-artifacts.yml"
+      - "apps/server/src/provider/claudeArtifacts*"
+      - "apps/server/src/provider/ClaudeProvider.ts"
+      - "apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: claude-artifacts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.sha }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch --no-tags origin main "$CHECKOUT_REF"
+          git checkout --detach "$CHECKOUT_REF"
+          git fetch --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          node-version-file: package.json
+          run-install: false
+          cache: true
+      - run: vp install
+      - name: Prove discovery and SDK opt-in fail before the feature
+        if: github.event_name == 'workflow_dispatch' && inputs.regression_ref != ''
+        env:
+          REGRESSION_REF: ${{ inputs.regression_ref }}
+        run: |
+          sources=(apps/server/src/provider/ClaudeProvider.ts apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts)
+          git fetch --no-tags origin "$REGRESSION_REF"
+          for index in "${!sources[@]}"; do cp "${sources[$index]}" "$RUNNER_TEMP/artifact-source-$index"; done
+          restore() {
+            for index in "${!sources[@]}"; do cp "$RUNNER_TEMP/artifact-source-$index" "${sources[$index]}"; done
+          }
+          trap restore EXIT
+          for source in "${sources[@]}"; do git show "$REGRESSION_REF:$source" > "$source"; done
+          if vp test run apps/server/src/provider/claudeArtifacts.test.ts -t 'advertises Artifacts|opts only the selected' --reporter=json --outputFile="$RUNNER_TEMP/artifact-regressions.json"; then
+            echo 'Discovery and SDK opt-in must fail before the feature.'
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json, os, pathlib
+          result = json.loads((pathlib.Path(os.environ['RUNNER_TEMP']) / 'artifact-regressions.json').read_text())
+          failed = [case for suite in result['testResults'] for case in suite.get('assertionResults', []) if case['status'] == 'failed']
+          assert result['numFailedTests'] == len(failed) == 2, result
+          assert all('AssertionError' in '\n'.join(case['failureMessages']) for case in failed), failed
+          PY
+      - name: Check changed code and Claude integration
+        run: |
+          python3 scripts/fork-footprint-budget.py
+          base=$(git merge-base origin/main HEAD)
+          if [ "$base" = "$(git rev-parse HEAD)" ]; then base=HEAD^; fi
+          vp run check:changed "$base"
+          vp test run apps/server/src/provider/claudeArtifacts.test.ts apps/server/src/provider/ClaudeProvider.test.ts apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.test.ts
+      - name: Capture formatting fixes
+        if: failure()
+        run: |
+          git diff --name-only --diff-filter=AM -z origin/main HEAD |
+            xargs -0 -r vp fmt --no-error-on-unmatched-pattern
+          git diff --binary > "$RUNNER_TEMP/artifact-format.patch"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: failure()
+        with:
+          name: claude-artifact-format-fixes
+          path: ${{ runner.temp }}/artifact-format.patch
+          retention-days: 3

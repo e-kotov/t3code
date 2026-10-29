@@ -179,6 +179,7 @@ import {
   T3_CODE_ORCHESTRATION_INSTRUCTIONS,
 } from "@t3tools/provider-core/server/orchestrationInstructions";
 import { buildRuntimeInstructions } from "@t3tools/provider-core/server/runtimeInstructions";
+import { claudeArtifactQueryKey, withClaudeArtifactOptions } from "../../provider/claudeArtifacts.ts";
 import {
   mcpToolPresentation,
   normalizeMcpText,
@@ -1606,7 +1607,7 @@ export function makeClaudeQueryOptions(input: {
   ];
   const withDirectories =
     additionalDirectories.length === 0 ? options : { ...options, additionalDirectories };
-  return input.cwd === null ? withDirectories : { ...withDirectories, cwd: input.cwd };
+  return withClaudeArtifactOptions(input.modelSelection, input.cwd === null ? withDirectories : { ...withDirectories, cwd: input.cwd });
 }
 
 /**
@@ -9826,7 +9827,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               ? {}
               : { allowedTools: queryPolicy.allowedTools }),
           });
-          const queryPolicyKey = claudeEffectiveQueryPolicyKey(queryPolicy, mcpOverrides);
+          const queryPolicyKey = claudeArtifactQueryKey(claudeEffectiveQueryPolicyKey(queryPolicy, mcpOverrides), turnInput.modelSelection);
           const compiledSelection = compileClaudeModelSelection(turnInput.modelSelection);
           const resumeSessionAt = yield* getNativeConversationHeadId(turnInput.providerThread);
           const existing = yield* Ref.get(queryContext);
