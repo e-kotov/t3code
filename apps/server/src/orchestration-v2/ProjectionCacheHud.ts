@@ -14,6 +14,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import type * as SqlClient from "effect/sql/SqlClient";
 
+const encodeIdList = Schema.encodeSync(Schema.fromJsonString(Schema.Array(Schema.String)));
 const decodeDriver = Schema.decodeEffect(ProviderDriverKind);
 const decodeModel = Schema.decodeEffect(Schema.fromJsonString(ModelSelection));
 const decodeUsage = Schema.decodeEffect(
@@ -73,7 +74,7 @@ export const cacheHudsForThreads = Effect.fn("cacheHudsForThreads")(function* (
           AND json_extract(recent.payload_json, '$.tokenUsage') IS NOT NULL
         ORDER BY recent.ordinal DESC LIMIT 64
       )
-      WHERE t.thread_id IN ${sql.in(threadIds)}
+      WHERE t.thread_id IN (SELECT value FROM json_each(${encodeIdList(threadIds)}))
     `;
   const groups = new Map<string, (typeof rows)[number][]>();
   for (const row of rows) {
