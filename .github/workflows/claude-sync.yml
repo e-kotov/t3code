@@ -56,11 +56,24 @@ jobs:
         run: |
           bash -n scripts/claude-sync.sh
           python3 scripts/claude-sync.test.py
-      - if: github.event_name == 'workflow_dispatch' && inputs.live_smoke
+      - name: Stage conflicted metadata beside a clean bootstrap
+        run: |
+          mkdir -p "$RUNNER_TEMP/claude-bootstrap"
+          git archive HEAD package.json pnpm-workspace.yaml pnpm-lock.yaml |
+            tar -x -C "$RUNNER_TEMP/claude-bootstrap"
+          for file in package.json pnpm-workspace.yaml pnpm-lock.yaml; do
+            printf '<<<<<<< ours\nconflicted metadata\n=======\nupstream metadata\n>>>>>>> theirs\n' > "$file"
+          done
+      - name: Prove tool setup does not require parseable candidate metadata
         uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
         with:
+          working-directory: ${{ runner.temp }}/claude-bootstrap
           node-version-file: package.json
+          cache: false
           run-install: false
+      - name: Restore the validation checkout
+        if: always()
+        run: git restore --worktree -- package.json pnpm-workspace.yaml pnpm-lock.yaml
       - name: Exercise one real Claude repair with a local patched package
         if: github.event_name == 'workflow_dispatch' && inputs.live_smoke
         env:
