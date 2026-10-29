@@ -2,14 +2,25 @@ name: Fork incoming sharing
 
 on:
   workflow_dispatch:
+    inputs:
+      native_checks:
+        description: Run Android dependency and parser checks
+        type: boolean
+        default: true
+      regression_ref:
+        description: Optional pre-fix commit for shared-file recovery proof
+        type: string
+        default: ""
+  pull_request:
+    branches: [main]
   push:
-    branches: ["sync/android-file-sharing", "sync/android-share-destination"]
+    branches: [main]
 
 permissions:
   contents: read
 
 concurrency:
-  group: incoming-sharing-${{ github.ref }}
+  group: incoming-sharing-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -24,27 +35,55 @@ jobs:
     steps:
       - name: Checkout without vendored gitlinks
         env:
-          CHECKOUT_REF: ${{ github.sha }}
+          CHECKOUT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           git init .
           git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
           git sparse-checkout set --no-cone '/*' '!/.repos/'
           git fetch --no-tags origin main "$CHECKOUT_REF"
           git checkout --detach "$CHECKOUT_REF"
+          git fetch --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
       - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
         with:
           node-version-file: package.json
           run-install: false
           cache: true
       - run: vp install
-      - name: Format candidate on the runner
+      - name: Prove shared-file regressions on the pre-fix source
+        if: github.event_name == 'workflow_dispatch' && inputs.regression_ref != ''
+        env:
+          REGRESSION_REF: ${{ inputs.regression_ref }}
         run: |
-          git diff --name-only --diff-filter=AM -z origin/main HEAD |
-            xargs -0 -r vp fmt --no-error-on-unmatched-pattern
-          git diff --binary > "$RUNNER_TEMP/sharing-format.patch"
+          git fetch --no-tags origin "$REGRESSION_REF"
+          baseline=$(git rev-parse FETCH_HEAD)
+          sources=(apps/mobile/src/state/use-composer-drafts.ts apps/mobile/src/state/thread-outbox-model.ts apps/mobile/src/features/sharing/incoming-share-model.ts)
+          for index in "${!sources[@]}"; do
+            cp "${sources[$index]}" "$RUNNER_TEMP/shared-file-source-$index.ts"
+          done
+          restore() {
+            for index in "${!sources[@]}"; do
+              cp "$RUNNER_TEMP/shared-file-source-$index.ts" "${sources[$index]}"
+            done
+          }
+          trap restore EXIT
+          for source in "${sources[@]}"; do git show "$baseline:$source" > "$source"; done
+          if vp test run apps/mobile/src/features/sharing/forkSharedDocuments.test.ts apps/mobile/src/features/sharing/forkSharedQueueRecovery.test.ts --reporter=json --outputFile="$RUNNER_TEMP/shared-file-regression.json"; then
+            echo 'Shared-file regressions must fail before the fix.'
+            exit 1
+          fi
+          python3 - <<'PYTHON'
+          import json, os, pathlib
+          result = json.loads((pathlib.Path(os.environ['RUNNER_TEMP']) / 'shared-file-regression.json').read_text())
+          assertions = [test for suite in result['testResults'] for test in suite.get('assertionResults', [])]
+          assert assertions and len(assertions) == result['numTotalTests'], result
+          assert result['numFailedTests'] == result['numTotalTests'] and result['numPassedTests'] == 0, result
+          for test in assertions:
+              assert test['status'] == 'failed' and 'AssertionError' in '\n'.join(test['failureMessages']), test
+          print(f"Proved {len(assertions)} failing regression cases on the pre-fix source.")
+          PYTHON
       - name: Test incoming shares and document imports
         run: |
-          vp test run apps/mobile/src/features/observability/forkObserve.test.ts apps/mobile/src/features/sharing/forkIncomingShareEvents.test.ts apps/mobile/src/features/sharing/forkSharedDocuments.test.ts apps/mobile/src/features/sharing/forkShareDestinationController.test.ts apps/mobile/src/features/sharing/forkShareDestinations.test.ts apps/mobile/src/features/sharing/incoming-share-inbox.test.ts apps/mobile/src/features/sharing/incoming-share-model.test.ts apps/mobile/src/features/threads/incomingShareImport.test.ts
+          vp test run apps/mobile/src/features/observability/forkObserve.test.ts apps/mobile/src/features/sharing/forkIncomingShareEvents.test.ts apps/mobile/src/features/sharing/forkSharedDocuments.test.ts apps/mobile/src/features/sharing/forkShareDestinationController.test.ts apps/mobile/src/features/sharing/forkShareDestinations.test.ts apps/mobile/src/features/sharing/incoming-share-inbox.test.ts apps/mobile/src/features/sharing/incoming-share-model.test.ts apps/mobile/src/features/threads/incomingShareImport.test.ts apps/mobile/src/features/sharing/forkSharedQueueRecovery.test.ts apps/mobile/src/state/use-composer-drafts.test.ts apps/mobile/src/state/thread-outbox.test.ts apps/mobile/src/lib/composerContext.test.ts
       - name: Prove an unconfigured Observe module crashes before the fix
         run: |
           source=apps/mobile/src/features/observability/observe.ts
@@ -58,19 +97,28 @@ jobs:
           fi
           cat "$RUNNER_TEMP/observe-regression.log"
           python3 -c 'import os, pathlib; assert "Project ID is required to send observability metrics" in (pathlib.Path(os.environ["RUNNER_TEMP"]) / "observe-regression.log").read_text()'
-      - name: Check changed code
-        run: vp run check:changed origin/main
+      - name: Check changed code for a candidate
+        if: github.event_name != 'push'
+        run: |
+          base=$(git merge-base origin/main HEAD)
+          if [ "$base" != "$(git rev-parse HEAD)" ]; then vp run check:changed "$base"; fi
+      - name: Check fork footprint
+        run: python3 scripts/fork-footprint-budget.py
       - uses: actions/setup-java@v4
+        if: github.event_name == 'workflow_dispatch' && inputs.native_checks
         with:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c
+        if: github.event_name == 'workflow_dispatch' && inputs.native_checks
         with:
           cache-read-only: false
       - name: Generate isolated Android project
+        if: github.event_name == 'workflow_dispatch' && inputs.native_checks
         working-directory: apps/mobile
         run: vp exec expo prebuild --platform android --no-install
       - name: Require patched native sharing instead of the stock precompiled library
+        if: github.event_name == 'workflow_dispatch' && inputs.native_checks
         working-directory: apps/mobile/android
         run: |
           ./gradlew :app:dependencies --configuration releaseRuntimeClasspath --console=plain --no-daemon --max-workers=2 > "$RUNNER_TEMP/sharing-dependencies.log"
@@ -82,6 +130,7 @@ jobs:
           assert 'expo-observe' not in dependencies and 'expo.modules.observe' not in dependencies, 'Unconfigured native Observe must not initialize during standalone startup'
           PY
       - name: Test the Android transcript and PDF parser
+        if: github.event_name == 'workflow_dispatch' && inputs.native_checks
         working-directory: apps/mobile/android
         run: ./gradlew --init-script ../../../scripts/fork-sharing-tests.gradle :expo-sharing:testDebugUnitTest --no-daemon --max-workers=2
       - name: Prove a share delivered without a resume fails before the fix
@@ -98,13 +147,13 @@ jobs:
           cat "$RUNNER_TEMP/share-regression.log"
           python3 -c 'import os, pathlib; assert "AssertionError" in (pathlib.Path(os.environ["RUNNER_TEMP"]) / "share-regression.log").read_text()'
       - name: Capture formatting fixes
-        if: always()
+        if: failure()
         run: |
           git diff --name-only --diff-filter=AM -z origin/main HEAD |
             xargs -0 -r vp fmt --no-error-on-unmatched-pattern
           git diff --binary > "$RUNNER_TEMP/sharing-format.patch"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
+        if: failure()
         with:
           name: sharing-format-fixes
           path: ${{ runner.temp }}/sharing-format.patch
