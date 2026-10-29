@@ -83,6 +83,8 @@
     "apps/server/src/orchestration-v2/IdleCompactionService.ts": 6,
     "apps/server/src/orchestration-v2/Orchestrator.ts": 26,
     "apps/server/src/orchestration-v2/ProjectionStore.ts": 10,
+    "apps/server/src/orchestration-v2/ThreadLaunchService.test.ts": 63,
+    "apps/server/src/orchestration-v2/ThreadLaunchService.ts": 7,
     "apps/server/src/orchestration-v2/ThreadManagementService.ts": 9,
     "apps/server/src/process/externalLauncher.ts": 4,
     "apps/server/src/provider/AntigravityProvider.test.ts": 76,
