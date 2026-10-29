@@ -7,7 +7,7 @@ name: Claude sync
 # key ANTHROPIC_API_KEY, capped per run. See docs/operations/upstream-sync.md.
 on:
   push:
-    branches: [main, "sync/claude-bootstrap-*"]
+    branches: [main, "sync/fix-claude-bootstrap-*"]
     paths:
       - ".github/workflows/claude-sync.yml"
       - ".github/claude/**"
