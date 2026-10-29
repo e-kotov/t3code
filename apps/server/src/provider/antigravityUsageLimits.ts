@@ -282,14 +282,11 @@ export const makeAntigravityUsageProbe = Effect.fn("makeAntigravityUsageProbe")(
     const summary = yield* fetchWindows("retrieveUserQuotaSummary", (response) =>
       decodeSummary(response).pipe(Effect.map(summaryWindows)),
     );
-    const models = input.summaryOnly || summary.some((w) => w.id.startsWith("gemini-"))
-      ? []
+    const windows = summary.length || input.summaryOnly
+      ? summary
       : yield* fetchWindows("fetchAvailableModels", (response) =>
           decodeModels(response).pipe(Effect.map(modelWindows)),
         );
-    const windows = summary.length
-      ? [...summary, ...models.filter((w) => w.id.startsWith("gemini-"))]
-      : models;
     if (windows.length === 0) {
       return makeUnavailableUsageLimits({
         checkedAt,
