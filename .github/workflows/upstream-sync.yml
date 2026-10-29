@@ -198,7 +198,7 @@ jobs:
         run: |
           # Upstream deploy/release workflows must not run in the fork; keep only fork-owned ones.
           set -euo pipefail
-          keep=' android-arm64-existing.yml publish-fork-artifacts.yml release-desktop.yml release-fork.yml release-termux.yml nightly-fork.yml upstream-sync.yml claude-sync.yml fork-device-commands.yml fork-cache-hud.yml fork-macos-signing.yml fork-phone-sharing.yml fork-incoming-sharing.yml fork-thread-creation.yml fork-browser-proxy.yml '
+          keep=' android-arm64-existing.yml publish-fork-artifacts.yml release-desktop.yml release-fork.yml release-termux.yml nightly-fork.yml upstream-sync.yml claude-sync.yml fork-device-commands.yml fork-cache-hud.yml fork-macos-signing.yml fork-phone-sharing.yml fork-incoming-sharing.yml fork-thread-creation.yml fork-browser-proxy.yml fork-usage-quota.yml '
           gh workflow list -R "$GITHUB_REPOSITORY" --json path,state --jq '.[] | select(.state == "active") | .path' |
             while read -r path; do
               name=${path##*/}

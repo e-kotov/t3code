@@ -32,10 +32,8 @@ import {
   type ServerProviderDraft,
 } from "@t3tools/provider-core/server/snapshotProbe";
 import { resolveUsageLimitsAfterProbe } from "@t3tools/provider-core/server/usageLimits";
-import {
-  antigravityGroupedModels,
-  antigravityThinkingConfig,
-} from "./acp/AntigravityAcpSupport.ts";
+
+import { antigravityThinkingConfig } from "./acp/AntigravityAcpSupport.ts";
 
 const EMPTY_MODEL_CAPABILITIES = createModelCapabilities({ optionDescriptors: [] });
 const MAX_WORKSPACE_SNAPSHOTS = 32;
@@ -68,10 +66,9 @@ export function buildAntigravityModelsFromSession(
   setup: SessionSetupResult,
   thinkingLevels: AntigravityThinkingLevels = new Map(),
 ): ReadonlyArray<ServerProviderModel> {
-  const grouped = antigravityGroupedModels(setup);
-  const config = grouped
-    ? undefined
-    : setup.configOptions?.find((option) => option.id === "model" || option.category === "model");
+  const config = setup.configOptions?.find(
+    (option) => option.id === "model" || option.category === "model",
+  );
   const currentValue =
     config?.type === "select" ? config.currentValue : setup.models?.currentModelId;
   const entries =
@@ -83,7 +80,7 @@ export function buildAntigravityModelsFromSession(
             name: model.name,
           })) ?? [])
         : [];
-  const currentThinking = grouped ? undefined : antigravityThinkingConfig(setup.configOptions);
+  const currentThinking = antigravityThinkingConfig(setup.configOptions);
   const seen = new Set<string>();
   // The agent can list two IDs under one name; label the later ones so the picker tells them apart.
   const names = new Set<string>();
@@ -103,9 +100,8 @@ export function buildAntigravityModelsFromSession(
         ...(entry.value === currentValue
           ? { isDefault: true, aliases: [ANTIGRAVITY_DEFAULT_MODEL] }
           : {}),
-        capabilities: grouped
-          ? EMPTY_MODEL_CAPABILITIES
-          : observed === undefined
+        capabilities:
+          observed === undefined
             ? thinkingCapabilities(currentThinking, false)
             : thinkingCapabilities(observed, true),
       },
@@ -149,8 +145,6 @@ function isMissingInstallation(error: EffectAcpErrors.AcpError | ProviderSetupEr
 interface AntigravityProviderState {
   readonly draft: ServerProviderDraft;
   readonly authRevision: number;
-  /** Config updates omit `models`, so keep a grouped session's concrete list. */
-  readonly groupedModels: EffectAcpSchema.SessionModelState | null;
 }
 
 interface AntigravityProviderOptions {
@@ -195,7 +189,6 @@ export const makeAntigravityProvider = Effect.fn("makeAntigravityProvider")(func
   const metadata = yield* SubscriptionRef.make<AntigravityProviderState>({
     draft: initialDraft,
     authRevision: 0,
-    groupedModels: null,
   });
   // Preserve disk-discovered skills when callbacks replace workspace commands; the registry will not rescan them.
   const discoveredSkills = new Map<string, ServerProvider["skills"]>();
@@ -335,7 +328,6 @@ export const makeAntigravityProvider = Effect.fn("makeAntigravityProvider")(func
       const workspace = cwd ? workspaces.find((entry) => entry.cwd === cwd) : undefined;
       return {
         authRevision: state.authRevision + 1,
-        groupedModels: antigravityGroupedModels(started.sessionSetupResult) ?? null,
         draft: {
           ...draft,
           installed: true,
@@ -375,39 +367,10 @@ export const makeAntigravityProvider = Effect.fn("makeAntigravityProvider")(func
     configOptions: ReadonlyArray<EffectAcpSchema.SessionConfigOption>,
   ) {
     observeThinkingLevels(configOptions);
+    const models = buildAntigravityModelsFromSession({ configOptions }, thinkingLevels);
     yield* SubscriptionRef.update(metadata, (state) => {
       if (state.draft.auth.status !== "authenticated") return state;
-      const models = buildAntigravityModelsFromSession(
-        state.groupedModels ? { models: state.groupedModels, configOptions } : { configOptions },
-        thinkingLevels,
-      );
       return { ...state, draft: { ...state.draft, models } };
-    });
-  });
-
-  // Grouped config updates name only the family and thinking level.
-  const onModelSelected = Effect.fn("AntigravityProvider.onModelSelected")(function* (
-    modelId: string,
-  ) {
-    yield* SubscriptionRef.update(metadata, (state) => {
-      const grouped = state.groupedModels;
-      if (
-        state.draft.auth.status !== "authenticated" ||
-        !grouped ||
-        grouped.currentModelId === modelId ||
-        !grouped.availableModels.some((model) => model.modelId === modelId)
-      ) {
-        return state;
-      }
-      const groupedModels = { ...grouped, currentModelId: modelId };
-      return {
-        ...state,
-        groupedModels,
-        draft: {
-          ...state.draft,
-          models: buildAntigravityModelsFromSession({ models: groupedModels }),
-        },
-      };
     });
   });
 
@@ -455,7 +418,6 @@ export const makeAntigravityProvider = Effect.fn("makeAntigravityProvider")(func
       (state) =>
         ({
           authRevision: state.authRevision + 1,
-          groupedModels: null,
           draft: {
             ...state.draft,
             auth: { status: "unauthenticated" },
@@ -507,7 +469,6 @@ export const makeAntigravityProvider = Effect.fn("makeAntigravityProvider")(func
     snapshot: { ...managed, getSnapshot },
     onSessionStarted,
     onConfigOptionsUpdated,
-    onModelSelected,
     onAvailableCommands,
     onSignedOut: clearAccountMetadata(),
     onAuthRequired: clearAccountMetadata(),

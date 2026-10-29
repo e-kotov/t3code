@@ -100,23 +100,6 @@ export function antigravityModelOptions(
   return model.options.flatMap((entry) => ("value" in entry ? [entry] : entry.options));
 }
 
-/**
- * ACP 1.4 folds thinking-level variants into one `model` value per family. Only
- * the session's `models` state lists the concrete IDs the agent runs.
- */
-export function antigravityGroupedModels(setup: {
-  readonly configOptions?: ReadonlyArray<EffectAcpSchema.SessionConfigOption> | null | undefined;
-  readonly models?: EffectAcpSchema.SessionModelState | null | undefined;
-}): EffectAcpSchema.SessionModelState | undefined {
-  if (!setup.models) return undefined;
-  const concrete = new Set(setup.models.availableModels.map((model) => model.modelId));
-  return antigravityModelOptions(setup.configOptions ?? []).some(
-    (option) => !concrete.has(option.value),
-  )
-    ? setup.models
-    : undefined;
-}
-
 /** Runtime 1.4 reports thinking as its own option; 1.3 encoded it in the model ID. */
 export function antigravityThinkingConfig(
   configOptions: ReadonlyArray<EffectAcpSchema.SessionConfigOption> | null | undefined,
@@ -160,40 +143,26 @@ export const applyAntigravityAcpModelSelection = Effect.fn("applyAntigravityAcpM
   function* <E>(input: {
     readonly runtime: Pick<
       AcpSessionRuntime.AcpSessionRuntime["Service"],
-      "getConfigOptions" | "setModel" | "setSessionModel" | "setConfigOption"
+      "getConfigOptions" | "setModel" | "setConfigOption"
     >;
-    readonly models?: EffectAcpSchema.SessionModelState | null | undefined;
     readonly model: string | null | undefined;
     readonly defaultModel?: string | undefined;
     readonly mapError: (cause: EffectAcpErrors.AcpError) => E;
   }): Effect.fn.Return<string | undefined, E> {
     const configOptions = yield* input.runtime.getConfigOptions;
-    const grouped = antigravityGroupedModels({ configOptions, models: input.models });
     const modelConfig = configOptions.find((option) => option.id === "model");
-    const current = grouped
-      ? grouped.currentModelId
-      : modelConfig?.type === "select"
-        ? modelConfig.currentValue
-        : undefined;
-    const options = grouped
-      ? grouped.availableModels.map((model) => ({ value: model.modelId }))
-      : antigravityModelOptions(configOptions);
-    const inputWithConfig = { configOptions, model: input.model, defaultModel: input.defaultModel };
-    const explicit = input.model && input.model !== ANTIGRAVITY_DEFAULT_MODEL ? input.model : null;
-    const resolved =
-      explicit ??
-      (grouped
-        ? input.defaultModel && options.some((option) => option.value === input.defaultModel)
-          ? input.defaultModel
-          : current
-        : resolveAntigravityModel(inputWithConfig));
-    // Setup-time model state is stale once a thinking level changes, so grouped
-    // selections are always reapplied.
-    if (resolved === undefined || (!grouped && !explicit && resolved === current)) return current;
-    const legacyFamily =
-      grouped || options.some((option) => option.value === resolved)
-        ? undefined
-        : legacyAntigravityFamily(configOptions, resolved);
+    const current = modelConfig?.type === "select" ? modelConfig.currentValue : undefined;
+    const resolved = resolveAntigravityModel({
+      configOptions,
+      model: input.model,
+      defaultModel: input.defaultModel,
+    });
+    const explicit = Boolean(input.model) && input.model !== ANTIGRAVITY_DEFAULT_MODEL;
+    if (resolved === undefined || (!explicit && resolved === current)) return current;
+    const options = antigravityModelOptions(configOptions);
+    const legacyFamily = options.some((option) => option.value === resolved)
+      ? undefined
+      : legacyAntigravityFamily(configOptions, resolved);
     if (legacyFamily !== undefined) {
       yield* input.runtime
         .setConfigOption("model", resolved, { allowUnlistedValue: true })
@@ -204,15 +173,12 @@ export const applyAntigravityAcpModelSelection = Effect.fn("applyAntigravityAcpM
       return yield* Effect.fail(
         input.mapError(
           EffectAcpErrors.AcpRequestError.invalidParams(
-            `Antigravity model '${resolved}' is unavailable for this Google account or ACP client name. Select an available model.`,
+            `Antigravity model '${resolved}' is unavailable for this Google account. Select an available model.`,
           ),
         ),
       );
     }
-    // The runtime validates `model` config values, which only list families here.
-    yield* (
-      grouped ? input.runtime.setSessionModel(resolved) : input.runtime.setModel(resolved)
-    ).pipe(Effect.mapError(input.mapError));
+    yield* input.runtime.setModel(resolved).pipe(Effect.mapError(input.mapError));
     return resolved;
   },
 );

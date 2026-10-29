@@ -10,6 +10,8 @@ on:
       - "apps/server/src/textGeneration/Antigravity*"
       - "apps/web/src/usageCompact/**"
       - "scripts/fork-footprint-budget.json"
+      - ".github/workflows/claude-sync.yml"
+      - "scripts/claude-sync.test.py"
 
 permissions:
   contents: read

@@ -78,12 +78,6 @@ Antigravity creates empty `.gemini/skills` and `.agents/skills` folders in the
 workspace when a session starts. Git does not track empty folders, so they never
 appear in commits.
 
-Google offers some models, such as Claude and GPT-OSS, only to ACP clients it
-recognizes by name. To report a different name, set **ACP client name** in the
-Antigravity provider settings, then refresh provider status to reload models.
-Google can change which names it accepts. Clear the field to report T3 Code's
-own name.
-
 Use Antigravity's native `/plan` command for planning. T3 Code's separate Plan mode
 is unavailable. Tool approvals follow [Permission modes](./permission-modes.md).
 Questions with fixed choices still need one of the offered answers, even in

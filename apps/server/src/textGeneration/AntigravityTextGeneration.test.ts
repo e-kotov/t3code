@@ -170,7 +170,6 @@ const makeFixture = Effect.fn("makeAntigravityTextGenerationFixture")(function* 
           Effect.sync(() => {
             state.selectedModels.push(model);
           }),
-        setSessionModel: () => Effect.die("ACP 1.3 sessions select models through config options"),
         setConfigOption: () => Effect.succeed({ configOptions: [] }),
         prompt: (request) =>
           Effect.gen(function* () {

@@ -211,6 +211,25 @@ PYTHON
         self.assertFalse(setup["with"]["run-install"])
         self.assertFalse(setup["with"]["cache"])
 
+    @unittest.skipIf(LIVE, "Covered locally without a model call")
+    def test_decision_request_is_logged_and_saved_without_rebuilding(self):
+        question = "Choose upstream ACP 1.4.1 or keep the fork pin.\n"
+        (self.root / ".claude-needs-decision.md").write_text(question)
+        self.env.update(MERGE="HEAD", VERDICT="approve", FOLLOW_UP="unused", MODE="fix")
+        step = next(step for step in STEPS if step.get("name") == "Rebuild one merge commit")
+        result = self.run_step(step)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(question, result.stdout)
+        self.assertIn(question, Path(self.env["GITHUB_STEP_SUMMARY"]).read_text())
+        self.assertEqual((self.runtime / "claude-needs-decision.md").read_text(), question)
+        self.assertFalse((self.runtime / "resolved.bundle").exists())
+        decision_artifact = next(step for step in STEPS
+                                 if step.get("with", {}).get("name") == "claude-decision")
+        self.assertIn("always()", decision_artifact["if"])
+        self.assertEqual(decision_artifact["with"]["path"],
+                         ".claude-needs-decision.md")
+        self.assertTrue(decision_artifact["with"]["include-hidden-files"])
+
 
 if __name__ == "__main__":
     unittest.main()
