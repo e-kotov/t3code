@@ -99,6 +99,7 @@ case "$cmd" in
     upstream=$(fork_base)
     python3 scripts/fork-merge-upstream.test.py
     python3 scripts/fork-sync-excerpt.test.py
+    python3 scripts/claude-sync.test.py
     python3 scripts/fork-footprint-budget.test.py
     python3 scripts/fork-nightly-release.test.py
     python3 scripts/build-termux-server.test.py

@@ -41,15 +41,20 @@ Platform key `ANTHROPIC_API_KEY`, in a workspace with a monthly spend limit:
 1. **Fix**: Claude Opus at high effort (`--effort high`) gets
    [`.github/claude/fix-upstream-sync.md`](../../.github/claude/fix-upstream-sync.md) plus the
    conflicted files or an excerpt of the failed checks' error lines
-   (`scripts/fork-sync-excerpt.py`). Dependencies are installed, so it typechecks and tests what it
-   touches. It may edit files and run `git` read commands, `vp` and the budget script; it has no
-   network tools and no push credentials.
+   (`scripts/fork-sync-excerpt.py`). Vite+ is bootstrapped from clean fork-main manifests and
+   Claude is installed outside the candidate, so conflicted package files cannot prevent it
+   starting. An initial dependency install may fail; its error goes into Claude's context.
+   Claude resolves manifests and the lockfile, installs dependencies, then typechecks and tests
+   what it touches. It may edit files and run `git` read commands, `vp` and the budget script;
+   it has no network tools and no push credentials.
 2. **Review**: a second, read-only Claude run reviews only that fix
    ([`.github/claude/review-upstream-sync.md`](../../.github/claude/review-upstream-sync.md)) and
    returns a structured verdict.
 3. **Follow-up fix**, once: for the review's findings, or, if the review approved, for a failed
    check of the resolution.
-4. The workflow rebuilds one merge commit with the original parents (fork `main`, upstream), pushes
+4. A mandatory `vp install --frozen-lockfile` must pass after the fix/review cycle. Initial
+   installation failure never bypasses this gate. A requested product decision still stops the run.
+5. The workflow rebuilds one merge commit with the original parents (fork `main`, upstream), pushes
    it as `sync/claude-<UTC time>` from a job that runs no repository code, and dispatches this
    workflow with `promote_only`. The usual checks decide promotion; the branch is deleted after
    it. If they fail after the follow-up is used, or Claude writes `.claude-needs-decision.md`, the
@@ -60,6 +65,13 @@ Each Claude run has a spend cap (`--max-budget-usd`: fix 10, review 4, follow-up
 one sync costs at most about 22 dollars of Platform credits and usually far less. The job that runs
 Claude also installs and runs repository code with the API key in its environment; the workspace
 spend limit bounds what a compromised dependency could do with it.
+
+Workflow changes run `scripts/claude-sync.test.py` without a model call. The regression executes
+actual workflow shell steps with a failed installer and checks that Claude still runs, an
+unrepaired lockfile still blocks validation, and bootstrap uses clean manifests. To exercise
+one real repair of a deliberately inconsistent patch hash on a tiny local dependency, dispatch
+`claude-sync.yml` with `live_smoke=true`. This uses the configured Claude model, caps the call
+at 2 USD, verifies a real frozen install and the retained patch, and never promotes a branch.
 
 A conflict or failed check leaves `main` unchanged and fails the run. GitHub emails the
 failure; the run summary lists the conflicting files. The next scheduled run retries automatically,

@@ -18,10 +18,15 @@ files, and fork edits in upstream-owned files are kept to small mount points.
    `m=$(git rev-list --merges -1 HEAD); git diff "$m^1" "$m^2" -- <file>`.
 2. Check fork features that merged cleanly but may have lost their mount point, for example a fork
    entry missing from a list that upstream rebuilt.
-3. Change nothing else: no unrelated refactors, formatting passes, dependency changes, edits under
-   .github/, or fixes to problems that already exist on the fork's main.
-4. Verify: dependencies are installed. Typecheck each package you touched (`cd <package> && vp run
-   typecheck`) and run the tests of files you changed (`cd <package> && vp test run <file>`). Run
+3. Change only what the merge requires: no unrelated refactors, formatting passes or dependency
+   changes, edits under .github/, or fixes to problems that already exist on the fork's main.
+4. Verify: dependency installation may have failed before you started; its error appears in
+   "This run". Resolve manifest and lockfile conflicts first, preserving dependency patches and
+   both sides' required version changes. Run `vp install`; if the merged lockfile needs
+   regeneration, use `vp install --no-frozen-lockfile`, then `vp install --frozen-lockfile`.
+   Do not remove patches or disable frozen validation to make installation pass.
+   Typecheck each package you touched (`cd <package> && vp run typecheck`) and run its changed
+   tests (`cd <package> && vp test run <file>`). Run
    `python3 scripts/fork-footprint-budget.py`; if it reports growth, prefer moving fork logic into
    fork-owned files, and only for a few unavoidable mount lines run it with `--write`. If it reports
    a file dropped to 0 lines, a fork mount was lost: restore it (see step 2) and do not `--write`

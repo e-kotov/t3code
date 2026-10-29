@@ -6,6 +6,20 @@ name: Claude sync
 # sync/claude-<time>, which upstream-sync.yml checks and promotes. Billed to the Claude Platform
 # key ANTHROPIC_API_KEY, capped per run. See docs/operations/upstream-sync.md.
 on:
+  push:
+    branches: [main, "sync/claude-bootstrap-*"]
+    paths:
+      - ".github/workflows/claude-sync.yml"
+      - ".github/claude/**"
+      - "scripts/claude-sync.sh"
+      - "scripts/claude-sync.test.py"
+  workflow_dispatch:
+    inputs:
+      live_smoke:
+        description: "Exercise one real Claude lockfile repair (maximum 2 USD; no promotion)"
+        required: false
+        type: boolean
+        default: false
   workflow_run:
     workflows: ["Upstream sync"]
     types: [completed]
@@ -23,6 +37,36 @@ env:
   NODE_OPTIONS: --max-old-space-size=4096
 
 jobs:
+  bootstrap-tests:
+    if: github.repository == 'e-kotov/t3code' && github.event_name != 'workflow_run'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.sha }}
+        run: |
+          git init -q .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch --no-tags --depth=1 origin "$CHECKOUT_REF"
+          git checkout --detach FETCH_HEAD
+      - run: python3 -m pip install PyYAML==6.0.3
+      - name: Test recovery before dependency installation
+        run: |
+          bash -n scripts/claude-sync.sh
+          python3 scripts/claude-sync.test.py
+      - if: github.event_name == 'workflow_dispatch' && inputs.live_smoke
+        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          node-version-file: package.json
+          run-install: false
+      - name: Exercise one real Claude repair with a local patched package
+        if: github.event_name == 'workflow_dispatch' && inputs.live_smoke
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python3 scripts/claude-sync.test.py --live
+
   resolve:
     if: >-
       github.repository == 'e-kotov/t3code' &&
@@ -96,17 +140,40 @@ jobs:
           git rev-parse HEAD > "$RUNNER_TEMP/fix-base"
           { echo "branch=$branch"; echo "mode=$mode"; echo "merge=$merge"; } >> "$GITHUB_OUTPUT"
           summary "Resolving in \`$branch\` (mode: $mode) from $RUN_URL."
-      - if: steps.prepare.outputs.branch != ''
-        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
-        with:
-          node-version-file: package.json
-          cache: true
-          run-install: false
-      - name: Install dependencies and Claude Code
+      - name: Prepare a clean toolchain manifest
+        id: bootstrap
         if: steps.prepare.outputs.branch != ''
         run: |
-          vp install
-          npm install -g "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
+          mkdir -p "$RUNNER_TEMP/claude-bootstrap"
+          git archive refs/remotes/origin/main package.json pnpm-workspace.yaml pnpm-lock.yaml |
+            tar -x -C "$RUNNER_TEMP/claude-bootstrap"
+      - name: Bootstrap Vite+ without reading the conflicted candidate
+        if: steps.prepare.outputs.branch != ''
+        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          working-directory: ${{ runner.temp }}/claude-bootstrap
+          node-version-file: package.json
+          cache: false
+          run-install: false
+      - name: Install Claude independently of project dependencies
+        if: steps.prepare.outputs.branch != ''
+        working-directory: ${{ runner.temp }}
+        run: |
+          npm install --prefix "$RUNNER_TEMP/claude-cli" --no-audit --no-fund "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
+          echo "$RUNNER_TEMP/claude-cli/node_modules/.bin" >> "$GITHUB_PATH"
+      - name: Try dependencies and give any installation failure to Claude
+        if: steps.prepare.outputs.branch != ''
+        run: |
+          if vp install > "$RUNNER_TEMP/dependencies.log" 2>&1; then
+            echo 'Project dependencies are installed.' >> "$RUNNER_TEMP/context.md"
+          else
+            {
+              echo
+              echo '## Dependency installation failed'
+              echo 'Resolve dependency manifests and lockfile conflicts, then install dependencies before checking the fix.'
+              tail -60 "$RUNNER_TEMP/dependencies.log"
+            } >> "$RUNNER_TEMP/context.md"
+          fi
       - name: Fix with Claude
         id: fix
         if: steps.prepare.outputs.mode == 'fix'
@@ -127,6 +194,10 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: scripts/claude-sync.sh follow-up 8
+      - name: Require repaired dependencies to install with the frozen lockfile
+        id: verify-dependencies
+        if: steps.prepare.outputs.branch != '' && hashFiles('.claude-needs-decision.md') == ''
+        run: vp install --frozen-lockfile
       - name: Rebuild one merge commit
         if: steps.prepare.outputs.branch != ''
         env:
@@ -144,7 +215,8 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
-          for file in $(cat "$RUNNER_TEMP/unresolved"); do
+          read -r -a unresolved_files < "$RUNNER_TEMP/unresolved"
+          for file in "${unresolved_files[@]}"; do
             if grep -qE '^(<{7}|>{7})( |$)' "$file"; then
               echo "::error::Conflict markers remain in $file."
               exit 1
