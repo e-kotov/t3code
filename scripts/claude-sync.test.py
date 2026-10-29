@@ -221,7 +221,6 @@ PYTHON
         self.assertNotEqual(result.returncode, 0)
         self.assertIn(question, result.stdout)
         self.assertIn(question, Path(self.env["GITHUB_STEP_SUMMARY"]).read_text())
-        self.assertEqual((self.runtime / "claude-needs-decision.md").read_text(), question)
         self.assertFalse((self.runtime / "resolved.bundle").exists())
         decision_artifact = next(step for step in STEPS
                                  if step.get("with", {}).get("name") == "claude-decision")
@@ -229,6 +228,7 @@ PYTHON
         self.assertEqual(decision_artifact["with"]["path"],
                          ".claude-needs-decision.md")
         self.assertTrue(decision_artifact["with"]["include-hidden-files"])
+        self.assertEqual((self.root / decision_artifact["with"]["path"]).read_text(), question)
 
 
 if __name__ == "__main__":

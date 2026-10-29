@@ -226,7 +226,6 @@ jobs:
               echo
               cat .claude-needs-decision.md
             } | tee -a "$GITHUB_STEP_SUMMARY"
-            cp .claude-needs-decision.md "$RUNNER_TEMP/claude-needs-decision.md"
             exit 1
           fi
           read -r -a unresolved_files < "$RUNNER_TEMP/unresolved"
