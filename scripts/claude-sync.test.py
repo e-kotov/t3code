@@ -148,7 +148,18 @@ PYTHON
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         result = self.command("bash", str(ROOT / "scripts/claude-sync.sh"), "fix", "2", check=False)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        if not LIVE:
+        if LIVE:
+            reply = json.loads((self.runtime / "claude-fix.json").read_text())
+            report = "Claude recovery smoke: " + json.dumps({
+                "model": self.env["CLAUDE_MODEL"], "result": reply.get("subtype"),
+                "cost_usd": reply.get("total_cost_usd"), "budget_usd": 2,
+            })
+            print(report, flush=True)
+            summary = os.environ.get("GITHUB_STEP_SUMMARY")
+            if summary:
+                with open(summary, "a") as output:
+                    output.write(report + "\n")
+        else:
             self.assertTrue((self.runtime / "claude-ran").exists())
         return self.run_step(step_with_id("verify-dependencies"))
 
