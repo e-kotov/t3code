@@ -7,6 +7,11 @@ on:
         description: Optional pre-fix commit to prove workspace regressions
         type: string
         default: ""
+      regression_scope:
+        description: Which pre-fix behavior to verify
+        type: choice
+        options: [workspaces, metadata]
+        default: workspaces
   pull_request:
     branches: [main]
     paths: &thread-paths
@@ -25,7 +30,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: thread-creation-${{ github.head_ref || github.ref_name }}
+  group: thread-creation-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -62,6 +67,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.regression_ref != ''
         env:
           REGRESSION_REF: ${{ inputs.regression_ref }}
+          REGRESSION_SCOPE: ${{ inputs.regression_scope }}
         run: |
           git fetch --no-tags origin "$REGRESSION_REF"
           baseline=$(git rev-parse FETCH_HEAD)
@@ -77,22 +83,31 @@ jobs:
           trap restore EXIT
           for source in "${sources[@]}"; do git show "$baseline:$source" > "$source"; done
           tests=(apps/web/src/components/threadReferenceContextMenu.test.ts apps/mobile/src/features/threads/useNewThreadReferenceMenu.test.ts apps/mobile/src/features/threads/ReferencedNewTaskDraftScreen.test.tsx)
+          pattern='allocates a fresh scratch workspace|persists an explicit branch-less workspace'
+          if [ "$REGRESSION_SCOPE" = metadata ]; then
+            tests=(apps/web/src/components/threadReferenceContextMenu.test.ts apps/mobile/src/features/threads/useNewThreadReferenceMenu.test.ts)
+            pattern='waits for workspace metadata'
+          fi
           for index in "${!tests[@]}"; do
             report="$RUNNER_TEMP/menu-regression-$index.json"
-            if vp test run "${tests[$index]}" -t 'allocates a fresh scratch workspace|persists an explicit branch-less workspace' --reporter=json --outputFile="$report"; then
-              echo 'The scratch regression must fail on the selected pre-fix revision.'
+            if vp test run "${tests[$index]}" -t "$pattern" --reporter=json --outputFile="$report"; then
+              echo 'The selected regression must fail on the pre-fix revision.'
               exit 1
             fi
             python3 - "$report" <<'PYTHON'
-          import json, pathlib, sys
+          import json, os, pathlib, sys
           result = json.loads(pathlib.Path(sys.argv[1]).read_text())
           failed = [test for suite in result['testResults'] for test in suite.get('assertionResults', []) if test['status'] == 'failed']
           assert result['numFailedTests'] == len(failed) == 2, result
           for test in failed:
-              assert any(name in test['fullName'] for name in ['allocates a fresh scratch workspace', 'persists an explicit branch-less workspace']), test
               messages = '\n'.join(test['failureMessages'])
               assert 'AssertionError' in messages, test
-              assert any(folder in messages for folder in ['/scratch/old-thread', '/old-folder']), test
+              if os.environ['REGRESSION_SCOPE'] == 'metadata':
+                  assert 'waits for workspace metadata' in test['fullName'], test
+                  assert 'expected 1' in messages, test
+              else:
+                  assert any(name in test['fullName'] for name in ['allocates a fresh scratch workspace', 'persists an explicit branch-less workspace']), test
+                  assert any(folder in messages for folder in ['/scratch/old-thread', '/old-folder']), test
           PYTHON
           done
       - name: Check changed code and thread creation

@@ -7,8 +7,16 @@ import {
   type StartReferencedThread,
 } from "./threadReferenceContextMenu";
 
-const state = vi.hoisted(() => ({ add: vi.fn(), readProject: vi.fn(), toast: vi.fn() }));
-vi.mock("../state/entities", () => ({ readProject: state.readProject }));
+const state = vi.hoisted(() => ({
+  add: vi.fn(),
+  readProject: vi.fn(),
+  configLoaded: vi.fn(),
+  toast: vi.fn(),
+}));
+vi.mock("../state/entities", () => ({
+  readProject: state.readProject,
+  readEnvironmentServerConfigLoaded: state.configLoaded,
+}));
 vi.mock("./ui/toast", () => ({
   toastManager: { add: state.toast },
   stackedThreadToast: (value: unknown) => value,
@@ -32,6 +40,7 @@ const items: ContextMenuItem<"new-thread-on-branch" | "rename">[] = [
 beforeEach(() => {
   vi.clearAllMocks();
   state.readProject.mockReset();
+  state.configLoaded.mockReturnValue(true);
 });
 
 it.each(["main", null])(
@@ -196,4 +205,42 @@ it("reports a failed plain draft creation and leaves its context untouched", asy
     }),
   );
   expect(state.add).not.toHaveBeenCalled();
+});
+
+it.each(["new-thread-in-project", "new-thread-with-reference"])(
+  "waits for workspace metadata before %s and retries with fresh scratch state",
+  async (action) => {
+    const source = { ...thread, branch: null, worktreePath: "/scratch/old-thread" };
+    state.readProject.mockReturnValue({});
+    state.configLoaded.mockReturnValue(false);
+    const start = vi.fn<StartReferencedThread>(async () => ({
+      draftId: DraftId.make("reconnected-draft"),
+      threadId: ThreadId.make("reconnected-thread"),
+    }));
+    await showThreadReferenceContextMenu(source, [], undefined, start, async () => action);
+    expect(start.mock.calls.length).toBe(0);
+    expect(state.add).not.toHaveBeenCalled();
+    expect(state.toast).toHaveBeenCalled();
+    expect(state.configLoaded).toHaveBeenCalledWith(source.environmentId);
+
+    state.configLoaded.mockReturnValue(true);
+    state.readProject.mockReturnValue({ isScratch: true });
+    await showThreadReferenceContextMenu(source, [], undefined, start, async () => action);
+    expect(start.mock.calls.length).toBe(1);
+    expect(start.mock.calls[0]?.[1]?.worktreePath).toBeNull();
+    expect(state.add).toHaveBeenCalledTimes(action === "new-thread-with-reference" ? 1 : 0);
+  },
+);
+
+it("does not reuse a branch-less folder when its project has disappeared", async () => {
+  const start = vi.fn<StartReferencedThread>(async () => null);
+  await showThreadReferenceContextMenu(
+    { ...thread, branch: null, worktreePath: "/old-folder" },
+    [],
+    undefined,
+    start,
+    async () => "new-thread-in-project",
+  );
+  expect(start).not.toHaveBeenCalled();
+  expect(state.toast).toHaveBeenCalled();
 });
