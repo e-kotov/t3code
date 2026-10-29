@@ -208,8 +208,8 @@ export function useAssistantCitationSourceTarget(input: {
   useEffect(() => {
     // oxlint-disable-next-line react/set-state-in-effect -- Starting citation navigation resets the native list target before loading or scrolling.
     navigate();
-    // oxlint-disable-next-line react/memo-dependencies -- Resume navigation when history, focus or list readiness changes, including async page completion.
   }, [
+    // oxlint-disable-next-line react/memo-dependencies -- Resume navigation when history, focus or list readiness changes, including async page completion.
     request,
     focused,
     input.feed,
