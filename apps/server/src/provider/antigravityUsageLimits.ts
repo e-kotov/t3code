@@ -15,7 +15,11 @@ import {
   makeUsageLimits,
 } from "@t3tools/provider-core/server/usageLimits";
 
-import { antigravityQuotaFamily, antigravityQuotaUserAgent } from "./forkAntigravityQuota.ts";
+import {
+  antigravityQuotaFamily,
+  antigravityQuotaSummaryPolicy,
+  antigravityQuotaUserAgent,
+} from "./forkAntigravityQuota.ts";
 
 const ENDPOINTS = [
   "https://daily-cloudcode-pa.googleapis.com",
@@ -281,8 +285,12 @@ export const makeAntigravityUsageProbe = Effect.fn("makeAntigravityUsageProbe")(
       }
       return [...windows.values()];
     });
+    const summaryPolicy = antigravityQuotaSummaryPolicy(input.summaryOnly);
     const summary = yield* fetchWindows("retrieveUserQuotaSummary", (response) =>
-      decodeSummary(response).pipe(Effect.map(summaryWindows)),
+      decodeSummary(response).pipe(
+        Effect.tap(() => summaryPolicy.decoded),
+        Effect.map(summaryWindows),
+      ),
     );
     const windows =
       summary.length || input.summaryOnly
@@ -293,8 +301,7 @@ export const makeAntigravityUsageProbe = Effect.fn("makeAntigravityUsageProbe")(
     if (windows.length === 0) {
       return makeUnavailableUsageLimits({
         checkedAt,
-        reason: "probeFailed",
-        message: "Antigravity did not return usable quota information.",
+        ...summaryPolicy.unavailable(),
       });
     }
     return { ...makeUsageLimits({ checkedAt, windows }), credentialFingerprint: account };

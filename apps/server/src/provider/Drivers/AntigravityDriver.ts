@@ -56,6 +56,7 @@ import { makeAcpNativeLoggerFactory } from "@t3tools/provider-acp/server/nativeL
 import { ProviderDriverError } from "../Errors.ts";
 import { makeAntigravityProvider } from "../AntigravityProvider.ts";
 import { makeAntigravityUsageProbe } from "../antigravityUsageLimits.ts";
+import { checkAntigravityRuntime } from "../forkAntigravityRuntime.ts";
 import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
 import * as ModelCatalog from "@t3tools/provider-core/server/ModelCatalog";
 import {
@@ -185,6 +186,7 @@ export const AntigravityDriver: ProviderDriver<
         });
       }
       const executable = yield* installation.acquire(settings.binaryPath, processEnvironment).pipe(
+        Effect.tap((resolved) => checkAntigravityRuntime(resolved.version, instanceId)),
         Effect.mapError(
           (cause) =>
             new ProviderSetupError({
@@ -363,6 +365,7 @@ export const AntigravityDriver: ProviderDriver<
         });
       }
       const executable = yield* installation.resolve(settings.binaryPath, processEnvironment).pipe(
+        Effect.tap((resolved) => checkAntigravityRuntime(resolved.version, instanceId)),
         Effect.mapError(
           (cause) =>
             new ProviderSetupError({

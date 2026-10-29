@@ -1,5 +1,6 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -7,7 +8,12 @@ import { HttpClient, HttpClientResponse } from "effect/http";
 import { makeAntigravityUsageProbe } from "./antigravityUsageLimits.ts";
 
 const fixture = Effect.fn("ForkAntigravityQuotaTest.fixture")(function* (
-  options: { partial?: boolean; empty?: boolean; unknownVersion?: boolean } = {},
+  options: {
+    partial?: boolean;
+    empty?: boolean;
+    unknownVersion?: boolean;
+    failure?: "http" | "schema";
+  } = {},
 ) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -23,10 +29,12 @@ const fixture = Effect.fn("ForkAntigravityQuotaTest.fixture")(function* (
   );
   let version = "1.3.0";
   const requests: string[] = [];
+  const userAgents: Array<string | undefined> = [];
   const http = HttpClient.make((request) =>
     Effect.sync(() => {
       requests.push(request.url);
-      const json = (body: unknown) => HttpClientResponse.fromWeb(request, Response.json(body));
+      const json = (body: unknown, status = 200) =>
+        HttpClientResponse.fromWeb(request, Response.json(body, { status }));
       if (request.url.endsWith("/token"))
         return json({ access_token: "test-access", expires_in: 3600 });
       if (request.url.endsWith("/userinfo")) return json({ id: "test-account" });
@@ -40,14 +48,17 @@ const fixture = Effect.fn("ForkAntigravityQuotaTest.fixture")(function* (
           },
         });
       }
-      const correctIdentity = request.headers["user-agent"]?.startsWith(
-        `antigravity/acp/${version} `,
-      );
+      userAgents.push(request.headers["user-agent"]);
+      if (options.failure === "http") return json({ error: "Unavailable" }, 503);
+      if (options.failure === "schema") return json({ groups: "invalid" });
+      const correctIdentity =
+        request.headers["user-agent"] ===
+        `antigravity/acp/${options.unknownVersion ? "1.4.1" : version} (aidev_client; os_type=darwin; arch=arm64)`;
       const buckets = options.empty
         ? []
         : [
             { bucketId: "3p-weekly", window: "weekly", remainingFraction: 1 },
-            ...(!options.partial && (correctIdentity || options.unknownVersion)
+            ...(!options.partial && correctIdentity
               ? [
                   { bucketId: "gemini-weekly", window: "weekly", remainingFraction: 0.59 },
                   { bucketId: "gemini-5h", window: "5h", remainingFraction: 1 },
@@ -57,7 +68,7 @@ const fixture = Effect.fn("ForkAntigravityQuotaTest.fixture")(function* (
       return json({
         groups: [
           { displayName: "Gemini Models", buckets },
-          ...(!options.partial && !options.empty && (correctIdentity || options.unknownVersion)
+          ...(!options.partial && !options.empty && correctIdentity
             ? [
                 {
                   displayName: "Gemini 4 Argon",
@@ -83,10 +94,13 @@ const fixture = Effect.fn("ForkAntigravityQuotaTest.fixture")(function* (
   };
   const usage = yield* makeAntigravityUsageProbe(input).pipe(
     Effect.provideService(HttpClient.HttpClient, http),
+    Effect.provideService(HostProcess.Platform, "darwin"),
+    Effect.provideService(HostProcess.Architecture, "arm64"),
   );
   return {
     ...usage,
     requests,
+    userAgents,
     updateVersion: () => {
       version = "1.4.1";
     },
@@ -120,17 +134,36 @@ it.effect("does not fill missing Gemini windows with per-model 100-percent readi
       const { probe, requests } = yield* fixture({ partial: true, empty });
       const limits = yield* probe;
       expect(limits.windows.map((window) => window.id)).toEqual(empty ? [] : ["3p-weekly"]);
-      if (empty) expect(limits.unavailable?.reason).toBe("probeFailed");
+      if (empty) {
+        expect(limits.unavailable?.reason).toBe("unsupported");
+        expect(limits.unavailable?.message).toContain("no subscription quota windows");
+      }
       expect(requests.some((url) => url.endsWith(":fetchAvailableModels"))).toBe(false);
     }
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
 
-it.effect("keeps quota access available when a custom executable has no recorded version", () =>
+it.effect("uses the pinned ACP identity when a custom executable has no recorded version", () =>
   Effect.gen(function* () {
-    const { probe } = yield* fixture({ unknownVersion: true });
+    const { probe, userAgents } = yield* fixture({ unknownVersion: true });
     const limits = yield* probe;
     expect(limits.unavailable).toBeUndefined();
     expect(limits.windows).toHaveLength(4);
+    expect(userAgents).toEqual([
+      "antigravity/acp/1.4.1 (aidev_client; os_type=darwin; arch=arm64)",
+      "antigravity/acp/1.4.1 (aidev_client; os_type=darwin; arch=arm64)",
+    ]);
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+);
+
+it.effect("reports HTTP and malformed-summary failures as failed probes", () =>
+  Effect.gen(function* () {
+    for (const failure of ["http", "schema"] as const) {
+      const { probe, requests } = yield* fixture({ failure });
+      const limits = yield* probe;
+      expect(limits.windows).toEqual([]);
+      expect(limits.unavailable?.reason).toBe("probeFailed");
+      expect(requests.some((url) => url.endsWith(":fetchAvailableModels"))).toBe(false);
+    }
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );

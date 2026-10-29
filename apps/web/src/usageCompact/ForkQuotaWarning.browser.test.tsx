@@ -45,7 +45,6 @@ it("names disconnected machines while keeping Gemini and Argon quotas distinct",
   await userEvent.hover(screen.getByRole("button", { name: /^Usage remaining/ }));
   const popup = page.getByRole("dialog");
   await expect.element(popup).toBeVisible();
-  await page.screenshot({ path: "./__screenshots__/quota-warning.png" });
   await expect
     .element(
       page.getByText("Phone and GWDG are disconnected; their values may be out of date.", {

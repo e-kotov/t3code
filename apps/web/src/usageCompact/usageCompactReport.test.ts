@@ -181,7 +181,7 @@ it("rejects signed-out, unverified, stale or mismatched quota authentication evi
   expect(report.accounts).toEqual([]);
 });
 
-it("names every environment that is not connected so stale quotas can be traced", () => {
+it("names disconnected environments without calling in-progress connections disconnected", () => {
   const environment = (label: string, phase: string) => ({
     entry: { target: { label } },
     connection: { phase },
@@ -191,8 +191,10 @@ it("names every environment that is not connected so stale quotas can be traced"
       environment("mba15e", "connected"),
       environment("Phone", "offline"),
       environment("GWDG", "reconnecting"),
+      environment("New host", "connecting"),
       environment(" ", "error"),
+      environment("", "offline"),
     ]),
-  ).toEqual(["An environment", "GWDG", "Phone"]);
+  ).toEqual(["Phone", "Unnamed environment 1", "Unnamed environment 2"]);
   expect(disconnectedEnvironmentLabels([environment("mba15e", "connected")])).toEqual([]);
 });

@@ -83,6 +83,7 @@ for (const { platform, editor, installPath, onPath } of [
             Layer.mergeAll(
               ExternalLauncher.layer.pipe(Layer.provide(Layer.merge(NodeServices.layer, spawner))),
               Layer.succeed(HostProcess.Platform, platform),
+              Layer.succeed(HostProcess.Environment, { DISPLAY: ":0" }),
               Layer.succeed(SpawnExecutableResolution, () => executable),
               ConfigProvider.layer(
                 ConfigProvider.fromEnv({
@@ -98,8 +99,7 @@ for (const { platform, editor, installPath, onPath } of [
           ),
         );
 
-        // Headless Linux also probes the graphical session through busctl.
-        const launches = spawned.filter((command) => command.command !== "busctl");
+        const launches = spawned;
         assert.lengthOf(launches, 1);
         // POSIX spawns preserve the PATH command; Windows resolves its extension first.
         assert.equal(launches[0]?.command, platform === "linux" && onPath ? editor : executable);

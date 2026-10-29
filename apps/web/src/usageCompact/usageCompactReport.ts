@@ -97,8 +97,16 @@ export function disconnectedEnvironmentLabels(
     readonly connection: { readonly phase: string };
   }>,
 ): string[] {
-  return [...presentations]
-    .filter((presentation) => presentation.connection.phase !== "connected")
-    .map((presentation) => presentation.entry.target.label.trim() || "An environment")
+  const disconnected = [...presentations].filter(
+    ({ connection }) => !["connected", "connecting", "reconnecting"].includes(connection.phase),
+  );
+  const unnamedCount = disconnected.filter(({ entry }) => !entry.target.label.trim()).length;
+  let unnamedIndex = 0;
+  return disconnected
+    .map(
+      ({ entry }) =>
+        entry.target.label.trim() ||
+        (unnamedCount > 1 ? `Unnamed environment ${++unnamedIndex}` : "An unnamed environment"),
+    )
     .toSorted((a, b) => a.localeCompare(b));
 }
