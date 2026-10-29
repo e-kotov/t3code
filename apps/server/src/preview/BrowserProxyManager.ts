@@ -1,8 +1,5 @@
-import {
-  BrowserProxyError,
-  browserProxyTargetError,
-  resolveBrowserProxyRoute,
-} from "@t3tools/contracts";
+import { BrowserProxyError } from "@t3tools/contracts";
+import { browserProxyTargetError, resolveBrowserProxyRoute } from "@t3tools/shared/browserProxy";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 

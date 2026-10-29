@@ -1,12 +1,9 @@
 import {
   browserProxyRequestReuse,
-  browserProxyTargetError,
-  isProtectedBrowserAsset,
-  isDirectBrowserTarget,
-  resolveBrowserProxyRoute,
   type PreviewAutomationOpenInput,
   type PreviewAutomationRequest,
 } from "@t3tools/contracts";
+import { browserProxyTargetError, resolveBrowserProxyRoute } from "@t3tools/shared/browserProxy";
 import { BrowserControlInterrupted } from "./SessionControl.ts";
 
 const sameRoute = (current: string | undefined, next: string) => (current ?? "") === next;
@@ -51,8 +48,6 @@ export function selectBrowserProxyTab<T extends { readonly proxyUrl: string | un
 }
 
 export function assertBrowserProxyTarget(proxyUrl: string | undefined, url: string) {
-  if (proxyUrl && (isDirectBrowserTarget(url) || isProtectedBrowserAsset(url)))
-    throw new BrowserControlInterrupted(
-      "Open local or app resources in a new direct tab with proxyUrl set to an empty string.",
-    );
+  const blocked = browserProxyTargetError(url, proxyUrl ?? "");
+  if (blocked) throw new BrowserControlInterrupted(blocked.message);
 }

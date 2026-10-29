@@ -93,6 +93,10 @@ import {
 import { stackedThreadToast, toastManager } from "~/components/ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "~/components/ui/tooltip";
 import { observeResize } from "~/lib/observeResize";
+import {
+  reportBrowserProxyFailure,
+  reportBrowserProxyNavigationError,
+} from "~/browser/browserProxyFailure";
 
 interface Props {
   threadRef: ScopedThreadRef;
@@ -228,6 +232,7 @@ export function PreviewView({
   );
 
   const navigateToResolvedUrl = async (resolvedUrl: string) => {
+    if (reportBrowserProxyNavigationError(snapshot?.proxyUrl, resolvedUrl)) return false;
     if (isServerTab && serverSurfaceRef.current) {
       if (serverInputDisabled) return false;
       serverSurfaceRef.current.navigate(resolvedUrl);
@@ -241,6 +246,7 @@ export function PreviewView({
     }
     const result = await openPreviewSession({ openPreview: open, threadRef, url: resolvedUrl });
     if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
+      if (reportBrowserProxyFailure(result.cause)) return false;
       const error = squashAtomCommandFailure(result);
       if (error instanceof BrowserSettingsReadError) {
         toastManager.add({

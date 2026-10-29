@@ -28,7 +28,10 @@ viewing device. An existing SSH SOCKS forward can supply a URL such as
 `socks5://127.0.0.1:1080`. T3 Code does not create or manage the tunnel. Proxy credentials and
 PAC files are not supported. Local and private-network addresses, discovered development ports and app file previews stay direct
 and keep their original browser host. An unsupported or older server returns an error instead of
-opening a proxy request directly.
+opening a proxy request directly. Single-word hostnames, `.home.arpa` names and
+IPv4-mapped IPv6 private addresses also stay direct. An explicit proxy request for a local or private
+address is rejected; open it with `proxyUrl: ""` instead. In an existing proxy tab, attempting
+to enter such an address shows an error and keeps the current page and history unchanged.
 
 An agent can override the setting for one browser task with
 `preview_open({url: "https://example.com", proxyUrl: "socks5://127.0.0.1:1080"})`, or force

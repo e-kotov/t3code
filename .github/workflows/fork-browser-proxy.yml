@@ -2,6 +2,11 @@ name: Fork browser proxy
 
 on:
   workflow_dispatch:
+    inputs:
+      regression_proofs:
+        description: Run historical before-fix regression proofs for this PR
+        type: boolean
+        default: false
   pull_request:
     branches: [main]
     paths:
@@ -14,13 +19,15 @@ on:
       - "apps/web/src/components/settings/BrowserProxySetting.tsx"
       - "apps/web/src/components/ChatMarkdown*"
       - "packages/contracts/src/browserProxy*"
+      - "packages/shared/src/browserProxy*"
+      - "apps/web/src/components/preview/PreviewView*"
       - "evals/mcp-tool-use/cases/browser-proxy.ndjson"
 
 permissions:
   contents: read
 
 concurrency:
-  group: browser-proxy-${{ github.head_ref || github.ref_name }}
+  group: browser-proxy-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -53,6 +60,7 @@ jobs:
       - name: Install Chromium for real proxy routing tests
         run: node apps/web/node_modules/playwright/cli.js install --with-deps chromium
       - name: Prove routing and lifecycle regressions against the reviewed revision
+        if: github.event_name == 'workflow_dispatch' && inputs.regression_proofs
         run: |
           sources=(apps/server/src/preview/BrowserProxyContexts.ts apps/server/src/preview/browserProxyOpen.ts packages/contracts/src/settings.ts apps/web/src/browser/useOpenLink.ts)
           for index in "${!sources[@]}"; do cp "${sources[$index]}" "$RUNNER_TEMP/proxy-source-$index"; done
@@ -77,6 +85,7 @@ jobs:
               assert any(term in '\n'.join(cases[0]['failureMessages']) for term in ['AssertionError', 'ENOENT']), cases
           PYTHON
       - name: Prove chat links cannot fall back directly after proxy errors
+        if: github.event_name == 'workflow_dispatch' && inputs.regression_proofs
         run: |
           source=apps/web/src/components/ChatMarkdown.tsx
           cp "$source" "$RUNNER_TEMP/ChatMarkdown.tsx"
@@ -93,6 +102,30 @@ jobs:
           assert result['numTotalTests'] == result['numFailedTests'] == len(failed) == 1, result
           assert 'keeps chat links out of the system browser' in failed[0]['fullName'], failed
           assert 'AssertionError' in '\n'.join(failed[0]['failureMessages']), failed
+          PYTHON
+      - name: Prove private-target routing and address-bar regressions
+        if: github.event_name == 'workflow_dispatch' && inputs.regression_proofs
+        run: |
+          sources=(packages/contracts/src/browserProxy.ts apps/server/src/preview/BrowserProxyManager.ts apps/server/src/preview/BrowserProxyLaunch.ts apps/web/src/components/preview/PreviewView.tsx)
+          for index in "${!sources[@]}"; do cp "${sources[$index]}" "$RUNNER_TEMP/private-source-$index"; done
+          restore() {
+            for index in "${!sources[@]}"; do cp "$RUNNER_TEMP/private-source-$index" "${sources[$index]}"; done
+          }
+          trap restore EXIT
+          for source in "${sources[@]}"; do git show "fbe93a604633cce934ebd5cd919b1dc9ab36a29c:$source" > "$source"; done
+          if vp test run apps/server/src/preview/BrowserProxyManager.test.ts apps/server/src/preview/BrowserProxyContexts.test.ts apps/web/src/components/preview/PreviewView.proxy.browser.test.tsx -t 'rejects proxy opens for local targets|keeps private hostnames on their original browser host|reports local navigation from a blank proxy tab|routes HTTP and SOCKS5 tabs independently' --reporter=json --outputFile="$RUNNER_TEMP/private-proxy-regressions.json"; then
+            echo 'The four private-target regressions must fail before the fixes.'
+            exit 1
+          fi
+          python3 - <<'PYTHON'
+          import json, os, pathlib
+          result = json.loads((pathlib.Path(os.environ['RUNNER_TEMP']) / 'private-proxy-regressions.json').read_text())
+          failed = [case for suite in result['testResults'] for case in suite.get('assertionResults', []) if case['status'] == 'failed']
+          assert result['numFailedTests'] == len(failed) == 4, result
+          names = ['rejects proxy opens for local targets', 'keeps private hostnames on their original browser host', 'reports local navigation from a blank proxy tab', 'routes HTTP and SOCKS5 tabs independently']
+          for name in names:
+              cases = [case for case in failed if name in case['fullName']]
+              assert len(cases) == 1 and 'AssertionError' in '\n'.join(cases[0]['failureMessages']), cases
           PYTHON
       - name: Check changed code
         run: vp run check:changed origin/main

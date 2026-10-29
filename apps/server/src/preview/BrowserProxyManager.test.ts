@@ -26,6 +26,52 @@ const layer = ProxyManager.layer.pipe(
 );
 
 it.layer(layer)("proxy tab ownership", (it) => {
+  it.effect("rejects proxy opens for local targets before publishing a tab", () =>
+    Effect.gen(function* () {
+      const manager = yield* PreviewManager.PreviewManager;
+      const threadId = ThreadId.make("explicit-local-proxy");
+      for (const url of [
+        "http://localhost:3000",
+        "http://10.0.0.5:8080",
+        "http://devbox:5173",
+        "http://nas.home.arpa:3000",
+        "http://[::ffff:192.168.1.5]:3000",
+        "file:///tmp/report.html",
+      ]) {
+        const result = yield* manager
+          .open({ threadId, url, proxyUrl: "socks5://127.0.0.1:1080" })
+          .pipe(Effect.result);
+        expect(result).toMatchObject({ _tag: "Failure", failure: { _tag: "BrowserProxyError" } });
+        expect((yield* manager.list({ threadId })).sessions).toEqual([]);
+      }
+    }),
+  );
+
+  it.effect("keeps private hostnames on their original browser host", () =>
+    Effect.gen(function* () {
+      const manager = yield* PreviewManager.PreviewManager;
+      const settings = yield* ProxySettings.ServerSettingsService;
+      yield* settings.updateSettings({
+        browserProxy: { enabled: true, url: "socks5://proxy:1080" },
+      });
+      for (const url of [
+        "http://devbox:5173",
+        "http://nas.home.arpa:3000",
+        "http://[::ffff:192.168.1.5]:3000",
+        "http://[::]:3000",
+        "http://198.18.0.1:3000",
+      ]) {
+        const tab = yield* manager.open({
+          threadId: ThreadId.make("private-default"),
+          url,
+          runtime: "desktop",
+        });
+        expect(tab.proxyUrl).toBe("");
+        expect(tab.runtime).toBe("desktop");
+      }
+    }),
+  );
+
   it.effect("forces proxy tabs onto the server and keeps their route through navigation", () =>
     Effect.gen(function* () {
       const manager = yield* PreviewManager.PreviewManager;
@@ -43,8 +89,6 @@ it.layer(layer)("proxy tab ownership", (it) => {
       });
       expect(local.runtime).toBe("desktop");
       expect(local.proxyUrl).toBe("");
-      const inherited = yield* manager.open({ threadId, url: "http://localhost:3000", proxyUrl });
-      expect(inherited.proxyUrl).toBe(proxyUrl);
       const opened = yield* manager.open({ threadId, runtime: "desktop", proxyUrl });
       expect(opened.runtime).toBe("server");
       expect(opened.headless).toBe(true);

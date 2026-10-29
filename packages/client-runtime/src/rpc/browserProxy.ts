@@ -1,11 +1,13 @@
 import {
   BrowserProxyError,
-  browserProxyTargetError,
-  isDirectBrowserTarget,
-  resolveBrowserProxyRoute,
   type PreviewOpenInput,
   WS_METHODS,
 } from "@t3tools/contracts";
+import {
+  browserProxyTargetError,
+  isDirectBrowserTarget,
+  resolveBrowserProxyRoute,
+} from "@t3tools/shared/browserProxy";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 

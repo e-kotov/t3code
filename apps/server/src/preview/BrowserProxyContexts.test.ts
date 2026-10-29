@@ -91,8 +91,10 @@ describe("browser proxy routes", () => {
     const address = Object.values(NodeOS.networkInterfaces())
       .flat()
       .find((entry) => entry?.family === "IPv4" && !entry.internal)?.address;
+    const hosts = ["proxy-direct.test", "devbox", "nas.home.arpa"];
+    const hostRules = hosts.map((host) => `MAP ${host} ${address}`).join(",");
     const pool = new BrowserProxyContexts({
-      args: address ? [`--host-resolver-rules=MAP proxy-direct.test ${address}`] : [],
+      args: address ? [`--host-resolver-rules=${hostRules}`] : [],
       profilesDir: NodePath.join(root, "profiles"),
       env: { ...process.env, T3CODE_SERVER_BROWSER_SANDBOX: "0" },
       executable: async () => chromium.executablePath(),
@@ -135,6 +137,12 @@ describe("browser proxy routes", () => {
       await popup.close();
       await httpPage.goto(directUrl.replace("proxy-direct.test", address));
       expect(await httpPage.textContent("body")).toBe("reachable directly");
+      for (const host of ["devbox", "nas.home.arpa", `[::ffff:${address}]`]) {
+        const url = new URL(directUrl.replace("proxy-direct.test", host)).href;
+        await httpPage.goto(url);
+        expect(await httpPage.textContent("body")).toBe("reachable directly");
+        expect(requests).not.toContain(url);
+      }
 
       await httpContext.addCookies([
         { name: "route", value: "http", url: "http://route-check.invalid" },
