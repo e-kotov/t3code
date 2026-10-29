@@ -265,7 +265,7 @@ export function presentPendingIncomingShare(): void {
   if (!rootNavigationRef.isReady()) return;
   const state = rootNavigationRef.getRootState();
   if (!state) return;
-  if (presentForkShareDestinations(snapshot.drafts)) return;
+  if (presentForkShareDestinations(snapshot.drafts, snapshot.isLoading)) return;
   const transition = transitionIncomingSharePresentation(presentation, {
     isShareSheetPresented: isDraftThreadRoute(state.routes[state.index]),
     pendingShareId: snapshot.drafts[0]?.id ?? null,

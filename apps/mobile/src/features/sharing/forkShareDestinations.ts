@@ -128,8 +128,9 @@ function refreshLocks() {
   appAtomRegistry.set(forkShareSubmissionLocksAtom, keys);
 }
 
-export function presentForkShareDestinations(drafts: readonly IncomingShareDraft[]) {
+export function presentForkShareDestinations(drafts: readonly IncomingShareDraft[], isLoading: boolean) {
   if (Platform.OS !== "android" || !forkShareDestinations) return false;
+  if (isLoading) return true;
   latestShares = drafts;
   forkShareDestinations.present(drafts);
   refreshLocks();
