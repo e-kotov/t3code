@@ -31,6 +31,7 @@ import type {
   ConnectionCatalogEntry,
   EnvironmentConnectionLease,
   RouteCheck,
+  RoutePreflight,
 } from "@t3tools/client-runtime/connection";
 import type { WsRpcProtocolClient } from "@t3tools/client-runtime/rpc";
 import { DEFAULT_RESOLVED_KEYBINDINGS } from "@t3tools/shared/keybindings";
@@ -397,7 +398,7 @@ export const fakeDriver = {
       },
       session,
     }),
-  preflight: () => Effect.succeed(true),
+  preflight: () => Effect.succeed<RoutePreflight>("ready"),
   checkHost: () => Effect.succeed<RouteCheck>("unchecked"),
 };
 export type FakeDriver = typeof fakeDriver;
