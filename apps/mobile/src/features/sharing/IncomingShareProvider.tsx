@@ -252,7 +252,7 @@ const refreshIncomingShares = coalescedRun(async () => {
     publish(await incomingShareInbox.refresh({ ingestNative: enabled }));
   } catch (cause) {
     const persisted = await incomingShareInbox.refresh({ ingestNative: false }).catch(() => null);
-    publish(persisted ?? snapshot.drafts);
+    if (persisted !== null) publish(persisted);
     reportRefreshFailure(cause);
   }
 });
