@@ -2,7 +2,7 @@ import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environ
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import type { ContextMenuItem } from "@t3tools/contracts";
 import type { useNewThreadHandler } from "../hooks/useHandleNewThread";
-import { readEnvironmentServerConfigLoaded, readProject } from "../state/entities";
+import { readProject } from "../state/entities";
 import { stackedThreadToast, toastManager } from "./ui/toast";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { threadContextRecord } from "@t3tools/shared/composerContextReferences";
@@ -43,22 +43,7 @@ export async function showThreadReferenceContextMenu<T extends string>(
   if (selected !== NEW_THREAD_WITH_REFERENCE && selected !== NEW_THREAD_IN_PROJECT)
     return selected as T | null;
   const projectRef = scopeProjectRef(thread.environmentId, thread.projectId);
-  const project = readProject(projectRef);
-  if (
-    !thread.branch &&
-    thread.worktreePath &&
-    (!project || !readEnvironmentServerConfigLoaded(thread.environmentId))
-  ) {
-    toastManager.add(
-      stackedThreadToast({
-        type: "error",
-        title: "Could not create thread",
-        description: "Wait for this machine's project details to load, then try again.",
-      }),
-    );
-    return null;
-  }
-  const scratch = project?.isScratch === true;
+  const scratch = readProject(projectRef)?.isScratch === true;
   const worktreePath = scratch ? null : thread.worktreePath;
   const opened = await start(projectRef, {
     branch: scratch ? null : thread.branch,

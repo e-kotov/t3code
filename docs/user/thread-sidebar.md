@@ -16,7 +16,7 @@ project picker opens. Turn off **Settings → General → Use last project** to
 choose a project every time. When you pick a project that is on more than one
 machine, the thread starts on a connected one if any is connected.
 
-Right-click a thread on desktop or long-press it on mobile. **New thread** opens a draft in its project.
+Right-click a thread on web/desktop or long-press on mobile. **New thread** opens a draft in its project.
 **New thread with reference** attaches it as context. Git threads include the branch in these options.
 **No project** drafts get a fresh folder. Write your prompt and send when ready.
 
