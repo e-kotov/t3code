@@ -1,4 +1,5 @@
 import { useMemo, useSyncExternalStore } from "react";
+import type { SnoozePresetSetting } from "@t3tools/contracts/settings";
 import * as SecureStore from "expo-secure-store";
 import {
   resolveCustomSnooze as resolveUpstreamCustomSnooze,
@@ -24,13 +25,17 @@ export function resolveCustomSnooze(input: CustomSnoozeInput, now: Date) {
   return result;
 }
 
-export function useSnoozePresets(enabled: boolean, minute: string): ReadonlyArray<Choice> {
+export function useSnoozePresets(
+  enabled: boolean,
+  minute: string,
+  presets?: ReadonlyArray<SnoozePresetSetting>,
+): ReadonlyArray<Choice> {
   const stored = useSyncExternalStore(history.subscribe, history.getSnapshot, history.getSnapshot);
   return useMemo(() => {
     if (!enabled) return [];
-    const now = new Date();
+    const now = new Date(minute);
     return [
-      ...resolveSnoozePresets(now),
+      ...resolveSnoozePresets(now, presets ? { presets } : {}),
       ...recentCustomSnoozes(stored, now).map((snoozedUntil) => ({
         id: `recent:${snoozedUntil}`,
         label: `Recent: ${new Date(snoozedUntil).toLocaleDateString()}`,
@@ -41,13 +46,14 @@ export function useSnoozePresets(enabled: boolean, minute: string): ReadonlyArra
         snoozedUntil,
       })),
     ];
-  }, [enabled, stored, minute]);
+  }, [enabled, stored, minute, presets]);
 }
 
 export function resolveThreadListV2SnoozeMenuSelection(input: {
   readonly event: string;
   readonly displayedPresets: ReadonlyArray<Choice>;
   readonly now: Date;
+  readonly presets?: ReadonlyArray<SnoozePresetSetting>;
 }) {
   if (input.event.startsWith("snooze:recent:")) {
     const preset = input.displayedPresets.find((choice) => input.event === `snooze:${choice.id}`);
@@ -58,6 +64,7 @@ export function resolveThreadListV2SnoozeMenuSelection(input: {
   }
   return resolveUpstreamSelection({
     ...input,
+    presets: input.presets,
     displayedPresets: input.displayedPresets.filter(
       (choice): choice is SnoozePreset => !choice.id.startsWith("recent:"),
     ),

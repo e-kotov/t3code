@@ -82,11 +82,11 @@ export function SettingsBuiltInTailscaleRouteScreen() {
   const [busy, setBusy] = useState(false);
   const [logs, setLogs] = useState<ReadonlyArray<string> | null>(null);
   useBuiltInTailnetStatusPolling(focused);
-  // oxlint-disable-next-line t3code/react-effect-budget -- Synchronize completion of the native sign-in flow.
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Synchronize completion of the native sign-in flow.
   useEffect(() => {
     if (status?.state === "running") endBuiltInTailnetSignIn();
   }, [status?.state]);
-  // oxlint-disable-next-line t3code/react-effect-budget -- Clear the sign-in guard when this screen unmounts.
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Clear the sign-in guard when this screen unmounts.
   useEffect(() => endBuiltInTailnetSignIn, []);
 
   const run = async (work: () => Promise<void>) => {

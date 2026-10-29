@@ -37,12 +37,14 @@ it("remembers only custom date choices and handles recent versus built-in menu s
     }),
   ).toEqual({ _tag: "expired" });
   const later = new Date(2026, 9, 23, 11, 0);
+  const presets = [{ kind: "after", minutes: 180 }] as const;
   const selected = resolveThreadListV2SnoozeMenuSelection({
-    event: "snooze:hour",
-    displayedPresets: resolveSnoozePresets(now),
+    event: "snooze:after:180",
+    displayedPresets: resolveSnoozePresets(now, { presets }),
+    presets,
     now: later,
   });
   expect(selected._tag).toBe("selected");
   if (selected._tag === "selected")
-    expect(selected.preset.snoozedUntil).toBe(new Date(2026, 9, 23, 12, 0).toISOString());
+    expect(selected.preset.snoozedUntil).toBe(new Date(2026, 9, 23, 14, 0).toISOString());
 });

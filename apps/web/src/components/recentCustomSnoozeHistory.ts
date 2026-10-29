@@ -7,8 +7,12 @@ import {
   RECENT_CUSTOM_SNOOZES_KEY,
   recentCustomSnoozes,
 } from "@t3tools/shared/recentCustomSnoozes";
+import type { EnvironmentId } from "@t3tools/contracts";
 import type { TimestampFormat } from "@t3tools/contracts/settings";
-import { resolveSnoozePresets as resolveUpstreamPresets } from "./Sidebar.snooze";
+import {
+  resolveSnoozePresets as resolveUpstreamPresets,
+  pickSnoozePreset as pickUpstreamPreset,
+} from "./Sidebar.snooze";
 import { formatShortTimestamp } from "../timestampFormat";
 
 export type ForkSnoozePreset = Omit<SnoozePreset, "id"> & { readonly id: string };
@@ -56,9 +60,10 @@ export function recentSnoozePresets(
 export function resolveSnoozePresets(
   now: Date,
   timestampFormat: TimestampFormat,
+  environmentId: EnvironmentId,
 ): ReadonlyArray<ForkSnoozePreset> {
   return [
-    ...resolveUpstreamPresets(now, timestampFormat),
+    ...resolveUpstreamPresets(now, timestampFormat, environmentId),
     ...recentSnoozePresets(now, timestampFormat),
   ];
 }
@@ -72,4 +77,15 @@ export function selectSnoozePreset(
   if (!choice || Date.parse(choice.snoozedUntil) <= now.getTime()) return undefined;
   if (choice.id.startsWith("recent:")) remember(choice.snoozedUntil, now);
   return choice;
+}
+
+export function pickSnoozePreset(
+  shown: ReadonlyArray<ForkSnoozePreset>,
+  id: string,
+  timestampFormat: TimestampFormat,
+  environmentId: EnvironmentId,
+) {
+  return id.startsWith("recent:")
+    ? selectSnoozePreset(shown, `snooze:${id}`)
+    : pickUpstreamPreset(shown, id, timestampFormat, environmentId);
 }

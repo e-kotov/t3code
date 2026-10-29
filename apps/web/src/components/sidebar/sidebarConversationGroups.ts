@@ -7,7 +7,7 @@ import type {
   SidebarConversationSortOrder,
 } from "@t3tools/contracts/settings";
 
-import { sortSidebarConversations } from "../../lib/threadSort";
+import { sortSidebarConversations } from "@t3tools/client-runtime/state/thread-sort";
 import type { SidebarListItem, SidebarSection } from "../Sidebar.logic";
 
 export interface SidebarConversationView {

@@ -236,7 +236,7 @@ export const builtInTailnet: BuiltInTailnet.BuiltInTailnet | undefined =
 
 /** Keeps the settings status fresh while a screen shows it. */
 export function useBuiltInTailnetStatusPolling(active: boolean) {
-  // oxlint-disable-next-line t3code/react-effect-budget -- Poll the native node while its settings are visible.
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Poll the native node while its settings are visible.
   useEffect(() => {
     if (!active || !builtInTailnetAvailable()) return;
     void refreshBuiltInTailnetStatus();

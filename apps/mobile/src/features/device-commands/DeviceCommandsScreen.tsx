@@ -75,7 +75,7 @@ export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
   const [outputId, setOutputId] = useState<string | null>(null);
   const [active, setActive] = useState(AppState.currentState === "active");
   const refresh = useCallback(() => setSnapshot(readSnapshot()), []);
-  // oxlint-disable-next-line t3code/react-effect-budget -- refresh commands on app active state
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- refresh commands on app active state
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (value) => {
       setActive(value === "active");
@@ -84,7 +84,7 @@ export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
     return () => subscription.remove();
   }, [refresh]);
   const running = state?.runs.some((run) => run.status === "running") ?? false;
-  // oxlint-disable-next-line t3code/react-effect-budget -- poll running commands while active
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- poll running commands while active
   useEffect(() => {
     if (!running || !active) return;
     const timer = setInterval(refresh, 1500);

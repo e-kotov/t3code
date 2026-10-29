@@ -14,7 +14,7 @@ export function ReferencedNewTaskDraftScreen({
   const { draftKey } = useNewTaskFlow();
   const applied = useRef(false);
   const projectId = props.initialProjectRef?.projectId;
-  // oxlint-disable-next-line t3code/react-effect-budget -- Seed the persistent draft after the destination project creates it.
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Seed the persistent draft after the destination project creates it.
   useEffect(() => {
     if (applied.current || !draftKey || !referenceThread || !projectId) return;
     const result = seedThreadReferenceDraft(draftKey, referenceThread, projectId);

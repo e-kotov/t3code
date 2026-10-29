@@ -1,5 +1,6 @@
 import { expect, it, vi } from "vite-plus/test";
 import { render } from "../../test/render";
+import { EnvironmentId } from "@t3tools/contracts";
 import { RECENT_CUSTOM_SNOOZES_KEY } from "@t3tools/shared/recentCustomSnoozes";
 import { Menu, MenuPopup, MenuTrigger } from "./ui/menu";
 import { RecentCustomSnoozeMenuItems } from "./recentCustomSnoozes";
@@ -52,8 +53,8 @@ it("makes custom dates available to context and bulk menus while preserving pres
   resolveCustomSnooze({ mode: "date", date: "invalid", time: "15:47" }, now);
   expect(saved).toBeNull();
   const selected = resolveCustomSnooze({ mode: "date", date: "2026-10-24", time: "15:47" }, now);
-  const presets = resolveSnoozePresets(now, "24-hour");
-  expect(presets[0]?.id).toBe("hour");
+  const presets = resolveSnoozePresets(now, "24-hour", EnvironmentId.makeUnsafe("test-environment"));
+  expect(presets[0]?.id).toBe("after:60");
   expect(presets.filter((preset) => preset.id.startsWith("recent:"))).toHaveLength(1);
   const action = `snooze:recent:${selected}`;
   expect(selectSnoozePreset(presets, action, now)?.snoozedUntil).toBe(selected);
