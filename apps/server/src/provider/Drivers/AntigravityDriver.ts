@@ -396,7 +396,7 @@ export const AntigravityDriver: ProviderDriver<
       profileDirectory,
       authMethod: auth.authMethod,
       summaryOnly: true,
-      runtimeVersion: installation.resolve(settings.binaryPath).pipe(
+      runtimeVersion: installation.resolve(settings.binaryPath, processEnvironment).pipe(
         Effect.map((executable) => executable.version),
         Effect.orElseSucceed(() => null),
       ),

@@ -79,7 +79,9 @@ export function buildAntigravityModelsFromSession(
             name: model.name,
           })) ?? [])
         : [];
-  const currentThinking = antigravityThinkingConfig(setup.configOptions);
+  const currentThinking = antigravityGroupedModels(setup)
+    ? undefined
+    : antigravityThinkingConfig(setup.configOptions);
   const seen = new Set<string>();
   // The agent can list two IDs under one name; label the later ones so the picker tells them apart.
   const names = new Set<string>();
