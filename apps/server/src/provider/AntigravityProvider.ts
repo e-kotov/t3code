@@ -65,7 +65,8 @@ export function buildAntigravityModelsFromSession(
   setup: SessionSetupResult,
   thinkingLevels: AntigravityThinkingLevels = new Map(),
 ): ReadonlyArray<ServerProviderModel> {
-  const config = antigravityGroupedModels(setup)
+  const grouped = antigravityGroupedModels(setup);
+  const config = grouped
     ? undefined
     : setup.configOptions?.find((option) => option.id === "model" || option.category === "model");
   const currentValue =
@@ -79,7 +80,7 @@ export function buildAntigravityModelsFromSession(
             name: model.name,
           })) ?? [])
         : [];
-  const currentThinking = antigravityGroupedModels(setup)
+  const currentThinking = grouped
     ? undefined
     : antigravityThinkingConfig(setup.configOptions);
   const seen = new Set<string>();
@@ -101,8 +102,9 @@ export function buildAntigravityModelsFromSession(
         ...(entry.value === currentValue
           ? { isDefault: true, aliases: [ANTIGRAVITY_DEFAULT_MODEL] }
           : {}),
-        capabilities:
-          observed === undefined
+        capabilities: grouped
+          ? EMPTY_MODEL_CAPABILITIES
+          : observed === undefined
             ? thinkingCapabilities(currentThinking, false)
             : thinkingCapabilities(observed, true),
       },

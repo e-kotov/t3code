@@ -439,14 +439,16 @@ it.layer(layerTest)("Antigravity provider snapshots", (it) => {
           "gemini-3.8-flash-high",
         );
 
-        yield* harness.provider.onConfigOptionsUpdated(
-          antigravity143Session.configOptions.map((option) =>
-            option.id === "model"
-              ? { ...option, currentValue: "claude-sonnet-5-5" }
-              : { ...option, currentValue: "low" },
-          ),
-        );
-        expect((yield* harness.provider.snapshot.getSnapshot).models).toEqual(snapshot.models);
+        for (const family of ["claude-sonnet-5-5", "gpt-oss-120b-medium"]) {
+          yield* harness.provider.onConfigOptionsUpdated(
+            antigravity143Session.configOptions.map((option) =>
+              option.id === "model"
+                ? { ...option, currentValue: family }
+                : { ...option, currentValue: "low" },
+            ),
+          );
+          expect((yield* harness.provider.snapshot.getSnapshot).models).toEqual(snapshot.models);
+        }
       }),
     ),
   );
