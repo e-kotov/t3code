@@ -1,5 +1,4 @@
 // @effect-diagnostics nodeBuiltinImport:off - Tests real Chromium and local proxy sockets.
-import * as NodeEvents from "node:events";
 import * as NodeFSP from "node:fs/promises";
 import * as NodeHttp from "node:http";
 import * as NodeNet from "node:net";
@@ -10,13 +9,16 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { BrowserProxyContexts } from "./BrowserProxyContexts.ts";
 
-const listen = async (server: NodeNet.Server) => {
-  server.listen(0, "127.0.0.1");
-  await NodeEvents.once(server, "listening");
-  const address = server.address();
-  if (!address || typeof address === "string") throw new Error("Missing fixture port.");
-  return address.port;
-};
+const listen = (server: NodeNet.Server) =>
+  new Promise<number>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", reject);
+      const address = server.address();
+      if (!address || typeof address === "string") reject(new Error("Missing fixture port."));
+      else resolve(address.port);
+    });
+  });
 
 const close = (server: NodeNet.Server) =>
   new Promise<void>((resolve, reject) =>
@@ -68,7 +70,8 @@ describe("browser proxy routes", () => {
         const upstream = NodeNet.connect(targetPort, "127.0.0.1", () => {
           socket.write(Buffer.from([5, 0, 0, 1, 127, 0, 0, 1, 0, 0]));
           if (remainder.length) upstream.write(remainder);
-          socket.pipe(upstream).pipe(socket);
+          socket.pipe(upstream);
+          upstream.pipe(socket);
         });
         sockets.add(upstream);
         upstream.on("close", () => sockets.delete(upstream));
