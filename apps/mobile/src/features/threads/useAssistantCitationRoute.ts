@@ -13,6 +13,7 @@ export function useAssistantCitationRoute(environmentId: string | null, threadId
   );
   const focused = useIsFocused();
   const routeKey = useRoute().key;
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Reconcile citation navigation with the focused native route.
   useEffect(() => {
     if (request)
       reconcileAssistantCitationRoute(request.id, environmentId, threadId, focused, routeKey);

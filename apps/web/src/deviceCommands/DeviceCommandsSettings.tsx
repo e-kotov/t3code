@@ -29,6 +29,7 @@ export function DeviceCommandsSettings() {
   const [error, setError] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const items = draft ?? commands;
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Read the desktop command file through IPC when this settings view mounts.
   useEffect(() => {
     ensureDeviceCommandsLoaded();
   }, []);

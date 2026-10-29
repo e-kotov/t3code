@@ -137,6 +137,7 @@ function Service({
 export function UtilitiesSection() {
   const { snapshot, error, now, statuses } = useDeviceUtilities();
   const [settings, setSettings] = useState(false);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Refresh the native utility checks when their dashboard becomes visible.
   useEffect(() => {
     refreshUtilities(true);
   }, []);

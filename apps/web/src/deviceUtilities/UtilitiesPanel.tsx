@@ -159,6 +159,7 @@ function ServiceRow({
 function UtilitiesContent() {
   const { snapshot, error, now, statuses } = useDeviceUtilities();
   const commands = useDeviceCommandsStore((s) => s.commands);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Read the desktop command file through IPC when its utility panel mounts.
   useEffect(() => {
     ensureDeviceCommandsLoaded();
   }, []);

@@ -42,11 +42,13 @@ export function useAssistantCitationSheet(input: {
 }) {
   const { environmentId, threadId, composerDraftKey, canInsert } = input;
   const latestInput = useRef(input);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keep native citation callbacks on the latest committed composer target.
   useLayoutEffect(() => {
     latestInput.current = input;
   }, [input]);
   const [pending, setPending] = useState<PendingQuote | null>(null);
   const nextPendingId = useRef(0);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Subscribe to Android citation selections while the composer is mounted.
   useEffect(() => {
     if (Platform.OS !== "android") return;
     const subscription = addAssistantCitationSelectionListener((selection) => {

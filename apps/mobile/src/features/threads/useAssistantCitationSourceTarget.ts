@@ -204,6 +204,7 @@ export function useAssistantCitationSourceTarget(input: {
           fail("Could not scroll to the cited response. Try again.");
       });
   });
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Navigate to the requested citation after its source history becomes available.
   useEffect(() => {
     navigate();
   }, [

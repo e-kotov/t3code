@@ -11,6 +11,7 @@ import {
 
 export function useDeviceCommandPaletteItems(): CommandPaletteActionItem[] {
   const commands = useDeviceCommandsStore((state) => state.commands);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Read the desktop command file through IPC while palette commands are available.
   useEffect(() => {
     ensureDeviceCommandsLoaded();
   }, []);

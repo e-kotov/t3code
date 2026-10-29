@@ -99,6 +99,7 @@ export function DirectNotificationsCoordinator() {
   const enabled = useDirectNotificationsEnabled();
   const { savedConnectionsById, isLoadingSavedConnection } = useSavedRemoteConnections();
   const environments = useWorkspaceEnvironments();
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keep the Android notification listener in step with the connected environments.
   useEffect(() => {
     if (!supportsDirectNotifications()) return;
     const update = () => {

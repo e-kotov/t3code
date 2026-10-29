@@ -75,6 +75,7 @@ function subscribeUtilities() {
 }
 export function useDeviceUtilities() {
   const state = useUtilitiesStore();
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Hold the desktop utility heartbeat and visibility listener while a view is mounted.
   useEffect(() => subscribeUtilities(), []);
   const statuses = state.snapshot ? utilityStatuses(state.snapshot, state.now) : [];
   return {
