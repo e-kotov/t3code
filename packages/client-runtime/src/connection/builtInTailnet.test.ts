@@ -68,11 +68,16 @@ function fakeDriver(script: {
   readonly answers: ReadonlySet<string>;
   readonly connects: ReadonlySet<string>;
   readonly unsupported?: boolean;
+  readonly preflights?: ReadonlyMap<string, ConnectionDriver.RoutePreflight>;
 }) {
   const attempts: Array<ReadonlyArray<string | null>> = [];
   const driver = ConnectionDriver.ConnectionDriver.of({
-    preflight: (_entry, route) =>
-      Effect.succeed(script.answers.has(routeHttpBaseUrl(route) ?? "") ? "ready" : "silent"),
+    preflight: (_entry, route) => {
+      const url = routeHttpBaseUrl(route) ?? "";
+      return Effect.succeed(
+        script.preflights?.get(url) ?? (script.answers.has(url) ? "ready" : "silent"),
+      );
+    },
     checkHost: (prepared) =>
       Effect.succeed(script.answers.has(prepared.httpBaseUrl) ? "answered" : "silent"),
     connect: (entry) => {
@@ -278,6 +283,17 @@ describe("built-in Tailscale routes", () => {
       expect(yield* first.preflight(ENTRY, TAILNET)).toBe("ready");
       const last = withBuiltInTailnet(driver, fakeTailnet("last").tailnet);
       expect(yield* last.preflight(ENTRY, TAILNET)).toBe("silent");
+      for (const forwardedReady of [false, true]) {
+        const answering = fakeDriver({
+          answers: new Set(forwardedReady ? [FORWARDED_URL] : []),
+          connects: new Set(),
+          preflights: new Map([[TAILNET_URL, "unprepared"]]),
+        });
+        const recovery = withBuiltInTailnet(answering.driver, fakeTailnet("first").tailnet);
+        expect(yield* recovery.preflight(ENTRY, TAILNET)).toBe(
+          forwardedReady ? "ready" : "unprepared",
+        );
+      }
     }),
   );
 
