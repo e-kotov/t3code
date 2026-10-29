@@ -12,7 +12,7 @@ import * as PreviewManager from "./Manager.ts";
 
 const make = Effect.gen(function* () {
   const manager = yield* PreviewManager.PreviewManager;
-  const settings = yield* ServerSettings.ServerSettings;
+  const settings = yield* ServerSettings.ServerSettingsService;
   const browser = yield* PreviewBrowser.PreviewBrowser;
   return PreviewManager.PreviewManager.of({
     ...manager,

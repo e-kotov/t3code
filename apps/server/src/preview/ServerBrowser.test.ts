@@ -349,7 +349,7 @@ const dependencies = Layer.mergeAll(
 import * as ProxySettings from "../serverSettings.ts";
 
 const layer = ServerBrowser.layer.pipe(
-  Layer.provide(ProxySettings.ServerSettings.layerTest()),
+  Layer.provide(ProxySettings.ServerSettingsService.layerTest()),
   Layer.provideMerge(dependencies),
 );
 const ready = Effect.gen(function* () {

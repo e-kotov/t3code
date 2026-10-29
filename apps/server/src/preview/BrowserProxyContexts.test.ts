@@ -131,13 +131,20 @@ describe("browser proxy routes", () => {
         if (request.url() === protectedUrl) blockedPopup.resolve();
       });
       const popupOpened = httpPage.waitForEvent("popup");
-      await httpPage.evaluate((url) => {
-        window.open(url);
-      }, protectedUrl);
+      await httpPage.evaluate(`void window.open(${JSON.stringify(protectedUrl)})`);
       const popup = await popupOpened;
       await blockedPopup.promise;
       expect(requests).not.toContain(protectedUrl);
       await popup.close();
+      const redirectedPopupOpened = httpPage.waitForEvent("popup");
+      const redirectedPopupFailed = httpContext.waitForEvent("requestfailed", {
+        predicate: (request) => request.url() === protectedUrl,
+      });
+      await httpPage.evaluate('void window.open("http://route-check.invalid/redirect-protected")');
+      const redirectedPopup = await redirectedPopupOpened;
+      await redirectedPopupFailed;
+      expect(requests).not.toContain(protectedUrl);
+      await redirectedPopup.close();
       await httpPage.goto(directUrl.replace("proxy-direct.test", address));
       expect(await httpPage.textContent("body")).toBe("reachable directly");
 

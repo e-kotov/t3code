@@ -458,7 +458,7 @@ const CLIPBOARD_SCRIPT = `(() => {
 
 const make = Effect.gen(function* () {
   const config = yield* ServerConfig.ServerConfig;
-  const proxySettings = yield* ServerSettings.ServerSettings;
+  const proxySettings = yield* ServerSettings.ServerSettingsService;
   const host = { platform: yield* HostProcess.Platform, arch: yield* HostProcess.Architecture };
   const manager = yield* PreviewManager.PreviewManager;
   const broker = yield* PreviewAutomationBroker.PreviewAutomationBroker;

@@ -11,14 +11,13 @@ import * as PreviewManager from "./Manager.ts";
 import * as ProxyManager from "./BrowserProxyManager.ts";
 import * as ProxySettings from "../serverSettings.ts";
 import * as PreviewBrowser from "./PreviewBrowser.ts";
-import * as Option from "effect/Option";
 
 const layer = ProxyManager.layer.pipe(
-  Layer.provideMerge(ProxySettings.ServerSettings.layerTest()),
+  Layer.provideMerge(ProxySettings.ServerSettingsService.layerTest()),
   Layer.provide(
     Layer.succeed(PreviewBrowser.PreviewBrowser, {
       executable: Effect.succeed("/fixture/chrome"),
-      installed: Effect.succeed(Option.none()),
+      installed: Effect.succeedNone,
     }),
   ),
   Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "t3-proxy-manager-" })),
@@ -32,7 +31,7 @@ it.layer(layer)("proxy tab ownership", (it) => {
       const manager = yield* PreviewManager.PreviewManager;
       const threadId = ThreadId.make("proxy-thread");
       const proxyUrl = "socks5://127.0.0.1:1080";
-      const settings = yield* ProxySettings.ServerSettings;
+      const settings = yield* ProxySettings.ServerSettingsService;
       yield* settings.updateSettings({ browserProxy: { enabled: true, url: proxyUrl } });
       const scheduled = yield* manager.open({ threadId, url: "https://example.com" });
       expect(scheduled.proxyUrl).toBe(proxyUrl);
@@ -79,7 +78,7 @@ it.effect("rejects unsupported proxy hosts before publishing a tab", () =>
   }).pipe(
     Effect.provide(
       ProxyManager.layer.pipe(
-        Layer.provide(ProxySettings.ServerSettings.layerTest()),
+        Layer.provide(ProxySettings.ServerSettingsService.layerTest()),
         Layer.provide(
           Layer.succeed(PreviewBrowser.PreviewBrowser, {
             executable: Effect.fail(
@@ -88,7 +87,7 @@ it.effect("rejects unsupported proxy hosts before publishing a tab", () =>
                 arch: "arm64",
               }),
             ),
-            installed: Effect.succeed(Option.none()),
+            installed: Effect.succeedNone,
           }),
         ),
         Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "t3-proxy-unsupported-" })),

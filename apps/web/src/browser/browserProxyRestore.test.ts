@@ -12,7 +12,9 @@ it("restores the recorded route and runtime even after defaults change", () => {
     runtime: "server",
   });
   expect(browserProxyRestoreInput({ runtime: "desktop" } as PreviewSessionSnapshot)).toEqual({
-    proxyUrl: "",
     runtime: "desktop",
   });
+  expect(
+    browserProxyRestoreInput({ proxyUrl: "", runtime: "desktop" } as PreviewSessionSnapshot),
+  ).toEqual({ proxyUrl: "", runtime: "desktop" });
 });

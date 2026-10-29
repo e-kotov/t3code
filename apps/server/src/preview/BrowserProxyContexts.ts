@@ -1,11 +1,12 @@
 // @effect-diagnostics nodeBuiltinImport:off - Owns Playwright resources outside the Effect runtime.
-import { isProtectedBrowserAsset, normalizeBrowserProxyUrl } from "@t3tools/contracts";
+import { normalizeBrowserProxyUrl } from "@t3tools/contracts";
 import * as NodeCrypto from "node:crypto";
 import * as NodeFSP from "node:fs/promises";
 import * as NodePath from "node:path";
 import type { BrowserContext } from "playwright-core";
 
 import { ServerBrowserContexts } from "./ServerBrowserContexts.ts";
+import { guardBrowserProxyRequests } from "./BrowserProxyRequests.ts";
 
 type Options = ConstructorParameters<typeof ServerBrowserContexts>[0];
 interface RoutePool {
@@ -88,10 +89,12 @@ export class BrowserProxyContexts {
     try {
       const context = await record.pool.contextFor(profileId, isolationKey);
       if (route && !this.watched.has(context)) {
-        await context.route(
-          (url) => isProtectedBrowserAsset(url.href),
-          (request) => request.abort("blockedbyclient"),
-        );
+        try {
+          await guardBrowserProxyRequests(context);
+        } catch (cause) {
+          await context.close().catch(() => {});
+          throw cause;
+        }
         this.watched.add(context);
         context.on("page", (page) =>
           page.once("close", () => {
@@ -172,7 +175,7 @@ export class BrowserProxyContexts {
 
   async close() {
     this.closed = true;
-    await Promise.all([...this.profileOperations.values()]);
+    await Promise.all(this.profileOperations.values());
     await Promise.all([...this.pools.values()].map((record) => record.pool.close()));
     await Promise.all(this.retiring.values());
   }

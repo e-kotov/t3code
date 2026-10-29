@@ -22,14 +22,14 @@ it.effect("reloads the environment proxy after the settings service restarts wit
   Effect.gen(function* () {
     const proxy = { enabled: true, url: "socks5://127.0.0.1:1080" };
     yield* Effect.gen(function* () {
-      const settings = yield* Settings.ServerSettings;
+      const settings = yield* Settings.ServerSettingsService;
       yield* settings.updateSettings({ browserProxy: proxy });
     }).pipe(Effect.provide(Layer.fresh(Settings.layer)));
     const fs = yield* FileSystem.FileSystem;
     const config = yield* ServerConfig.ServerConfig;
     expect(JSON.parse(yield* fs.readFileString(config.settingsPath)).browserProxy).toEqual(proxy);
     const restored = yield* Effect.gen(function* () {
-      const settings = yield* Settings.ServerSettings;
+      const settings = yield* Settings.ServerSettingsService;
       return (yield* settings.getSettings).browserProxy;
     }).pipe(Effect.provide(Layer.fresh(Settings.layer)));
     expect(restored).toEqual(proxy);
