@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       regression_ref:
-        description: Optional pre-fix commit to prove workspace regressions
+        description: Optional pre-fix commit to prove scratch launch isolation
         type: string
         default: ""
   pull_request:
@@ -17,6 +17,8 @@ on:
       - "apps/mobile/src/features/threads/seedThreadReferenceDraft*"
       - "apps/mobile/src/features/threads/ReferencedNewTaskDraftScreen*"
       - "apps/mobile/fork-react-tests.ts"
+      - "apps/server/src/orchestration-v2/scratchThreadLaunch.ts"
+      - "apps/server/src/orchestration-v2/ThreadLaunchService*"
   push:
     branches: [main]
     paths: *thread-paths
@@ -25,7 +27,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: thread-creation-${{ github.head_ref || github.ref_name }}
+  group: thread-creation-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}-${{ inputs.regression_ref || 'head' }}
   cancel-in-progress: true
 
 jobs:
@@ -58,43 +60,35 @@ jobs:
           if [ "$base" = "$(git rev-parse HEAD)" ]; then base=HEAD^; fi
           git diff --name-only --diff-filter=AM -z "$base" HEAD |
             xargs -0 -r vp fmt --check
-      - name: Prove workspace regressions on an explicit pre-fix revision
+      - name: Prove scratch launch isolation on a pre-fix revision
         if: github.event_name == 'workflow_dispatch' && inputs.regression_ref != ''
         env:
           REGRESSION_REF: ${{ inputs.regression_ref }}
         run: |
           git fetch --no-tags origin "$REGRESSION_REF"
           baseline=$(git rev-parse FETCH_HEAD)
-          sources=(apps/web/src/components/threadReferenceContextMenu.ts apps/mobile/src/features/threads/useNewThreadReferenceMenu.ts apps/mobile/src/features/threads/newThreadReference.ts apps/mobile/src/features/threads/ReferencedNewTaskDraftScreen.tsx apps/mobile/src/features/threads/seedThreadReferenceDraft.ts)
-          for index in "${!sources[@]}"; do
-            cp "${sources[$index]}" "$RUNNER_TEMP/menu-$index.ts"
-          done
-          restore() {
-            for index in "${!sources[@]}"; do
-              cp "$RUNNER_TEMP/menu-$index.ts" "${sources[$index]}"
-            done
-          }
-          trap restore EXIT
-          for source in "${sources[@]}"; do git show "$baseline:$source" > "$source"; done
-          tests=(apps/web/src/components/threadReferenceContextMenu.test.ts apps/mobile/src/features/threads/useNewThreadReferenceMenu.test.ts apps/mobile/src/features/threads/ReferencedNewTaskDraftScreen.test.tsx)
-          for index in "${!tests[@]}"; do
-            report="$RUNNER_TEMP/menu-regression-$index.json"
-            if vp test run "${tests[$index]}" -t 'allocates a fresh scratch workspace|persists an explicit branch-less workspace' --reporter=json --outputFile="$report"; then
-              echo 'The scratch regression must fail on the selected pre-fix revision.'
-              exit 1
-            fi
-            python3 - "$report" <<'PYTHON'
+          source=apps/server/src/orchestration-v2/ThreadLaunchService.ts
+          cp "$source" "$RUNNER_TEMP/ThreadLaunchService.ts"
+          trap 'cp "$RUNNER_TEMP/ThreadLaunchService.ts" "$source"' EXIT
+          git show "$baseline:$source" > "$source"
+          report="$RUNNER_TEMP/scratch-launch-regression.json"
+          if vp test run apps/server/src/orchestration-v2/ThreadLaunchService.test.ts -t 'isolates scratch launches' --reporter=json --outputFile="$report"; then
+            echo 'Scratch isolation must fail on the selected pre-fix revision.'
+            exit 1
+          fi
+          python3 - "$report" <<'PYTHON'
           import json, pathlib, sys
           result = json.loads(pathlib.Path(sys.argv[1]).read_text())
           failed = [test for suite in result['testResults'] for test in suite.get('assertionResults', []) if test['status'] == 'failed']
-          assert result['numFailedTests'] == len(failed) == 2, result
+          expected = {f'isolates scratch launches for {name} ({actor})' for name in ['existing-folder', 'branched-existing-folder'] for actor in ['user', 'agent']}
+          assert result['numFailedTests'] == len(failed) == 4, result
+          assert {test['fullName'] for test in failed} == expected, failed
           for test in failed:
-              assert any(name in test['fullName'] for name in ['allocates a fresh scratch workspace', 'persists an explicit branch-less workspace']), test
               messages = '\n'.join(test['failureMessages'])
               assert 'AssertionError' in messages, test
-              assert any(folder in messages for folder in ['/scratch/old-thread', '/old-folder']), test
+              assert 'scratch workspace must belong to the new thread' in messages and '/scratch/old-thread' in messages, test
+          print('Verified four expected scratch workspace failures against the pre-fix service.')
           PYTHON
-          done
       - name: Check changed code and thread creation
         run: |
           base=$(git merge-base origin/main HEAD)

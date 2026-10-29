@@ -1,3 +1,4 @@
+import { normalizeScratchThreadLaunch } from "./scratchThreadLaunch.ts";
 import * as WorktreeSetupTracker from "../project/WorktreeSetupTracker.ts";
 import * as ProjectCloneTracker from "../project/ProjectCloneTracker.ts";
 import * as TerminalManager from "../terminal/Manager.ts";
@@ -808,7 +809,12 @@ const make = Effect.gen(function* () {
   });
 
   const launch: ThreadLaunchService["Service"]["launch"] = Effect.fn("ThreadLaunchService.launch")(
-    function* (request) {
+    function* (launchRequest) {
+      const request = normalizeScratchThreadLaunch(
+        launchRequest,
+        yield* managedFolders.isScratchProject(launchRequest.projectId),
+      );
+      // Retain the upstream fallback for merge alignment; Scratch was normalized above.
       // Scratch has no Git repository. Normalize before folder allocation so
       // durable preparation and retries use the thread's own Scratch folder.
       const input: ThreadLaunchInput =

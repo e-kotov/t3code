@@ -15,6 +15,7 @@ import { DraftComposerAttachmentSchema } from "../../lib/composer-image-schema";
 import { fitComposerImage } from "../../lib/composerImageFit";
 import type { DraftComposerAttachment } from "../../lib/composerImages";
 import { estimateBase64ByteSize } from "../../lib/base64";
+import { forkRepairSharedDraft } from "./forkSharedAttachmentIds";
 
 export interface IncomingShareDraft {
   readonly schemaVersion: 1;
@@ -51,7 +52,7 @@ export const IncomingShareDraftSchema = Schema.Struct({
 const decodeIncomingShareDraftSync = Schema.decodeUnknownSync(IncomingShareDraftSchema);
 
 export function decodeIncomingShareDraft(value: unknown): IncomingShareDraft {
-  return decodeIncomingShareDraftSync(value);
+  return decodeIncomingShareDraftSync(forkRepairSharedDraft(value));
 }
 
 /** Strip iOS /private so /var and /private/var paths compare equally. */
@@ -334,7 +335,7 @@ export async function buildIncomingShareDraft(input: {
           }
         }
         attachments.push({
-          id: `${input.id}:file:${index}`,
+          id: `${input.id}_file_${index}`,
           type: "file",
           name,
           mimeType,
@@ -399,7 +400,7 @@ export async function buildIncomingShareDraft(input: {
       }
       const dataUrl = `data:${mimeType};base64,${base64}`;
       attachments.push({
-        id: `${input.id}:image:${index}`,
+        id: `${input.id}_image_${index}`,
         type: "image",
         name: resolved?.originalName ?? fallbackName(uri, index, mimeType),
         mimeType,
