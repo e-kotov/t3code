@@ -6,7 +6,7 @@
     "apps/desktop/src/ipc/DesktopIpcHandlers.ts": 5,
     "apps/desktop/src/ipc/channels.ts": 1,
     "apps/desktop/src/preload.ts": 3,
-    "apps/mobile/app.config.ts": 18,
+    "apps/mobile/app.config.ts": 25,
     "apps/mobile/modules/t3-agent-notifications/android/build.gradle": 1,
     "apps/mobile/modules/t3-agent-notifications/android/src/main/AndroidManifest.xml": 5,
     "apps/mobile/modules/t3-agent-notifications/android/src/main/java/expo/modules/t3agentnotifications/AgentNotifications.kt": 16,
