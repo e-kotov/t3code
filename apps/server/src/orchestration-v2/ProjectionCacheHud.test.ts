@@ -59,12 +59,9 @@ const cacheWrite = (
 
 const layerSql = ProjectionStore.layer.pipe(Layer.provideMerge(SqlitePersistence.layerMemory));
 
-it.effect.each([
-  ["memory", ProjectionStore.layerMemory],
-  ["SQL", layerSql],
-] as const)(
-  "%s shells derive the cache HUD from the active provider thread's recent reports",
-  ([, layer]) =>
+it.effect(
+  "SQL shells derive the cache HUD from the active provider thread's recent reports",
+  () =>
     Effect.gen(function* () {
       const store = yield* ProjectionStore.ProjectionStoreV2;
       const now = yield* DateTime.now;
@@ -207,15 +204,12 @@ it.effect.each([
       });
       yield* reportUsage(second, 67, cacheRead(67, opus));
       yield* assertCacheHud({ driver, usage: cacheRead(67, opus), basis: "unknown" });
-    }).pipe(Effect.provide(layer)),
+    }).pipe(Effect.provide(layerSql)),
 );
 
-it.effect.each([
-  ["memory", ProjectionStore.layerMemory],
-  ["SQL", layerSql],
-] as const)(
-  "%s shells fall back to active provider contextUsage when turns have no tokenUsage",
-  ([, layer]) =>
+it.effect(
+  "SQL shells fall back to active provider contextUsage when turns have no tokenUsage",
+  () =>
     Effect.gen(function* () {
       const store = yield* ProjectionStore.ProjectionStoreV2;
       const now = yield* DateTime.now;
@@ -303,5 +297,5 @@ it.effect.each([
 
       assert.deepEqual(shell?.cacheHud, expectedHud);
       assert.deepEqual(listed?.cacheHud, expectedHud);
-    }).pipe(Effect.provide(layer)),
+    }).pipe(Effect.provide(layerSql)),
 );

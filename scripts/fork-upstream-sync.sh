@@ -124,7 +124,7 @@ case "$cmd" in
     cat >> "$RUNNER_TEMP/fork-tests.txt" <<'TESTS'
 apps/desktop src/electron/ElectronShell.test.ts
 apps/mobile src/reactCompilerCoverage.test.ts
-apps/mobile src/features/settings/SettingsRouteScreen.logic.test.ts
+apps/mobile src/features/settings/settings-search.test.ts
 apps/mobile src/features/threads/threadListV2.test.ts
 apps/mobile src/features/workspace/workspace-tabs-state.test.ts
 apps/server src/orchestration-v2/IdleCompaction.test.ts
