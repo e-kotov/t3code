@@ -304,7 +304,8 @@ jobs:
           [[ -n "$KEYSTORE" && -n "$STORE_PASSWORD" && -n "$KEY_PASSWORD" ]] || { echo 'Configure the Android release signing secrets.'; exit 1; }
       - run: vp install --filter=@t3tools/mobile...
       - name: Check standalone startup without an Expo project
-        run: vp test run apps/mobile/src/features/observability/forkObserve.test.ts
+        working-directory: apps/mobile
+        run: vp test run fork-app-identity.test.ts src/features/observability/forkObserve.test.ts
       - run: vp run --filter @t3tools/mobile typecheck
       - run: vp exec --filter @t3tools/mobile -- expo prebuild --clean --platform android --no-install
       - name: Require standalone startup without native Observe
