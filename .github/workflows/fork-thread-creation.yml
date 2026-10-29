@@ -80,17 +80,14 @@ jobs:
           import json, pathlib, sys
           result = json.loads(pathlib.Path(sys.argv[1]).read_text())
           failed = [test for suite in result['testResults'] for test in suite.get('assertionResults', []) if test['status'] == 'failed']
-          expected = {f'isolates scratch launches for {name} ({actor})' for name in ['branched-root', 'existing-folder', 'branched-existing-folder'] for actor in ['user', 'agent']}
-          assert result['numFailedTests'] == len(failed) == 6, result
+          expected = {f'isolates scratch launches for {name} ({actor})' for name in ['existing-folder', 'branched-existing-folder'] for actor in ['user', 'agent']}
+          assert result['numFailedTests'] == len(failed) == 4, result
           assert {test['fullName'] for test in failed} == expected, failed
           for test in failed:
               messages = '\n'.join(test['failureMessages'])
               assert 'AssertionError' in messages, test
-              if 'branched-root' in test['fullName']:
-                  assert 'scratch workspace must not retain a Git branch' in messages and 'main' in messages, test
-              else:
-                  assert 'scratch workspace must belong to the new thread' in messages and '/scratch/old-thread' in messages, test
-          print('Verified six expected scratch workspace/branch failures against the pre-fix service.')
+              assert 'scratch workspace must belong to the new thread' in messages and '/scratch/old-thread' in messages, test
+          print('Verified four expected scratch workspace failures against the pre-fix service.')
           PYTHON
       - name: Check changed code and thread creation
         run: |

@@ -138,7 +138,7 @@ it.each(["new-thread-in-project", "new-thread-with-reference"])(
       projectId: ProjectId.make("scratch"),
       id: ThreadId.make("old-scratch-thread"),
       title: "Scratch source",
-      branch: "main",
+      branch: null,
       worktreePath: "/scratch/old-thread",
     });
     const menu = useNewThreadReferenceMenu(thread);

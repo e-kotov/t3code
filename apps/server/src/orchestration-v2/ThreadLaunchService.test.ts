@@ -982,6 +982,7 @@ it.effect.each(
         workspace,
       }),
       createdBy,
+      creationSource: request.creationSource,
     });
     const otherScratch = yield* preparationSettled(second.threadId);
     assert.equal(otherScratch.thread.worktreePath, "/scratch/folder-2");

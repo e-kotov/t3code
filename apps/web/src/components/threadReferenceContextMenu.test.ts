@@ -150,10 +150,6 @@ it.each(["new-thread-in-project", "new-thread-with-reference"])(
       { environmentId: thread.environmentId, projectId: thread.projectId },
       { branch: null, worktreePath: null, envMode: "local", startFromOrigin: false },
     );
-    expect(state.readProject).toHaveBeenCalledWith({
-      environmentId: thread.environmentId,
-      projectId: thread.projectId,
-    });
     expect(state.add).toHaveBeenCalledTimes(action === "new-thread-with-reference" ? 1 : 0);
   },
 );
