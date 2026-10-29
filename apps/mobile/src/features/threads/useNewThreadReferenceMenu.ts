@@ -26,9 +26,11 @@ export function useNewThreadReferenceMenu(thread: EnvironmentThreadShell) {
   ];
   const handleAction = (event: string) => {
     if (event !== ACTION && event !== NEW_THREAD_IN_PROJECT) return false;
-    const scratch = thread.worktreePath !== null && appAtomRegistry.get(
-      environmentProjects.projectAtom(scopeProjectRef(thread.environmentId, thread.projectId)),
-    )?.isScratch === true;
+    const scratch =
+      thread.worktreePath !== null &&
+      appAtomRegistry.get(
+        environmentProjects.projectAtom(scopeProjectRef(thread.environmentId, thread.projectId)),
+      )?.isScratch === true;
     const draft =
       event === ACTION
         ? newThreadReferenceRoute(thread, uuidv4(), scratch)

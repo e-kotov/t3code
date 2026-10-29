@@ -938,8 +938,20 @@ it.effect.each(
     { name: "new-worktree", workspace: worktreeStrategy, createdBy },
     { name: "root", workspace: { type: "root" as const }, createdBy },
     { name: "branched-root", workspace: { type: "root" as const, branch: "main" }, createdBy },
-    { name: "existing-folder", workspace: { type: "existing_worktree" as const, worktreePath: "/scratch/old-thread" }, createdBy },
-    { name: "branched-existing-folder", workspace: { type: "existing_worktree" as const, worktreePath: "/scratch/old-thread", branch: "main" }, createdBy },
+    {
+      name: "existing-folder",
+      workspace: { type: "existing_worktree" as const, worktreePath: "/scratch/old-thread" },
+      createdBy,
+    },
+    {
+      name: "branched-existing-folder",
+      workspace: {
+        type: "existing_worktree" as const,
+        worktreePath: "/scratch/old-thread",
+        branch: "main",
+      },
+      createdBy,
+    },
   ]),
 )("isolates scratch launches for $name ($createdBy)", ({ workspace, createdBy }) => {
   const harness = scratchHarness();
@@ -953,11 +965,15 @@ it.effect.each(
         workspace,
       }),
       createdBy,
-      creationSource: createdBy === "agent" ? "mcp" as const : "web" as const,
+      creationSource: createdBy === "agent" ? ("mcp" as const) : ("web" as const),
     };
     const launched = yield* launches.launch(request);
     const scratch = yield* preparationSettled(launched.threadId);
-    assert.equal(scratch.thread.worktreePath, "/scratch/folder-1", "scratch workspace must belong to the new thread");
+    assert.equal(
+      scratch.thread.worktreePath,
+      "/scratch/folder-1",
+      "scratch workspace must belong to the new thread",
+    );
     assert.equal(scratch.thread.branch, null, "scratch workspace must not retain a Git branch");
     assert.equal(scratch.runs[0]?.status, "starting");
     assert.deepEqual(scratch.runs[0]?.workspacePreparation, {
@@ -998,8 +1014,12 @@ it.effect.each(
     });
     const git = yield* preparationSettled(other.threadId);
     assert.equal(git.runs[0]?.status, "starting");
-    const expectedFolder = workspace.type === "worktree" ? "/other-repo-worktrees/feature"
-      : workspace.type === "existing_worktree" ? workspace.worktreePath : null;
+    const expectedFolder =
+      workspace.type === "worktree"
+        ? "/other-repo-worktrees/feature"
+        : workspace.type === "existing_worktree"
+          ? workspace.worktreePath
+          : null;
     assert.equal(git.thread.worktreePath, expectedFolder);
     if (workspace.type === "worktree") {
       assert.equal(git.runs[0]?.workspacePreparation?.type, "worktree");
