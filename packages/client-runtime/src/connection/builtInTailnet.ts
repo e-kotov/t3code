@@ -246,11 +246,13 @@ export function withBuiltInTailnet(
               const port = ports.get(target);
               return port === undefined
                 ? Effect.succeed(direct)
-                : driver.preflight(entry, forwardedRoute(route, port)).pipe(
-                    Effect.map((forwarded) =>
-                      direct === "unprepared" && forwarded !== "ready" ? direct : forwarded,
-                    ),
-                  );
+                : driver
+                    .preflight(entry, forwardedRoute(route, port))
+                    .pipe(
+                      Effect.map((forwarded) =>
+                        direct === "unprepared" && forwarded !== "ready" ? direct : forwarded,
+                      ),
+                    );
             }),
           ),
       ),
