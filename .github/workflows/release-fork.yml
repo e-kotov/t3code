@@ -303,6 +303,8 @@ jobs:
         run: |
           [[ -n "$KEYSTORE" && -n "$STORE_PASSWORD" && -n "$KEY_PASSWORD" ]] || { echo 'Configure the Android release signing secrets.'; exit 1; }
       - run: vp install --filter=@t3tools/mobile...
+      - name: Check standalone startup without an Expo project
+        run: vp test run apps/mobile/src/features/observability/forkObserve.test.ts
       - run: vp run --filter @t3tools/mobile typecheck
       - run: vp exec --filter @t3tools/mobile -- expo prebuild --clean --platform android --no-install
       # One Gradle run configures the project once for both tasks; a failing

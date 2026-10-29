@@ -1,4 +1,4 @@
-import { Observe } from "expo-observe";
+import { Observe } from "../features/observability/forkObserve";
 import { Component, type ReactNode } from "react";
 import { ScrollView, View } from "react-native";
 

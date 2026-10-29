@@ -43,7 +43,20 @@ jobs:
           git diff --binary > "$RUNNER_TEMP/sharing-format.patch"
       - name: Test incoming shares and document imports
         run: |
-          vp test run apps/mobile/src/features/sharing/forkIncomingShareEvents.test.ts apps/mobile/src/features/sharing/forkSharedDocuments.test.ts apps/mobile/src/features/sharing/forkShareDestinationController.test.ts apps/mobile/src/features/sharing/forkShareDestinations.test.ts apps/mobile/src/features/sharing/incoming-share-inbox.test.ts apps/mobile/src/features/sharing/incoming-share-model.test.ts apps/mobile/src/features/threads/incomingShareImport.test.ts
+          vp test run apps/mobile/src/features/observability/forkObserve.test.ts apps/mobile/src/features/sharing/forkIncomingShareEvents.test.ts apps/mobile/src/features/sharing/forkSharedDocuments.test.ts apps/mobile/src/features/sharing/forkShareDestinationController.test.ts apps/mobile/src/features/sharing/forkShareDestinations.test.ts apps/mobile/src/features/sharing/incoming-share-inbox.test.ts apps/mobile/src/features/sharing/incoming-share-model.test.ts apps/mobile/src/features/threads/incomingShareImport.test.ts
+      - name: Prove an unconfigured Observe module crashes before the fix
+        run: |
+          source=apps/mobile/src/features/observability/observe.ts
+          cp "$source" "$RUNNER_TEMP/observe.ts"
+          trap 'cp "$RUNNER_TEMP/observe.ts" "$source"' EXIT
+          git show "b39ffd011ddcea79c75b456c0a4db05cbb6efad0:$source" > "$source"
+          if vp test run apps/mobile/src/features/observability/forkObserve.test.ts > "$RUNNER_TEMP/observe-regression.log" 2>&1; then
+            cat "$RUNNER_TEMP/observe-regression.log"
+            echo 'The startup regression must fail when Observe is imported without a project ID.'
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/observe-regression.log"
+          python3 -c 'import os, pathlib; assert "Project ID is required to send observability metrics" in (pathlib.Path(os.environ["RUNNER_TEMP"]) / "observe-regression.log").read_text()'
       - name: Check changed code
         run: vp run check:changed origin/main
       - uses: actions/setup-java@v4
