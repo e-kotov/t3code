@@ -933,21 +933,48 @@ function scheduledTaskInput(id: string, targetProjectId: ProjectId) {
   };
 }
 
-it.effect("launches a worktree request for Scratch at the root, in its own folder", () => {
+it.effect.each(
+  (["user", "agent"] as const).flatMap((createdBy) => [
+    { name: "new-worktree", workspace: worktreeStrategy, createdBy },
+    { name: "root", workspace: { type: "root" as const }, createdBy },
+    { name: "branched-root", workspace: { type: "root" as const, branch: "main" }, createdBy },
+    {
+      name: "existing-folder",
+      workspace: { type: "existing_worktree" as const, worktreePath: "/scratch/old-thread" },
+      createdBy,
+    },
+    {
+      name: "branched-existing-folder",
+      workspace: {
+        type: "existing_worktree" as const,
+        worktreePath: "/scratch/old-thread",
+        branch: "main",
+      },
+      createdBy,
+    },
+  ]),
+)("isolates scratch launches for $name ($createdBy)", ({ workspace, createdBy }) => {
   const harness = scratchHarness();
   return Effect.gen(function* () {
     const launches = yield* ThreadLaunch.ThreadLaunchService;
-    const launched = yield* launches.launch(
-      launchInput({
+    const request = {
+      ...launchInput({
         command: "command:launch:scratch-worktree",
         thread: "thread:launch:scratch-worktree",
         message: "Tidy my notes",
-        workspace: worktreeStrategy,
+        workspace,
       }),
-    );
+      createdBy,
+      creationSource: createdBy === "agent" ? ("mcp" as const) : ("web" as const),
+    };
+    const launched = yield* launches.launch(request);
     const scratch = yield* preparationSettled(launched.threadId);
-    assert.equal(scratch.thread.worktreePath, "/scratch/folder-1");
-    // Released past preparation; provider execution is disabled here.
+    assert.equal(
+      scratch.thread.worktreePath,
+      "/scratch/folder-1",
+      "scratch workspace must belong to the new thread",
+    );
+    assert.equal(scratch.thread.branch, null, "scratch workspace must not retain a Git branch");
     assert.equal(scratch.runs[0]?.status, "starting");
     assert.deepEqual(scratch.runs[0]?.workspacePreparation, {
       type: "existing_worktree",
@@ -955,23 +982,53 @@ it.effect("launches a worktree request for Scratch at the root, in its own folde
     });
     assert.equal(harness.runSetup.mock.calls[0]?.[0]?.worktreePath, "/scratch/folder-1");
     assert.equal(harness.createWorktree.mock.calls.length, 0);
+    const retry = yield* launches.launch(request);
+    assert.equal(retry.threadId, launched.threadId);
+    assert.equal(retry.projection.thread.worktreePath, "/scratch/folder-1");
+    assert.equal(retry.projection.runs.length, 1);
+    assert.equal(harness.runSetup.mock.calls.length, 1);
+    assert.deepEqual(harness.claimed, [launched.threadId]);
 
-    // A Git project still gets the worktree it asked for.
+    const second = yield* launches.launch({
+      ...request,
+      ...launchInput({
+        command: "command:launch:scratch-second",
+        thread: "thread:launch:scratch-second",
+        message: "Tidy different notes",
+        workspace,
+      }),
+      createdBy,
+      creationSource: request.creationSource,
+    });
+    const otherScratch = yield* preparationSettled(second.threadId);
+    assert.equal(otherScratch.thread.worktreePath, "/scratch/folder-2");
+
     const other = yield* launches.launch({
       ...launchInput({
         command: "command:launch:git-worktree",
         thread: "thread:launch:git-worktree",
         message: "Build the feature",
-        workspace: worktreeStrategy,
+        workspace,
       }),
       projectId: otherProjectId,
     });
     const git = yield* preparationSettled(other.threadId);
     assert.equal(git.runs[0]?.status, "starting");
-    assert.equal(git.runs[0]?.workspacePreparation?.type, "worktree");
-    assert.equal(git.thread.worktreePath, "/other-repo-worktrees/feature");
-    assert.equal(harness.createWorktree.mock.calls[0]?.[0]?.cwd, "/other-repo");
-    assert.deepEqual(harness.claimed, [launched.threadId]);
+    const expectedFolder =
+      workspace.type === "worktree"
+        ? "/other-repo-worktrees/feature"
+        : workspace.type === "existing_worktree"
+          ? workspace.worktreePath
+          : null;
+    assert.equal(git.thread.worktreePath, expectedFolder);
+    if (workspace.type === "worktree") {
+      assert.equal(git.runs[0]?.workspacePreparation?.type, "worktree");
+      assert.equal(harness.createWorktree.mock.calls[0]?.[0]?.cwd, "/other-repo");
+    } else {
+      assert.equal(git.thread.branch, "branch" in workspace ? workspace.branch : null);
+      assert.equal(harness.createWorktree.mock.calls.length, 0);
+    }
+    assert.deepEqual(harness.claimed, [launched.threadId, second.threadId]);
   }).pipe(Effect.provide(harness.layer));
 });
 

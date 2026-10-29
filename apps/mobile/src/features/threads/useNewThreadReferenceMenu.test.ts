@@ -7,7 +7,17 @@ const state = vi.hoisted(() => ({
   select: vi.fn(),
   projects: [] as { id: string; environmentId: string; isScratch?: true }[],
 }));
-vi.mock("../../state/entities", () => ({ useProjects: () => state.projects }));
+vi.mock("../../state/atom-registry", () => ({
+  appAtomRegistry: {
+    get: (ref: { environmentId: string; projectId: string }) =>
+      state.projects.find(
+        (project) => project.environmentId === ref.environmentId && project.id === ref.projectId,
+      ) ?? null,
+  },
+}));
+vi.mock("../../state/projects", () => ({
+  environmentProjects: { projectAtom: (ref: unknown) => ref },
+}));
 beforeEach(() => {
   state.projects = [];
   state.select.mockClear();
@@ -118,4 +128,44 @@ it("does not treat a matching project ID on another environment as scratch", () 
   ];
   useNewThreadReferenceMenu(thread).handleAction("new-thread-in-project");
   expect(state.select.mock.calls[0]?.[0].params.draft.worktreePath).toBe("/detached-worktree");
+});
+
+it.each(["new-thread-in-project", "new-thread-with-reference"])(
+  "uses current scratch metadata when %s is selected from an already-open menu",
+  (action) => {
+    const thread = makeThreadShellFixture({
+      environmentId: EnvironmentId.make("remote"),
+      projectId: ProjectId.make("scratch"),
+      id: ThreadId.make("old-scratch-thread"),
+      title: "Scratch source",
+      branch: null,
+      worktreePath: "/scratch/old-thread",
+    });
+    const menu = useNewThreadReferenceMenu(thread);
+    state.projects = [
+      { environmentId: thread.environmentId, id: thread.projectId, isScratch: true },
+    ];
+    expect(menu.handleAction(action)).toBe(true);
+    const draft = state.select.mock.calls[0]?.[0].params.draft;
+    expect(draft.worktreePath).toBeNull();
+    expect(draft.branch).toBeNull();
+    expect(Boolean(draft.referenceThread)).toBe(action === "new-thread-with-reference");
+  },
+);
+
+it("opens a draft in the selected scope when its project is not in the client cache", () => {
+  const thread = makeThreadShellFixture({
+    environmentId: EnvironmentId.make("remote"),
+    projectId: ProjectId.make("missing-project"),
+    id: ThreadId.make("orphan-thread"),
+    title: "Orphan source",
+    branch: null,
+    worktreePath: "/old-folder",
+  });
+  useNewThreadReferenceMenu(thread).handleAction("new-thread-in-project");
+  expect(state.select.mock.calls[0]?.[0].params.draft).toMatchObject({
+    environmentId: thread.environmentId,
+    projectId: thread.projectId,
+    worktreePath: "/old-folder",
+  });
 });
