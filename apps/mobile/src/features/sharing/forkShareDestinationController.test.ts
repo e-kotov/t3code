@@ -48,7 +48,7 @@ const shared: IncomingShareDraft = {
   warnings: [],
 };
 
-function setup(initial: IncomingShareDraft = shared) {
+async function setup(initial: IncomingShareDraft = shared, hydration = Promise.resolve(), skipPreparation = false) {
   const registry = AtomRegistry.make();
   const stored = new Map([[initial.id, initial]]);
   let drafts: Record<string, ComposerDraft> = {
@@ -100,6 +100,7 @@ function setup(initial: IncomingShareDraft = shared) {
   const validate = vi.fn();
   const controller = makeForkShareDestinationController({
     imports: deps,
+    waitForDrafts: () => hydration,
     currentThread: () => current,
     draftKey: (destination) => `${destination.environmentId}:${destination.threadId}`,
     validate,
@@ -107,6 +108,7 @@ function setup(initial: IncomingShareDraft = shared) {
     openNew,
   });
   controller.present([initial]);
+  if (!skipPreparation) await controller.prepared();
   return {
     controller,
     deps,
@@ -125,7 +127,7 @@ describe("Android share destinations", () => {
   it.each([current, other])(
     "imports into $threadId without replacing other unsent content",
     async (destination) => {
-      const test = setup();
+      const test = await setup();
       try {
         expect(test.controller.getSnapshot()?.current).toEqual(current);
         await test.controller.choose(destination);
@@ -149,8 +151,8 @@ describe("Android share destinations", () => {
     },
   );
 
-  it("keeps the new-conversation path and ignores replays while it owns the share", () => {
-    const test = setup();
+  it("keeps the new-conversation path and ignores replays while it owns the share", async () => {
+    const test = await setup();
     try {
       test.controller.newConversation();
       test.controller.present([shared]);
@@ -164,7 +166,7 @@ describe("Android share destinations", () => {
   });
 
   it("persists the exact thread reservation and retries a failed acknowledgement without duplicating", async () => {
-    const test = setup();
+    const test = await setup();
     const consume = test.deps.consume;
     vi.mocked(consume).mockRejectedValueOnce(new Error("Disk busy"));
     try {
@@ -189,7 +191,7 @@ describe("Android share destinations", () => {
   });
 
   it("resumes a persisted thread reservation only in that thread", async () => {
-    const test = setup({ ...shared, destination: other });
+    const test = await setup({ ...shared, destination: other });
     try {
       await test.controller.choose(current);
       test.controller.newConversation();
@@ -201,8 +203,8 @@ describe("Android share destinations", () => {
     }
   });
 
-  it("returns old project reservations to their original new-conversation flow", () => {
-    const test = setup({
+  it("returns old project reservations to their original new-conversation flow", async () => {
+    const test = await setup({
       ...shared,
       destination: { environmentId: current.environmentId, projectId: current.projectId },
     });
@@ -214,8 +216,8 @@ describe("Android share destinations", () => {
     }
   });
 
-  it("keeps a dismissed share accessible without letting stale dismissals close it", () => {
-    const test = setup();
+  it("keeps a dismissed share accessible without letting stale dismissals close it", async () => {
+    const test = await setup();
     try {
       test.controller.close(shared.id);
       expect(test.stored.size).toBe(1);
@@ -232,7 +234,7 @@ describe("Android share destinations", () => {
   });
 
   it("does not import into an unavailable conversation or one editing a queued message", async () => {
-    const test = setup();
+    const test = await setup();
     test.validate.mockImplementation(() => {
       throw new Error("Finish editing the queued message first.");
     });
@@ -253,7 +255,7 @@ describe("Android share destinations", () => {
   });
 
   it("blocks submission while acknowledgement is paused or failed, including after dismissal and restart", async () => {
-    const test = setup();
+    const test = await setup();
     let fail!: (error: Error) => void;
     let acknowledgeStarted!: () => void;
     const started = new Promise<void>((resolve) => {acknowledgeStarted = resolve;});
@@ -282,7 +284,7 @@ describe("Android share destinations", () => {
   });
 
   it("can redirect an unmerged reservation whose old conversation disappeared", async () => {
-    const test = setup({...shared, destination: current});
+    const test = await setup({...shared, destination: current});
     test.validate.mockImplementationOnce(() => {throw new Error("Conversation unavailable");});
     try {
       await test.controller.choose(current);
@@ -296,7 +298,7 @@ describe("Android share destinations", () => {
   });
 
   it("keeps an already-merged recovered draft without requiring the old thread to be online", async () => {
-    const test = setup({...shared, destination: current});
+    const test = await setup({...shared, destination: current});
     test.setDraft("phone:current", mergeComposerDraftContentState({"phone:current": test.draft("phone:current")!}, "phone:current", {text: shared.text, attachments: shared.attachments, sourceShareId: shared.id})["phone:current"]!);
     test.validate.mockImplementation(() => {throw new Error("Conversation unavailable");});
     try {
@@ -311,7 +313,7 @@ describe("Android share destinations", () => {
   });
 
   it("discards an unimported share without changing either conversation draft", async () => {
-    const test = setup({...shared, destination: current});
+    const test = await setup({...shared, destination: current});
     try {
       await test.controller.discard();
       expect(test.stored.size).toBe(0);
@@ -320,5 +322,28 @@ describe("Android share destinations", () => {
       expect(test.draft("phone:other")?.text).toBe("My other draft");
       expect(test.deps.releaseUnusedAttachments).toHaveBeenCalledWith(shared.attachments);
     } finally {test.dispose();}
+  });
+
+  it("waits for an earlier merge receipt to hydrate before offering recovery", async () => {
+    let loaded!: () => void;
+    const hydration = new Promise<void>((resolve) => {loaded = resolve;});
+    const test = await setup({...shared, destination: current}, hydration, true);
+    try {
+      expect(test.controller.getSnapshot()?.loadingDrafts).toBe(true);
+      await test.controller.changeDestination();
+      await test.controller.discard();
+      expect(test.stored.get(shared.id)?.destination?.threadId).toBe(current.threadId);
+      test.setDraft("phone:current", {text: "Saved before restart", attachments: shared.attachments, importedShareIds: [shared.id]});
+      loaded();
+      await test.controller.prepared();
+      expect(test.controller.getSnapshot()?.loadingDrafts).toBe(false);
+      expect(test.controller.recovery().merged).toBe(true);
+      await test.controller.changeDestination();
+      expect(test.stored.get(shared.id)?.destination?.threadId).toBe(current.threadId);
+      await test.controller.keepDraft();
+      expect(test.draft("phone:current")?.text).toBe("Saved before restart");
+      expect(test.draft("phone:current")?.attachments).toEqual(shared.attachments);
+      expect(test.stored.size).toBe(0);
+    } finally {loaded(); test.dispose();}
   });
 });

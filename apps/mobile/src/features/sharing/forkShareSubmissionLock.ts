@@ -9,7 +9,7 @@ export function forkShareSubmissionKeys(shares: readonly IncomingShareDraft[], a
   return keys;
 }
 
-export const forkShareSubmissionLocksAtom = Atom.make<ReadonlySet<string> | null>(new Set()).pipe(Atom.keepAlive);
+export const forkShareSubmissionLocksAtom = Atom.make<ReadonlySet<string> | null>(new Set<string>()).pipe(Atom.keepAlive);
 
 export function forkShareSubmissionBlocked(keys: ReadonlySet<string> | null, draftKey: string) {
   return keys === null || keys.has(draftKey);

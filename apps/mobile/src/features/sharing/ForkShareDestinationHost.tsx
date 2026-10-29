@@ -29,7 +29,7 @@ function DestinationSheet({ snapshot }: { readonly snapshot: ForkShareDestinatio
   return (
     <Sheet title="Share to conversation" onClose={() => controller.close(snapshot.share.id)}>
       <FlatList
-        data={snapshot.busy ? [] : matches}
+        data={snapshot.busy || snapshot.loadingDrafts ? [] : matches}
         keyExtractor={(thread) => `${thread.environmentId}:${thread.threadId}`}
         keyboardShouldPersistTaps="handled"
         contentContainerClassName="gap-2 p-4"
@@ -45,7 +45,9 @@ function DestinationSheet({ snapshot }: { readonly snapshot: ForkShareDestinatio
               <AppText className="text-danger-foreground">{snapshot.error}</AppText>
             ) : null}
             {snapshot.busy ? (
-              <ListActionRow label="Attaching shared content…" loading onPress={() => {}} />
+              <ListActionRow label={snapshot.loadingDrafts ? "Loading saved drafts…" : "Attaching shared content…"} loading onPress={() => {}} />
+            ) : snapshot.loadingDrafts ? (
+              <ListActionRow label="Retry loading saved drafts" onPress={() => controller.reloadDrafts()} />
             ) : (
               <>
                 {snapshot.retryAvailable ? (
@@ -96,13 +98,13 @@ function DestinationSheet({ snapshot }: { readonly snapshot: ForkShareDestinatio
           />
         )}
         ListEmptyComponent={
-          snapshot.busy ? null : (
+          snapshot.busy ? undefined : (
             <AppText textRole="footnote" className="text-foreground-muted">
               No matching conversations. Connect to the server to load its conversations.
             </AppText>
           )
         }
-        ListFooterComponent={snapshot.busy ? null : (
+        ListFooterComponent={snapshot.busy || snapshot.loadingDrafts ? undefined : (
           <ListSection>
             {recovery.merged ? (
               <ListActionRow label="Keep saved draft" description="Finish saving the content already added to this draft." onPress={() => void controller.keepDraft()} />
@@ -126,7 +128,7 @@ export function ForkShareDestinationHost() {
   return snapshot.visible ? <DestinationSheet key={snapshot.share.id} snapshot={snapshot} /> : (
     <View className="absolute bottom-8 left-4 right-4 rounded-xl bg-grouped-card">
       <Pressable accessibilityRole="button" accessibilityLabel="Resume shared content import" onPress={() => controller.reopen()} className="min-h-14 justify-center p-4">
-        <AppText>{snapshot.busy ? "Importing shared content…" : "Shared content waiting — tap to continue"}</AppText>
+        <AppText>{snapshot.busy ? "Importing shared content…" : "Shared content waiting. Tap to continue"}</AppText>
       </Pressable>
     </View>
   );

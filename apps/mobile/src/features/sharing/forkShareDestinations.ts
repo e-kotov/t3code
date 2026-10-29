@@ -8,6 +8,7 @@ import { rootNavigationRef } from "../../lib/rootNavigation";
 import { scopedThreadKey } from "../../lib/scopedEntities";
 import { appAtomRegistry } from "../../state/atom-registry";
 import { environmentProjects } from "../../state/projects";
+import { waitForComposerDraftsLoaded } from "../../state/use-composer-drafts";
 import { getQueuedRunEdit } from "../../state/queued-run-edit";
 import { environmentThreadShells } from "../../state/threads";
 import { selectWorkspaceDetail } from "../workspace/workspace-detail-selection";
@@ -33,7 +34,7 @@ export const forkShareThreadsAtom = Atom.make((get): readonly ForkShareThread[] 
             environmentId: thread.environmentId,
             projectId: thread.projectId,
           }),
-        )?.name ?? "Project",
+        )?.title ?? "Project",
       environmentName: get(environmentCatalog.catalogValueAtom).entries.get(thread.environmentId)?.target.label ?? thread.environmentId,
     })),
 );
@@ -47,6 +48,7 @@ export function forkShareDraftKey(destination: IncomingShareDestination) {
 
 function currentThread(): ForkShareThread | null {
   const state = rootNavigationRef.getRootState();
+  if (!state) return null;
   const route = state.routes
     .slice(0, state.index + 1)
     .findLast((candidate) => candidate.name === "Thread");
@@ -95,6 +97,7 @@ export let forkShareDestinations: ReturnType<typeof makeForkShareDestinationCont
 export function makeForkIncomingShareImports(deps: ShareImportDeps) {
   forkShareDestinations = makeForkShareDestinationController({
     imports: deps,
+    waitForDrafts: waitForComposerDraftsLoaded,
     currentThread,
     validate,
     draftKey: forkShareDraftKey,

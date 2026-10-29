@@ -21,6 +21,7 @@ export interface ForkShareDestinationSnapshot {
   readonly error: string | null;
   readonly retryAvailable: boolean;
   readonly visible: boolean;
+  readonly loadingDrafts: boolean;
 }
 
 export function filterForkShareThreads(threads: readonly ForkShareThread[], query: string) {
@@ -31,7 +32,7 @@ export function filterForkShareThreads(threads: readonly ForkShareThread[], quer
         `${thread.title} ${thread.projectName}`.toLocaleLowerCase().includes(word),
       ),
     )
-    .toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }
 
 export function makeForkShareDestinationController(options: {
@@ -41,10 +42,12 @@ export function makeForkShareDestinationController(options: {
   readonly validate: (destination: IncomingShareDestination) => void;
   readonly openThread: (destination: IncomingShareDestination) => void;
   readonly openNew: (shareId: string) => void;
+  readonly waitForDrafts: () => Promise<void>;
 }) {
   let snapshot: ForkShareDestinationSnapshot | null = null;
   let drafts: readonly IncomingShareDraft[] = [];
   let target: ShareImportTarget | null = null;
+  let preparation = Promise.resolve();
   const handedOff = new Set<string>();
   const listeners = new Set<() => void>();
   const notify = () => {
@@ -94,11 +97,26 @@ export function makeForkShareDestinationController(options: {
     snapshot = {
       share,
       current: options.currentThread(),
-      busy: false,
+      busy: true,
+      loadingDrafts: true,
       error: null,
       retryAvailable: false,
       visible: true,
     };
+    notify();
+    preparation = prepareDrafts();
+  }
+
+  async function prepareDrafts() {
+    if (!snapshot) return;
+    snapshot = {...snapshot, busy: true, error: null, loadingDrafts: true};
+    notify();
+    try {
+      await options.waitForDrafts();
+      snapshot = {...snapshot!, busy: false, loadingDrafts: false};
+    } catch (error) {
+      snapshot = {...snapshot!, busy: false, error: error instanceof Error ? error.message : "Could not load saved drafts."};
+    }
     notify();
   }
 
@@ -109,7 +127,7 @@ export function makeForkShareDestinationController(options: {
   }
 
   async function resolvePending(keep: boolean) {
-    if (!snapshot || snapshot.busy) return;
+    if (!snapshot || snapshot.busy || snapshot.loadingDrafts) return;
     const { destination, merged } = recovery();
     if (keep !== merged) return;
     const share = snapshot.share;
@@ -151,11 +169,13 @@ export function makeForkShareDestinationController(options: {
 
   return {
     present,
+    prepared: () => preparation,
+    reloadDrafts() { preparation = prepareDrafts(); },
     recovery,
     keepDraft: () => resolvePending(true),
     discard: () => resolvePending(false),
     async changeDestination() {
-      if (!snapshot || snapshot.busy) return;
+      if (!snapshot || snapshot.busy || snapshot.loadingDrafts) return;
       const {destination, merged} = recovery();
       if (!destination || merged) return;
       snapshot = {...snapshot, busy: true};
@@ -193,7 +213,7 @@ export function makeForkShareDestinationController(options: {
       notify();
     },
     newConversation() {
-      if (!snapshot || snapshot.busy || snapshot.share.destination) return;
+      if (!snapshot || snapshot.busy || snapshot.loadingDrafts || snapshot.share.destination) return;
       const id = snapshot.share.id;
       handedOff.add(id);
       snapshot = null;
@@ -202,7 +222,7 @@ export function makeForkShareDestinationController(options: {
       options.openNew(id);
     },
     async choose(destination: IncomingShareDestination) {
-      if (!snapshot || snapshot.busy || !destination.threadId) return;
+      if (!snapshot || snapshot.busy || snapshot.loadingDrafts || !destination.threadId) return;
       if (
         snapshot.share.destination &&
         !sameForkShareDestination(snapshot.share.destination, destination)

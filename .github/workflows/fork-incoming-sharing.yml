@@ -36,6 +36,11 @@ jobs:
           run-install: false
           cache: true
       - run: vp install
+      - name: Format candidate on the runner
+        run: |
+          git diff --name-only --diff-filter=AM -z origin/main HEAD |
+            xargs -0 -r vp fmt --no-error-on-unmatched-pattern
+          git diff --binary > "$RUNNER_TEMP/sharing-format.patch"
       - name: Test incoming shares and document imports
         run: |
           vp test run apps/mobile/src/features/sharing/forkIncomingShareEvents.test.ts apps/mobile/src/features/sharing/forkSharedDocuments.test.ts apps/mobile/src/features/sharing/forkShareDestinationController.test.ts apps/mobile/src/features/sharing/incoming-share-inbox.test.ts apps/mobile/src/features/sharing/incoming-share-model.test.ts apps/mobile/src/features/threads/incomingShareImport.test.ts
@@ -78,13 +83,13 @@ jobs:
           cat "$RUNNER_TEMP/share-regression.log"
           python3 -c 'import os, pathlib; assert "AssertionError" in (pathlib.Path(os.environ["RUNNER_TEMP"]) / "share-regression.log").read_text()'
       - name: Capture formatting fixes
-        if: failure()
+        if: always()
         run: |
           git diff --name-only --diff-filter=AM -z origin/main HEAD |
             xargs -0 -r vp fmt --no-error-on-unmatched-pattern
           git diff --binary > "$RUNNER_TEMP/sharing-format.patch"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: failure()
+        if: always()
         with:
           name: sharing-format-fixes
           path: ${{ runner.temp }}/sharing-format.patch
