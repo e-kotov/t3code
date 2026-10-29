@@ -115,7 +115,7 @@
     "apps/web/src/components/sidebar/SidebarChrome.tsx": 2,
     "apps/web/src/components/sidebar/SidebarListMarkers.tsx": 5,
     "apps/web/src/components/sidebar/SidebarThreadHeader.tsx": 8,
-    "apps/web/src/components/sidebar/SidebarThreadRow.tsx": 15,
+    "apps/web/src/components/sidebar/SidebarThreadRow.tsx": 19,
     "apps/web/src/components/threadActionMenu.logic.ts": 2,
     "apps/web/src/connection/runtime.ts": 1,
     "apps/web/src/editorPreferences.ts": 24,
