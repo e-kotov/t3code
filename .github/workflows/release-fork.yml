@@ -303,8 +303,20 @@ jobs:
         run: |
           [[ -n "$KEYSTORE" && -n "$STORE_PASSWORD" && -n "$KEY_PASSWORD" ]] || { echo 'Configure the Android release signing secrets.'; exit 1; }
       - run: vp install --filter=@t3tools/mobile...
+      - name: Check standalone startup without an Expo project
+        working-directory: apps/mobile
+        run: vp test run fork-app-identity.test.ts src/features/observability/forkObserve.test.ts
       - run: vp run --filter @t3tools/mobile typecheck
       - run: vp exec --filter @t3tools/mobile -- expo prebuild --clean --platform android --no-install
+      - name: Require standalone startup without native Observe
+        working-directory: apps/mobile/android
+        run: |
+          ./gradlew :app:dependencies --configuration releaseRuntimeClasspath --console=plain --no-daemon --max-workers=2 > "$RUNNER_TEMP/startup-dependencies.log"
+          python3 - <<'PY'
+          import os, pathlib
+          dependencies = (pathlib.Path(os.environ['RUNNER_TEMP']) / 'startup-dependencies.log').read_text()
+          assert 'expo-observe' not in dependencies and 'expo.modules.observe' not in dependencies, 'Unconfigured native Observe is still linked'
+          PY
       # One Gradle run configures the project once for both tasks; a failing
       # test stops the build.
       - name: Test native notification handling and build a standalone release APK
@@ -333,6 +345,14 @@ jobs:
             --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD \
             --out "release-android/T3-Code-EK-$RELEASE_VERSION-arm64.apk" "$RUNNER_TEMP/aligned.apk"
           "$build_tools/apksigner" verify "release-android/T3-Code-EK-$RELEASE_VERSION-arm64.apk"
+          python3 - <<'PY'
+          import os, pathlib, zipfile
+          apk = next(pathlib.Path('release-android').glob('*.apk'))
+          with zipfile.ZipFile(apk) as archive:
+            for name in archive.namelist():
+              if name.endswith('.dex'):
+                assert b'Lexpo/modules/observe/ObserveModule;' not in archive.read(name), 'Unconfigured native Observe remains in the APK'
+          PY
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: fork-android
