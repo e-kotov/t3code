@@ -1257,7 +1257,9 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                 </span>
               )}
               {draftIndicator}
-              {title}
+              <SidebarThreadCacheTitle variant="slim" thread={thread}>
+                {title}
+              </SidebarThreadCacheTitle>
               {multiline ? titleLineProviderStack : null}
               {pinIndicator}
               {multiline ? null : terminalStatusIcon}
