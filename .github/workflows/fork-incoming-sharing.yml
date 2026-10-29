@@ -43,7 +43,7 @@ jobs:
           git diff --binary > "$RUNNER_TEMP/sharing-format.patch"
       - name: Test incoming shares and document imports
         run: |
-          vp test run apps/mobile/src/features/sharing/forkIncomingShareEvents.test.ts apps/mobile/src/features/sharing/forkSharedDocuments.test.ts apps/mobile/src/features/sharing/forkShareDestinationController.test.ts apps/mobile/src/features/sharing/incoming-share-inbox.test.ts apps/mobile/src/features/sharing/incoming-share-model.test.ts apps/mobile/src/features/threads/incomingShareImport.test.ts
+          vp test run apps/mobile/src/features/sharing/forkIncomingShareEvents.test.ts apps/mobile/src/features/sharing/forkSharedDocuments.test.ts apps/mobile/src/features/sharing/forkShareDestinationController.test.ts apps/mobile/src/features/sharing/forkShareDestinations.test.ts apps/mobile/src/features/sharing/incoming-share-inbox.test.ts apps/mobile/src/features/sharing/incoming-share-model.test.ts apps/mobile/src/features/threads/incomingShareImport.test.ts
       - name: Check changed code
         run: vp run check:changed origin/main
       - uses: actions/setup-java@v4
