@@ -116,7 +116,10 @@ describe("browser proxy routes", () => {
       expect(await socksPage.textContent("body")).toBe("SOCKS route");
       expect(requests).toContain("http://route-check.invalid/");
       expect(socksHosts).toContain("route-check.invalid");
-      await expect(httpPage.goto(protectedUrl)).rejects.toThrow();
+      // A blocked navigation commits Chromium's error page; keep it off the page reused below.
+      const blockedPage = await httpContext.newPage();
+      await expect(blockedPage.goto(protectedUrl)).rejects.toThrow();
+      await blockedPage.close();
       expect(requests).not.toContain(protectedUrl);
       await httpPage.goto("http://route-check.invalid/api/assets/public/report.js");
       expect(await httpPage.textContent("body")).toBe("HTTP route");

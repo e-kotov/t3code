@@ -72,14 +72,13 @@ it.effect("checks server routes and keeps proxy failures distinct from ordinary 
             calls.push("open");
             expect(input.proxyUrl).toBe(expectedProxy);
             if (scenario === "failed" || scenario === "implicit-failed")
-              return yield* Effect.fail(transportFailure);
+              return yield* transportFailure;
             return snapshot;
           }),
         [WS_METHODS.previewClose]: () =>
           Effect.gen(function* () {
             calls.push("close");
-            if (scenario === "cleanup-failed")
-              return yield* Effect.fail(transportFailure);
+            if (scenario === "cleanup-failed") return yield* transportFailure;
           }),
       } as unknown as WsRpcProtocolClient;
       const session = yield* SubscriptionRef.make(Option.some({ client } as RpcSession));
