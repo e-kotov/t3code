@@ -56,7 +56,12 @@ function makeModelRuntime(
     return { configOptions };
   });
   return {
-    runtime: { getConfigOptions: Effect.succeed(configOptions), setModel, setSessionModel, setConfigOption },
+    runtime: {
+      getConfigOptions: Effect.succeed(configOptions),
+      setModel,
+      setSessionModel,
+      setConfigOption,
+    },
     selections,
     sessionModelSelections,
   };

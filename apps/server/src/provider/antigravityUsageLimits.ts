@@ -246,7 +246,9 @@ export const makeAntigravityUsageProbe = Effect.fn("makeAntigravityUsageProbe")(
       account = cached.account;
     }
     const userAgent = antigravityQuotaUserAgent(
-      yield* (input.runtimeVersion ?? Effect.succeed(null)), platform, architecture,
+      yield* input.runtimeVersion ?? Effect.succeed(null),
+      platform,
+      architecture,
     );
     // Merge endpoints because quota groups differ; keep each bucket's most-used reading.
     const fetchWindows = Effect.fn("AntigravityUsageProbe.fetchWindows")(function* <E>(
@@ -282,11 +284,12 @@ export const makeAntigravityUsageProbe = Effect.fn("makeAntigravityUsageProbe")(
     const summary = yield* fetchWindows("retrieveUserQuotaSummary", (response) =>
       decodeSummary(response).pipe(Effect.map(summaryWindows)),
     );
-    const windows = summary.length || input.summaryOnly
-      ? summary
-      : yield* fetchWindows("fetchAvailableModels", (response) =>
-          decodeModels(response).pipe(Effect.map(modelWindows)),
-        );
+    const windows =
+      summary.length || input.summaryOnly
+        ? summary
+        : yield* fetchWindows("fetchAvailableModels", (response) =>
+            decodeModels(response).pipe(Effect.map(modelWindows)),
+          );
     if (windows.length === 0) {
       return makeUnavailableUsageLimits({
         checkedAt,

@@ -5,7 +5,8 @@ export function antigravityQuotaUserAgent(
   platform: NodeJS.Platform,
   architecture: string,
 ) {
-  const runtimeVersion = version ?? resolveAntigravityReleaseAsset(platform, architecture)?.version ?? "1.0.0";
+  const runtimeVersion =
+    version ?? resolveAntigravityReleaseAsset(platform, architecture)?.version ?? "1.0.0";
   return `antigravity/acp/${runtimeVersion} (aidev_client; os_type=${platform}; arch=${architecture})`;
 }
 

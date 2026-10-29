@@ -190,9 +190,10 @@ export const applyAntigravityAcpModelSelection = Effect.fn("applyAntigravityAcpM
     // Setup-time model state is stale once a thinking level changes, so grouped
     // selections are always reapplied.
     if (resolved === undefined || (!grouped && !explicit && resolved === current)) return current;
-    const legacyFamily = grouped || options.some((option) => option.value === resolved)
-      ? undefined
-      : legacyAntigravityFamily(configOptions, resolved);
+    const legacyFamily =
+      grouped || options.some((option) => option.value === resolved)
+        ? undefined
+        : legacyAntigravityFamily(configOptions, resolved);
     if (legacyFamily !== undefined) {
       yield* input.runtime
         .setConfigOption("model", resolved, { allowUnlistedValue: true })

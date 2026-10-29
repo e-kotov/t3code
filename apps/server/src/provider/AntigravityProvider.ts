@@ -32,7 +32,10 @@ import {
   type ServerProviderDraft,
 } from "@t3tools/provider-core/server/snapshotProbe";
 import { resolveUsageLimitsAfterProbe } from "@t3tools/provider-core/server/usageLimits";
-import { antigravityGroupedModels, antigravityThinkingConfig } from "./acp/AntigravityAcpSupport.ts";
+import {
+  antigravityGroupedModels,
+  antigravityThinkingConfig,
+} from "./acp/AntigravityAcpSupport.ts";
 
 const EMPTY_MODEL_CAPABILITIES = createModelCapabilities({ optionDescriptors: [] });
 const MAX_WORKSPACE_SNAPSHOTS = 32;
@@ -80,9 +83,7 @@ export function buildAntigravityModelsFromSession(
             name: model.name,
           })) ?? [])
         : [];
-  const currentThinking = grouped
-    ? undefined
-    : antigravityThinkingConfig(setup.configOptions);
+  const currentThinking = grouped ? undefined : antigravityThinkingConfig(setup.configOptions);
   const seen = new Set<string>();
   // The agent can list two IDs under one name; label the later ones so the picker tells them apart.
   const names = new Set<string>();

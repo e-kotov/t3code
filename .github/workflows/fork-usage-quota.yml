@@ -45,7 +45,7 @@ jobs:
           cache: true
       - run: vp install --frozen-lockfile
       - name: Install headless Chromium
-        run: vp exec playwright install --with-deps chromium
+        run: node apps/web/node_modules/playwright/cli.js install --with-deps chromium
       - name: Prove quota regressions fail before the fix
         run: |
           source=apps/server/src/provider/antigravityUsageLimits.ts
