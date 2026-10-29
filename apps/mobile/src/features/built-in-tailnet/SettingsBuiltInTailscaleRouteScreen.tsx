@@ -6,8 +6,8 @@ import { Alert, Linking } from "react-native";
 
 import { AppText as Text } from "../../components/ui/AppText";
 import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
-import { SettingsActionRow } from "../settings/components/SettingsActionRow";
-import { SettingsChoiceRow } from "../settings/components/SettingsChoiceRow";
+import { ListActionRow as SettingsActionRow } from "../../components/ui/ListActionRow";
+import { ListChoiceRow as SettingsChoiceRow } from "../../components/ui/ListChoiceRow";
 import { SettingsScreen } from "../settings/components/SettingsScreen";
 import { SettingsSection } from "../settings/components/SettingsSection";
 import { SettingsSwitchRow } from "../settings/components/SettingsSwitchRow";

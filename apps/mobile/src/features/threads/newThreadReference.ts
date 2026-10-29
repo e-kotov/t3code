@@ -1,6 +1,6 @@
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { threadComposerContext } from "../../lib/composerContext";
+import { threadContextRecord } from "@t3tools/shared/composerContextReferences";
 import type { NewTaskDraftRouteParams } from "./thread-route-state";
 
 export function newThreadReferenceRoute(
@@ -16,7 +16,7 @@ export function newThreadReferenceRoute(
     projectId: String(thread.projectId),
     branch: thread.branch,
     worktreePath: thread.worktreePath,
-    referenceThread: threadComposerContext(
+    referenceThread: threadContextRecord(
       scopeThreadRef(thread.environmentId, thread.id),
       thread.title,
     ),

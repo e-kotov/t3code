@@ -15,6 +15,7 @@ import {
   connectionRouteKind,
   connectionRoutes,
   entryWithRoutes,
+  routeHttpBaseUrl,
 } from "./routes.ts";
 
 /**
@@ -153,9 +154,14 @@ export function withBuiltInTailnet(
 
   /** Whether any of the routes answers its reachability check, or has none. */
   const anyAnswers = (entry: ConnectionCatalogEntry) =>
-    Effect.forEach(connectionRoutes(entry), (route) => driver.checkRoute(entry, route), {
-      concurrency: "unbounded",
-    }).pipe(Effect.map((checks) => checks.some((check) => check !== "silent")));
+    Effect.forEach(
+      connectionRoutes(entry),
+      (route) =>
+        routeHttpBaseUrl(route) === null
+          ? Effect.succeed(true)
+          : driver.preflight(entry, route),
+      { concurrency: "unbounded" },
+    ).pipe(Effect.map((checks) => checks.some(Boolean)));
 
   const connect: Connect = Effect.fn("BuiltInTailnet.connect")(function* (
     entry: Parameters<Connect>[0],
@@ -247,7 +253,6 @@ export function withBuiltInTailnet(
 
   return ConnectionDriver.ConnectionDriver.of({
     connect,
-    checkRoute: driver.checkRoute,
     preflight,
     // A live session's prepared origin is already the forwarded port when on the node.
     checkHost: driver.checkHost,

@@ -2,7 +2,7 @@ import * as Option from "effect/Option";
 import { createContext, useContext, useMemo, type ComponentProps, type Ref } from "react";
 import { View } from "react-native";
 import { assistantCitationSourceReadiness } from "../../lib/assistantCitationMessage";
-import { useThreadDetail } from "../../state/use-thread-detail";
+import { useEnvironmentThread } from "../../state/threads";
 import { useRemoteEnvironmentRuntime } from "../../state/use-remote-environment-registry";
 import { AssistantCitationSynchronization } from "./AssistantCitationSynchronization";
 import {
@@ -28,7 +28,7 @@ export function CitationThreadDetailView({
 
 export function ThreadFeed(props: ThreadFeedProps & { readonly ref?: Ref<ThreadFeedHandle> }) {
   const canCiteAssistantText = useContext(CitationComposerReady);
-  const detail = useThreadDetail(props);
+  const detail = useEnvironmentThread(props.environmentId, props.threadId);
   const runtime = useRemoteEnvironmentRuntime(props.environmentId);
   const error = Option.getOrNull(detail.error);
   const synchronization = useMemo(

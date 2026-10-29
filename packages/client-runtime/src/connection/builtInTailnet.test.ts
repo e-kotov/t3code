@@ -71,8 +71,6 @@ function fakeDriver(script: {
 }) {
   const attempts: Array<ReadonlyArray<string | null>> = [];
   const driver = ConnectionDriver.ConnectionDriver.of({
-    checkRoute: (_entry, route) =>
-      Effect.succeed(script.answers.has(routeHttpBaseUrl(route) ?? "") ? "answered" : "silent"),
     preflight: (_entry, route) => Effect.succeed(script.answers.has(routeHttpBaseUrl(route) ?? "")),
     checkHost: (prepared) =>
       Effect.succeed(script.answers.has(prepared.httpBaseUrl) ? "answered" : "silent"),

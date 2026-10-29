@@ -75,7 +75,6 @@ describe("Android shared documents", () => {
         serverConfig: {
           environment: {
             capabilities: {
-              attachmentUploads: true,
               fileAttachments: { maxUploadBytes: 50 * 1024 * 1024 },
             },
           },

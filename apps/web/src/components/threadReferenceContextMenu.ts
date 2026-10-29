@@ -3,7 +3,7 @@ import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell
 import type { ContextMenuItem } from "@t3tools/contracts";
 import type { useNewThreadHandler } from "../hooks/useHandleNewThread";
 import { useComposerDraftStore } from "../composerDraftStore";
-import { threadContextRecord } from "../lib/composerContextRecords";
+import { threadContextRecord } from "@t3tools/shared/composerContextReferences";
 
 export type ReferenceThread = Pick<
   EnvironmentThreadShell,
