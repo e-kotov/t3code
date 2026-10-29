@@ -1,4 +1,5 @@
 import { Atom, type AtomRegistry } from "effect/reactivity";
+import { forkRepairSharedDraft } from "../sharing/forkSharedAttachmentIds";
 
 import type { DraftComposerAttachment } from "../../lib/composerImages";
 import type { ComposerDraft } from "../../state/use-composer-drafts";
@@ -209,7 +210,7 @@ export function makeIncomingShareImports(deps: ShareImportDeps) {
       // this project instead of copying into a second project draft.
       if (stopped()) return;
       advance(entry, "reserved");
-      const share = deps.getShare(shareId);
+      const share = forkRepairSharedDraft(deps.getShare(shareId));
       if (!share) throw new Error("The shared content is no longer in the inbox.");
       const selected = deps.selectAttachments(share, destination.environmentId);
       if (selected.status === "pending") {

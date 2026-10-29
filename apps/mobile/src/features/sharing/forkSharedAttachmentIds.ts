@@ -3,14 +3,12 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 function repairedId(id: string): string {
-  return /^[a-z0-9_-]{1,110}:(file|image):[0-9]{1,6}$/i.test(id)
-    ? id.replaceAll(":", "_")
-    : id;
+  return /^[a-z0-9_-]{1,110}:(file|image):[0-9]{1,6}$/i.test(id) ? id.replaceAll(":", "_") : id;
 }
 
-export function forkRepairSharedDraft<T extends { readonly attachments: readonly unknown[] }>(
-  draft: T,
-): T;
+export function forkRepairSharedDraft<
+  T extends { readonly attachments: readonly unknown[] } | null | undefined,
+>(draft: T): T;
 export function forkRepairSharedDraft(draft: unknown): unknown;
 export function forkRepairSharedDraft(draft: unknown): unknown {
   if (!isObject(draft) || !Array.isArray(draft.attachments)) return draft;

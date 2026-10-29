@@ -14,6 +14,7 @@ on:
       - "apps/mobile/src/features/sharing/forkSharedAttachmentIds.ts"
       - "apps/mobile/src/features/sharing/forkSharedDocuments.test.ts"
       - "apps/mobile/src/state/use-composer-drafts.ts"
+      - "apps/mobile/src/features/threads/incomingShareImport.ts"
   push:
     branches: ["sync/android-share-send"]
     paths: *shared-file-paths
@@ -57,10 +58,17 @@ jobs:
         run: |
           git fetch --no-tags origin "$REGRESSION_REF"
           baseline=$(git rev-parse FETCH_HEAD)
-          source=apps/mobile/src/state/use-composer-drafts.ts
-          cp "$source" "$RUNNER_TEMP/composer-drafts.ts"
-          trap 'cp "$RUNNER_TEMP/composer-drafts.ts" "$source"' EXIT
-          git show "$baseline:$source" > "$source"
+          sources=(apps/mobile/src/state/use-composer-drafts.ts apps/mobile/src/features/threads/incomingShareImport.ts)
+          for index in "${!sources[@]}"; do
+            cp "${sources[$index]}" "$RUNNER_TEMP/shared-file-source-$index.ts"
+          done
+          restore() {
+            for index in "${!sources[@]}"; do
+              cp "$RUNNER_TEMP/shared-file-source-$index.ts" "${sources[$index]}"
+            done
+          }
+          trap restore EXIT
+          for source in "${sources[@]}"; do git show "$baseline:$source" > "$source"; done
           if vp test run apps/mobile/src/features/sharing/forkSharedDocuments.test.ts --reporter=json --outputFile="$RUNNER_TEMP/shared-file-regression.json"; then
             echo 'Shared-file send regressions must fail before the fix.'
             exit 1

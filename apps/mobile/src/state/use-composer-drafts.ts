@@ -71,7 +71,7 @@ import {
 } from "./thread-outbox-model";
 import { flushThreadOutbox, threadOutboxManager } from "./thread-outbox";
 import { composerDraftEnvironmentId } from "../lib/composerAttachmentUploadQueue";
-import { forkRepairPersistedSharedDrafts, forkRepairSharedDraft } from "../features/sharing/forkSharedAttachmentIds";
+import { forkRepairPersistedSharedDrafts } from "../features/sharing/forkSharedAttachmentIds";
 
 const COMPOSER_DRAFTS_SCHEMA_VERSION = 1;
 const COMPOSER_DRAFTS_DIRECTORY = "composer-drafts";
@@ -1644,7 +1644,6 @@ export function mergeComposerDraftContentState(
   draftKey: string,
   content: ComposerDraftContent,
 ): Record<string, ComposerDraft> {
-  content = forkRepairSharedDraft(content);
   const existing = normalizeDraft(current[draftKey]);
   if (content.sourceShareId && existing.importedShareIds?.includes(content.sourceShareId)) {
     return current;
