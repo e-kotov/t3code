@@ -1790,7 +1790,7 @@ const make = Effect.gen(function* () {
         const { proxyUrl } = resolveBrowserProxyOpen(
           open,
           defaultProxyUrl,
-          request.tabIdExplicit && found ? found.proxyUrl ?? "" : undefined,
+          request.tabIdExplicit && found ? (found.proxyUrl ?? "") : undefined,
         );
         // Reusing another session's tab requires explicit tabId; reading it grants no implicit takeover.
         const existing = selectBrowserProxyTab(

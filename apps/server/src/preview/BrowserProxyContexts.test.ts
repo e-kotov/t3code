@@ -217,12 +217,17 @@ it("waits for all route deletion before reopening a profile", async () => {
     const remove = (await vi.importActual<typeof NodeFSP>("node:fs/promises")).rm;
     let reopening: ReturnType<BrowserProxyContexts["contextFor"]> | undefined;
     let deletions = 0;
+    let deletedWhileReopened = false;
     const removeMock = vi.mocked(NodeFSP.rm);
     removeMock.mockImplementation(async (path, options) => {
       if (String(path) === directory) {
         deletions += 1;
         if (deletions === 1) reopening = pool.contextFor("work", undefined, route);
-        else await reopening;
+        else {
+          await reopening;
+          deletedWhileReopened = true;
+          return;
+        }
       }
       return remove(path, options);
     });
@@ -230,6 +235,7 @@ it("waits for all route deletion before reopening a profile", async () => {
       await pool.clearProfile("work");
       expect(reopening).toBeDefined();
       await reopening;
+      expect(deletedWhileReopened).toBe(false);
       expect((await NodeFSP.stat(directory)).isDirectory()).toBe(true);
     } finally {
       removeMock.mockRestore();

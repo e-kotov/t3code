@@ -7,8 +7,11 @@ import {
   WS_METHODS,
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 
 import { request, requestGuarded } from "./client.ts";
+
+const isBrowserProxyError = Schema.is(BrowserProxyError);
 
 export const openWithBrowserProxy = Effect.fn("BrowserProxy.open")(function* (
   input: PreviewOpenInput,
@@ -44,7 +47,7 @@ export const openWithBrowserProxy = Effect.fn("BrowserProxy.open")(function* (
     ...(proxyUrl ? { proxyUrl } : {}),
   }).pipe(
     Effect.mapError((cause) =>
-      proxyUrl && !(cause instanceof BrowserProxyError)
+      proxyUrl && !isBrowserProxyError(cause)
         ? new BrowserProxyError({
             message: "The proxy tab could not be opened. Direct access was not attempted.",
           })
