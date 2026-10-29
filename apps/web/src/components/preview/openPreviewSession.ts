@@ -47,7 +47,7 @@ export async function openPreviewSession<E>(
       viewport: input.viewport ?? defaults.viewport,
       profileId: input.profileId ?? defaults.profileId,
       ...(input.proxyUrl === undefined ? {} : { proxyUrl: input.proxyUrl }),
-      ...(runtime === undefined ? {} : { runtime }),
+      ...(runtime === undefined || runtime === "desktop" ? {} : { runtime }),
     },
   });
   if (result._tag === "Failure") {

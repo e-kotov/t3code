@@ -12,6 +12,7 @@ on:
       - "apps/server/src/mcp/toolkits/preview/*"
       - "apps/web/src/browser/*roxy*"
       - "apps/web/src/components/settings/BrowserProxySetting.tsx"
+      - "apps/web/src/components/ChatMarkdown*"
       - "packages/contracts/src/browserProxy*"
       - "evals/mcp-tool-use/cases/browser-proxy.ndjson"
 
@@ -74,6 +75,24 @@ jobs:
               cases = [case for case in failed if name in case['fullName']]
               assert len(cases) == 1, failed
               assert any(term in '\n'.join(cases[0]['failureMessages']) for term in ['AssertionError', 'ENOENT']), cases
+          PYTHON
+      - name: Prove chat links cannot fall back directly after proxy errors
+        run: |
+          source=apps/web/src/components/ChatMarkdown.tsx
+          cp "$source" "$RUNNER_TEMP/ChatMarkdown.tsx"
+          trap 'cp "$RUNNER_TEMP/ChatMarkdown.tsx" "$source"' EXIT
+          git show "69779a8cd54068f4b054d1c42190eccdb6ebde8b:$source" > "$source"
+          if vp test run apps/web/src/components/ChatMarkdown.proxy.browser.test.tsx --reporter=json --outputFile="$RUNNER_TEMP/chat-proxy-regression.json"; then
+            echo 'The chat-link proxy regression must fail before the guard.'
+            exit 1
+          fi
+          python3 - <<'PYTHON'
+          import json, os, pathlib
+          result = json.loads((pathlib.Path(os.environ['RUNNER_TEMP']) / 'chat-proxy-regression.json').read_text())
+          failed = [case for suite in result['testResults'] for case in suite.get('assertionResults', []) if case['status'] == 'failed']
+          assert result['numTotalTests'] == result['numFailedTests'] == len(failed) == 1, result
+          assert 'keeps chat links out of the system browser' in failed[0]['fullName'], failed
+          assert 'AssertionError' in '\n'.join(failed[0]['failureMessages']), failed
           PYTHON
       - name: Check changed code
         run: vp run check:changed origin/main
