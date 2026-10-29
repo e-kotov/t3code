@@ -15,6 +15,7 @@ const state = vi.hoisted(() => ({
 vi.mock("../../state/use-composer-drafts", () => ({
   getComposerDraftSnapshot: () => state.draft,
   insertComposerDraftContext: state.insert,
+  updateComposerDraftSettings: vi.fn(),
 }));
 const reference: ThreadContextRecord = {
   version: 1,
