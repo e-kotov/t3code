@@ -19,7 +19,7 @@ type CacheThread = Pick<EnvironmentThreadShell, "id" | "cacheHud" | "archivedAt"
 /** Shared state for switching every warm conversation on one environment. */
 function useEnvironmentWarming(environmentId: EnvironmentId, threads: readonly CacheThread[]) {
   const [now, setNow] = useState(() => Date.now());
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Schedule a redraw at the next native cache-expiry boundary.
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Schedule a redraw at the next provider cache-expiry boundary.
   useEffect(() => {
     const nextExpiry = threads
       .flatMap((thread) => {

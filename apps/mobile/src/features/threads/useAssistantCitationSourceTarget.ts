@@ -206,7 +206,9 @@ export function useAssistantCitationSourceTarget(input: {
   });
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Navigate to the requested citation after its source history becomes available.
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- Starting citation navigation resets the native list target before loading or scrolling.
     navigate();
+    // oxlint-disable-next-line react/memo-dependencies -- Resume navigation when history, focus or list readiness changes, including async page completion.
   }, [
     request,
     focused,
