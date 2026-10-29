@@ -566,7 +566,10 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
   });
   const forkShareLocked = useForkShareSubmissionLocked(composerDraftKey);
   const isSubmissionLocked =
-    forkShareLocked || props.interactionLocked === true || queuedEdit?.saving === true || voiceInput.blocksSubmission;
+    forkShareLocked ||
+    props.interactionLocked === true ||
+    queuedEdit?.saving === true ||
+    voiceInput.blocksSubmission;
   const voicePresentation = resolveVoiceComposerPresentation(
     voiceInput.state,
     voiceInput.elapsedSeconds,

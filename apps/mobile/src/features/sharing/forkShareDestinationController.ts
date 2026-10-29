@@ -109,20 +109,30 @@ export function makeForkShareDestinationController(options: {
 
   async function prepareDrafts() {
     if (!snapshot) return;
-    snapshot = {...snapshot, busy: true, error: null, loadingDrafts: true};
+    snapshot = { ...snapshot, busy: true, error: null, loadingDrafts: true };
     notify();
     try {
       await options.waitForDrafts();
-      snapshot = {...snapshot!, busy: false, loadingDrafts: false};
+      snapshot = { ...snapshot!, busy: false, loadingDrafts: false };
     } catch (error) {
-      snapshot = {...snapshot!, busy: false, error: error instanceof Error ? error.message : "Could not load saved drafts."};
+      snapshot = {
+        ...snapshot!,
+        busy: false,
+        error: error instanceof Error ? error.message : "Could not load saved drafts.",
+      };
     }
     notify();
   }
 
   function recovery() {
     const destination = target?.destination ?? snapshot?.share.destination;
-    const merged = !!(snapshot && destination?.threadId && options.imports.readDraft(options.draftKey(destination)).importedShareIds?.includes(snapshot.share.id));
+    const merged = !!(
+      snapshot &&
+      destination?.threadId &&
+      options.imports
+        .readDraft(options.draftKey(destination))
+        .importedShareIds?.includes(snapshot.share.id)
+    );
     return { destination, merged };
   }
 
@@ -136,7 +146,9 @@ export function makeForkShareDestinationController(options: {
     try {
       if (keep && destination) {
         await options.imports.mergeIntoDraft(options.draftKey(destination), {
-          text: "", attachments: [], sourceShareId: share.id,
+          text: "",
+          attachments: [],
+          sourceShareId: share.id,
         });
       } else if (destination) {
         await options.imports.release(share.id, destination);
@@ -149,7 +161,12 @@ export function makeForkShareDestinationController(options: {
       notify();
       present(drafts);
     } catch (error) {
-      snapshot = { ...snapshot!, busy: false, visible: true, error: error instanceof Error ? error.message : "The shared content could not be saved." };
+      snapshot = {
+        ...snapshot!,
+        busy: false,
+        visible: true,
+        error: error instanceof Error ? error.message : "The shared content could not be saved.",
+      };
       notify();
     }
   }
@@ -170,28 +187,34 @@ export function makeForkShareDestinationController(options: {
   return {
     present,
     prepared: () => preparation,
-    reloadDrafts() { preparation = prepareDrafts(); },
+    reloadDrafts() {
+      preparation = prepareDrafts();
+    },
     recovery,
     keepDraft: () => resolvePending(true),
     discard: () => resolvePending(false),
     async changeDestination() {
       if (!snapshot || snapshot.busy || snapshot.loadingDrafts) return;
-      const {destination, merged} = recovery();
+      const { destination, merged } = recovery();
       if (!destination || merged) return;
-      snapshot = {...snapshot, busy: true};
+      snapshot = { ...snapshot, busy: true };
       notify();
       try {
         await options.imports.release(snapshot.share.id, destination);
         target = null;
-        snapshot = {...snapshot!, busy: false, error: null, retryAvailable: false};
+        snapshot = { ...snapshot!, busy: false, error: null, retryAvailable: false };
       } catch (error) {
-        snapshot = {...snapshot!, busy: false, error: error instanceof Error ? error.message : "Could not change destination."};
+        snapshot = {
+          ...snapshot!,
+          busy: false,
+          error: error instanceof Error ? error.message : "Could not change destination.",
+        };
       }
       notify();
     },
     reopen() {
       if (!snapshot) return;
-      snapshot = {...snapshot, visible: true};
+      snapshot = { ...snapshot, visible: true };
       notify();
     },
     getSnapshot: () => snapshot,
@@ -213,7 +236,8 @@ export function makeForkShareDestinationController(options: {
       notify();
     },
     newConversation() {
-      if (!snapshot || snapshot.busy || snapshot.loadingDrafts || snapshot.share.destination) return;
+      if (!snapshot || snapshot.busy || snapshot.loadingDrafts || snapshot.share.destination)
+        return;
       const id = snapshot.share.id;
       handedOff.add(id);
       snapshot = null;

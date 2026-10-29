@@ -35,7 +35,9 @@ export const forkShareThreadsAtom = Atom.make((get): readonly ForkShareThread[] 
             projectId: thread.projectId,
           }),
         )?.title ?? "Project",
-      environmentName: get(environmentCatalog.catalogValueAtom).entries.get(thread.environmentId)?.target.label ?? thread.environmentId,
+      environmentName:
+        get(environmentCatalog.catalogValueAtom).entries.get(thread.environmentId)?.target.label ??
+        thread.environmentId,
     })),
 );
 
