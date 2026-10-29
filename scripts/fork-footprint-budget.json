@@ -32,7 +32,7 @@
     "apps/mobile/src/features/settings/SettingsNotificationsRouteScreen.tsx": 3,
     "apps/mobile/src/features/settings/SettingsRouteScreen.tsx": 5,
     "apps/mobile/src/features/settings/components/settings-page-targets.ts": 3,
-    "apps/mobile/src/features/sharing/IncomingShareProvider.tsx": 10,
+    "apps/mobile/src/features/sharing/IncomingShareProvider.tsx": 12,
     "apps/mobile/src/features/sharing/incoming-share-inbox.ts": 11,
     "apps/mobile/src/features/sharing/incoming-share-model.ts": 2,
     "apps/mobile/src/features/threads/CustomSnoozeSheet.android.tsx": 2,
