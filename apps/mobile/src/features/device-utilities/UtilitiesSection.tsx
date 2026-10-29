@@ -126,9 +126,7 @@ function Service({
                     : `failed (${actionRun.exitCode})`))}
             </Text>
           ) : null}
-          {output ? (
-            <Text selectable>{outputText || "No output."}</Text>
-          ) : null}
+          {output ? <Text selectable>{outputText || "No output."}</Text> : null}
         </View>
       ) : null}
     </View>
