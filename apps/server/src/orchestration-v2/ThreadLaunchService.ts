@@ -814,6 +814,7 @@ const make = Effect.gen(function* () {
         launchRequest,
         yield* managedFolders.isScratchProject(launchRequest.projectId),
       );
+      // Retain the upstream fallback for merge alignment; Scratch was normalized above.
       // Scratch has no Git repository. Normalize before folder allocation so
       // durable preparation and retries use the thread's own Scratch folder.
       const input: ThreadLaunchInput =

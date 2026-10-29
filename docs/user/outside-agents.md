@@ -92,6 +92,15 @@ Any agent that supports remote MCP servers over HTTP with OAuth can connect. Giv
 it the MCP URL and choose OAuth, and the agent finds the sign-in settings itself.
 Agents without OAuth support cannot connect.
 
+## Start a scratch thread
+
+`t3_thread_launch` always gives a new top-level thread in **No project** its own
+Scratch folder, including when the caller supplies the Scratch project's ID.
+Branch and existing-folder hints do not select another thread's Scratch folder.
+Use the returned thread ID with `t3_thread_read` to check the allocated
+`worktreePath` before working with its files. Subagents continue sharing their
+parent's workspace.
+
 ## Scripts on the host
 
 On the machine that runs the environment, `t3 thread` uses the same tools
