@@ -5,6 +5,7 @@ import type { ComposerDraftWorkspaceSelection } from "../../state/use-composer-d
 import { ReferencedNewTaskDraftScreen } from "./ReferencedNewTaskDraftScreen";
 
 const state = vi.hoisted(() => ({
+  selectedProject: { environmentId: "remote", id: "project" },
   draft: {
     text: "Keep my writing",
     project: { environmentId: "remote", projectId: "project" },
@@ -13,7 +14,13 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock("./NewTaskDraftScreen", () => ({ NewTaskDraftScreen: () => null }));
 vi.mock("./new-task-flow-provider", () => ({
-  useNewTaskFlow: () => ({ draftKey: "draft", selectedProject: state.draft.project }),
+  useNewTaskFlow: () => ({
+    draftKey: "draft",
+    selectedProject: state.selectedProject,
+    setProject: (project: { environmentId: string; id: string }) => {
+      state.draft.project = { environmentId: project.environmentId, projectId: project.id };
+    },
+  }),
 }));
 vi.mock("../../components/ui/Dialog", () => ({ alert: vi.fn() }));
 vi.mock("../../state/use-composer-drafts", () => ({
@@ -28,6 +35,7 @@ vi.mock("../../state/use-composer-drafts", () => ({
 }));
 
 function setup() {
+  state.selectedProject = { environmentId: "remote", id: "project" };
   state.draft = {
     text: "Keep my writing",
     project: { environmentId: "remote", projectId: "project" },
@@ -64,6 +72,7 @@ it.each([null, "/detached-worktree"])(
   (worktreePath) => {
     using screen = setup();
     screen.render(worktreePath);
+    expect(state.draft.workspaceSelection?.worktreePath).toBe(worktreePath);
     expect(state.draft.workspaceSelection).toEqual({
       mode: "local",
       branch: null,
@@ -86,6 +95,16 @@ it("waits for the destination project before setting the branch-less workspace",
   screen.render("/detached-worktree", "other-project");
   expect(state.draft.workspaceSelection?.worktreePath).toBe("/old-folder");
   state.draft.project = { environmentId: "remote", projectId: "other-project" };
+  state.selectedProject = { environmentId: "remote", id: "other-project" };
   screen.render("/detached-worktree", "other-project");
   expect(state.draft.workspaceSelection?.worktreePath).toBe("/detached-worktree");
+});
+
+it("repairs a fallback-stamped draft only after the intended project is selected", () => {
+  using screen = setup();
+  state.draft.project = { environmentId: "fallback-environment", projectId: "fallback-project" };
+  screen.render("/detached-worktree");
+  expect(state.draft.project).toEqual({ environmentId: "remote", projectId: "project" });
+  expect(state.draft.workspaceSelection?.worktreePath).toBe("/detached-worktree");
+  expect(state.draft.text).toBe("Keep my writing");
 });

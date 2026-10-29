@@ -36,6 +36,7 @@ it.each(["new-thread-in-project", "new-thread-with-reference"])(
     ]);
     expect(menu.handleAction(action)).toBe(true);
     const draft = state.select.mock.calls[0]?.[0].params.draft;
+    expect(draft.worktreePath).toBeNull();
     expect(draft).toMatchObject({
       requestId: "new-request",
       environmentId: thread.environmentId,
@@ -84,6 +85,7 @@ it.each(["new-thread-in-project", "new-thread-with-reference"])(
     const menu = useNewThreadReferenceMenu(thread);
     expect(menu.handleAction(action)).toBe(true);
     const draft = state.select.mock.calls[0]?.[0].params.draft;
+    expect(draft.worktreePath).toBeNull();
     expect(draft).toMatchObject({
       environmentId: thread.environmentId,
       projectId: thread.projectId,

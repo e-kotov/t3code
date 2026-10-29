@@ -11,7 +11,7 @@ export function ReferencedNewTaskDraftScreen({
 }: ComponentProps<typeof NewTaskDraftScreen> & {
   readonly referenceThread?: ThreadContextRecord | undefined;
 }) {
-  const { draftKey, selectedProject } = useNewTaskFlow();
+  const { draftKey, selectedProject, setProject } = useNewTaskFlow();
   const applied = useRef(false);
   const projectId = props.initialProjectRef?.projectId;
   const environmentId = props.initialProjectRef?.environmentId;
@@ -29,12 +29,26 @@ export function ReferencedNewTaskDraftScreen({
       !projectId
     )
       return;
-    appliedWorkspace.current = seedBranchlessThreadWorkspace(draftKey, {
-      environmentId,
-      projectId,
-      worktreePath,
-    });
-  }, [branch, draftKey, environmentId, projectId, props.draftId, selectedProject, worktreePath]);
+    const source = { environmentId, projectId, worktreePath };
+    appliedWorkspace.current = seedBranchlessThreadWorkspace(draftKey, source);
+    if (
+      !appliedWorkspace.current &&
+      selectedProject?.environmentId === environmentId &&
+      selectedProject.id === projectId
+    ) {
+      setProject(selectedProject);
+      appliedWorkspace.current = seedBranchlessThreadWorkspace(draftKey, source);
+    }
+  }, [
+    branch,
+    draftKey,
+    environmentId,
+    projectId,
+    props.draftId,
+    selectedProject,
+    setProject,
+    worktreePath,
+  ]);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Seed the persistent draft after the destination project creates it.
   useEffect(() => {
     if (applied.current || !draftKey || !referenceThread || !projectId) return;

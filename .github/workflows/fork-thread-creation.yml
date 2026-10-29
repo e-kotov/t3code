@@ -52,6 +52,12 @@ jobs:
           run-install: false
           cache: true
       - run: vp install
+      - name: Check formatting before regression proofs
+        run: |
+          base=$(git merge-base origin/main HEAD)
+          if [ "$base" = "$(git rev-parse HEAD)" ]; then base=HEAD^; fi
+          git diff --name-only --diff-filter=AM -z "$base" HEAD |
+            xargs -0 -r vp fmt --check
       - name: Prove workspace regressions on an explicit pre-fix revision
         if: github.event_name == 'workflow_dispatch' && inputs.regression_ref != ''
         env:
@@ -85,7 +91,8 @@ jobs:
           for test in failed:
               assert any(name in test['fullName'] for name in ['allocates a fresh scratch workspace', 'persists an explicit branch-less workspace']), test
               messages = '\n'.join(test['failureMessages'])
-              assert 'AssertionError' in messages and 'worktreePath' in messages, test
+              assert 'AssertionError' in messages, test
+              assert any(folder in messages for folder in ['/scratch/old-thread', '/old-folder']), test
           PYTHON
           done
       - name: Check changed code and thread creation

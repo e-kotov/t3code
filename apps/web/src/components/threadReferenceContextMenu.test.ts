@@ -145,6 +145,7 @@ it.each(["new-thread-in-project", "new-thread-with-reference"])(
       start,
       async () => action,
     );
+    expect(start.mock.calls[0]?.[1]?.worktreePath).toBeNull();
     expect(start).toHaveBeenCalledWith(
       { environmentId: thread.environmentId, projectId: thread.projectId },
       { branch: null, worktreePath: null, envMode: "local", startFromOrigin: false },
