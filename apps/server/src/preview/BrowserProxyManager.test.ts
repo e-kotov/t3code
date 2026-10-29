@@ -25,9 +25,12 @@ it.layer(layer)("proxy tab ownership", (it) => {
       expect(opened.runtime).toBe("server");
       expect(opened.headless).toBe(true);
       yield* manager.reportStatus({
-        threadId, tabId: opened.tabId, serverControlled: true,
+        threadId,
+        tabId: opened.tabId,
+        serverControlled: true,
         navStatus: { _tag: "Success", url: "https://example.com/", title: "Page" },
-        canGoBack: false, canGoForward: false,
+        canGoBack: false,
+        canGoForward: false,
       });
       const listed = yield* manager.list({ threadId });
       expect(listed.sessions.find((tab) => tab.tabId === opened.tabId)?.proxyUrl).toBe(proxyUrl);

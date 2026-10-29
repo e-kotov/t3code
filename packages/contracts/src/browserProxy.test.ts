@@ -5,6 +5,12 @@ import { BrowserProxySettings, BrowserProxyUrl, normalizeBrowserProxyUrl } from 
 import { PreviewAutomationOpenInput } from "./previewAutomation.ts";
 import { ClientSettingsSchema, ClientSettingsPatch } from "./settings.ts";
 
+const decodeProxyUrl = Schema.decodeSync(BrowserProxyUrl);
+const decodeProxySettings = Schema.decodeSync(BrowserProxySettings);
+const decodeClientSettings = Schema.decodeSync(ClientSettingsSchema);
+const decodeClientPatch = Schema.decodeSync(ClientSettingsPatch);
+const decodeOpenInput = Schema.decodeSync(PreviewAutomationOpenInput);
+
 describe("browser proxy configuration", () => {
   it.each([
     ["", ""],
@@ -13,21 +19,40 @@ describe("browser proxy configuration", () => {
     ["https://proxy.example:443", "https://proxy.example"],
     ["socks5://[::1]:1080", "socks5://[::1]:1080"],
   ])("accepts %s without changing its route", (input, expected) => {
-    expect(normalizeBrowserProxyUrl(Schema.decodeUnknownSync(BrowserProxyUrl)(input))).toBe(expected);
+    expect(normalizeBrowserProxyUrl(decodeProxyUrl(input))).toBe(expected);
   });
 
   it.each([
-    "proxy.example:8080", "file:///tmp/proxy", "socks4://proxy:1080", "http://user:password@proxy:8080",
-    "http://proxy/path", "http://proxy/?secret=value", "http://proxy/#fragment", "socks5://proxy",
-    "socks5://proxy:0", "socks5://proxy:65536", " http://proxy:8080", "http://proxy:8080\n", "http://pro\nxy:8080", "http://proxy,other:8080", "http:/proxy:8080",
+    "proxy.example:8080",
+    "file:///tmp/proxy",
+    "socks4://proxy:1080",
+    "http://user:password@proxy:8080",
+    "http://proxy/path",
+    "http://proxy/?secret=value",
+    "http://proxy/#fragment",
+    "socks5://proxy",
+    "socks5://proxy:0",
+    "socks5://proxy:65536",
+    " http://proxy:8080",
+    "http://proxy:8080\n",
+    "http://pro\nxy:8080",
+    "http://proxy,other:8080",
+    "http:/proxy:8080",
   ])("rejects unsupported or ambiguous configuration %s", (input) => {
-    expect(() => Schema.decodeUnknownSync(BrowserProxyUrl)(input)).toThrow();
+    expect(() => decodeProxyUrl(input)).toThrow();
   });
 
   it("preserves old settings and validates disabled, enabled and direct request overrides", () => {
-    expect(Schema.decodeUnknownSync(ClientSettingsSchema)({}).browserProxy).toEqual({ enabled: false, url: "" });
-    expect(() => Schema.decodeUnknownSync(BrowserProxySettings)({ enabled: true, url: "" })).toThrow();
-    expect(Schema.decodeUnknownSync(ClientSettingsPatch)({ browserProxy: { enabled: false, url: "socks5://proxy:1080" } }).browserProxy?.url).toBe("socks5://proxy:1080");
-    expect(Schema.decodeUnknownSync(PreviewAutomationOpenInput)({ proxyUrl: "" }).proxyUrl).toBe("");
+    expect(decodeClientSettings({}).browserProxy).toEqual({
+      enabled: false,
+      url: "",
+    });
+    expect(() => decodeProxySettings({ enabled: true, url: "" })).toThrow();
+    expect(
+      decodeClientPatch({
+        browserProxy: { enabled: false, url: "socks5://proxy:1080" },
+      }).browserProxy?.url,
+    ).toBe("socks5://proxy:1080");
+    expect(decodeOpenInput({ proxyUrl: "" }).proxyUrl).toBe("");
   });
 });

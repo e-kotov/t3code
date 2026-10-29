@@ -141,7 +141,8 @@ export type PreviewAutomationDialogInput = typeof PreviewAutomationDialogInput.T
 
 export const PreviewAutomationOpenInput = Schema.Struct({
   proxyUrl: Schema.optional(BrowserProxyUrl).annotate({
-    description: "Proxy for this tab: HTTP(S) or SOCKS5 URL reachable from this environment. Empty string forces direct access; omit for the Browser setting. An explicit proxyUrl opens a new tab by default. Routing is fixed for a tab; use reuseExistingTab=false to change it. Proxy tabs have separate logins and run on the environment host.",
+    description:
+      "Proxy for this tab: HTTP(S) or SOCKS5 URL reachable from this environment. Empty string forces direct access; omit for the Browser setting. An explicit proxyUrl opens a new tab by default. Routing is fixed for a tab; use reuseExistingTab=false to change it. Proxy tabs have separate logins and run on the environment host.",
   }),
   ...PreviewAutomationTabTargetFields,
   url: Schema.optional(BoundedUrl).annotate({

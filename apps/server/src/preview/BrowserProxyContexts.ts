@@ -6,12 +6,18 @@ import * as NodePath from "node:path";
 
 import { ServerBrowserContexts } from "./ServerBrowserContexts.ts";
 
+type Options = ConstructorParameters<typeof ServerBrowserContexts>[0];
+
 /** Each route owns its contexts and profile storage; changing one tab never reroutes another. */
 export class BrowserProxyContexts {
   private readonly pools = new Map<string, ServerBrowserContexts>();
   private closed = false;
 
-  constructor(private readonly options: ConstructorParameters<typeof ServerBrowserContexts>[0]) {}
+  private readonly options: Options;
+
+  constructor(options: Options) {
+    this.options = options;
+  }
 
   private pool(proxyUrl = "") {
     if (this.closed) throw new Error("The preview browser is closed.");
@@ -21,7 +27,9 @@ export class BrowserProxyContexts {
     const pool = new ServerBrowserContexts({
       ...this.options,
       proxyUrl: route,
-      profilesDir: route ? NodePath.join(`${this.options.profilesDir}-proxy-routes`, this.routeId(route)) : this.options.profilesDir,
+      profilesDir: route
+        ? NodePath.join(`${this.options.profilesDir}-proxy-routes`, this.routeId(route))
+        : this.options.profilesDir,
     });
     this.pools.set(route, pool);
     return pool;
@@ -35,8 +43,12 @@ export class BrowserProxyContexts {
     return this.pool(proxyUrl).contextFor(profileId, isolationKey);
   }
 
-  scratchPage() { return this.pool().scratchPage(); }
-  connectDesktopPage(endpoint: string) { return this.pool().connectDesktopPage(endpoint); }
+  scratchPage() {
+    return this.pool().scratchPage();
+  }
+  connectDesktopPage(endpoint: string) {
+    return this.pool().connectDesktopPage(endpoint);
+  }
 
   async clearProfile(profileId: string) {
     await Promise.all([...this.pools.values()].map((pool) => pool.clearProfile(profileId)));
@@ -48,7 +60,10 @@ export class BrowserProxyContexts {
     });
     for (const route of routes) {
       if (!/^[a-f0-9]{64}$/.test(route)) continue;
-      const pool = new ServerBrowserContexts({ ...this.options, profilesDir: NodePath.join(root, route) });
+      const pool = new ServerBrowserContexts({
+        ...this.options,
+        profilesDir: NodePath.join(root, route),
+      });
       await pool.clearProfile(profileId);
       await pool.close();
     }

@@ -103,6 +103,7 @@ function sameReportInput(left: ProfileReport, right: ProfileReport): boolean {
   return (
     left.profiles === right.profiles &&
     left.defaultProfileId === right.defaultProfileId &&
-    left.recordingFrameRate === right.recordingFrameRate && left.proxyUrl === right.proxyUrl
+    left.recordingFrameRate === right.recordingFrameRate &&
+    left.proxyUrl === right.proxyUrl
   );
 }

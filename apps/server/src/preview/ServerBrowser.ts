@@ -1786,7 +1786,9 @@ const make = Effect.gen(function* () {
             ? found
             : undefined;
         if (existing && open.proxyUrl !== undefined && (existing.proxyUrl ?? "") !== proxyUrl) {
-          throw new BrowserControlInterrupted("Routing is fixed for this tab. Open a new tab with proxyUrl and reuseExistingTab=false.");
+          throw new BrowserControlInterrupted(
+            "Routing is fixed for this tab. Open a new tab with proxyUrl and reuseExistingTab=false.",
+          );
         }
         const navigationTimeout = Math.min(request.timeoutMs, NAVIGATION_TIMEOUT_MS);
         const profileId = existing ? undefined : resolveOpenProfile(open.profileId);

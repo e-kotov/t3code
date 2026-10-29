@@ -1,7 +1,11 @@
 import { normalizeBrowserProxyUrl } from "@t3tools/contracts";
 import { useState } from "react";
 
-import { useClientSettings, useClientSettingsHydrated, useUpdatePrimarySettings } from "~/hooks/useSettings";
+import {
+  useClientSettings,
+  useClientSettingsHydrated,
+  useUpdatePrimarySettings,
+} from "~/hooks/useSettings";
 import { DraftInput } from "../ui/draft-input";
 import { Switch } from "../ui/switch";
 import { SettingsRow } from "./settingsLayout";
@@ -42,7 +46,11 @@ export function BrowserProxySetting() {
             }
           }}
         />
-        {error ? <p role="alert" className="mt-2 text-sm text-destructive">{error}</p> : null}
+        {error ? (
+          <p role="alert" className="mt-2 text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
       </div>
     </SettingsRow>
   );
