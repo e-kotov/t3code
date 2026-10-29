@@ -3,7 +3,10 @@ import { useEffect, useRef, type ComponentProps } from "react";
 import * as Dialog from "../../components/ui/Dialog";
 import { NewTaskDraftScreen } from "./NewTaskDraftScreen";
 import { useNewTaskFlow } from "./new-task-flow-provider";
-import { seedBranchlessThreadWorkspace, seedThreadReferenceDraft } from "./seedThreadReferenceDraft";
+import {
+  seedBranchlessThreadWorkspace,
+  seedThreadReferenceDraft,
+} from "./seedThreadReferenceDraft";
 
 export function ReferencedNewTaskDraftScreen({
   referenceThread,
