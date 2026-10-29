@@ -16,9 +16,9 @@ project picker opens. Turn off **Settings → General → Use last project** to
 choose a project every time. When you pick a project that is on more than one
 machine, the thread starts on a connected one if any is connected.
 
-Right-click a thread on desktop, or long-press it on mobile, and choose **New thread
-on [branch] with reference** to open a draft on that branch with the selected
-conversation attached as context. Write your prompt and send when ready.
+Right-click a thread on desktop, or long-press it on mobile, and choose **New thread**
+for a draft in the same project, or **New thread with reference** to attach that conversation as context.
+Git threads include the branch in these options. Write your prompt and send when ready.
 
 When you change a new thread's project, T3 Code stays in the current environment
 if that project exists there. Otherwise it selects an environment that has it.

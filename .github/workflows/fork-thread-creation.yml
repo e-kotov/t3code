@@ -1,0 +1,79 @@
+name: Fork thread creation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["fix/no-git-thread-actions"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: thread-creation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.sha }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch --no-tags origin main "$CHECKOUT_REF"
+          git checkout --detach "$CHECKOUT_REF"
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          node-version-file: package.json
+          run-install: false
+          cache: true
+      - run: vp install
+      - name: Prove branch-less menus fail before the fix
+        run: |
+          sources=(apps/web/src/components/threadReferenceContextMenu.ts apps/mobile/src/features/threads/useNewThreadReferenceMenu.ts)
+          for index in "${!sources[@]}"; do
+            cp "${sources[$index]}" "$RUNNER_TEMP/menu-$index.ts"
+          done
+          restore() {
+            for index in "${!sources[@]}"; do
+              cp "$RUNNER_TEMP/menu-$index.ts" "${sources[$index]}"
+            done
+          }
+          trap restore EXIT
+          base=$(git merge-base origin/main HEAD)
+          for source in "${sources[@]}"; do git show "$base:$source" > "$source"; done
+          tests=(apps/web/src/components/threadReferenceContextMenu.test.ts apps/mobile/src/features/threads/useNewThreadReferenceMenu.test.ts)
+          for index in "${!tests[@]}"; do
+            log="$RUNNER_TEMP/menu-regression-$index.log"
+            if vp test run "${tests[$index]}" -t 'branch null|without Git' > "$log" 2>&1; then
+              cat "$log"
+              echo 'The branch-less menu regression must fail before the fix.'
+              exit 1
+            fi
+            cat "$log"
+            python3 -c 'import pathlib, sys; assert "AssertionError" in pathlib.Path(sys.argv[1]).read_text()' "$log"
+          done
+      - name: Check changed code and thread creation
+        run: |
+          vp run check:changed origin/main
+          vp test run apps/web/src/components/threadReferenceContextMenu.test.ts apps/mobile/src/features/threads/useNewThreadReferenceMenu.test.ts apps/mobile/src/features/threads/newThreadReference.test.ts apps/mobile/src/features/threads/seedThreadReferenceDraft.test.ts
+      - name: Capture formatting fixes
+        if: failure()
+        run: |
+          git diff --name-only --diff-filter=AM -z origin/main HEAD |
+            xargs -0 -r vp fmt --no-error-on-unmatched-pattern
+          git diff --binary > "$RUNNER_TEMP/thread-creation-format.patch"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: failure()
+        with:
+          name: thread-creation-format-fixes
+          path: ${{ runner.temp }}/thread-creation-format.patch
+          retention-days: 3

@@ -10,6 +10,7 @@ export type ReferenceThread = Pick<
   "environmentId" | "id" | "projectId" | "title" | "branch" | "worktreePath"
 >;
 export type StartReferencedThread = ReturnType<typeof useNewThreadHandler>;
+const NEW_THREAD_IN_PROJECT = "new-thread-in-project";
 const NEW_THREAD_WITH_REFERENCE = "new-thread-with-reference";
 
 export async function showThreadReferenceContextMenu<T extends string>(
@@ -22,27 +23,32 @@ export async function showThreadReferenceContextMenu<T extends string>(
     position?: { x: number; y: number },
   ) => Promise<string | null>,
 ): Promise<T | null> {
-  const menu: ContextMenuItem<string>[] = items.flatMap((item) =>
-    item.id === "new-thread-on-branch"
-      ? [
-          item,
-          {
-            id: NEW_THREAD_WITH_REFERENCE,
-            label: `New thread on ${thread.branch} with reference`,
-            icon: "message-square-plus",
-          },
-        ]
-      : [item],
-  );
+  const referenceItem: ContextMenuItem<string> = {
+    id: NEW_THREAD_WITH_REFERENCE,
+    label: thread.branch
+      ? `New thread on ${thread.branch} with reference`
+      : "New thread with reference",
+    icon: "message-square-plus",
+  };
+  const menu: ContextMenuItem<string>[] = thread.branch
+    ? items.flatMap((item) =>
+        item.id === "new-thread-on-branch" ? [item, referenceItem] : [item],
+      )
+    : [
+        { id: NEW_THREAD_IN_PROJECT, label: "New thread", icon: "message-square-plus" },
+        referenceItem,
+        ...items,
+      ];
   const selected = await show(menu, position);
-  if (selected !== NEW_THREAD_WITH_REFERENCE) return selected as T | null;
+  if (selected !== NEW_THREAD_WITH_REFERENCE && selected !== NEW_THREAD_IN_PROJECT)
+    return selected as T | null;
   const opened = await start(scopeProjectRef(thread.environmentId, thread.projectId), {
     branch: thread.branch,
     worktreePath: thread.worktreePath,
     envMode: thread.worktreePath ? "worktree" : "local",
     startFromOrigin: false,
   });
-  if (opened) {
+  if (opened && selected === NEW_THREAD_WITH_REFERENCE) {
     useComposerDraftStore
       .getState()
       .addThreadContexts(opened.draftId, [
