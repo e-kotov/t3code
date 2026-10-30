@@ -1,3 +1,4 @@
+import { automationDestinationDimension } from "./automationDestinationDimension.ts";
 import type {
   ModelSelection,
   OrchestrationV2ThreadShell,
@@ -127,7 +128,7 @@ export function handoffSettings(tool: string, args: unknown, result: unknown): F
     case "t3_thread_send_attachments":
       return { delivery: "auto" };
     case "schedule_task":
-      return { bindToCurrentThread: input.bindToCurrentThread !== false };
+      return automationDestinationDimension(output);
     default:
       return {};
   }
