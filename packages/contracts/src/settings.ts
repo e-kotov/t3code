@@ -1,3 +1,7 @@
+import {
+  automationDestinationSettings,
+  automationDestinationSettingsPatch,
+} from "./automationDestinationSettings.ts";
 import { EasDeviceHostConfigs, SimlockDeviceHostConfigs, SshDeviceHostConfigs } from "./device.ts";
 import {
   AuthOrchestrationOperateScope,
@@ -1201,6 +1205,7 @@ export type StorageCleanupSettings = typeof StorageCleanupSettings.Type;
 import { browserProxySettingsFields, browserProxyPatchFields } from "./browserProxy.ts";
 
 export const ServerSettings = Schema.Struct({
+  ...automationDestinationSettings,
   ...browserProxySettingsFields,
   // Null means unmigrated; empty is authoritative and must not resurrect cleared preferences.
   favorites: Schema.NullOr(ModelFavorites).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
@@ -1555,6 +1560,7 @@ const ModelSelectionPatch = Schema.Struct({
 });
 
 export const ServerSettingsPatch = Schema.Struct({
+  ...automationDestinationSettingsPatch,
   ...browserProxyPatchFields,
   setModelFavorites: Schema.optionalKey(
     Schema.Array(Schema.Struct({ ...ModelFavorite.fields, favorite: Schema.Boolean })),

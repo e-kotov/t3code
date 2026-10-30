@@ -60,6 +60,12 @@ to override its environment defaults. Worktree directories keep their original n
 If generation fails, or a custom name is invalid or already taken, the temporary
 branch name remains.
 
+## Scheduled task destinations
+
+Agent-created scheduled tasks start each run in a new thread by default. In **Settings → Scheduled tasks**, turn on **Use the current thread for agent-created tasks** to post new tasks' runs in the creating thread instead. An explicit destination takes precedence, and changing the preference does not change existing tasks.
+
+New threads created by agents use a new worktree for repository projects, based on the project's default branch. Tasks created in Settings start new threads and let you choose their workspace.
+
 ## Scheduled tasks on mobile
 
 Open **Settings → Scheduled tasks** to create recurring tasks or manage existing

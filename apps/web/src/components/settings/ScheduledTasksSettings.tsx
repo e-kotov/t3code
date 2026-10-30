@@ -1,3 +1,4 @@
+import { AutomationDestinationSetting } from "./AutomationDestinationSetting";
 import { useAtomValue } from "@effect/atom-react";
 import { connectionStatusTitle } from "@t3tools/client-runtime/connection";
 import { AsyncResult } from "effect/reactivity";
@@ -410,6 +411,9 @@ export function ScheduledTasksSettings(target: {
     ) ?? permittedEnvironments[0];
   return (
     <SettingsPageContainer>
+      <SettingsSection title="Defaults">
+        <AutomationDestinationSetting />
+      </SettingsSection>
       <SettingsSection
         title="Scheduled tasks"
         variant="plain"
