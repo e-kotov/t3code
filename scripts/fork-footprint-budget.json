@@ -109,6 +109,7 @@
     "apps/server/src/server.ts": 18,
     "apps/server/src/storageCleanup.ts": 4,
     "apps/server/src/telemetry/AnalyticsService.ts": 7,
+    "apps/server/src/telemetry/ProviderDimensions.ts": 3,
     "apps/server/src/ws.ts": 15,
     "apps/web/src/browser/openFileInPreview.ts": 3,
     "apps/web/src/browser/previewRuntime.ts": 5,
