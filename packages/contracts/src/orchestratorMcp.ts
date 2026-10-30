@@ -658,7 +658,8 @@ export const OrchestratorMcpScheduleTaskInput = Schema.Struct({
   enabled: Schema.optional(Schema.Boolean.annotate({ description: "Default true." })),
   bindToCurrentThread: Schema.optional(
     Schema.Boolean.annotate({
-      description: "Omit to use the environment default. True: post in this thread. False: new thread per run.",
+      description:
+        "Omit to use the environment default. True: post in this thread. False: new thread per run.",
     }),
   ),
   clientRequestId: Schema.optional(OrchestratorMcpClientRequestId),

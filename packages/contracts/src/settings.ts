@@ -1,4 +1,7 @@
-import { automationDestinationSettings, automationDestinationSettingsPatch } from "./automationDestinationSettings.ts";
+import {
+  automationDestinationSettings,
+  automationDestinationSettingsPatch,
+} from "./automationDestinationSettings.ts";
 import { EasDeviceHostConfigs, SimlockDeviceHostConfigs, SshDeviceHostConfigs } from "./device.ts";
 import {
   AuthOrchestrationOperateScope,
