@@ -22,7 +22,6 @@ import {
   type ScheduledTaskRunNowInput,
   type ScheduledTaskRunNowResult,
   type ScheduledTaskSetEnabledInput,
-  type ScheduledTaskUpsertInput,
 } from "@t3tools/contracts";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
@@ -50,6 +49,10 @@ import * as Metrics from "../observability/Metrics.ts";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
 import * as SecretRequests from "../secrets/SecretRequests.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
+import {
+  scheduledTaskCreationReplay,
+  type ScheduledTaskServiceUpsertInput,
+} from "./scheduledTaskCreationReplay.ts";
 import { isMissedFixedTimeRun, isSameSchedule, nextScheduledRunAt } from "./Schedule.ts";
 import {
   redactHeaders,
@@ -231,7 +234,7 @@ export class ScheduledTaskService extends Context.Service<
     readonly list: () => Effect.Effect<ScheduledTaskListResult, ScheduledTaskError>;
     readonly subscribeList: () => Stream.Stream<ScheduledTaskListResult, ScheduledTaskError>;
     readonly upsert: (
-      input: ScheduledTaskUpsertInput,
+      input: ScheduledTaskServiceUpsertInput,
     ) => Effect.Effect<ScheduledTaskMutationResult, ScheduledTaskError>;
     readonly setEnabled: (
       input: ScheduledTaskSetEnabledInput,
@@ -1147,6 +1150,8 @@ export const layer = Layer.effect(
       // keep their run history, and so real load failures propagate instead
       // of silently resetting an existing row.
       const existingTask = yield* findTask(id);
+      const replay = scheduledTaskCreationReplay(input, existingTask);
+      if (replay !== null) return { task: replay };
       // Keep the existing next_run_at when the schedule itself is untouched:
       // editing a title or prompt must not postpone (or resurrect) a due
       // run — only schedule/enabled changes restart the clock.

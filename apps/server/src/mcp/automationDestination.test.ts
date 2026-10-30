@@ -1,80 +1,81 @@
-import { it as effectIt } from "@effect/vitest";
-import { GitCommandError, ProjectId } from "@t3tools/contracts";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import { it } from "@effect/vitest";
+import { ProjectId } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
-import { describe, expect, it } from "vite-plus/test";
+import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
+import { expect } from "vite-plus/test";
 
-import { ThreadLaunchBaseRefError } from "../orchestration-v2/ThreadLaunchService.ts";
+import * as ServerConfig from "../config.ts";
+import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
+import * as VcsProcess from "../vcs/VcsProcess.ts";
 import { defaultScheduledTaskBinding, scheduledTaskWorkspaces } from "./automationDestination.ts";
 
-const project = { id: ProjectId.make("project:automation"), workspaceRoot: "/projects/automation" };
 const upstream = { type: "worktree", baseRef: "main", startFromOrigin: true } as const;
-const noRemote = new GitCommandError({
-  operation: "resolvePrimaryRemoteName",
-  command: "git",
-  cwd: project.workspaceRoot,
-  detail: "No remote.",
-});
-const git = (defaultBranch: string | null) => ({
-  resolvePrimaryRemoteName: () => Effect.succeed("origin"),
-  resolveDefaultBranchName: () => Effect.succeed(defaultBranch),
-});
-const existingRefs = (
-  ...refs: ReadonlyArray<string>
-): Parameters<typeof scheduledTaskWorkspaces>[2] => ({
-  checkWorktreeBase: ({ workspaceStrategy }) =>
-    workspaceStrategy.type !== "worktree" || refs.includes(workspaceStrategy.baseRef)
-      ? Effect.void
-      : Effect.fail(
-          new ThreadLaunchBaseRefError({
-            projectId: project.id,
-            projectTitle: "Automation",
-            workspaceRoot: project.workspaceRoot,
-            baseRef: workspaceStrategy.baseRef,
-          }),
-        ),
+const commit = ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "c"];
+
+it("uses the environment preference only when no destination was requested", () => {
+  expect(defaultScheduledTaskBinding(undefined, false, true)).toBe(false);
+  expect(defaultScheduledTaskBinding(undefined, true, true)).toBe(true);
+  expect(defaultScheduledTaskBinding(undefined, true, false)).toBe(false);
+  expect(defaultScheduledTaskBinding(false, true, true)).toBe(false);
+  expect(defaultScheduledTaskBinding(true, false, true)).toBe(true);
+  expect(defaultScheduledTaskBinding(true, false, false)).toBe(true);
 });
 
-describe("scheduled task destination", () => {
-  it("uses the environment preference only when no destination was requested", () => {
-    expect(defaultScheduledTaskBinding(undefined, false, true)).toBe(false);
-    expect(defaultScheduledTaskBinding(undefined, true, true)).toBe(true);
-    expect(defaultScheduledTaskBinding(undefined, true, false)).toBe(false);
-    expect(defaultScheduledTaskBinding(false, true, true)).toBe(false);
-    expect(defaultScheduledTaskBinding(true, false, true)).toBe(true);
-    expect(defaultScheduledTaskBinding(true, false, false)).toBe(true);
-  });
-
-  effectIt.effect("bases new-thread worktrees on a branch the project has", () =>
-    Effect.gen(function* () {
-      const run = (
-        driver: Parameters<typeof scheduledTaskWorkspaces>[1],
-        refs: ReadonlyArray<string>,
-        boundToThread = false,
-      ) =>
-        scheduledTaskWorkspaces(
-          () => Effect.succeed(project),
-          driver,
-          existingRefs(...refs),
+it.effect("bases new-thread worktrees on a branch the checkout has", () =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const git = yield* GitVcsDriver.GitVcsDriver;
+    const workspaceFor = (setup: ReadonlyArray<ReadonlyArray<string>>, boundToThread = false) =>
+      Effect.gen(function* () {
+        const cwd = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-automation-" });
+        for (const args of setup) yield* git.execute({ operation: "test.setupRepo", cwd, args });
+        return yield* scheduledTaskWorkspaces(
+          () => Effect.succeed({ workspaceRoot: cwd }),
+          git,
           (bound) => (bound ? { type: "root" } : upstream),
-        )(project.id, boundToThread);
-
-      expect(yield* run(git("trunk"), ["trunk"])).toEqual({ ...upstream, baseRef: "trunk" });
-      expect(yield* run(git(null), ["main"])).toEqual(upstream);
-      expect(yield* run(git(null), ["master"])).toEqual({
-        type: "worktree",
-        baseRef: "HEAD",
-        startFromOrigin: false,
+        )(ProjectId.make("project:automation"), boundToThread);
       });
-      expect(
-        yield* run(
-          {
-            resolvePrimaryRemoteName: () => Effect.fail(noRemote),
-            resolveDefaultBranchName: () => Effect.succeed("trunk"),
-          },
-          ["master"],
+    const head = { type: "worktree", baseRef: "HEAD", startFromOrigin: false };
+
+    expect(yield* workspaceFor([])).toEqual({ type: "root" });
+    expect(yield* workspaceFor([["init", "-b", "main"]])).toEqual({ type: "root" });
+    expect(yield* workspaceFor([["init", "-b", "main"], commit])).toEqual(upstream);
+    expect(yield* workspaceFor([["init", "-b", "master"], commit])).toEqual(head);
+    // A remote alone must not make an absent `main` look usable.
+    expect(
+      yield* workspaceFor([
+        ["init", "-b", "master"],
+        commit,
+        ["remote", "add", "origin", "/nonexistent/remote.git"],
+        ["update-ref", "refs/remotes/origin/master", "HEAD"],
+      ]),
+    ).toEqual(head);
+    expect(
+      yield* workspaceFor([
+        ["init", "-b", "master"],
+        commit,
+        ["remote", "add", "origin", "/nonexistent/remote.git"],
+        ["update-ref", "refs/remotes/origin/trunk", "HEAD"],
+        ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/trunk"],
+      ]),
+    ).toEqual({ ...upstream, baseRef: "trunk" });
+    expect(yield* workspaceFor([["init", "-b", "master"], commit], true)).toEqual({
+      type: "root",
+    });
+  }).pipe(
+    Effect.scoped,
+    Effect.provide(
+      GitVcsDriver.layer.pipe(
+        Layer.provideMerge(VcsProcess.layer),
+        Layer.provideMerge(
+          ServerConfig.layerTest(process.cwd(), { prefix: "t3-automation-" }).pipe(
+            Layer.provide(NodeServices.layer),
+          ),
         ),
-      ).toEqual({ type: "worktree", baseRef: "HEAD", startFromOrigin: false });
-      expect(yield* run(git("trunk"), [], true)).toEqual({ type: "root" });
-    }),
-  );
-});
+        Layer.provideMerge(NodeServices.layer),
+      ),
+    ),
+  ),
+);

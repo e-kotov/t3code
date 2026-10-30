@@ -989,7 +989,6 @@ const make = Effect.gen(function* () {
   const automationWorkspace = scheduledTaskWorkspaces(
     requireProject,
     gitDriver,
-    threadLaunch,
     scheduledTaskWorkspaceStrategy,
   );
 
@@ -1894,7 +1893,7 @@ const make = Effect.gen(function* () {
             }),
       };
       const { task } = yield* scheduledTasks
-        .upsert(upsertInput)
+        .upsert({ ...upsertInput, keepExistingOnReplay: true })
         .pipe(
           Effect.mapError((error) =>
             failure("orchestration_error", `Could not schedule task: ${error.message}`),
