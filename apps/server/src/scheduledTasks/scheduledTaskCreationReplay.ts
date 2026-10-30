@@ -8,7 +8,7 @@ export function scheduledTaskCreationReplay(
   input: ScheduledTaskServiceUpsertInput,
   existing: ScheduledTask | null,
 ) {
-  // A replay must not rewrite work the user rebound above the caller's mode ceiling.
+  // A retried create must not rewrite the task, including the user's later edits to it.
   return input.preserveExistingOnReplay && input.commandId !== undefined && existing !== null
     ? existing
     : null;

@@ -128,7 +128,7 @@ export function handoffSettings(tool: string, args: unknown, result: unknown): F
     case "t3_thread_send_attachments":
       return { delivery: "auto" };
     case "schedule_task":
-      return scheduledTaskHandoffSettings(output);
+      return scheduledTaskHandoffSettings(input, output);
     default:
       return {};
   }

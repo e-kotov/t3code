@@ -87,7 +87,7 @@ it.effect("each unbound run launches in its saved project, including scratch pro
   }).pipe(Effect.provide(SqlitePersistence.layerMemory)),
 );
 
-it.effect("an idempotent create keeps saved placement unless a binding was explicitly chosen", () =>
+it.effect("an idempotent create keeps the saved task only when asked to preserve it", () =>
   Effect.gen(function* () {
     const layer = ScheduledTaskService.layer.pipe(
       Layer.provide(

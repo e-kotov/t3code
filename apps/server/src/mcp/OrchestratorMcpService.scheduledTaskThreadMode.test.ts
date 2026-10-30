@@ -6,7 +6,6 @@ import {
   ScheduledTask,
   ScheduledTaskId,
   ThreadId,
-  type ScheduledTaskUpsertInput,
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -19,6 +18,10 @@ import * as ThreadManagementService from "../orchestration-v2/ThreadManagementSe
 import * as RemoteDelegation from "../peer/RemoteDelegation.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as ProviderRegistry from "../provider/ProviderRegistry.ts";
+import {
+  scheduledTaskCreationReplay,
+  type ScheduledTaskServiceUpsertInput,
+} from "../scheduledTasks/scheduledTaskCreationReplay.ts";
 import * as ScheduledTaskService from "../scheduledTasks/ScheduledTaskService.ts";
 import * as SecretRequests from "../secrets/SecretRequests.ts";
 import * as ServerSettings from "../serverSettings.ts";
@@ -46,6 +49,7 @@ const decodeScheduledTask = Schema.decodeUnknownEffect(ScheduledTask);
 
 const fixture = Effect.gen(function* () {
   const tasks = yield* Ref.make<ReadonlyArray<ScheduledTask>>([]);
+  const defaultBranch = yield* Ref.make<string | null>("trunk");
   const settings = ServerSettings.layerTest();
   const dependencies = Layer.mergeAll(
     settings,
@@ -69,11 +73,18 @@ const fixture = Effect.gen(function* () {
     }),
     Layer.mock(ScheduledTaskService.ScheduledTaskService)({
       list: () => Ref.get(tasks).pipe(Effect.map((tasks) => ({ tasks }))),
-      upsert: (input: ScheduledTaskUpsertInput) =>
+      upsert: (input: ScheduledTaskServiceUpsertInput) =>
         Effect.gen(function* () {
+          const id =
+            input.id ??
+            (input.commandId ? `scheduled-task:${input.commandId}` : "scheduled-task:automation");
+          const existing = (yield* Ref.get(tasks)).find((task) => task.id === id) ?? null;
+          const replay = scheduledTaskCreationReplay(input, existing);
+          if (replay !== null) return { task: replay };
+          const { preserveExistingOnReplay: _preserve, ...fields } = input;
           const task = yield* decodeScheduledTask({
-            ...input,
-            id: input.id ?? "scheduled-task:automation",
+            ...fields,
+            id,
             createdAt: "2026-10-01T00:00:00.000Z",
             updatedAt: "2026-10-01T00:00:00.000Z",
             nextRunAt: null,
@@ -82,19 +93,35 @@ const fixture = Effect.gen(function* () {
             lastRunError: null,
             runCount: 0,
           }).pipe(Effect.orDie);
-          yield* Ref.set(tasks, [task]);
+          yield* Ref.update(tasks, (tasks) => [...tasks.filter((other) => other.id !== id), task]);
           return { task };
         }),
     }),
     Layer.mock(ProviderRegistry.ProviderRegistry)({}),
     Layer.mock(ProviderAdapterRegistry.ProviderAdapterRegistryV2)({}),
-    Layer.mock(ThreadLaunchService.ThreadLaunchService)({}),
-    Layer.mock(GitVcsDriver.GitVcsDriver)({}),
+    Layer.mock(ThreadLaunchService.ThreadLaunchService)({
+      checkWorktreeBase: ({ projectId, workspaceStrategy }) =>
+        workspaceStrategy.type === "worktree" && workspaceStrategy.baseRef === "main"
+          ? Effect.fail(
+              new ThreadLaunchService.ThreadLaunchBaseRefError({
+                projectId,
+                projectTitle: "Automation project",
+                workspaceRoot: "/projects/automation",
+                baseRef: workspaceStrategy.baseRef,
+              }),
+            )
+          : Effect.void,
+    }),
+    Layer.mock(GitVcsDriver.GitVcsDriver)({
+      resolvePrimaryRemoteName: () => Effect.succeed("origin"),
+      resolveDefaultBranchName: () => Ref.get(defaultBranch),
+    }),
     Layer.mock(SecretRequests.SecretRequests)({}),
     Layer.mock(RemoteDelegation.RemoteDelegation)({}),
   );
   return {
     tasks,
+    defaultBranch,
     layer: OrchestratorMcpService.layer.pipe(Layer.provide(dependencies), Layer.merge(settings)),
   };
 });
@@ -103,7 +130,7 @@ it.effect(
   "uses the current creation preference without moving projects or overriding explicit choices",
   () =>
     Effect.gen(function* () {
-      const { tasks, layer } = yield* fixture;
+      const { tasks, defaultBranch, layer } = yield* fixture;
       yield* Effect.gen(function* () {
         const service = yield* OrchestratorMcpService.OrchestratorMcpService;
         const settings = yield* ServerSettings.ServerSettingsService;
@@ -115,6 +142,18 @@ it.effect(
           });
         expect((yield* create()).boundThreadId).toBeNull();
         expect((yield* Ref.get(tasks))[0]?.projectId).toBe(shell.projectId);
+        expect((yield* Ref.get(tasks))[0]?.workspaceStrategy).toEqual({
+          type: "worktree",
+          baseRef: "trunk",
+          startFromOrigin: true,
+        });
+        yield* Ref.set(defaultBranch, null);
+        yield* create();
+        expect((yield* Ref.get(tasks))[0]?.workspaceStrategy).toEqual({
+          type: "worktree",
+          baseRef: "HEAD",
+          startFromOrigin: false,
+        });
         expect((yield* create(true)).boundThreadId).toBe(shell.id);
         yield* settings.updateSettings({ scheduledTaskThreadMode: "current-thread" });
         expect((yield* create()).boundThreadId).toBe(shell.id);
@@ -190,7 +229,11 @@ it.effect(
               bindToCurrentThread: false,
             })).boundThreadId,
           ).toBeNull();
-          expect((yield* Ref.get(tasks))[0]?.workspaceStrategy).toEqual(workspaceStrategy);
+          const unbound =
+            workspaceStrategy.type === "root"
+              ? { type: "worktree", baseRef: "trunk", startFromOrigin: true }
+              : workspaceStrategy;
+          expect((yield* Ref.get(tasks))[0]?.workspaceStrategy).toEqual(unbound);
           yield* settings.updateSettings({ scheduledTaskThreadMode: "current-thread" });
           expect(
             (yield* service.updateScheduledTask(scope, { scheduledTaskId, enabled: false }))
@@ -202,8 +245,25 @@ it.effect(
               bindToCurrentThread: true,
             })).boundThreadId,
           ).toBe(shell.id);
-          expect((yield* Ref.get(tasks))[0]?.workspaceStrategy).toEqual(workspaceStrategy);
+          expect((yield* Ref.get(tasks))[0]?.workspaceStrategy).toEqual(unbound);
         }
+        const retried = {
+          prompt: "Review later",
+          schedule,
+          bindToCurrentThread: true,
+          clientRequestId: "retry-after-edit",
+        } as const;
+        const created = yield* service.scheduleTask(scope, retried);
+        yield* Ref.update(tasks, (tasks) =>
+          tasks.map((task) =>
+            task.id === created.scheduledTaskId
+              ? { ...task, title: "Edited by the user", threadId: null }
+              : task,
+          ),
+        );
+        const replayed = yield* service.scheduleTask(scope, retried);
+        expect(replayed.title).toBe("Edited by the user");
+        expect(replayed.boundThreadId).toBeNull();
       }).pipe(Effect.provide(layer));
     }),
 );

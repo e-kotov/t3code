@@ -65,7 +65,7 @@ import {
 } from "@t3tools/contracts";
 import { getProviderOptionCurrentValue } from "@t3tools/shared/model";
 import { runRanAfter } from "@t3tools/shared/orchestrationV2ThreadError";
-import { resolveScheduledTaskThreadBinding } from "./scheduledTaskThreadMode.ts";
+import { scheduledTaskThreads } from "./scheduledTaskThreadMode.ts";
 import { formatThreadLink } from "@t3tools/shared/threadLinks";
 import {
   normalizeThreadPullRequestKey,
@@ -986,6 +986,13 @@ const make = Effect.gen(function* () {
         }),
       ),
     );
+  const automation = scheduledTaskThreads(
+    serverSettings,
+    gitDriver,
+    threadLaunch,
+    requireProject,
+    scheduledTaskWorkspaceStrategy(false),
+  );
 
   const projectDefaultModelSelection = (
     project: Effect.Success<ReturnType<typeof requireProject>>,
@@ -1841,11 +1848,9 @@ const make = Effect.gen(function* () {
       const projectId = yield* resolveProjectTarget(parent, input.projectId);
       yield* assertLiveCallerForOtherProject(scope, parent, projectId);
       const project = yield* requireProject(projectId);
-      const bindToCurrentThread = yield* resolveScheduledTaskThreadBinding(
-        input.bindToCurrentThread,
-        parent?.thread.projectId,
-        projectId,
-      ).pipe(Effect.provideService(ServerSettings.ServerSettingsService, serverSettings));
+      const bindToCurrentThread =
+        input.bindToCurrentThread ??
+        (yield* automation.bindsByDefault(parent?.thread.projectId, projectId));
       if (bindToCurrentThread && (parent === undefined || parent.thread.projectId !== projectId)) {
         return yield* failure(
           "invalid_request",
@@ -1866,7 +1871,7 @@ const make = Effect.gen(function* () {
         schedule: input.schedule,
         projectId,
         threadId: bindToCurrentThread && parent !== undefined ? parent.thread.id : null,
-        workspaceStrategy: scheduledTaskWorkspaceStrategy(bindToCurrentThread),
+        workspaceStrategy: yield* automation.workspace(project, bindToCurrentThread),
         modelSelection,
         runtimeMode: limits.runtimeMode,
         interactionMode: limits.interactionMode,
@@ -1885,10 +1890,7 @@ const make = Effect.gen(function* () {
             }),
       };
       const { task } = yield* scheduledTasks
-        .upsert({
-          ...upsertInput,
-          preserveExistingOnReplay: input.bindToCurrentThread === undefined,
-        })
+        .upsert({ ...upsertInput, preserveExistingOnReplay: true })
         .pipe(
           Effect.mapError((error) =>
             failure("orchestration_error", `Could not schedule task: ${error.message}`),
@@ -1937,7 +1939,11 @@ const make = Effect.gen(function* () {
             : input.bindToCurrentThread && parent !== undefined
               ? parent.thread.id
               : null;
-        const workspaceStrategy = existing.workspaceStrategy;
+        // Update workspace strategy on rebinding so unbound root tasks cannot run in the shared checkout.
+        const workspaceStrategy =
+          input.bindToCurrentThread === undefined
+            ? existing.workspaceStrategy
+            : yield* automation.rebind(existing, input.bindToCurrentThread);
         const upsertInput: ScheduledTaskUpsertInput = {
           id: existing.id,
           title: input.title ?? existing.title,

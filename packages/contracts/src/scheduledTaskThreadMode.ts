@@ -16,6 +16,6 @@ export const scheduledTaskThreadModePatch = {
 export const scheduledTaskThreadBinding = Schema.optional(
   Schema.Boolean.annotate({
     description:
-      "Omit to use this environment's automation thread preference when creating a task, or preserve the existing binding when updating. True: post in this thread. False: a new thread per run in the selected project. Does not change the workspace of an existing task.",
+      "Omit to use this environment's automation thread preference when creating a task, or preserve the existing binding when updating. True: post in this thread. False: a new thread per run in the selected project.",
   }),
 );

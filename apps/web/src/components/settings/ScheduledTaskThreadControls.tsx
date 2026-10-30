@@ -1,6 +1,7 @@
-import { AuthSettingsWriteScope, type EnvironmentId } from "@t3tools/contracts";
+import { scopeProjectRef } from "@t3tools/client-runtime/environment";
+import { AuthSettingsWriteScope, type EnvironmentId, type ProjectId } from "@t3tools/contracts";
 import { useEnvironmentSettings, useUpdateEnvironmentSettings } from "../../hooks/useSettings";
-import { useQuietThreadShells } from "../../state/entities";
+import { useThreadShellsForProjectRefs } from "../../state/entities";
 import { useEnvironmentScope } from "../../state/session";
 import { Label } from "../ui/label";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
@@ -82,14 +83,15 @@ export function ScheduledTaskThreadField({
   readonly disabled: boolean;
   readonly onChange: (threadId: string) => void;
 }) {
-  const threads = useQuietThreadShells().filter(
-    (thread) =>
-      thread.environmentId === environmentId &&
-      thread.projectId === projectId &&
-      thread.deletedAt === null &&
-      thread.archivedAt === null,
+  // Runs still post to an archived thread, so a saved one stays listed by name.
+  const threads = useThreadShellsForProjectRefs(
+    projectId ? [scopeProjectRef(environmentId, projectId as ProjectId)] : [],
+  ).filter(
+    (thread) => thread.deletedAt === null && (thread.archivedAt === null || thread.id === threadId),
   );
   const selected = threads.find((thread) => thread.id === threadId);
+  const threadLabel = (thread: (typeof threads)[number]) =>
+    thread.archivedAt === null ? thread.title : `${thread.title} (archived)`;
   return (
     <div className="space-y-1.5">
       <Label htmlFor="scheduled-task-thread">Thread</Label>
@@ -103,7 +105,7 @@ export function ScheduledTaskThreadField({
         <SelectTrigger size="sm" id="scheduled-task-thread">
           <SelectValue>
             {threadId
-              ? `Continue: ${selected?.title ?? "Saved thread (unavailable)"}`
+              ? `Continue: ${selected ? threadLabel(selected) : "Saved thread (unavailable)"}`
               : "New thread each run"}
           </SelectValue>
         </SelectTrigger>
@@ -114,7 +116,7 @@ export function ScheduledTaskThreadField({
           ) : null}
           {threads.map((thread) => (
             <SelectItem key={thread.id} value={thread.id}>
-              Continue: {thread.title}
+              Continue: {threadLabel(thread)}
             </SelectItem>
           ))}
         </SelectPopup>

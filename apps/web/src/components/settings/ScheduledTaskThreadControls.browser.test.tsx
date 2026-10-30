@@ -49,6 +49,7 @@ interface FixtureSnapshot {
   readonly connected: boolean;
   readonly tasksLoaded: boolean;
   readonly secondary: boolean;
+  readonly sourceArchived: boolean;
   readonly settingsByEnvironment: ReadonlyMap<string, typeof DEFAULT_UNIFIED_SETTINGS>;
 }
 
@@ -57,6 +58,7 @@ const state = vi.hoisted(() => ({
     connected: true,
     tasksLoaded: true,
     secondary: false,
+    sourceArchived: false,
     settingsByEnvironment: new Map(),
   } as FixtureSnapshot,
   listeners: new Set<() => void>(),
@@ -99,6 +101,7 @@ function setup() {
     connected: true,
     tasksLoaded: true,
     secondary: false,
+    sourceArchived: false,
     settingsByEnvironment: new Map(),
   };
   state.updateSettings.mockReset();
@@ -218,24 +221,41 @@ vi.mock(import("../../state/entities"), async (original) => ({
     { id: projectId, environmentId, title: "Project" },
     { id: ProjectId.make("other-project"), environmentId, title: "Other project" },
   ]) as never,
-  useQuietThreadShells: (() => [
-    {
-      id: task.threadId,
-      projectId,
-      environmentId,
-      title: "Source conversation",
-      archivedAt: null,
-      deletedAt: null,
-    },
-    {
-      id: ThreadId.make("other-thread"),
-      projectId: ProjectId.make("other-project"),
-      environmentId,
-      title: "Other conversation",
-      archivedAt: null,
-      deletedAt: null,
-    },
-  ]) as never,
+  useThreadShellsForProjectRefs: ((
+    refs: ReadonlyArray<{ environmentId: EnvironmentId; projectId: ProjectId }>,
+  ) => {
+    const snapshot = useFixtureSnapshot();
+    return [
+      {
+        id: task.threadId,
+        projectId,
+        environmentId,
+        title: "Source conversation",
+        archivedAt: snapshot.sourceArchived ? "2026-09-18T00:00:00.000Z" : null,
+        deletedAt: null,
+      },
+      {
+        id: ThreadId.make("archived-thread"),
+        projectId,
+        environmentId,
+        title: "Archived conversation",
+        archivedAt: "2026-09-18T00:00:00.000Z",
+        deletedAt: null,
+      },
+      {
+        id: ThreadId.make("other-thread"),
+        projectId: ProjectId.make("other-project"),
+        environmentId,
+        title: "Other conversation",
+        archivedAt: null,
+        deletedAt: null,
+      },
+    ].filter((thread) =>
+      refs.some(
+        (ref) => ref.environmentId === thread.environmentId && ref.projectId === thread.projectId,
+      ),
+    );
+  }) as never,
 }));
 vi.mock(import("../../hooks/useSettings"), async (original) => ({
   ...(await original()),
@@ -294,6 +314,19 @@ describe("scheduled task thread controls", () => {
     await expect
       .element(page.getByLabelText("Thread", { exact: true }))
       .toHaveTextContent("Continue: Source conversation");
+  });
+
+  it("names a saved archived thread without offering other archived threads", async () => {
+    setup();
+    publishFixture({ ...state.snapshot, sourceArchived: true });
+    await using _screen = await render(<ScheduledTasksSettings taskId={task.id} />);
+    await expect
+      .element(page.getByLabelText("Thread", { exact: true }))
+      .toHaveTextContent("Continue: Source conversation (archived)");
+    await page.getByLabelText("Thread", { exact: true }).click();
+    await expect
+      .element(page.getByRole("option", { name: "Continue: Archived conversation" }))
+      .not.toBeInTheDocument();
   });
 
   it("saves an explicit new-thread choice without changing the workspace", async () => {

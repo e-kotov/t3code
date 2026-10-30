@@ -13,5 +13,8 @@ it("reports the saved scheduled-task binding rather than guessing from omitted i
   }
   for (const result of [undefined, {}, { code: "invalid_request" }, { boundThreadId: 123 }]) {
     expect(handoffSettings("schedule_task", {}, result)).toEqual({});
+    expect(handoffSettings("schedule_task", { bindToCurrentThread: true }, result)).toEqual({
+      bindToCurrentThread: true,
+    });
   }
 });

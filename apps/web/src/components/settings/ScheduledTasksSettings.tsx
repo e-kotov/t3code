@@ -1396,7 +1396,9 @@ function ScheduledTaskEditorForm({
             projectId={selectedProjectId}
             threadId={draft.threadId}
             disabled={saving || !connected}
-            onChange={(threadId) => setDraft((current) => ({ ...current, threadId }))}
+            onChange={(threadId) =>
+              setDraft((current) => ({ ...current, projectId: selectedProjectId, threadId }))
+            }
           />
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Project" htmlFor="scheduled-task-project">
@@ -1406,7 +1408,7 @@ function ScheduledTaskEditorForm({
                   setDraft((current) => ({
                     ...current,
                     projectId: projectId ?? "",
-                    threadId: projectId === current.projectId ? current.threadId : "",
+                    threadId: projectId === selectedProjectId ? current.threadId : "",
                   }))
                 }
               >

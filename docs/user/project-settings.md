@@ -70,8 +70,9 @@ environment's time zone, which may differ from your phone's.
 
 On desktop and web, **Tasks created from chat** sets each environment's default:
 start a new thread in the same project for every run, or post into the originating
-thread. New threads are the fork default. An explicit request to the agent can
-override it. Changing this preference does not move existing tasks.
+thread. New threads are the fork default, and each run starts in a fresh worktree
+from the project's default branch. An explicit request to the agent can override
+it. Changing this preference does not move existing tasks.
 
 Use **Thread** in a task's editor to change that task's destination. Thread choice
 and workspace choice are separate: a new thread does not necessarily mean a new
