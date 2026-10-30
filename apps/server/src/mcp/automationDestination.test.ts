@@ -27,16 +27,19 @@ it.effect("bases new-thread worktrees on a branch the checkout has", () =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const git = yield* GitVcsDriver.GitVcsDriver;
-    const workspaceFor = (setup: ReadonlyArray<ReadonlyArray<string>>, boundToThread = false) =>
+    const workspaceIn = (setup: ReadonlyArray<ReadonlyArray<string>>, boundToThread = false) =>
       Effect.gen(function* () {
         const cwd = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-automation-" });
         for (const args of setup) yield* git.execute({ operation: "test.setupRepo", cwd, args });
-        return yield* scheduledTaskWorkspaces(
+        const workspace = yield* scheduledTaskWorkspaces(
           () => Effect.succeed({ workspaceRoot: cwd }),
           git,
           (bound) => (bound ? { type: "root" } : upstream),
         )(ProjectId.make("project:automation"), boundToThread);
+        return { cwd, workspace };
       });
+    const workspaceFor = (setup: ReadonlyArray<ReadonlyArray<string>>, boundToThread = false) =>
+      workspaceIn(setup, boundToThread).pipe(Effect.map(({ workspace }) => workspace));
     const head = { type: "worktree", baseRef: "HEAD", startFromOrigin: false };
 
     expect(yield* workspaceFor([])).toEqual({ type: "root" });
@@ -52,15 +55,23 @@ it.effect("bases new-thread worktrees on a branch the checkout has", () =>
         ["update-ref", "refs/remotes/origin/master", "HEAD"],
       ]),
     ).toEqual(head);
-    expect(
-      yield* workspaceFor([
-        ["init", "-b", "master"],
+    for (const remote of ["origin", "upstream"]) {
+      const { cwd, workspace } = yield* workspaceIn([
+        ["init", "-b", "feature"],
         commit,
-        ["remote", "add", "origin", "/nonexistent/remote.git"],
-        ["update-ref", "refs/remotes/origin/trunk", "HEAD"],
-        ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/trunk"],
-      ]),
-    ).toEqual({ ...upstream, baseRef: "trunk" });
+        ["remote", "add", remote, "/nonexistent/remote.git"],
+        ["update-ref", `refs/remotes/${remote}/trunk`, "HEAD"],
+        ["symbolic-ref", `refs/remotes/${remote}/HEAD`, `refs/remotes/${remote}/trunk`],
+      ]);
+      expect(workspace).toEqual({ ...upstream, baseRef: `${remote}/trunk` });
+      // Launch must find the remote to fetch, and the start ref must resolve without that fetch.
+      const baseRef = workspace.type === "worktree" ? workspace.baseRef : "";
+      expect(yield* git.resolveWorktreeBaseRemote({ cwd, refName: baseRef })).toEqual({
+        remoteName: remote,
+        branchName: "trunk",
+      });
+      yield* git.resolveCommit({ cwd, revision: baseRef });
+    }
     expect(yield* workspaceFor([["init", "-b", "master"], commit], true)).toEqual({
       type: "root",
     });

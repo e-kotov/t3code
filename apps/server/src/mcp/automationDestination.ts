@@ -43,13 +43,14 @@ export function scheduledTaskWorkspaces<E, R>(
         ? null
         : yield* git.resolveDefaultBranchName(cwd, remote).pipe(Effect.orElseSucceed(() => null));
     for (const branch of new Set([defaultBranch ?? strategy.baseRef, strategy.baseRef])) {
+      if (yield* hasCommit(`refs/heads/${branch}`)) return { ...strategy, baseRef: branch };
+      // Launch maps a bare name only to `origin`, so keep the remote a tracking ref belongs to.
       const onRemote =
         remote !== null &&
         (yield* git
           .remoteBranchExists({ cwd, remoteName: remote, refName: branch })
           .pipe(Effect.orElseSucceed(() => false)));
-      if (onRemote || (yield* hasCommit(`refs/heads/${branch}`)))
-        return { ...strategy, baseRef: branch };
+      if (onRemote) return { ...strategy, baseRef: `${remote}/${branch}` };
     }
     return {
       type: "worktree",
