@@ -10,7 +10,6 @@ import {
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 
@@ -57,18 +56,16 @@ const fixture = Effect.gen(function* () {
     }),
     Layer.mock(ProjectService.ProjectService)({
       getById: (id) =>
-        Effect.succeed(
-          Option.some({
-            id,
-            title: "Automation project",
-            workspaceRoot: "/projects/automation",
-            defaultModelSelection: shell.modelSelection,
-            scripts: [],
-            createdAt: "2026-10-01T00:00:00.000Z",
-            updatedAt: "2026-10-01T00:00:00.000Z",
-            deletedAt: null,
-          }),
-        ),
+        Effect.succeedSome({
+          id,
+          title: "Automation project",
+          workspaceRoot: "/projects/automation",
+          defaultModelSelection: shell.modelSelection,
+          scripts: [],
+          createdAt: "2026-10-01T00:00:00.000Z",
+          updatedAt: "2026-10-01T00:00:00.000Z",
+          deletedAt: null,
+        }),
     }),
     Layer.mock(ScheduledTaskService.ScheduledTaskService)({
       list: () => Ref.get(tasks).pipe(Effect.map((tasks) => ({ tasks }))),

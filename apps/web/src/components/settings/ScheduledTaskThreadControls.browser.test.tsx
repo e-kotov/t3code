@@ -1,4 +1,5 @@
 import { Atom } from "effect/reactivity";
+import { useSyncExternalStore } from "react";
 import {
   DEFAULT_UNIFIED_SETTINGS,
   EnvironmentId,
@@ -16,7 +17,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser";
 
 import "~/index.css";
-import { render } from "../../../test/render";
+import { act, render } from "../../../test/render";
 import { ScheduledTasksSettings } from "./ScheduledTasksSettings";
 
 const environmentId = EnvironmentId.make("laptop");
@@ -44,11 +45,21 @@ const task: ScheduledTask = {
   runCount: 0,
 };
 
+interface FixtureSnapshot {
+  readonly connected: boolean;
+  readonly tasksLoaded: boolean;
+  readonly secondary: boolean;
+  readonly settingsByEnvironment: ReadonlyMap<string, typeof DEFAULT_UNIFIED_SETTINGS>;
+}
+
 const state = vi.hoisted(() => ({
-  connected: true,
-  tasksLoaded: true,
-  secondary: false,
-  settingsByEnvironment: new Map<string, typeof DEFAULT_UNIFIED_SETTINGS>(),
+  snapshot: {
+    connected: true,
+    tasksLoaded: true,
+    secondary: false,
+    settingsByEnvironment: new Map(),
+  } as FixtureSnapshot,
+  listeners: new Set<() => void>(),
   updateSettings: vi.fn<(environmentId: EnvironmentId, patch: ServerSettingsPatch) => void>(),
   upsert:
     vi.fn<
@@ -62,18 +73,43 @@ const state = vi.hoisted(() => ({
 const secondaryId = EnvironmentId.make("secondary");
 const permissions = vi.hoisted(() => new Map<string, Atom.Writable<boolean>>());
 
+function subscribeFixture(listener: () => void) {
+  state.listeners.add(listener);
+  return () => {
+    state.listeners.delete(listener);
+  };
+}
+
+function fixtureSnapshot() {
+  return state.snapshot;
+}
+
+function useFixtureSnapshot() {
+  return useSyncExternalStore(subscribeFixture, fixtureSnapshot);
+}
+
+function publishFixture(snapshot: FixtureSnapshot) {
+  state.snapshot = snapshot;
+  for (const listener of state.listeners) listener();
+}
+
 function setup() {
-  state.connected = true;
-  state.tasksLoaded = true;
-  state.secondary = false;
-  state.settingsByEnvironment.clear();
+  state.listeners.clear();
+  state.snapshot = {
+    connected: true,
+    tasksLoaded: true,
+    secondary: false,
+    settingsByEnvironment: new Map(),
+  };
   state.updateSettings.mockReset();
   state.updateSettings.mockImplementation((id, patch) => {
-    const settings = state.settingsByEnvironment.get(id) ?? DEFAULT_UNIFIED_SETTINGS;
-    state.settingsByEnvironment.set(id, {
+    const settings = state.snapshot.settingsByEnvironment.get(id) ?? DEFAULT_UNIFIED_SETTINGS;
+    const settingsByEnvironment = new Map(state.snapshot.settingsByEnvironment);
+    settingsByEnvironment.set(id, {
       ...settings,
       scheduledTaskThreadMode: patch.scheduledTaskThreadMode ?? settings.scheduledTaskThreadMode,
     });
+    publishFixture({ ...state.snapshot, settingsByEnvironment });
   });
   state.upsert.mockReset();
   state.upsert.mockResolvedValue({ _tag: "Success", value: { task } });
@@ -105,28 +141,29 @@ function setup() {
   permissions.set("", Atom.make(false));
 }
 
-function secondaryEnvironment() {
-  return { ...environment(), environmentId: secondaryId, label: "Secondary" };
+function secondaryEnvironment(snapshot: FixtureSnapshot) {
+  return { ...environment(snapshot), environmentId: secondaryId, label: "Secondary" };
 }
 
-function environment() {
+function environment(snapshot: FixtureSnapshot) {
   return {
     environmentId,
     label: "Laptop",
-    connection: { phase: state.connected ? "connected" : "disconnected" },
-    serverConfig: state.connected ? { environment: { platform: "linux" } } : null,
+    connection: { phase: snapshot.connected ? "connected" : "disconnected" },
+    serverConfig: snapshot.connected ? { environment: { platform: "linux" } } : null,
   };
 }
 
 vi.mock(import("./SettingsScopeContext"), async (original) => {
-  const scope = () => {
-    const entry = environment();
+  const useMockSettingsScope = () => {
+    const snapshot = useFixtureSnapshot();
+    const entry = environment(snapshot);
     return {
       scope: { kind: "all", label: "All", members: [], environmentIds: [environmentId] },
-      environments: state.secondary ? [entry, secondaryEnvironment()] : [entry],
-      connectedEnvironments: state.connected
-        ? state.secondary
-          ? [entry, secondaryEnvironment()]
+      environments: snapshot.secondary ? [entry, secondaryEnvironment(snapshot)] : [entry],
+      connectedEnvironments: snapshot.connected
+        ? snapshot.secondary
+          ? [entry, secondaryEnvironment(snapshot)]
           : [entry]
         : [],
       environment: entry,
@@ -136,7 +173,7 @@ vi.mock(import("./SettingsScopeContext"), async (original) => {
   };
   return {
     ...(await original()),
-    useSettingsScope: scope as never,
+    useSettingsScope: useMockSettingsScope as never,
   };
 });
 vi.mock(import("../../state/server"), async (original) => {
@@ -158,17 +195,22 @@ vi.mock(import("../../state/server"), async (original) => {
 // Mirrors the real query: a null request (disconnected environment) has no data.
 vi.mock(import("../../state/query"), async (original) => ({
   ...(await original()),
-  useEnvironmentQuery: ((request: unknown) => ({
-    data: request === null ? null : { tasks: state.tasksLoaded ? [task] : [] },
-    error: null,
-    isPending: false,
-    refresh: vi.fn(),
-  })) as never,
+  useEnvironmentQuery: ((request: unknown) => {
+    const snapshot = useFixtureSnapshot();
+    return {
+      data: request === null ? null : { tasks: snapshot.tasksLoaded ? [task] : [] },
+      error: null,
+      isPending: false,
+      refresh: vi.fn(),
+    };
+  }) as never,
 }));
 vi.mock(import("../../state/environments"), async (original) => ({
   ...(await original()),
-  useEnvironment: ((id: EnvironmentId) =>
-    id === secondaryId ? secondaryEnvironment() : environment()) as never,
+  useEnvironment: ((id: EnvironmentId) => {
+    const snapshot = useFixtureSnapshot();
+    return id === secondaryId ? secondaryEnvironment(snapshot) : environment(snapshot);
+  }) as never,
 }));
 vi.mock(import("../../state/entities"), async (original) => ({
   ...(await original()),
@@ -201,7 +243,8 @@ vi.mock(import("../../hooks/useSettings"), async (original) => ({
     id: EnvironmentId,
     selector?: (value: typeof DEFAULT_UNIFIED_SETTINGS) => unknown,
   ) => {
-    const settings = state.settingsByEnvironment.get(id) ?? DEFAULT_UNIFIED_SETTINGS;
+    const snapshot = useFixtureSnapshot();
+    const settings = snapshot.settingsByEnvironment.get(id) ?? DEFAULT_UNIFIED_SETTINGS;
     return selector ? selector(settings) : settings;
   }) as never,
   useUpdateEnvironmentSettings: ((id: EnvironmentId) => (patch: ServerSettingsPatch) =>
@@ -230,7 +273,7 @@ vi.mock(import("../../state/use-atom-command"), async (original) => {
 describe("scheduled task thread controls", () => {
   it("saves the chat default only on the selected environment without changing existing tasks", async () => {
     setup();
-    state.secondary = true;
+    publishFixture({ ...state.snapshot, secondary: true });
     await using screen = await render(<ScheduledTasksSettings />);
     await expect
       .element(page.getByLabelText("Default automation thread on Laptop"))
@@ -240,7 +283,6 @@ describe("scheduled task thread controls", () => {
     expect(state.updateSettings).toHaveBeenCalledExactlyOnceWith(secondaryId, {
       scheduledTaskThreadMode: "current-thread",
     });
-    await screen.rerender(<ScheduledTasksSettings />);
     await expect
       .element(page.getByLabelText("Default automation thread on Secondary"))
       .toHaveTextContent("Current thread");
@@ -308,14 +350,12 @@ describe("scheduled task thread controls", () => {
 
   it("preserves the workspace and unsaved thread choice through disconnect and reconnect", async () => {
     setup();
-    await using screen = await render(<ScheduledTasksSettings taskId={task.id} />);
+    await using _screen = await render(<ScheduledTasksSettings taskId={task.id} />);
     await page.getByLabelText("Thread", { exact: true }).click();
     await page.getByRole("option", { name: "New thread each run" }).click();
-    state.connected = false;
-    await screen.rerender(<ScheduledTasksSettings taskId={task.id} />);
+    await act(() => publishFixture({ ...state.snapshot, connected: false }));
     await expect.element(page.getByLabelText("Thread", { exact: true })).toBeDisabled();
-    state.connected = true;
-    await screen.rerender(<ScheduledTasksSettings taskId={task.id} />);
+    await act(() => publishFixture({ ...state.snapshot, connected: true }));
     await expect
       .element(page.getByLabelText("Thread", { exact: true }))
       .toHaveTextContent("New thread each run");
