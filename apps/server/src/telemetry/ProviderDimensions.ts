@@ -3,6 +3,7 @@ import type {
   OrchestrationV2ThreadShell,
   ServerProvider,
 } from "@t3tools/contracts";
+import { scheduledTaskHandoffSettings } from "./scheduledTaskHandoffSettings.ts";
 
 /**
  * Drivers whose model catalogs are published by the vendor. Other drivers
@@ -127,7 +128,7 @@ export function handoffSettings(tool: string, args: unknown, result: unknown): F
     case "t3_thread_send_attachments":
       return { delivery: "auto" };
     case "schedule_task":
-      return { bindToCurrentThread: input.bindToCurrentThread !== false };
+      return scheduledTaskHandoffSettings(output);
     default:
       return {};
   }

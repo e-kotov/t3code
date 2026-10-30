@@ -68,6 +68,16 @@ list by environment or project. Each task runs on the environment you choose,
 using its project, model, and workspace settings. Fixed-time schedules use that
 environment's time zone, which may differ from your phone's.
 
+On desktop and web, **Tasks created from chat** sets each environment's default:
+start a new thread in the same project for every run, or post into the originating
+thread. New threads are the fork default. An explicit request to the agent can
+override it. Changing this preference does not move existing tasks.
+
+Use **Thread** in a task's editor to change that task's destination. Thread choice
+and workspace choice are separate: a new thread does not necessarily mean a new
+worktree. Posting into an existing thread uses that thread's workspace; the saved
+workspace choice is kept for when you switch back to new threads.
+
 Deleting a thread also deletes tasks that post into that thread. Tasks that start
 a new thread on each run survive deletion of their previous threads.
 

@@ -115,6 +115,11 @@ import {
   SETTINGS_PICKER_TRIGGER_CLASSNAME,
 } from "./settingsLayout";
 
+import {
+  ScheduledTaskThreadDefaults,
+  ScheduledTaskThreadField,
+} from "./ScheduledTaskThreadControls";
+
 const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 const WEEKDAY_SHORT = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as const;
@@ -410,6 +415,7 @@ export function ScheduledTasksSettings(target: {
     ) ?? permittedEnvironments[0];
   return (
     <SettingsPageContainer>
+      <ScheduledTaskThreadDefaults />
       <SettingsSection
         title="Scheduled tasks"
         variant="plain"
@@ -1312,6 +1318,7 @@ function ScheduledTaskEditorForm({
                 setDraft((current) => ({
                   ...current,
                   projectId: "",
+                  threadId: "",
                   modelKey: "",
                   baseModelSelection: null,
                   baseRef: "main",
@@ -1384,12 +1391,23 @@ function ScheduledTaskEditorForm({
             />
           </Field>
 
+          <ScheduledTaskThreadField
+            environmentId={environmentId}
+            projectId={selectedProjectId}
+            threadId={draft.threadId}
+            disabled={saving || !connected}
+            onChange={(threadId) => setDraft((current) => ({ ...current, threadId }))}
+          />
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Project" htmlFor="scheduled-task-project">
               <Select
                 value={selectedProjectId}
                 onValueChange={(projectId) =>
-                  setDraft((current) => ({ ...current, projectId: projectId ?? "" }))
+                  setDraft((current) => ({
+                    ...current,
+                    projectId: projectId ?? "",
+                    threadId: projectId === current.projectId ? current.threadId : "",
+                  }))
                 }
               >
                 <SelectTrigger size="sm" id="scheduled-task-project">

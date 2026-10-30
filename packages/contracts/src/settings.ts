@@ -1200,7 +1200,13 @@ export type StorageCleanupSettings = typeof StorageCleanupSettings.Type;
 
 import { browserProxySettingsFields, browserProxyPatchFields } from "./browserProxy.ts";
 
+import {
+  scheduledTaskThreadModeSettings,
+  scheduledTaskThreadModePatch,
+} from "./scheduledTaskThreadMode.ts";
+
 export const ServerSettings = Schema.Struct({
+  ...scheduledTaskThreadModeSettings,
   ...browserProxySettingsFields,
   // Null means unmigrated; empty is authoritative and must not resurrect cleared preferences.
   favorites: Schema.NullOr(ModelFavorites).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
@@ -1555,6 +1561,7 @@ const ModelSelectionPatch = Schema.Struct({
 });
 
 export const ServerSettingsPatch = Schema.Struct({
+  ...scheduledTaskThreadModePatch,
   ...browserProxyPatchFields,
   setModelFavorites: Schema.optionalKey(
     Schema.Array(Schema.Struct({ ...ModelFavorite.fields, favorite: Schema.Boolean })),
