@@ -1,3 +1,4 @@
+import { defaultScheduledTaskBinding } from "./automationDestination.ts";
 import {
   CommandId,
   type RunId,
@@ -1840,9 +1841,14 @@ const make = Effect.gen(function* () {
       const projectId = yield* resolveProjectTarget(parent, input.projectId);
       yield* assertLiveCallerForOtherProject(scope, parent, projectId);
       const project = yield* requireProject(projectId);
-      const bindToCurrentThread =
-        input.bindToCurrentThread ??
-        (parent !== undefined && parent.thread.projectId === projectId);
+      const settings = yield* serverSettings.getSettings.pipe(
+        Effect.mapError(() => failure("orchestration_error", "Unable to read server settings.")),
+      );
+      const bindToCurrentThread = defaultScheduledTaskBinding(
+        input.bindToCurrentThread,
+        settings.agentScheduledTasksUseCurrentThread,
+        parent !== undefined && parent.thread.projectId === projectId,
+      );
       if (bindToCurrentThread && (parent === undefined || parent.thread.projectId !== projectId)) {
         return yield* failure(
           "invalid_request",
