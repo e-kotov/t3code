@@ -7,10 +7,16 @@ import { useNowMinute } from "../../hooks/useNowMinute";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { ThreadDetailsSection } from "./ThreadDetailsSection";
 import { quotaAmountText } from "./forkThreadQuotaText";
+import type { ThreadDetailsUsageInput } from "./ThreadDetailsUsage";
 
 const readings = createForkThreadQuotaAtoms(connectionAtomRuntime);
 
-export function ForkThreadQuota({ environmentId, threadId }: { environmentId: EnvironmentId; threadId: ThreadId }) {
+export function ForkThreadQuota({ environmentId, threadId, usage }: { environmentId: EnvironmentId; threadId: ThreadId; usage: ThreadDetailsUsageInput }) {
+  if (usage.providers.find((provider) => provider.instanceId === usage.providerInstanceId)?.driver !== "codex") return null;
+  return <CodexTaskQuota environmentId={environmentId} threadId={threadId} />;
+}
+
+function CodexTaskQuota({ environmentId, threadId }: { environmentId: EnvironmentId; threadId: ThreadId }) {
   const minute = useNowMinute();
   const result = useAtomValue(readings(JSON.stringify([environmentId, threadId, minute])));
   const reading = AsyncResult.getOrElse(result, (): Reading | null => null);

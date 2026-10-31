@@ -20,7 +20,7 @@ const Amounts = {
   balance_usage_credits: Schema.optionalKey(Schema.NullOr(Schema.String.check(Schema.isPattern(/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/)))),
 };
 const Response = Schema.Struct({
-  data_as_of: Schema.NullOr(Schema.String),
+  data_as_of: Schema.optionalKey(Schema.NullOr(Schema.String)),
   threads: Schema.Array(Schema.Struct({
     thread_id: Schema.String,
     data_status: Schema.Literals(["available", "partial", "unavailable"]),
@@ -100,7 +100,7 @@ const make = Effect.gen(function* () {
         if (payload.threads.length !== 1 || payload.threads[0]?.thread_id !== task.thread_id) return empty("unavailable");
         const row = payload.threads[0];
         if (row.data_status === "unavailable") return empty("unavailable");
-        return { status: row.data_status, checkedAt: new Date(now).toISOString(), dataAsOf: payload.data_as_of,
+        return { status: row.data_status, checkedAt: new Date(now).toISOString(), dataAsOf: payload.data_as_of ?? null,
           fiveHourPercent: row.five_hour_limit_percent ?? null, weeklyPercent: row.weekly_limit_percent ?? null,
           balanceCredits: row.balance_usage_credits ?? null } satisfies Reading;
       }).pipe(

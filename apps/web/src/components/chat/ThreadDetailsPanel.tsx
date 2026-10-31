@@ -259,7 +259,8 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
                 />
               ) : null}
 
-              {visible.usage ? <><ThreadDetailsUsage {...props.usage} />{props.usage.providers.find((provider) => provider.instanceId === props.usage.providerInstanceId)?.driver === "codex" ? <ForkThreadQuota environmentId={props.environmentId} threadId={props.threadId} /> : null}</> : null}
+              {visible.usage ? <ThreadDetailsUsage {...props.usage} /> : null}
+              {visible.usage ? <ForkThreadQuota environmentId={props.environmentId} threadId={props.threadId} usage={props.usage} /> : null}
 
               {visible.context && props.usage.contextWindow ? (
                 <ThreadDetailsContext usage={props.usage.contextWindow} />

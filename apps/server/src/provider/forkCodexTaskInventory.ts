@@ -24,8 +24,10 @@ export function readCodexTaskInventory(dbPath: string, threadId: string, account
     const conflicting = new Set<string>();
     for (const row of rows) {
       try {
-        const source = JSON.parse(row.source);
-        const parent: unknown = source?.subagent?.thread_spawn?.parent_thread_id;
+        const source: unknown = JSON.parse(row.source);
+        const sub = typeof source === "object" && source !== null && "subagent" in source ? source.subagent : null;
+        const spawn = typeof sub === "object" && sub !== null && "thread_spawn" in sub ? sub.thread_spawn : null;
+        const parent = typeof spawn === "object" && spawn !== null && "parent_thread_id" in spawn ? spawn.parent_thread_id : null;
         if (typeof parent === "string") parents.set(row.id, parent);
       } catch { /* Native source strings such as appServer are not JSON. */ }
     }
@@ -49,6 +51,7 @@ export function readCodexTaskInventory(dbPath: string, threadId: string, account
       if (members.size > 1000) return null;
     }
     const family = rows.filter((row) => members.has(row.id));
+    if (members.has(parents.get(threadId) ?? "")) return null;
     if (family.length !== members.size || family.some((row) =>
       row.model_provider !== "openai" || row.attached_thread_parent_id || conflicting.has(row.id) ||
       (row.creator_account_id !== null && row.creator_account_id !== accountId)
