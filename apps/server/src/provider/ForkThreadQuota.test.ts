@@ -2,6 +2,7 @@
 import * as NodeSqlite from "node:sqlite";
 import { assert, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import {
   ProviderDriverKind,
   ProviderInstanceId,
@@ -28,13 +29,15 @@ const threadId = ThreadId.make("app-thread");
 const nativeId = ProviderThreadId.make("native-ref");
 const driver = ProviderDriverKind.make("codex");
 
-it.effect(
-  "refreshes resumed task families, preserves missing/partial values and isolates accounts",
-  () =>
+it.effect.each(["explicit", "missing config", "missing instance"] as const)(
+  "%s settings: refreshes resumed families, preserves partial values and isolates accounts",
+  (settingsMode) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const home = yield* fs.makeTempDirectoryScoped({ prefix: "codex-quota-" });
+      const hostHome = yield* fs.makeTempDirectoryScoped({ prefix: "codex-quota-" });
+      const home = path.join(hostHome, ".codex");
+      yield* fs.makeDirectory(home);
       const authPath = path.join(home, "auth.json");
       const credentials = (account: string) =>
         JSON.stringify({ tokens: { account_id: account, access_token: "private-token" } });
@@ -117,9 +120,9 @@ it.effect(
       } as unknown as Registry.ProviderInstanceRegistry["Service"];
       const settings = {
         getSettings: Effect.succeed({
-          providerInstances: {
+          providerInstances: settingsMode === "missing instance" ? {} : {
             codex: {
-              config: { homePath: "", setupMode: "existing" },
+              ...(settingsMode === "explicit" ? { config: { homePath: "", setupMode: "existing" } } : {}),
               environment: [{ name: "CODEX_HOME", value: home }],
             },
           },
@@ -178,7 +181,11 @@ it.effect(
         const before = calls;
         assert.equal((yield* quota.read(threadId)).status, "unsupported");
         assert.equal(calls, before);
-      }).pipe(Effect.provide(layer));
+      }).pipe(
+        Effect.provide(layer),
+        Effect.provideService(HostProcess.HomeDirectory, hostHome),
+        Effect.provideService(HostProcess.Environment, {}),
+      );
       db.exec(
         "INSERT INTO threads VALUES('other','appServer','openai',1,1,'other-account',NULL); INSERT INTO thread_spawn_edges VALUES('other','root');",
       );
