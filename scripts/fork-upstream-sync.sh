@@ -101,6 +101,7 @@ case "$cmd" in
     python3 scripts/fork-sync-excerpt.test.py
     python3 scripts/claude-sync.test.py
     python3 scripts/fork-footprint-budget.test.py
+    python3 scripts/fork-failed-tests.test.py
     python3 scripts/fork-nightly-release.test.py
     python3 scripts/build-termux-server.test.py
     UPSTREAM_SHA="$upstream" python3 scripts/fork-footprint-budget.py
@@ -110,7 +111,25 @@ case "$cmd" in
     status=0
     if [ -n "${FORK_CHANGED_CHECKS_BASE:-}" ]; then
       # A large upstream merge changes hundreds of test files; the default 900 s kills the run.
-      CHECK_CHANGED_TIMEOUT="${CHECK_CHANGED_TIMEOUT:-2400}" vp run check:changed "$FORK_CHANGED_CHECKS_BASE" || status=1
+      changed_log="$RUNNER_TEMP/check-changed.log"
+      if ! CHECK_CHANGED_TIMEOUT="${CHECK_CHANGED_TIMEOUT:-2400}" vp run check:changed "$FORK_CHANGED_CHECKS_BASE" 2>&1 | tee "$changed_log"; then
+        # Hundreds of files share one small runner, so slow browser tests can time out. When only
+        # the test step failed, each failed file must pass again on its own (a real break still fails).
+        if python3 scripts/fork-failed-tests.py "$changed_log" > "$RUNNER_TEMP/rerun-tests.txt"; then
+          echo "Rerunning the failed test files alone:"
+          cat "$RUNNER_TEMP/rerun-tests.txt"
+          for package in $(cut -d' ' -f1 "$RUNNER_TEMP/rerun-tests.txt" | uniq); do
+            tests=()
+            while read -r test; do tests+=("$test"); done < <(awk -v p="$package" '$1 == p { print $2 }' "$RUNNER_TEMP/rerun-tests.txt")
+            echo "::group::$package rerun alone (${#tests[@]} files)"
+            (cd "$package" && vp test run "${tests[@]}") || status=1
+            echo "::endgroup::"
+          done
+          [ "$status" -eq 0 ] || summary "A test that failed under full load also failed alone."
+        else
+          status=1
+        fi
+      fi
     fi
     for package in packages/contracts packages/shared packages/client-runtime packages/ssh apps/server apps/web apps/mobile apps/desktop; do
       echo "::group::$package typecheck"
