@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { toolkit as BetterWrightHandoffToolkit } from "../../apps/server/src/mcp/toolkits/preview/BetterWrightHandoffTool.ts";
 // @effect-diagnostics nodeBuiltinImport:off
 /**
  * Replays small fake threads on a Claude or Codex model to check T3's MCP tool use. A trimmed
@@ -368,6 +369,7 @@ const t3SourceTools: ReadonlyArray<Tool.Any> = [
   WorktreeToolkit,
   PullRequestsToolkit,
   PreviewToolkit,
+  BetterWrightHandoffToolkit,
   DeviceToolkit,
   HtmlToolkit,
 ].flatMap((toolkit): ReadonlyArray<Tool.Any> => Object.values(toolkit.tools));

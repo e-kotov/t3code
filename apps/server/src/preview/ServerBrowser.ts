@@ -85,6 +85,7 @@ import * as PreviewBrowserHost from "./PreviewBrowserHost.ts";
 import { presentAsChrome } from "./ServerBrowserContexts.ts";
 import { BrowserProxyContexts as ServerBrowserContexts } from "./BrowserProxyContexts.ts";
 import { acquireBrowserProxyPage, closeProtectedBrowserPopup } from "./BrowserProxyPage.ts";
+import * as BetterWrightHandoff from "./BetterWrightHandoff.ts";
 import { browserProxyRequestReuse } from "@t3tools/contracts";
 import {
   browserProxyOpenInput,
@@ -472,6 +473,7 @@ const make = Effect.gen(function* () {
   const proxySettings = yield* ServerSettings.ServerSettingsService;
   const host = { platform: yield* HostProcess.Platform, arch: yield* HostProcess.Architecture };
   const manager = yield* PreviewManager.PreviewManager;
+  const handoff = yield* BetterWrightHandoff.BetterWrightHandoff;
   const broker = yield* PreviewAutomationBroker.PreviewAutomationBroker;
   const environment = yield* ServerEnvironment.ServerEnvironment;
   const previewBrowser = yield* PreviewBrowser.PreviewBrowser;
@@ -1342,6 +1344,10 @@ const make = Effect.gen(function* () {
   };
 
   const ensureTab = (snapshot: PreviewSessionSnapshot): Promise<ServerTab> => {
+    if (handoff.manages(snapshot.threadId, snapshot.tabId))
+      return Promise.reject(
+        new ServerBrowserTabNotFoundError({ threadId: snapshot.threadId, tabId: snapshot.tabId }),
+      );
     const key = tabKey(snapshot.threadId, snapshot.tabId);
     const pending = pendingTabs.get(key);
     if (pending?.promise) return pending.promise;
@@ -2267,6 +2273,7 @@ const make = Effect.gen(function* () {
 
   const mirrorManagerEvent = (event: PreviewEvent) =>
     Effect.promise(async () => {
+      if (event.type === "closed") handoff.closed(event.threadId, event.tabId);
       if (event.type === "opened" && event.snapshot.runtime === "server") {
         const key = tabKey(event.snapshot.threadId, event.snapshot.tabId);
         if (event.snapshot.automationOwner === undefined || pendingTabs.has(key) || tabs.has(key))
@@ -2463,6 +2470,8 @@ const make = Effect.gen(function* () {
   const attachViewer: ServerBrowser["Service"]["attachViewer"] = Effect.fn(
     "ServerBrowser.attachViewer",
   )(function* (input) {
+    const forwarded = yield* handoff.attachViewer(input);
+    if (forwarded) return forwarded;
     const tab = yield* findTab(input.threadId, input.tabId);
     const output = yield* Queue.make<ServerBrowserViewerOutput>({
       capacity: VIEWER_OUTPUT_LIMIT,
@@ -2770,4 +2779,6 @@ const make = Effect.gen(function* () {
   });
 });
 
-export const layer = Layer.effect(ServerBrowser, make);
+export const layer = Layer.effect(ServerBrowser, make).pipe(
+  Layer.provideMerge(BetterWrightHandoff.layer),
+);

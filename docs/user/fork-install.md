@@ -114,3 +114,35 @@ that an earlier runtime already wrote into a workspace. Executables without reco
 version metadata cannot be checked against the affected-version list.
 
 Release and maintainer details: [fork releases](../operations/fork-release.md).
+
+## Hand an existing BetterWright page to the human
+
+On a server with an existing BetterWright sidecar, set
+`T3CODE_BETTERWRIGHT_VIEW_COMMAND` to a JSON array naming its trusted viewer
+launcher, for example `["/home/user/bin/sidecar-browser","view"]` for an
+existing-only wrapper. Stock `betterwright view` can start a replacement browser
+and does not meet this contract. Set `T3CODE_BETTERWRIGHT_RUN_COMMAND` to the same
+wrapper's run command, such as `["/home/user/bin/sidecar-browser","run"]`; T3 uses
+it to check which taps need the mobile keyboard.
+A sidecar wrapper that fixes loopback itself can omit `--host`.
+Both commands must attach to the existing daemon, fail if the sidecar is absent,
+accept `--session`, optional `--profile`, and `--port 0`, and stop its own viewer
+gracefully on SIGTERM. It must retain the browser and existing logins.
+
+The agent calls `browser_handoff` with the existing BetterWright session and page
+id, its profile when nondefault, and a short request for help. T3 shows the page
+in its normal browser preview. Open it, select **Take control**, complete the
+step, then **Release control**. The tool waits for that explicit release and then
+the agent reinspects the same page. Closing the viewer or losing connectivity
+does not count as completion. Handoffs time out after five minutes by default.
+
+The viewer travels over the paired T3 server connection, including the mobile
+app's embedded Tailscale route. No phone terminal command or global Android VPN
+is required. Use the T3 connection for the host that owns the BetterWright page;
+a phone-local server cannot attach to Raven's or GWDG's loopback viewer.
+Only one handoff can run per server. The adapter supports page clicks, scrolling
+and text entry; downloads, file uploads and native browser dialogs are outside
+this handoff. Password-protected BetterWright live viewers are unsupported;
+T3 itself authenticates viewer access. Other programs with direct BetterWright access must also leave the
+page alone while the human operates it. Release does not establish that a site
+accepted a CAPTCHA or granted access.
