@@ -15,12 +15,15 @@ export function ForkThreadQuota({
   environmentId,
   threadId,
   usage,
+  isServerThread,
 }: {
   environmentId: EnvironmentId;
   threadId: ThreadId;
   usage: ThreadDetailsUsageInput;
+  isServerThread: boolean;
 }) {
   if (
+    !isServerThread ||
     usage.providers.find((provider) => provider.instanceId === usage.providerInstanceId)?.driver !==
     "codex"
   )
@@ -92,8 +95,9 @@ function CodexTaskQuota({
         <TooltipPopup side="left" sideOffset={16}>
           <div className="flex max-w-72 flex-col gap-1">
             <span>
-              OpenAI-reported lifetime consumption for the current Codex task and its subagents,
-              relative to a current full allowance.
+              Percentages compare OpenAI-reported lifetime consumption for the current Codex task
+              and its subagents with a current full allowance. Balance credits show debits or
+              adjustments.
             </span>
             <span className="text-muted-foreground">
               Estimates can arrive late. This is not usage during only the current week.

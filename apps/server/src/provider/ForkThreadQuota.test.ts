@@ -120,12 +120,17 @@ it.effect.each(["explicit", "missing config", "missing instance"] as const)(
       } as unknown as Registry.ProviderInstanceRegistry["Service"];
       const settings = {
         getSettings: Effect.succeed({
-          providerInstances: settingsMode === "missing instance" ? {} : {
-            codex: {
-              ...(settingsMode === "explicit" ? { config: { homePath: "", setupMode: "existing" } } : {}),
-              environment: [{ name: "CODEX_HOME", value: home }],
-            },
-          },
+          providerInstances:
+            settingsMode === "missing instance"
+              ? {}
+              : {
+                  codex: {
+                    ...(settingsMode === "explicit"
+                      ? { config: { homePath: "", setupMode: "existing" } }
+                      : {}),
+                    environment: [{ name: "CODEX_HOME", value: home }],
+                  },
+                },
         }),
       } as unknown as Settings.ServerSettingsService["Service"];
       const layer = Quota.layer.pipe(

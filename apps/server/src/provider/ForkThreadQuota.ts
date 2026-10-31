@@ -95,7 +95,7 @@ const make = Effect.gen(function* () {
       const snapshot = yield* instance.snapshot.getSnapshot;
       if (snapshot.auth.type !== "chatgpt") return empty("unsupported");
       const configured = (yield* settings.getSettings).providerInstances[native.providerInstanceId];
-      const config = yield* decodeConfig(configured?.config);
+      const config = yield* decodeConfig(configured?.config ?? {});
       if (config.setupMode === "managed") return empty("unsupported");
       const layout = yield* resolveCodexHomeLayout(config).pipe(
         Effect.provideService(Path.Path, path),
@@ -106,7 +106,11 @@ const make = Effect.gen(function* () {
         )
       )
         return empty("unsupported");
-      const environment = yield* mergeProviderInstanceEnvironment(configured?.environment);
+      const baseEnvironment = yield* HostProcess.Environment;
+      const environment = yield* mergeProviderInstanceEnvironment(
+        configured?.environment,
+        baseEnvironment,
+      );
       const inheritedHome = environment.CODEX_HOME?.trim();
       const home =
         layout.effectiveHomePath ??

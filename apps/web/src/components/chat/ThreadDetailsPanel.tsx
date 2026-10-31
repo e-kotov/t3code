@@ -265,6 +265,7 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
                   environmentId={props.environmentId}
                   threadId={props.threadId}
                   usage={props.usage}
+                  isServerThread={props.isServerThread}
                 />
               ) : null}
 
