@@ -1,0 +1,11 @@
+import type { ForkThreadQuota } from "@t3tools/contracts";
+
+export function quotaAmountText(reading: ForkThreadQuota): string {
+  if (reading.status === "unavailable") return "Not reported yet";
+  const parts: string[] = [];
+  const format = (value: number) => value.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  if (reading.fiveHourPercent !== null) parts.push(`5h ${format(reading.fiveHourPercent)}%`);
+  if (reading.weeklyPercent !== null) parts.push(`Weekly ${format(reading.weeklyPercent)}%`);
+  if (reading.balanceCredits !== null) parts.push(`${reading.balanceCredits} credits`);
+  return parts.length ? `${reading.status === "partial" ? "~" : ""}${parts.join(" · ")}` : "Not reported yet";
+}

@@ -1,4 +1,5 @@
 import * as Context from "effect/Context";
+import { ForkThreadQuota } from "./forkThreadQuota.ts";
 import type * as DateTime from "effect/DateTime";
 import * as Schema from "effect/Schema";
 import * as HttpApi from "effect/http-api/HttpApi";
@@ -836,6 +837,14 @@ class EnvironmentWebhooksHttpApi extends HttpApiGroup.make("webhooks")
   .add(HttpApiEndpoint.get("webhookGet", WEBHOOK_PATH, webhookEndpoint)) {}
 
 export class EnvironmentHttpApi extends HttpApi.make("environment")
+  .add(HttpApiGroup.make("threadQuota").add(
+    HttpApiEndpoint.get("read", "/api/fork/thread-quota/:threadId", {
+      headers: OptionalBearerHeaders,
+      params: Schema.Struct({ threadId: ThreadId }),
+      success: ForkThreadQuota,
+      error: [EnvironmentScopeRequiredError],
+    }).middleware(EnvironmentAuthenticatedAuth),
+  ))
   .add(EnvironmentMetadataHttpApi)
   .add(EnvironmentAuthHttpApi)
   .add(EnvironmentMcpOAuthHttpApi)

@@ -20,6 +20,7 @@ import { memo, useState, type ComponentProps } from "react";
 import { ThreadDetailsCard } from "./ThreadDetailsCard";
 import { OpenInPicker } from "./OpenInPicker";
 import { ThreadDetailsSection } from "./ThreadDetailsSection";
+import { ForkThreadQuota } from "./ForkThreadQuota";
 import { ThreadAutomationsPanel } from "./ThreadAutomationsPanel";
 import { ThreadRelationshipsPanel } from "./ThreadRelationshipsControl";
 import { ThreadServersPanel } from "./ThreadServersPanel";
@@ -258,7 +259,7 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
                 />
               ) : null}
 
-              {visible.usage ? <ThreadDetailsUsage {...props.usage} /> : null}
+              {visible.usage ? <><ThreadDetailsUsage {...props.usage} />{props.usage.providers.find((provider) => provider.instanceId === props.usage.providerInstanceId)?.driver === "codex" ? <ForkThreadQuota environmentId={props.environmentId} threadId={props.threadId} /> : null}</> : null}
 
               {visible.context && props.usage.contextWindow ? (
                 <ThreadDetailsContext usage={props.usage.contextWindow} />
