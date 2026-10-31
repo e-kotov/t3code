@@ -25,7 +25,7 @@ export function ForkThreadQuota({
   if (
     !isServerThread ||
     usage.providers.find((provider) => provider.instanceId === usage.providerInstanceId)?.driver !==
-    "codex"
+      "codex"
   )
     return null;
   const provider = usage.providers.find((entry) => entry.instanceId === usage.providerInstanceId);
