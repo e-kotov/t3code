@@ -1,6 +1,6 @@
 import { shouldRedirectInputToComposer } from "./composerFocusRedirect";
 import { readPastedComposerContext } from "../composerInlineTokenPaste";
-import { pasteToFocusedComposer } from "./forkPasteAsText";
+import { listenForDesktopPasteAsText, pasteTextToFocusComposer } from "./forkPasteAsText";
 import { isPasteAsTextShortcut } from "@t3tools/client-runtime/text-paste";
 import { useEffect, useRef } from "react";
 import { isMacPlatform } from "../../lib/utils";
@@ -21,6 +21,10 @@ export function usePasteToFocusComposer(
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- attaches window keydown and paste capture listeners that route stray pastes into the composer
   useEffect(() => {
     if (!activeThreadId) return;
+    const removeDesktopPasteAsTextListener = listenForDesktopPasteAsText(
+      window,
+      pasteAsTextShortcutUntilRef,
+    );
     const keyHandler = (event: KeyboardEvent) => {
       if (
         shouldRedirectInputToComposer(event) &&
@@ -33,9 +37,11 @@ export function usePasteToFocusComposer(
       if (isCommandPaletteOpen() || isInSideChatPane(event.target)) return;
       if (getTerminalFocusOwner() !== null) return;
       if (composerRef.current?.isModelPickerOpen()) return;
-      const paste = pasteToFocusedComposer(event, pasteAsTextShortcutUntilRef);
-      if (paste === null) return;
-      const { text, clipboardData, bypassAutoAttachment } = paste;
+      const text = pasteTextToFocusComposer(event, pasteAsTextShortcutUntilRef);
+      const clipboardData = event.clipboardData;
+      if (text === null || clipboardData === null) return;
+      const bypassAutoAttachment = Date.now() <= pasteAsTextShortcutUntilRef.current;
+      pasteAsTextShortcutUntilRef.current = 0;
       if (
         ((readPastedComposerContext(clipboardData)?.records.length ?? 0) === 0 &&
           composerRef.current?.pasteTextAtEnd(text, { bypassAutoAttachment })) ||
@@ -50,6 +56,7 @@ export function usePasteToFocusComposer(
     return () => {
       window.removeEventListener("keydown", keyHandler, true);
       window.removeEventListener("paste", handler, true);
+      removeDesktopPasteAsTextListener();
     };
   }, [activeThreadId, composerRef]);
 }

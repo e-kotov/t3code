@@ -9,10 +9,11 @@ import { page } from "vite-plus/test/browser";
 
 import { AppRoot } from "~/AppRoot";
 import { serializeEditorDoc } from "~/composer-rich-text-doc";
-import { DraftId, useComposerDraftStore } from "~/composerDraftStore";
-import { DESKTOP_PASTE_AS_TEXT_EVENT } from "~/lib/desktopPasteAsText";
+import { composerTargetKey, DraftId, useComposerDraftStore } from "~/composerDraftStore";
 import { __setClientSettingsForTests } from "~/hooks/useSettings";
+import { DESKTOP_PASTE_AS_TEXT_EVENT } from "~/lib/desktopPasteAsText";
 import { getRouter } from "~/router";
+import { countPreparingComposerImages } from "./preparingComposerImages";
 import {
   ENVIRONMENT_ID,
   PROJECT_ID,
@@ -55,7 +56,10 @@ async function mountDraft(draftName: string) {
   await router.load();
   const app = stack.use(await render(<AppRoot router={router} />, { router: false }));
   const disposable = stack.move();
-  return Object.assign(app, { [Symbol.asyncDispose]: () => disposable.disposeAsync() });
+  return Object.assign(app, {
+    draftId,
+    [Symbol.asyncDispose]: () => disposable.disposeAsync(),
+  });
 }
 
 function editorIn(container: HTMLElement): Editor {
@@ -85,12 +89,14 @@ it(
   async () => {
     await using app = await mountDraft("paste-focused");
     await expect.element(page.getByTestId("composer-editor")).toBeVisible();
-    const editor = editorIn(app.container);
-
     await act(async () => {
-      editor.commands.setContent("prefix old suffix");
+      editorIn(app.container).commands.setContent("prefix old suffix");
+    });
+    await act(async () => {
+      const editor = editorIn(app.container);
+      expect(editor.view.dom.isConnected).toBe(true);
       editor.commands.setTextSelection({ from: 8, to: 11 });
-      window.dispatchEvent(new Event(DESKTOP_PASTE_AS_TEXT_EVENT));
+      editor.view.dom.dispatchEvent(new Event(DESKTOP_PASTE_AS_TEXT_EVENT, { bubbles: true }));
       const paste = new ClipboardEvent("paste", {
         bubbles: true,
         cancelable: true,
@@ -100,8 +106,10 @@ it(
       expect(paste.defaultPrevented).toBe(true);
     });
 
+    const editor = editorIn(app.container);
     expect(serializeEditorDoc(editor.state.doc).value).toBe("prefix replacement suffix");
-    expect(app.container.querySelector('[aria-label="Remove screenshot.png"]')).toBeNull();
+    expect(useComposerDraftStore.getState().getComposerDraft(app.draftId)?.images).toHaveLength(0);
+    expect(countPreparingComposerImages(composerTargetKey(app.draftId))).toBe(0);
     await act(async () => {
       editor.commands.undo();
     });
@@ -115,7 +123,7 @@ it("routes a text-plus-image paste from the timeline into the composer", async (
   const editor = editorIn(app.container);
 
   await act(async () => {
-    window.dispatchEvent(pasteAsTextShortcut());
+    document.body.dispatchEvent(new Event(DESKTOP_PASTE_AS_TEXT_EVENT, { bubbles: true }));
     window.dispatchEvent(
       new ClipboardEvent("paste", {
         cancelable: true,
@@ -125,5 +133,6 @@ it("routes a text-plus-image paste from the timeline into the composer", async (
   });
 
   expect(serializeEditorDoc(editor.state.doc).value).toBe("Copied from Word");
-  expect(app.container.querySelector('[aria-label="Remove screenshot.png"]')).toBeNull();
+  expect(useComposerDraftStore.getState().getComposerDraft(app.draftId)?.images).toHaveLength(0);
+  expect(countPreparingComposerImages(composerTargetKey(app.draftId))).toBe(0);
 });
