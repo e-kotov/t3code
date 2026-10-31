@@ -277,7 +277,8 @@ jobs:
           path: ${{ runner.temp }}
       - name: Push and check the resolution
         env:
-          GH_TOKEN: ${{ github.token }}
+          # Runs dispatched with GITHUB_TOKEN have not fired workflow_run here, so their failures never reached this workflow.
+          GH_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
           SYNC_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
           BRANCH: ${{ needs.resolve.outputs.branch }}
           GIT_TERMINAL_PROMPT: "0"
@@ -287,5 +288,8 @@ jobs:
           git fetch -q --no-tags "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" main:refs/remotes/origin/main
           git fetch -q "$RUNNER_TEMP/resolved.bundle" resolved:refs/heads/resolved
           git push -q -f "https://x-access-token:${SYNC_TOKEN}@github.com/$GITHUB_REPOSITORY.git" "refs/heads/resolved:refs/heads/$BRANCH"
-          gh workflow run upstream-sync.yml -R "$GITHUB_REPOSITORY" -f branch="$BRANCH" -f promote_only=true
+          if ! gh workflow run upstream-sync.yml -R "$GITHUB_REPOSITORY" -f branch="$BRANCH" -f promote_only=true; then
+            echo "::error::Pushed $BRANCH but could not dispatch its check. UPSTREAM_SYNC_TOKEN needs Actions read/write; then run: gh workflow run upstream-sync.yml -R $GITHUB_REPOSITORY -f branch=$BRANCH -f promote_only=true"
+            exit 1
+          fi
           echo "Pushed \`$BRANCH\` and dispatched upstream-sync.yml to check and promote it." >> "$GITHUB_STEP_SUMMARY"
