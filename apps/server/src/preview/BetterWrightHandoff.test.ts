@@ -27,8 +27,57 @@ import * as Handoff from "./BetterWrightHandoff.ts";
 import * as Manager from "./Manager.ts";
 import * as ServerBrowser from "./ServerBrowser.ts";
 import { routeLayer } from "./ServerBrowserStream.ts";
+import { BetterWrightCleanupError, startBetterWrightViewer } from "./BetterWrightBridge.ts";
 
 const platform = NodeHttpPlatform.layer.pipe(Layer.provideMerge(NodeServices.layer));
+
+it.live("refuses another handoff after unsuccessful startup cleanup", () => {
+  const orphans: BetterWrightCleanupError[] = [];
+  let attempts = 0;
+  const startViewer = (...args: Parameters<typeof startBetterWrightViewer>) => {
+    attempts++;
+    return startBetterWrightViewer(...args).catch((cause) => {
+      if (cause instanceof BetterWrightCleanupError) orphans.push(cause);
+      throw cause;
+    });
+  };
+  return Effect.gen(function* () {
+    const previousView = process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND;
+    const previousRun = process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND;
+    const script = "process.on('SIGTERM',()=>{});console.log('http://public.invalid:18765/?t=private-test-token');setInterval(()=>{},1000);";
+    process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND = JSON.stringify([
+      process.execPath, "-e", script, "--",
+    ]);
+    process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND = JSON.stringify([process.execPath]);
+    yield* Effect.addFinalizer(() => Effect.promise(async () => {
+      for (const orphan of orphans) {
+        if (orphan.processId !== undefined) process.kill(orphan.processId, "SIGKILL");
+        await orphan.closed;
+      }
+      if (previousView === undefined) delete process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND;
+      else process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND = previousView;
+      if (previousRun === undefined) delete process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND;
+      else process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND = previousRun;
+    }));
+    const handoff = yield* Handoff.BetterWrightHandoff;
+    const input = { session: "research", pageId: "page-1", prompt: "Complete the CAPTCHA" };
+    const first = yield* handoff.request(ThreadId.make("failed-start"), input).pipe(Effect.flip);
+    expect(first.message).toContain("startup cleanup failed");
+    expect(orphans).toHaveLength(1);
+    expect(orphans[0]?.processId).toBeGreaterThan(0);
+    process.kill(orphans[0]!.processId!, 0);
+    const second = yield* handoff.request(ThreadId.make("second-start"), input).pipe(Effect.flip);
+    expect(second.message).toContain("previous browser viewer");
+    expect(attempts).toBe(1);
+  }).pipe(Effect.provide(
+    Layer.effect(Handoff.BetterWrightHandoff, Handoff.make(startViewer)).pipe(
+      Layer.provideMerge(Manager.layer),
+      Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "t3-handoff-failed-start-" })),
+      Layer.provide(NodeCrypto.layer),
+      Layer.provide(NodeServices.layer),
+    ),
+  ), Effect.scoped);
+});
 
 it.live(
   "publishes the existing page, transports guarded human input, resumes on release and cleans its viewer",

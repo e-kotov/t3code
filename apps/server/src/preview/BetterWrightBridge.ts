@@ -14,6 +14,17 @@ export interface BetterWrightProcess {
   readonly stop: () => Promise<void>;
 }
 
+export class BetterWrightCleanupError extends Error {
+  readonly processId: number | undefined;
+  readonly closed: Promise<void>;
+
+  constructor(processId: number | undefined, closed: Promise<void>) {
+    super("BetterWright viewer startup cleanup failed; inspect its process before another handoff.");
+    this.processId = processId;
+    this.closed = closed;
+  }
+}
+
 export function betterWrightCommand(
   value: string | undefined,
   name = "T3CODE_BETTERWRIGHT_VIEW_COMMAND",
@@ -51,6 +62,7 @@ export function betterWrightSocketUrl(value: string): string {
 }
 
 const stopProcess = (child: NodeChildProcess.ChildProcess, exited: Promise<void>) => async () => {
+  if (child.pid === undefined) return;
   if (child.exitCode !== null || child.signalCode !== null) {
     if (child.exitCode !== 0)
       throw new Error("BetterWright viewer exited without verified cleanup.");
@@ -143,7 +155,11 @@ export async function startBetterWrightViewer(
     signal.throwIfAborted();
     return { url: await ready.promise, stop, closed: exited };
   } catch (error) {
-    await stop();
+    try {
+      await stop();
+    } catch {
+      throw new BetterWrightCleanupError(child.pid, exited);
+    }
     throw error;
   } finally {
     clearTimeout(timer);

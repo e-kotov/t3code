@@ -17,6 +17,7 @@ import type {
 import {
   betterWrightCommand,
   BetterWrightBridge,
+  BetterWrightCleanupError,
   startBetterWrightViewer,
 } from "./BetterWrightBridge.ts";
 import { probeBetterWright } from "./BetterWrightProbe.ts";
@@ -61,7 +62,9 @@ export class BetterWrightHandoff extends Context.Service<
   }
 >()("t3/preview/BetterWrightHandoff") {}
 
-const make = Effect.gen(function* () {
+export const make = Effect.fn("BetterWrightHandoff.make")(function* (
+  startViewer = startBetterWrightViewer,
+) {
   const manager = yield* PreviewManager.PreviewManager;
   const runPromise = Effect.runPromiseWith(yield* Effect.context<never>());
   let busy = false;
@@ -109,7 +112,7 @@ const make = Effect.gen(function* () {
         const abort = () => bridge?.finish("cancelled");
         signal.addEventListener("abort", abort, { once: true });
         try {
-          viewer = await startBetterWrightViewer(command, input, signal);
+          viewer = await startViewer(command, input, signal);
           bridge = new BetterWrightBridge(
             viewer.url,
             input,
@@ -183,6 +186,9 @@ const make = Effect.gen(function* () {
                 ? "The human released browser control. Reinspect the original BetterWright page in the same session before continuing; this does not establish CAPTCHA or login success."
                 : "Browser handoff ended without completion. Do not assume the CAPTCHA or login succeeded.",
           };
+        } catch (cause) {
+          if (cause instanceof BetterWrightCleanupError) cleanupFailed = true;
+          throw cause;
         } finally {
           clearTimeout(timer);
           clearTimeout(attachTimer);
@@ -194,7 +200,7 @@ const make = Effect.gen(function* () {
           try {
             if (tabId) await runPromise(manager.close({ threadId, tabId }).pipe(Effect.ignore));
             await viewer?.stop();
-            stopped = true;
+            stopped = !cleanupFailed;
           } finally {
             active = undefined;
             busy = !stopped;
@@ -252,4 +258,4 @@ const make = Effect.gen(function* () {
   });
 });
 
-export const layer = Layer.effect(BetterWrightHandoff, make);
+export const layer = Layer.effect(BetterWrightHandoff, make());
