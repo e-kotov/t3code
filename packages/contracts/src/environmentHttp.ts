@@ -837,14 +837,16 @@ class EnvironmentWebhooksHttpApi extends HttpApiGroup.make("webhooks")
   .add(HttpApiEndpoint.get("webhookGet", WEBHOOK_PATH, webhookEndpoint)) {}
 
 export class EnvironmentHttpApi extends HttpApi.make("environment")
-  .add(HttpApiGroup.make("threadQuota").add(
-    HttpApiEndpoint.get("read", "/api/fork/thread-quota/:threadId", {
-      headers: OptionalBearerHeaders,
-      params: Schema.Struct({ threadId: ThreadId }),
-      success: ForkThreadQuota,
-      error: [EnvironmentScopeRequiredError],
-    }).middleware(EnvironmentAuthenticatedAuth),
-  ))
+  .add(
+    HttpApiGroup.make("threadQuota").add(
+      HttpApiEndpoint.get("read", "/api/fork/thread-quota/:threadId", {
+        headers: OptionalBearerHeaders,
+        params: Schema.Struct({ threadId: ThreadId }),
+        success: ForkThreadQuota,
+        error: [EnvironmentScopeRequiredError],
+      }).middleware(EnvironmentAuthenticatedAuth),
+    ),
+  )
   .add(EnvironmentMetadataHttpApi)
   .add(EnvironmentAuthHttpApi)
   .add(EnvironmentMcpOAuthHttpApi)

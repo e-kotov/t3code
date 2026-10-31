@@ -6,7 +6,9 @@ import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import { requireEnvironmentScope } from "../auth/http.ts";
 import * as ForkThreadQuota from "./ForkThreadQuota.ts";
 
-export const layer = HttpApiBuilder.group(EnvironmentHttpApi, "threadQuota",
+export const layer = HttpApiBuilder.group(
+  EnvironmentHttpApi,
+  "threadQuota",
   Effect.fnUntraced(function* (handlers) {
     const quota = yield* ForkThreadQuota.ForkThreadQuota;
     return handlers.handle("read", Effect.fn("environment.threadQuota.read")(function* (args) {

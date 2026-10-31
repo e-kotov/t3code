@@ -14,22 +14,44 @@ interface NativeThread {
 export function readCodexTaskInventory(dbPath: string, threadId: string, accountId: string) {
   const db = new NodeSqlite.DatabaseSync(dbPath, { readOnly: true });
   try {
-    const columns = new Set(db.prepare("PRAGMA table_info(threads)").all().map((row) => row.name));
+    const columns = new Set(
+      db
+        .prepare("PRAGMA table_info(threads)")
+        .all()
+        .map((row) => row.name),
+    );
     const optional = ["creator_account_id", "attached_thread_parent_id"].map((name) =>
       columns.has(name) ? name : `NULL AS ${name}`,
     );
-    const rows = db.prepare(`SELECT id, source, model_provider, created_at, updated_at, ${optional.join(",")} FROM threads`).all() as unknown as NativeThread[];
-    const edges = db.prepare("SELECT child_thread_id, parent_thread_id FROM thread_spawn_edges").all();
+    const rows = db
+      .prepare(
+        `SELECT id, source, model_provider, created_at, updated_at, ${optional.join(",")} FROM threads`,
+      )
+      .all() as unknown as NativeThread[];
+    const edges = db
+      .prepare("SELECT child_thread_id, parent_thread_id FROM thread_spawn_edges")
+      .all();
     const parents = new Map<string, string>();
     const conflicting = new Set<string>();
     for (const row of rows) {
       try {
         const source: unknown = JSON.parse(row.source);
-        const sub = typeof source === "object" && source !== null && "subagent" in source ? source.subagent : null;
-        const spawn = typeof sub === "object" && sub !== null && "thread_spawn" in sub ? sub.thread_spawn : null;
-        const parent = typeof spawn === "object" && spawn !== null && "parent_thread_id" in spawn ? spawn.parent_thread_id : null;
+        const sub =
+          typeof source === "object" && source !== null && "subagent" in source
+            ? source.subagent
+            : null;
+        const spawn =
+          typeof sub === "object" && sub !== null && "thread_spawn" in sub
+            ? sub.thread_spawn
+            : null;
+        const parent =
+          typeof spawn === "object" && spawn !== null && "parent_thread_id" in spawn
+            ? spawn.parent_thread_id
+            : null;
         if (typeof parent === "string") parents.set(row.id, parent);
-      } catch { /* Native source strings such as appServer are not JSON. */ }
+      } catch {
+        /* Native source strings such as appServer are not JSON. */
+      }
     }
     for (const row of edges) {
       const child = String(row.child_thread_id);
@@ -52,10 +74,17 @@ export function readCodexTaskInventory(dbPath: string, threadId: string, account
     }
     const family = rows.filter((row) => members.has(row.id));
     if (members.has(parents.get(threadId) ?? "")) return null;
-    if (family.length !== members.size || family.some((row) =>
-      row.model_provider !== "openai" || row.attached_thread_parent_id || conflicting.has(row.id) ||
-      (row.creator_account_id !== null && row.creator_account_id !== accountId)
-    )) return null;
+    if (
+      family.length !== members.size ||
+      family.some(
+        (row) =>
+          row.model_provider !== "openai" ||
+          row.attached_thread_parent_id ||
+          conflicting.has(row.id) ||
+          (row.creator_account_id !== null && row.creator_account_id !== accountId),
+      )
+    )
+      return null;
     return {
       thread_id: threadId,
       created_at: new Date(root.created_at * 1000).toISOString(),

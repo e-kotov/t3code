@@ -23,17 +23,47 @@ function CodexTaskQuota({ environmentId, threadId, accountKey }: { environmentId
   const reading = AsyncResult.getOrElse(result, (): Reading | null => null);
   if (reading?.status === "unsupported") return null;
   return (
-    <ThreadDetailsSection headingId="thread-quota-heading" title="Codex task usage" showHeading={false}>
+    <ThreadDetailsSection
+      headingId="thread-quota-heading"
+      title="Codex task usage"
+      showHeading={false}
+    >
       <Tooltip>
-        <TooltipTrigger render={<div tabIndex={0} className="flex min-h-6 items-center justify-between gap-3 px-2.5 text-xs" />}>
+        <TooltipTrigger
+          render={
+            <div
+              tabIndex={0}
+              className="flex min-h-6 items-center justify-between gap-3 px-2.5 text-xs"
+            />
+          }
+        >
           <span className="text-muted-foreground">Codex quota used</span>
-          <span className="text-end font-medium tabular-nums">{reading ? quotaAmountText(reading) : result._tag === "Failure" ? "Unavailable" : "Loading…"}</span>
+          <span className="text-end font-medium tabular-nums">
+            {reading
+              ? quotaAmountText(reading)
+              : result._tag === "Failure"
+                ? "Unavailable"
+                : "Loading…"}
+          </span>
         </TooltipTrigger>
         <TooltipPopup side="left" sideOffset={16}>
           <div className="flex max-w-72 flex-col gap-1">
-            <span>OpenAI-reported lifetime consumption for the current Codex task and its subagents, relative to a current full allowance.</span>
-            <span className="text-muted-foreground">Estimates can arrive late. This is not usage during only the current week.</span>
-            {reading ? <span className="text-muted-foreground">{reading.status === "partial" ? "Partial reading. " : ""}Checked {new Date(reading.checkedAt).toLocaleString()}{reading.dataAsOf ? ` · Data as of ${new Date(reading.dataAsOf).toLocaleString()}` : ""}</span> : null}
+            <span>
+              OpenAI-reported lifetime consumption for the current Codex task and its subagents,
+              relative to a current full allowance.
+            </span>
+            <span className="text-muted-foreground">
+              Estimates can arrive late. This is not usage during only the current week.
+            </span>
+            {reading ? (
+              <span className="text-muted-foreground">
+                {reading.status === "partial" ? "Partial reading. " : ""}Checked{" "}
+                {new Date(reading.checkedAt).toLocaleString()}
+                {reading.dataAsOf
+                  ? ` · Data as of ${new Date(reading.dataAsOf).toLocaleString()}`
+                  : ""}
+              </span>
+            ) : null}
           </div>
         </TooltipPopup>
       </Tooltip>

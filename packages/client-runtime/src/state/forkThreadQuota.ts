@@ -10,7 +10,9 @@ import { executeAuthenticatedEnvironmentHttpRequest } from "./environmentHttpAut
 import { createEnvironmentSessionAtoms } from "./session.ts";
 import { minuteTick } from "../clock.ts";
 
-export function createForkThreadQuotaAtoms<R, E>(runtime: Atom.AtomRuntime<EnvironmentRegistry.EnvironmentRegistry | R, E>) {
+export function createForkThreadQuotaAtoms<R, E>(
+  runtime: Atom.AtomRuntime<EnvironmentRegistry.EnvironmentRegistry | R, E>,
+) {
   const session = createEnvironmentSessionAtoms(runtime);
   return Atom.family((key: string) => {
     const [environmentId, threadId] = JSON.parse(key) as [EnvironmentId, ThreadId];

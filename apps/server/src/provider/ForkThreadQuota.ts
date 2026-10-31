@@ -20,16 +20,22 @@ const Percent = Schema.NullOr(Schema.Finite.check(Schema.isGreaterThanOrEqualTo(
 const Amounts = {
   five_hour_limit_percent: Schema.optionalKey(Percent),
   weekly_limit_percent: Schema.optionalKey(Percent),
-  balance_usage_credits: Schema.optionalKey(Schema.NullOr(Schema.String.check(Schema.isPattern(/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/)))),
+  balance_usage_credits: Schema.optionalKey(
+    Schema.NullOr(
+      Schema.String.check(Schema.isPattern(/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/)),
+    ),
+  ),
 };
 const Response = Schema.Struct({
   data_as_of: Schema.optionalKey(Schema.NullOr(Schema.String)),
-  threads: Schema.Array(Schema.Struct({
-    thread_id: Schema.String,
-    data_status: Schema.Literals(["available", "partial", "unavailable"]),
-    ...Amounts,
-    groups: Schema.Array(Schema.Struct(Amounts)),
-  })),
+  threads: Schema.Array(
+    Schema.Struct({
+      thread_id: Schema.String,
+      data_status: Schema.Literals(["available", "partial", "unavailable"]),
+      ...Amounts,
+      groups: Schema.Array(Schema.Struct(Amounts)),
+    }),
+  ),
 });
 const Credentials = Schema.Struct({
   tokens: Schema.Struct({ access_token: Schema.NonEmptyString, account_id: Schema.NonEmptyString }),
@@ -38,9 +44,12 @@ const decodeConfig = Schema.decodeUnknownEffect(CodexSettings);
 const decodeCredentials = Schema.decodeUnknownEffect(Schema.fromJsonString(Credentials));
 const decodeResponse = Schema.decodeUnknownEffect(Response);
 
-export class ForkThreadQuota extends Context.Service<ForkThreadQuota, {
-  readonly read: (threadId: ThreadId) => Effect.Effect<Reading>;
-}>()("t3/provider/ForkThreadQuota") {}
+export class ForkThreadQuota extends Context.Service<
+  ForkThreadQuota,
+  {
+    readonly read: (threadId: ThreadId) => Effect.Effect<Reading>;
+  }
+>()("t3/provider/ForkThreadQuota") {}
 
 const make = Effect.gen(function* () {
   const projection = yield* ProjectionStore.ProjectionStoreV2;
@@ -54,8 +63,12 @@ const make = Effect.gen(function* () {
   const read = Effect.fn("ForkThreadQuota.read")(function* (threadId: ThreadId) {
     const now = yield* Clock.currentTimeMillis;
     const empty = (status: Reading["status"]): Reading => ({
-      status, checkedAt: new Date(now).toISOString(), dataAsOf: null,
-      fiveHourPercent: null, weeklyPercent: null, balanceCredits: null,
+      status,
+      checkedAt: new Date(now).toISOString(),
+      dataAsOf: null,
+      fiveHourPercent: null,
+      weeklyPercent: null,
+      balanceCredits: null,
     });
     return yield* Effect.gen(function* () {
       const records = yield* projection.getThreadRecords(threadId, ["providerThreads"]);
@@ -83,25 +96,38 @@ const make = Effect.gen(function* () {
         path.join(home, "state_5.sqlite"), native.nativeThreadRef!.nativeId, credentials.tokens.account_id,
       ));
       if (!task) return empty("unsupported");
-      const key = JSON.stringify([native.providerInstanceId, home, credentials.tokens.account_id,
-        task.thread_id, task.descendant_thread_ids, task.updatedAt]);
+      const key = JSON.stringify([
+        native.providerInstanceId,
+        home,
+        credentials.tokens.account_id,
+        task.thread_id,
+        task.descendant_thread_ids,
+        task.updatedAt,
+      ]);
       const cached = cache.get(key);
       if (cached && now - Date.parse(cached.checkedAt) < 60_000) return cached;
       const existing = pending.get(key);
       if (existing) return yield* existing;
       const request = Effect.gen(function* () {
-        const response = yield* http.execute(HttpClientRequest.post(
-          "https://chatgpt.com/backend-api/wham/usage/thread_usage/query_v2",
-        ).pipe(
-          HttpClientRequest.setHeaders({
-            authorization: `Bearer ${credentials.tokens.access_token}`,
-            "chatgpt-account-id": credentials.tokens.account_id,
-          }),
-          HttpClientRequest.bodyJsonUnsafe({ threads: [{
-            thread_id: task.thread_id, created_at: task.created_at,
-            descendant_thread_ids: task.descendant_thread_ids,
-          }] }),
-        ));
+        const response = yield* http.execute(
+          HttpClientRequest.post(
+            "https://chatgpt.com/backend-api/wham/usage/thread_usage/query_v2",
+          ).pipe(
+            HttpClientRequest.setHeaders({
+              authorization: `Bearer ${credentials.tokens.access_token}`,
+              "chatgpt-account-id": credentials.tokens.account_id,
+            }),
+            HttpClientRequest.bodyJsonUnsafe({
+              threads: [
+                {
+                  thread_id: task.thread_id,
+                  created_at: task.created_at,
+                  descendant_thread_ids: task.descendant_thread_ids,
+                },
+              ],
+            }),
+          ),
+        );
         if (response.status !== 200) return empty("error");
         const payload = yield* response.json.pipe(Effect.flatMap(decodeResponse));
         const after = yield* readCredentials;
@@ -111,16 +137,23 @@ const make = Effect.gen(function* () {
         if (payload.threads.length !== 1 || payload.threads[0]?.thread_id !== task.thread_id) return empty("error");
         const row = payload.threads[0];
         if (row.data_status === "unavailable") return empty("unavailable");
-        return { status: row.data_status, checkedAt: new Date(now).toISOString(), dataAsOf: payload.data_as_of ?? null,
-          fiveHourPercent: row.five_hour_limit_percent ?? null, weeklyPercent: row.weekly_limit_percent ?? null,
-          balanceCredits: row.balance_usage_credits ?? null } satisfies Reading;
+        return {
+          status: row.data_status,
+          checkedAt: new Date(now).toISOString(),
+          dataAsOf: payload.data_as_of ?? null,
+          fiveHourPercent: row.five_hour_limit_percent ?? null,
+          weeklyPercent: row.weekly_limit_percent ?? null,
+          balanceCredits: row.balance_usage_credits ?? null,
+        } satisfies Reading;
       }).pipe(
         Effect.timeout("10 seconds"),
         Effect.orElseSucceed(() => empty("error")),
-        Effect.tap((value) => Effect.sync(() => {
-          if (cache.size >= 256) cache.clear();
-          cache.set(key, value);
-        })),
+        Effect.tap((value) =>
+          Effect.sync(() => {
+            if (cache.size >= 256) cache.clear();
+            cache.set(key, value);
+          }),
+        ),
         Effect.ensuring(Effect.sync(() => pending.delete(key))),
       );
       const shared = yield* Effect.cached(request);
