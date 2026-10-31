@@ -69,8 +69,9 @@ it.effect("refreshes resumed task families, preserves missing/partial values and
     );
     yield* Effect.gen(function* () {
       const quota = yield* Quota.ForkThreadQuota;
-      assert.equal((yield* quota.read(threadId)).weeklyPercent, 150.25);
-      yield* quota.read(threadId);
+      const concurrent = yield* Effect.all([quota.read(threadId), quota.read(threadId)], { concurrency: "unbounded" });
+      assert.equal(concurrent[0].weeklyPercent, 150.25);
+      assert.equal(concurrent[1].weeklyPercent, 150.25);
       assert.equal(calls, 1);
       db.exec("UPDATE threads SET updated_at=2 WHERE id='child'");
       weekly = 155;
@@ -85,12 +86,12 @@ it.effect("refreshes resumed task families, preserves missing/partial values and
       assert.equal(partial.balanceCredits, "-0.000000000000000001");
       responseId = "other-thread";
       yield* TestClock.adjust("61 seconds");
-      assert.equal((yield* quota.read(threadId)).status, "unavailable");
+      assert.equal((yield* quota.read(threadId)).status, "error");
       responseId = "root";
       status = "available";
       rotateAccount = true;
       yield* TestClock.adjust("61 seconds");
-      assert.equal((yield* quota.read(threadId)).status, "unavailable");
+      assert.equal((yield* quota.read(threadId)).status, "error");
       const before = calls;
       assert.equal((yield* quota.read(threadId)).status, "unsupported");
       assert.equal(calls, before);

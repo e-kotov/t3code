@@ -1,7 +1,7 @@
 import * as Schema from "effect/Schema";
 
 export const ForkThreadQuota = Schema.Struct({
-  status: Schema.Literals(["available", "partial", "unavailable", "unsupported"]),
+  status: Schema.Literals(["available", "partial", "unavailable", "unsupported", "error"]),
   checkedAt: Schema.String,
   dataAsOf: Schema.NullOr(Schema.String),
   fiveHourPercent: Schema.NullOr(Schema.Finite),

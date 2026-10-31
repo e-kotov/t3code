@@ -9,4 +9,5 @@ it("keeps zero, missing readings, partial values and percentages above 100 disti
   expect(quotaAmountText({ ...reading, status: "partial", weeklyPercent: null })).toBe("~5h 0%");
   expect(quotaAmountText({ ...reading, status: "unavailable" })).toBe("Not reported yet");
   expect(quotaAmountText({ ...reading, fiveHourPercent: null, weeklyPercent: null })).toBe("Not reported yet");
+  expect(quotaAmountText({ ...reading, fiveHourPercent: 0.001, weeklyPercent: null })).toBe("5h <0.01%");
 });

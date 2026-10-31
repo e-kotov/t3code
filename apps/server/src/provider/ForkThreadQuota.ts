@@ -93,11 +93,11 @@ const make = Effect.gen(function* () {
             descendant_thread_ids: task.descendant_thread_ids,
           }] }),
         ));
-        if (response.status !== 200) return empty("unavailable");
+        if (response.status !== 200) return empty("error");
         const payload = yield* response.json.pipe(Effect.flatMap(Schema.decodeUnknownEffect(Response)));
         const after = yield* readCredentials;
-        if (after.tokens.account_id !== credentials.tokens.account_id) return empty("unavailable");
-        if (payload.threads.length !== 1 || payload.threads[0]?.thread_id !== task.thread_id) return empty("unavailable");
+        if (after.tokens.account_id !== credentials.tokens.account_id) return empty("error");
+        if (payload.threads.length !== 1 || payload.threads[0]?.thread_id !== task.thread_id) return empty("error");
         const row = payload.threads[0];
         if (row.data_status === "unavailable") return empty("unavailable");
         return { status: row.data_status, checkedAt: new Date(now).toISOString(), dataAsOf: payload.data_as_of ?? null,
@@ -105,7 +105,7 @@ const make = Effect.gen(function* () {
           balanceCredits: row.balance_usage_credits ?? null } satisfies Reading;
       }).pipe(
         Effect.timeout("10 seconds"),
-        Effect.orElseSucceed(() => empty("unavailable")),
+        Effect.orElseSucceed(() => empty("error")),
         Effect.tap((value) => Effect.sync(() => {
           if (cache.size >= 256) cache.clear();
           cache.set(key, value);
@@ -115,7 +115,7 @@ const make = Effect.gen(function* () {
       const shared = yield* Effect.cached(request);
       pending.set(key, shared);
       return yield* shared;
-    }).pipe(Effect.orElseSucceed(() => empty("unavailable")));
+    }).pipe(Effect.orElseSucceed(() => empty("error")));
   });
   return ForkThreadQuota.of({ read });
 });

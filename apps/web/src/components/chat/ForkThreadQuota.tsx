@@ -3,7 +3,6 @@ import { createForkThreadQuotaAtoms } from "@t3tools/client-runtime/state/fork-t
 import type { EnvironmentId, ThreadId, ForkThreadQuota as Reading } from "@t3tools/contracts";
 import { AsyncResult } from "effect/reactivity";
 import { connectionAtomRuntime } from "../../connection/runtime";
-import { useNowMinute } from "../../hooks/useNowMinute";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { ThreadDetailsSection } from "./ThreadDetailsSection";
 import { quotaAmountText } from "./forkThreadQuotaText";
@@ -17,8 +16,7 @@ export function ForkThreadQuota({ environmentId, threadId, usage }: { environmen
 }
 
 function CodexTaskQuota({ environmentId, threadId }: { environmentId: EnvironmentId; threadId: ThreadId }) {
-  const minute = useNowMinute();
-  const result = useAtomValue(readings(JSON.stringify([environmentId, threadId, minute])));
+  const result = useAtomValue(readings(JSON.stringify([environmentId, threadId])));
   const reading = AsyncResult.getOrElse(result, (): Reading | null => null);
   if (reading?.status === "unsupported") return null;
   return (

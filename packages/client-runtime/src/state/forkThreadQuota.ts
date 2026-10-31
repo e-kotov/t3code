@@ -8,12 +8,14 @@ import * as ManagedRelay from "../relay/managedRelay.ts";
 import * as RemoteAuthorization from "../authorization/service.ts";
 import { executeAuthenticatedEnvironmentHttpRequest } from "./environmentHttpAuth.ts";
 import { createEnvironmentSessionAtoms } from "./session.ts";
+import { minuteTick } from "../clock.ts";
 
 export function createForkThreadQuotaAtoms<R, E>(runtime: Atom.AtomRuntime<EnvironmentRegistry.EnvironmentRegistry | R, E>) {
   const session = createEnvironmentSessionAtoms(runtime);
   return Atom.family((key: string) => {
-    const [environmentId, threadId] = JSON.parse(key) as [EnvironmentId, ThreadId, string];
+    const [environmentId, threadId] = JSON.parse(key) as [EnvironmentId, ThreadId];
     return runtime.atom((get) => {
+      get.addFinalizer(minuteTick.subscribe(() => get.refreshSelf()));
       const prepared = Option.getOrNull(get(session.preparedConnectionValueAtom(environmentId)));
       if (!prepared) return Effect.never;
       return Effect.gen(function* () {
@@ -27,6 +29,6 @@ export function createForkThreadQuotaAtoms<R, E>(runtime: Atom.AtomRuntime<Envir
           request: ({ client, headers }) => client.read({ params: { threadId }, headers }),
         }).pipe(Effect.provideService(HttpClient.HttpClient, client.value));
       });
-    }).pipe(Atom.setIdleTTL(0));
+    }).pipe(Atom.swr({ staleTime: 60_000, revalidateOnMount: true }), Atom.setIdleTTL(0));
   });
 }
