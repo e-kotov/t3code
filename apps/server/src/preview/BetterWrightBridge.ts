@@ -13,10 +13,18 @@ export interface BetterWrightProcess {
   readonly stop: () => Promise<void>;
 }
 
-export function betterWrightCommand(value: string | undefined, name = "T3CODE_BETTERWRIGHT_VIEW_COMMAND"): ReadonlyArray<string> {
-  if (!value) throw new Error(`Set ${name} to the host's existing-only sidecar command (a JSON array).`);
+export function betterWrightCommand(
+  value: string | undefined,
+  name = "T3CODE_BETTERWRIGHT_VIEW_COMMAND",
+): ReadonlyArray<string> {
+  if (!value)
+    throw new Error(`Set ${name} to the host's existing-only sidecar command (a JSON array).`);
   const parsed: unknown = JSON.parse(value);
-  if (!Array.isArray(parsed) || parsed.length === 0 || !parsed.every((part) => typeof part === "string" && part.length > 0)) {
+  if (
+    !Array.isArray(parsed) ||
+    parsed.length === 0 ||
+    !parsed.every((part) => typeof part === "string" && part.length > 0)
+  ) {
     throw new Error(`${name} must be a nonempty JSON array of command arguments.`);
   }
   return parsed;
@@ -24,8 +32,16 @@ export function betterWrightCommand(value: string | undefined, name = "T3CODE_BE
 
 export function betterWrightSocketUrl(value: string): string {
   const url = new URL(value);
-  if (url.protocol !== "http:" || url.hostname !== "127.0.0.1" || !url.port || url.pathname !== "/" ||
-      url.username || url.password || url.hash || !/^[A-Za-z0-9_-]{16,128}$/.test(url.searchParams.get("t") ?? "")) {
+  if (
+    url.protocol !== "http:" ||
+    url.hostname !== "127.0.0.1" ||
+    !url.port ||
+    url.pathname !== "/" ||
+    url.username ||
+    url.password ||
+    url.hash ||
+    !/^[A-Za-z0-9_-]{16,128}$/.test(url.searchParams.get("t") ?? "")
+  ) {
     throw new Error("BetterWright must return a private IPv4 loopback viewer URL.");
   }
   url.protocol = "ws:";
@@ -41,7 +57,13 @@ const stopProcess = (child: NodeChildProcess.ChildProcess, exited: Promise<void>
     await Promise.race([
       exited,
       new Promise<never>((_resolve, reject) => {
-        timer = setTimeout(() => reject(new Error("BetterWright viewer did not stop gracefully; inspect the host process.")), 10_000);
+        timer = setTimeout(
+          () =>
+            reject(
+              new Error("BetterWright viewer did not stop gracefully; inspect the host process."),
+            ),
+          10_000,
+        );
       }),
     ]);
   } finally {
@@ -50,14 +72,31 @@ const stopProcess = (child: NodeChildProcess.ChildProcess, exited: Promise<void>
 };
 
 export async function startBetterWrightViewer(
-  command: ReadonlyArray<string>, target: BetterWrightTarget, signal: AbortSignal,
+  command: ReadonlyArray<string>,
+  target: BetterWrightTarget,
+  signal: AbortSignal,
 ): Promise<BetterWrightProcess> {
-  const child = NodeChildProcess.spawn(command[0]!, [...command.slice(1), "--session", target.session,
-    ...(target.profile ? ["--profile", target.profile] : []), "--port", "0"], {
-    stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, NO_COLOR: "1", BETTERWRIGHT_LIVE_VIEW_HOST: "127.0.0.1",
-      BETTERWRIGHT_LIVE_VIEW_PUBLIC_HOST: "127.0.0.1", BETTERWRIGHT_LIVE_VIEW_EXPOSE: "local" },
-  });
+  const child = NodeChildProcess.spawn(
+    command[0]!,
+    [
+      ...command.slice(1),
+      "--session",
+      target.session,
+      ...(target.profile ? ["--profile", target.profile] : []),
+      "--port",
+      "0",
+    ],
+    {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        NO_COLOR: "1",
+        BETTERWRIGHT_LIVE_VIEW_HOST: "127.0.0.1",
+        BETTERWRIGHT_LIVE_VIEW_PUBLIC_HOST: "127.0.0.1",
+        BETTERWRIGHT_LIVE_VIEW_EXPOSE: "local",
+      },
+    },
+  );
   const exited = new Promise<void>((resolve) => child.once("close", () => resolve()));
   const stop = stopProcess(child, exited);
   const ready = Promise.withResolvers<string>();
@@ -71,19 +110,28 @@ export async function startBetterWrightViewer(
     for (const line of buffer.split(/\r?\n/).slice(0, -1)) {
       const match = /^(?:Live view:\s*)?(http:\/\/\S+)\s*$/.exec(line.trim());
       if (match) {
-        try { betterWrightSocketUrl(match[1]!); ready.resolve(match[1]!); }
-        catch { ready.reject(new Error("BetterWright returned an unsafe viewer endpoint.")); }
+        try {
+          betterWrightSocketUrl(match[1]!);
+          ready.resolve(match[1]!);
+        } catch {
+          ready.reject(new Error("BetterWright returned an unsafe viewer endpoint."));
+        }
       }
     }
   };
   child.stdout.on("data", read);
   // Never include CLI output in an error: it can contain the viewer capability.
   child.stderr.on("data", () => undefined);
-  child.once("error", () => ready.reject(new Error("The configured BetterWright viewer could not start.")));
+  child.once("error", () =>
+    ready.reject(new Error("The configured BetterWright viewer could not start.")),
+  );
   child.once("exit", () => ready.reject(new Error("BetterWright viewer exited before handoff.")));
   const abort = () => ready.reject(new Error("Browser handoff was cancelled."));
   signal.addEventListener("abort", abort, { once: true });
-  const timer = setTimeout(() => ready.reject(new Error("BetterWright viewer did not become ready.")), 25_000);
+  const timer = setTimeout(
+    () => ready.reject(new Error("BetterWright viewer did not become ready.")),
+    25_000,
+  );
   try {
     signal.throwIfAborted();
     return { url: await ready.promise, stop };
@@ -98,13 +146,15 @@ export async function startBetterWrightViewer(
   }
 }
 
-type Output = Exclude<ServerBrowserViewerOutput, { readonly _tag: "frame" }> |
-  { readonly _tag: "frame"; readonly data: Uint8Array };
+type Output =
+  | Exclude<ServerBrowserViewerOutput, { readonly _tag: "frame" }>
+  | { readonly _tag: "frame"; readonly data: Uint8Array };
 type Viewer = { readonly canOperate: boolean; readonly push: (value: Output) => void };
 type Outcome = "completed" | "cancelled" | "timed-out";
 const record = (value: unknown): Record<string, unknown> | undefined =>
-  typeof value === "object" && value !== null ? value as Record<string, unknown> : undefined;
-const finite = (value: unknown, fallback = 0) => typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  typeof value === "object" && value !== null ? (value as Record<string, unknown>) : undefined;
+const finite = (value: unknown, fallback = 0) =>
+  typeof value === "number" && Number.isFinite(value) ? value : fallback;
 
 export class BetterWrightBridge {
   private readonly socket: WebSocket;
@@ -127,9 +177,13 @@ export class BetterWrightBridge {
   private readonly probe: (x: number, y: number) => Promise<boolean>;
   private probeGeneration = 0;
 
-  constructor(url: string, target: BetterWrightTarget, update: (url: string, title: string) => void,
+  constructor(
+    url: string,
+    target: BetterWrightTarget,
+    update: (url: string, title: string) => void,
     makeSocket: (url: string) => WebSocket = (value) => new WebSocket(value),
-    probe: (x: number, y: number) => Promise<boolean> = () => Promise.resolve(false)) {
+    probe: (x: number, y: number) => Promise<boolean> = () => Promise.resolve(false),
+  ) {
     this.target = target;
     this.update = update;
     this.probe = probe;
@@ -140,17 +194,26 @@ export class BetterWrightBridge {
     this.socket.addEventListener("message", (event) => this.receive(event.data));
   }
 
-  waitUntilReady() { return this.ready.promise; }
-  waitUntilFinished() { return this.finished.promise; }
+  waitUntilReady() {
+    return this.ready.promise;
+  }
+  waitUntilFinished() {
+    return this.finished.promise;
+  }
 
   private send(value: unknown) {
-    if (!this.ended && this.socket.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(value));
+    if (!this.ended && this.socket.readyState === WebSocket.OPEN)
+      this.socket.send(JSON.stringify(value));
   }
 
   private control(viewer: Viewer, id: string): Output {
-    return { _tag: "control", canOperate: viewer.canOperate && !this.ended,
+    return {
+      _tag: "control",
+      canOperate: viewer.canOperate && !this.ended,
       controller: this.owner === id ? "you" : this.owner ? "another-viewer" : "agent",
-      generation: this.generation, dialog: null };
+      generation: this.generation,
+      dialog: null,
+    };
   }
 
   private broadcastControl() {
@@ -162,7 +225,9 @@ export class BetterWrightBridge {
   }
 
   private fail() {
-    this.ready.reject(new Error("The BetterWright viewer could not attach to the requested existing page."));
+    this.ready.reject(
+      new Error("The BetterWright viewer could not attach to the requested existing page."),
+    );
     this.finish("cancelled");
   }
 
@@ -176,13 +241,20 @@ export class BetterWrightBridge {
     }
     if (typeof data !== "string") return;
     let message: Record<string, unknown> | undefined;
-    try { message = record(JSON.parse(data)); } catch { return; }
+    try {
+      message = record(JSON.parse(data));
+    } catch {
+      return;
+    }
     if (!message) return;
-    if ((message.t === "hello" || message.t === "state") && message.interactive !== true) return this.fail();
+    if ((message.t === "hello" || message.t === "state") && message.interactive !== true)
+      return this.fail();
     if (message.t === "bye") return this.fail();
     if (message.t === "tabs" && Array.isArray(message.tabs)) {
       const tabs = message.tabs.map(record);
-      const target = tabs.find((tab) => tab?.sessionId === this.target.session && tab.id === this.target.pageId);
+      const target = tabs.find(
+        (tab) => tab?.sessionId === this.target.session && tab.id === this.target.pageId,
+      );
       if (!target) return this.fail();
       if (target.streaming !== true) {
         if (this.bound) return this.fail();
@@ -197,7 +269,10 @@ export class BetterWrightBridge {
       this.broadcast({ _tag: "viewport", width: this.width, height: this.height });
       if (this.frame) this.broadcast({ _tag: "frame", data: this.frame });
       if (typeof target.url === "string" && /^https?:\/\//.test(target.url)) {
-        this.update(target.url, typeof target.title === "string" ? target.title : "Browser handoff");
+        this.update(
+          target.url,
+          typeof target.title === "string" ? target.title : "Browser handoff",
+        );
       }
     }
     if (message.t === "meta") {
@@ -242,54 +317,108 @@ export class BetterWrightBridge {
       return;
     }
     if (this.owner !== id) return;
-    if (message.type === "releaseControl") { this.finish("completed"); return; }
+    if (message.type === "releaseControl") {
+      this.finish("completed");
+      return;
+    }
     const modifiers = Math.max(0, Math.min(15, finite(message.modifiers)));
     const x = Math.max(0, Math.min(this.width, finite(message.x)));
     const y = Math.max(0, Math.min(this.height, finite(message.y)));
     switch (message.type) {
       case "mouse":
-        this.send({ t: "input", kind: "mouse", type: message.action === "down" ? "mousePressed" : message.action === "up" ? "mouseReleased" : "mouseMoved",
-          x, y, button: message.button, buttons: finite(message.buttons), clickCount: finite(message.clickCount, 1), modifiers });
+        this.send({
+          t: "input",
+          kind: "mouse",
+          type:
+            message.action === "down"
+              ? "mousePressed"
+              : message.action === "up"
+                ? "mouseReleased"
+                : "mouseMoved",
+          x,
+          y,
+          button: message.button,
+          buttons: finite(message.buttons),
+          clickCount: finite(message.clickCount, 1),
+          modifiers,
+        });
         if (typeof message.button === "string") {
-          if (message.action === "down") this.buttons.set(message.button, { x, y, button: message.button });
+          if (message.action === "down")
+            this.buttons.set(message.button, { x, y, button: message.button });
           if (message.action === "up") this.buttons.delete(message.button);
         }
         break;
       case "wheel":
-        this.send({ t: "input", kind: "mouse", type: "mouseWheel", x, y, deltaX: finite(message.deltaX), deltaY: finite(message.deltaY), modifiers });
+        this.send({
+          t: "input",
+          kind: "mouse",
+          type: "mouseWheel",
+          x,
+          y,
+          deltaX: finite(message.deltaX),
+          deltaY: finite(message.deltaY),
+          modifiers,
+        });
         break;
       case "key":
-        this.send({ t: "input", kind: "key", type: message.action === "up" ? "keyUp" : message.text ? "keyDown" : "rawKeyDown",
-          key: message.key, code: message.code, keyCode: message.keyCode, text: message.text, modifiers });
+        this.send({
+          t: "input",
+          kind: "key",
+          type: message.action === "up" ? "keyUp" : message.text ? "keyDown" : "rawKeyDown",
+          key: message.key,
+          code: message.code,
+          keyCode: message.keyCode,
+          text: message.text,
+          modifiers,
+        });
         if (typeof message.key === "string") {
           if (message.action === "up") this.keys.delete(String(message.code || message.key));
-          else this.keys.set(String(message.code || message.key), { key: message.key, code: message.code, keyCode: message.keyCode });
+          else
+            this.keys.set(String(message.code || message.key), {
+              key: message.key,
+              code: message.code,
+              keyCode: message.keyCode,
+            });
         }
         break;
       case "text":
-        if (typeof message.text === "string") this.send({ t: "input", kind: "insertText", text: message.text.slice(0, 8192) });
+        if (typeof message.text === "string")
+          this.send({ t: "input", kind: "insertText", text: message.text.slice(0, 8192) });
         break;
       case "resize":
-        this.send({ t: "view", px: Math.min(3840, Math.max(finite(message.width), finite(message.height))) });
+        this.send({
+          t: "view",
+          px: Math.min(3840, Math.max(finite(message.width), finite(message.height))),
+        });
         break;
-      case "reload": this.send({ t: "nav", action: "reload" }); break;
-      case "history": this.send({ t: "nav", action: message.delta === -1 ? "back" : "forward" }); break;
+      case "reload":
+        this.send({ t: "nav", action: "reload" });
+        break;
+      case "history":
+        this.send({ t: "nav", action: message.delta === -1 ? "back" : "forward" });
+        break;
       case "navigate":
-        if (typeof message.url === "string" && /^https?:\/\//.test(message.url)) this.send({ t: "navigate", url: message.url });
+        if (typeof message.url === "string" && /^https?:\/\//.test(message.url))
+          this.send({ t: "navigate", url: message.url });
         break;
       case "probe": {
         const generation = ++this.probeGeneration;
-        void this.probe(x, y).catch(() => false).then((editable) => {
-          if (!this.ended && this.owner === id && this.probeGeneration === generation) viewer.push({ _tag: "probe", x, y, editable });
-        });
+        void this.probe(x, y)
+          .catch(() => false)
+          .then((editable) => {
+            if (!this.ended && this.owner === id && this.probeGeneration === generation)
+              viewer.push({ _tag: "probe", x, y, editable });
+          });
         break;
       }
     }
   }
 
   private releasePressedInput() {
-    for (const key of this.keys.values()) this.send({ t: "input", kind: "key", type: "keyUp", ...key });
-    for (const button of this.buttons.values()) this.send({ t: "input", kind: "mouse", type: "mouseReleased", buttons: 0, ...button });
+    for (const key of this.keys.values())
+      this.send({ t: "input", kind: "key", type: "keyUp", ...key });
+    for (const button of this.buttons.values())
+      this.send({ t: "input", kind: "mouse", type: "mouseReleased", buttons: 0, ...button });
     this.keys.clear();
     this.buttons.clear();
   }

@@ -176,7 +176,13 @@ describe("BetterWright handoff", () => {
     const marker = NodePath.join(root, "stopped");
     try {
       const script = `const fs=require('node:fs');process.on('SIGTERM',()=>{fs.writeFileSync(${JSON.stringify(marker)},'stopped');process.exit(0)});console.log('Live view: http://public.invalid:18765/?t=secret-capability-token');setInterval(()=>{},1000);`;
-      await expect(startBetterWrightViewer([process.execPath, "-e", script, "--"], target, new AbortController().signal)).rejects.toThrow("unsafe viewer endpoint");
+      await expect(
+        startBetterWrightViewer(
+          [process.execPath, "-e", script, "--"],
+          target,
+          new AbortController().signal,
+        ),
+      ).rejects.toThrow("unsafe viewer endpoint");
       expect(await NodeFSP.readFile(marker, "utf8")).toBe("stopped");
     } finally {
       await NodeFSP.rm(root, { recursive: true, force: true });

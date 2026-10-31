@@ -39,17 +39,44 @@ for (let depth = 0; depth < 8; depth++) {
 return false;`;
 }
 
-export function probeBetterWright(command: ReadonlyArray<string>, target: BetterWrightTarget,
-  x: number, y: number, signal: AbortSignal): Promise<boolean> {
+export function probeBetterWright(
+  command: ReadonlyArray<string>,
+  target: BetterWrightTarget,
+  x: number,
+  y: number,
+  signal: AbortSignal,
+): Promise<boolean> {
   return new Promise((resolve) => {
-    NodeChildProcess.execFile(command[0]!, [...command.slice(1), "--session", target.session,
-      ...(target.profile ? ["--profile", target.profile] : []), "-c", betterWrightProbeCode(target.pageId, x, y)],
-    { signal, timeout: 4000, maxBuffer: 65_536 }, (error, stdout) => {
-      if (error) { resolve(false); return; }
-      try {
-        const response: unknown = JSON.parse(stdout);
-        resolve(typeof response === "object" && response !== null && "ok" in response && response.ok === true && "result" in response && response.result === true);
-      } catch { resolve(false); }
-    });
+    NodeChildProcess.execFile(
+      command[0]!,
+      [
+        ...command.slice(1),
+        "--session",
+        target.session,
+        ...(target.profile ? ["--profile", target.profile] : []),
+        "-c",
+        betterWrightProbeCode(target.pageId, x, y),
+      ],
+      { signal, timeout: 4000, maxBuffer: 65_536 },
+      (error, stdout) => {
+        if (error) {
+          resolve(false);
+          return;
+        }
+        try {
+          const response: unknown = JSON.parse(stdout);
+          resolve(
+            typeof response === "object" &&
+              response !== null &&
+              "ok" in response &&
+              response.ok === true &&
+              "result" in response &&
+              response.result === true,
+          );
+        } catch {
+          resolve(false);
+        }
+      },
+    );
   });
 }

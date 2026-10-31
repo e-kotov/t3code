@@ -16,16 +16,38 @@ it("opens the keyboard for editable fields, including framed and shadow fields, 
     await page.locator("#shadow").evaluate((element) => {
       element.attachShadow({ mode: "open" }).innerHTML = "<input id='shadow-text'>";
     });
-    for (const [selector, editable] of [["#button", false], ["#captcha", false], ["#text", true], ["#area", true], ["#locked", false], ["#disabled", false], ["#edit", true], ["#shadow-text", true]] as const) {
+    for (const [selector, editable] of [
+      ["#button", false],
+      ["#captcha", false],
+      ["#text", true],
+      ["#area", true],
+      ["#locked", false],
+      ["#disabled", false],
+      ["#edit", true],
+      ["#shadow-text", true],
+    ] as const) {
       const box = await page.locator(selector).boundingBox();
       expect(box).not.toBeNull();
-      const run = NodeVM.runInNewContext(`(async function(usePage) { ${betterWrightProbeCode("page-1", box!.x + box!.width / 2, box!.y + box!.height / 2)} })`) as (usePage: (id: string) => Promise<Page>) => Promise<boolean>;
-      expect(await run(async (id) => { expect(id).toBe("page-1"); return page; }), selector).toBe(editable);
+      const run = NodeVM.runInNewContext(
+        `(async function(usePage) { ${betterWrightProbeCode("page-1", box!.x + box!.width / 2, box!.y + box!.height / 2)} })`,
+      ) as (usePage: (id: string) => Promise<Page>) => Promise<boolean>;
+      expect(
+        await run(async (id) => {
+          expect(id).toBe("page-1");
+          return page;
+        }),
+        selector,
+      ).toBe(editable);
     }
-    for (const [selector, editable] of [["#inner", true], ["#check", false]] as const) {
+    for (const [selector, editable] of [
+      ["#inner", true],
+      ["#check", false],
+    ] as const) {
       const box = await page.frameLocator("#frame").locator(selector).boundingBox();
       expect(box).not.toBeNull();
-      const run = NodeVM.runInNewContext(`(async function(usePage) { ${betterWrightProbeCode("page-1", box!.x + box!.width / 2, box!.y + box!.height / 2)} })`) as (usePage: (id: string) => Promise<Page>) => Promise<boolean>;
+      const run = NodeVM.runInNewContext(
+        `(async function(usePage) { ${betterWrightProbeCode("page-1", box!.x + box!.width / 2, box!.y + box!.height / 2)} })`,
+      ) as (usePage: (id: string) => Promise<Page>) => Promise<boolean>;
       expect(await run(async () => page), selector).toBe(editable);
     }
   } finally {
