@@ -148,6 +148,7 @@ import {
   shouldUseCompactComposerPrimaryActions,
   shouldUseCompactComposerFooter,
 } from "../composerFooterLayout";
+import { pasteAsText } from "./forkPasteAsText";
 import {
   type ComposerCitationCommentRequest,
   type ComposerPromptEditorHandle,
@@ -2516,6 +2517,9 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     const { files, folders } = splitTransferredFiles(event.clipboardData);
     const plainText = event.clipboardData.getData("text/plain");
     const bypassAutoAttachment = consumePasteAsTextShortcut(pasteAsTextShortcutUntilRef);
+    if (pasteAsText(bypassAutoAttachment, plainText, event, insertComposerTextStable)) {
+      return;
+    }
     if (
       folders.length > 0 ||
       (activeThreadId &&
