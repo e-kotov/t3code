@@ -207,7 +207,7 @@ it.live(
       expect(duplicate.message).toContain("already active");
       const browser = ServerBrowser.ServerBrowser.of({
         clearProfile: () => Effect.void,
-        reportProfiles: () => Effect.void,
+        profileReporter: Effect.succeed(() => Effect.void),
         openDownload: () => Effect.succeedNone,
         answerFileChooser: () => Effect.succeed(false),
         attachViewer: (input) =>
