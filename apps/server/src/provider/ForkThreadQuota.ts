@@ -12,6 +12,9 @@ import * as ProviderInstanceRegistry from "./ProviderInstanceRegistry.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import { resolveCodexHomeLayout } from "./Drivers/CodexHomeLayout.ts";
 import { readCodexTaskInventory } from "./forkCodexTaskInventory.ts";
+import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
+import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 
 const Percent = Schema.NullOr(Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)));
 const Amounts = {
@@ -52,9 +55,8 @@ const make = Effect.gen(function* () {
       fiveHourPercent: null, weeklyPercent: null, balanceCredits: null,
     });
     return yield* Effect.gen(function* () {
-      const thread = yield* projection.getThread(threadId);
       const records = yield* projection.getThreadRecords(threadId, ["providerThreads"]);
-      const native = records.providerThreads.find((row) => row.id === thread.activeProviderThreadId);
+      const native = records.providerThreads.find((row) => row.id === records.thread.activeProviderThreadId);
       if (native?.driver !== "codex" || !native.nativeThreadRef) return empty("unsupported");
       const instance = yield* providers.getInstance(native.providerInstanceId);
       if (!instance?.enabled || instance.driverKind !== "codex") return empty("unsupported");
@@ -64,12 +66,16 @@ const make = Effect.gen(function* () {
       const config = yield* Schema.decodeUnknownEffect(CodexSettings)(configured?.config);
       if (config.setupMode === "managed") return empty("unsupported");
       const layout = yield* resolveCodexHomeLayout(config).pipe(Effect.provideService(Path.Path, path));
-      const home = layout.effectiveHomePath ?? layout.sharedHomePath;
+      if (configured?.environment?.some((variable) => variable.name === "CODEX_HOME" && typeof variable.value !== "string")) return empty("unsupported");
+      const environment = yield* mergeProviderInstanceEnvironment(configured?.environment);
+      const inheritedHome = environment.CODEX_HOME?.trim();
+      const home = layout.effectiveHomePath ?? (inheritedHome ? path.resolve(expandHomePath(inheritedHome, yield* HostProcess.HomeDirectory)) : layout.sharedHomePath);
       const authPath = path.join(home, "auth.json");
       const readCredentials = fs.readFileString(authPath).pipe(
         Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Credentials))),
       );
       const credentials = yield* readCredentials;
+      if (snapshot.auth.workspaceId && snapshot.auth.workspaceId !== credentials.tokens.account_id) return empty("unsupported");
       const task = yield* Effect.try(() => readCodexTaskInventory(
         path.join(home, "state_5.sqlite"), native.nativeThreadRef!.nativeId, credentials.tokens.account_id,
       ));
@@ -97,6 +103,8 @@ const make = Effect.gen(function* () {
         const payload = yield* response.json.pipe(Effect.flatMap(Schema.decodeUnknownEffect(Response)));
         const after = yield* readCredentials;
         if (after.tokens.account_id !== credentials.tokens.account_id) return empty("error");
+        const current = yield* projection.getThreadRecords(threadId, ["providerThreads"]);
+        if (current.thread.activeProviderThreadId !== native.id || (yield* providers.getInstance(native.providerInstanceId)) !== instance) return empty("error");
         if (payload.threads.length !== 1 || payload.threads[0]?.thread_id !== task.thread_id) return empty("error");
         const row = payload.threads[0];
         if (row.data_status === "unavailable") return empty("unavailable");

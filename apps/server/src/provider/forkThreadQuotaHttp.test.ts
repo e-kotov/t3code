@@ -41,6 +41,7 @@ it.effect("requires the read grant before querying quota and safely encodes thre
     allowed = true;
     const response = yield* Effect.promise(() => handler(request()));
     assert.equal(response.status, 200);
+    assert.equal(response.headers.get("cache-control"), "no-store");
     assert.deepEqual(queried, ["mcp:thread"]);
     const data = yield* Effect.promise(() => response.json());
     assert.equal(data.weeklyPercent, 150.25);

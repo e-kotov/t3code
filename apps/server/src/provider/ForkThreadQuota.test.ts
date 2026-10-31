@@ -54,13 +54,12 @@ it.effect("refreshes resumed task families, preserves missing/partial values and
       })));
     }));
     const projection = {
-      getThread: () => Effect.succeed({ activeProviderThreadId: nativeId }),
-      getThreadRecords: () => Effect.succeed({ providerThreads: [{ id: nativeId, driver, providerInstanceId: instanceId,
+      getThreadRecords: () => Effect.succeed({ thread: { activeProviderThreadId: nativeId }, providerThreads: [{ id: nativeId, driver, providerInstanceId: instanceId,
         nativeThreadRef: { nativeId: "root" } }] }),
     } as unknown as ProjectionStore.ProjectionStoreV2["Service"];
     const provider = { enabled: true, driverKind: driver, snapshot: { getSnapshot: Effect.succeed({ auth: { type: "chatgpt" } }) } } as unknown as ProviderInstance;
     const registry = { getInstance: () => Effect.succeed(provider) } as unknown as Registry.ProviderInstanceRegistry["Service"];
-    const settings = { getSettings: Effect.succeed({ providerInstances: { codex: { config: { homePath: home, setupMode: "existing" } } } }) } as unknown as Settings.ServerSettingsService["Service"];
+    const settings = { getSettings: Effect.succeed({ providerInstances: { codex: { config: { homePath: "", setupMode: "existing" }, environment: [{ name: "CODEX_HOME", value: home }] } } }) } as unknown as Settings.ServerSettingsService["Service"];
     const layer = Quota.layer.pipe(
       Layer.provide(Layer.succeed(ProjectionStore.ProjectionStoreV2, projection)),
       Layer.provide(Layer.succeed(Registry.ProviderInstanceRegistry, registry)),
