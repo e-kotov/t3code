@@ -1,6 +1,5 @@
 import { AuthOrchestrationReadScope, EnvironmentHttpApi } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as HttpApiBuilder from "effect/http-api/HttpApiBuilder";
 import { requireEnvironmentScope } from "../auth/http.ts";
 import * as ForkThreadQuota from "./ForkThreadQuota.ts";
@@ -13,4 +12,4 @@ export const layer = HttpApiBuilder.group(EnvironmentHttpApi, "threadQuota",
       return yield* quota.read(args.params.threadId);
     }));
   }),
-).pipe(Layer.provide(ForkThreadQuota.layer));
+);

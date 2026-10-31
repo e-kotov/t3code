@@ -63,7 +63,7 @@ const make = Effect.gen(function* () {
       const configured = (yield* settings.getSettings).providerInstances[native.providerInstanceId];
       const config = yield* Schema.decodeUnknownEffect(CodexSettings)(configured?.config);
       if (config.setupMode === "managed") return empty("unsupported");
-      const layout = yield* resolveCodexHomeLayout(config);
+      const layout = yield* resolveCodexHomeLayout(config).pipe(Effect.provideService(Path.Path, path));
       const home = layout.effectiveHomePath ?? layout.sharedHomePath;
       const authPath = path.join(home, "auth.json");
       const readCredentials = fs.readFileString(authPath).pipe(

@@ -94,6 +94,19 @@ it is not the generic Linux ARM64 binary. Egor's managed phone uses
 `t3-termux update` from the Termux dotfiles. Other installations need equivalent
 runtime setup; a general-purpose Termux bootstrap installer is not supplied here.
 
+## Codex task quota consumption
+
+On web and Mac, enable **Usage limits** under **Settings → Appearance → Thread details**.
+Codex threads then show OpenAI's reported quota consumption for their current Codex task,
+including its subagents. The percentages compare lifetime consumption with a current full
+five-hour or weekly allowance; they can exceed 100% and are not limited to this week's work.
+Readings refresh while the details are open. Missing readings are shown as **Not reported yet**,
+and partial readings are marked with `~`.
+
+This requires a ChatGPT-signed-in existing Codex installation with file-based credentials on
+the thread's server. Managed ChatGPT connections and API-key providers are not supported by
+this display. OpenAI may delay or withhold a reading even for a supported thread.
+
 ## Existing Antigravity ACP installations
 
 This fork uses upstream's ACP 1.4.1 runtime and model selection. Updating T3 Code
