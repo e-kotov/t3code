@@ -1,3 +1,4 @@
+import * as BetterWrightHandoffTool from "./toolkits/preview/BetterWrightHandoffTool.ts";
 import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
@@ -1146,6 +1147,7 @@ export const layerMcpTransport = McpServer.layerHttp({
 
 /** Every tool the T3 MCP server advertises. AgentContextBudget.test.ts measures this set. */
 export const layerTools = Layer.mergeAll(
+  toolkitRegistration(BetterWrightHandoffTool.toolkit, BetterWrightHandoffTool.handlers).pipe(Layer.provide(BetterWrightHandoffTool.serviceLayer)),
   layerPreviewToolkit,
   layerOrchestratorToolkit,
   layerThreadToolkit,

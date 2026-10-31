@@ -1,3 +1,4 @@
+import { toolkit as BetterWrightHandoffToolkit } from "../../apps/server/src/mcp/toolkits/preview/BetterWrightHandoffTool.ts";
 #!/usr/bin/env node
 // @effect-diagnostics nodeBuiltinImport:off
 /**
@@ -362,6 +363,7 @@ const t3SourceTools: ReadonlyArray<Tool.Any> = [
   WorktreeToolkit,
   PullRequestsToolkit,
   PreviewToolkit,
+  BetterWrightHandoffToolkit,
   DeviceToolkit,
   HtmlToolkit,
 ].flatMap((toolkit): ReadonlyArray<Tool.Any> => Object.values(toolkit.tools));

@@ -1,0 +1,64 @@
+name: Fork browser handoff
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/fork-browser-handoff.yml"
+      - "apps/server/src/preview/BetterWright*"
+      - "apps/server/src/preview/ServerBrowser.ts"
+      - "apps/server/src/mcp/toolkits/preview/BetterWrightHandoffTool.ts"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-handoff-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch --no-tags origin main "$CHECKOUT_REF"
+          git checkout --detach "$CHECKOUT_REF"
+          git fetch --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          node-version-file: package.json
+          run-install: false
+          cache: true
+      - run: vp install
+      - name: Install Chromium for affected browser tests
+        run: node apps/web/node_modules/playwright/cli.js install --with-deps chromium
+      - name: Check changed code
+        run: vp run check:changed origin/main
+      - name: Check authenticated stream, handoff and context budget
+        run: vp test run apps/server/src/preview/BetterWrightBridge.test.ts apps/server/src/preview/ServerBrowserStream.test.ts apps/server/src/provider/AgentContextBudget.test.ts
+      - name: Check fork footprint
+        run: python3 scripts/fork-footprint-budget.py
+      - name: Capture formatting fixes
+        if: failure()
+        run: |
+          git diff --name-only --diff-filter=AM -z origin/main HEAD |
+            xargs -0 -r vp fmt --no-error-on-unmatched-pattern
+          git diff --binary > "$RUNNER_TEMP/handoff-format.patch"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: failure()
+        with:
+          name: browser-handoff-format-fixes
+          path: ${{ runner.temp }}/handoff-format.patch
+          retention-days: 3
