@@ -80,8 +80,10 @@ failure; the run summary lists the conflicting files. The next scheduled run ret
 so a broken upstream commit that upstream fixes itself needs no action.
 
 The push uses the `UPSTREAM_SYNC_TOKEN` repository secret, a fine-grained token for this
-repository with **Contents** and **Workflows** read/write. `GITHUB_TOKEN` cannot push commits
-that change files under `.github/workflows/`.
+repository with **Actions**, **Contents** and **Workflows** read/write. `GITHUB_TOKEN` cannot push
+commits that change files under `.github/workflows/`. Claude sync also dispatches its check with
+this token: a run dispatched with `GITHUB_TOKEN` never fires `workflow_run`, so a failed check of
+a `sync/claude-*` branch would not start the follow-up fix.
 
 ## Resolving a blocked sync
 

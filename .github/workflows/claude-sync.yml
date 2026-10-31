@@ -277,7 +277,8 @@ jobs:
           path: ${{ runner.temp }}
       - name: Push and check the resolution
         env:
-          GH_TOKEN: ${{ github.token }}
+          # A run dispatched with GITHUB_TOKEN never fires workflow_run, so a failed check would not reach the follow-up fix.
+          GH_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
           SYNC_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
           BRANCH: ${{ needs.resolve.outputs.branch }}
           GIT_TERMINAL_PROMPT: "0"
