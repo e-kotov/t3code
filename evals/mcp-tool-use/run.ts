@@ -1,5 +1,5 @@
-import { toolkit as BetterWrightHandoffToolkit } from "../../apps/server/src/mcp/toolkits/preview/BetterWrightHandoffTool.ts";
 #!/usr/bin/env node
+import { toolkit as BetterWrightHandoffToolkit } from "../../apps/server/src/mcp/toolkits/preview/BetterWrightHandoffTool.ts";
 // @effect-diagnostics nodeBuiltinImport:off
 /**
  * Replays small fake threads on a Claude or Codex model to check T3's MCP tool use. A trimmed

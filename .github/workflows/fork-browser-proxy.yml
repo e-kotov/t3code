@@ -12,6 +12,7 @@ on:
     paths:
       - ".github/workflows/fork-browser-proxy.yml"
       - "apps/server/src/preview/*Proxy*"
+      - "apps/server/src/preview/BetterWright*"
       - "apps/server/src/preview/Manager.ts"
       - "apps/server/src/preview/ServerBrowser*"
       - "apps/server/src/mcp/toolkits/preview/*"
@@ -49,8 +50,6 @@ jobs:
           git fetch --no-tags origin main "$CHECKOUT_REF"
           git checkout --detach "$CHECKOUT_REF"
           git fetch --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
-      - name: Check fork footprint
-        run: python3 scripts/fork-footprint-budget.py
       - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
         with:
           node-version-file: package.json
@@ -129,9 +128,13 @@ jobs:
           PYTHON
       - name: Check changed code
         run: vp run check:changed origin/main
+      - name: Check browser handoff, authenticated streaming and context budget
+        run: vp test run apps/server/src/preview/BetterWrightBridge.test.ts apps/server/src/preview/ServerBrowserStream.test.ts apps/server/src/provider/AgentContextBudget.test.ts
       - name: Validate proxy agent eval cases without paid calls
         working-directory: evals
-        run: node mcp-tool-use/run.ts --case browser-proxy-request,browser-direct-request --dry-run > "$RUNNER_TEMP/proxy-evals.jsonl"
+        run: node mcp-tool-use/run.ts --case browser-proxy-request,browser-direct-request,browser-existing-page-handoff,browser-ordinary-page-control --dry-run > "$RUNNER_TEMP/proxy-evals.jsonl"
+      - name: Check fork footprint
+        run: python3 scripts/fork-footprint-budget.py
       - name: Capture formatting fixes
         if: failure()
         run: |
