@@ -84,38 +84,36 @@ function screenshotClipboard(text: string) {
   return clipboardData;
 }
 
-it(
-  "keeps selection, editor paste handling, and image suppression for a focused paste",
-  async () => {
-    await using app = await mountDraft("paste-focused");
-    await expect.element(page.getByTestId("composer-editor")).toBeVisible();
-    await act(async () => {
-      editorIn(app.container).commands.setContent("prefix old suffix");
-    });
-    await act(async () => {
-      const editor = editorIn(app.container);
-      expect(editor.view.dom.isConnected).toBe(true);
-      editor.commands.setTextSelection({ from: 8, to: 11 });
-      editor.view.dom.dispatchEvent(new Event(DESKTOP_PASTE_AS_TEXT_EVENT, { bubbles: true }));
-      const paste = new ClipboardEvent("paste", {
-        bubbles: true,
-        cancelable: true,
-        clipboardData: screenshotClipboard("replacement"),
-      });
-      editor.view.dom.dispatchEvent(paste);
-      expect(paste.defaultPrevented).toBe(true);
-    });
-
+it("keeps selection, editor paste handling, and image suppression for a focused paste", async () => {
+  await using app = await mountDraft("paste-focused");
+  await expect.element(page.getByTestId("composer-editor")).toBeVisible();
+  await act(async () => {
+    editorIn(app.container).commands.setContent("prefix old suffix");
+  });
+  await act(async () => {
     const editor = editorIn(app.container);
-    expect(serializeEditorDoc(editor.state.doc).value).toBe("prefix replacement suffix");
-    expect(useComposerDraftStore.getState().getComposerDraft(app.draftId)?.images).toHaveLength(0);
-    expect(countPreparingComposerImages(composerTargetKey(app.draftId))).toBe(0);
-    await act(async () => {
-      editor.commands.undo();
+    expect(editor.view.dom.isConnected).toBe(true);
+    editor.commands.focus();
+    editor.commands.setTextSelection({ from: 8, to: 11 });
+    editor.view.dom.dispatchEvent(new Event(DESKTOP_PASTE_AS_TEXT_EVENT, { bubbles: true }));
+    const paste = new ClipboardEvent("paste", {
+      bubbles: true,
+      cancelable: true,
+      clipboardData: screenshotClipboard("replacement"),
     });
-    expect(serializeEditorDoc(editor.state.doc).value).toBe("prefix old suffix");
-  },
-);
+    editor.view.dom.dispatchEvent(paste);
+    expect(paste.defaultPrevented).toBe(true);
+  });
+
+  const editor = editorIn(app.container);
+  expect(serializeEditorDoc(editor.state.doc).value).toBe("prefix replacement suffix");
+  expect(useComposerDraftStore.getState().getComposerDraft(app.draftId)?.images).toHaveLength(0);
+  expect(countPreparingComposerImages(composerTargetKey(app.draftId))).toBe(0);
+  await act(async () => {
+    editor.commands.undo();
+  });
+  expect(serializeEditorDoc(editor.state.doc).value).toBe("prefix old suffix");
+});
 
 it("routes a text-plus-image paste from the timeline into the composer", async () => {
   await using app = await mountDraft("paste-unfocused");

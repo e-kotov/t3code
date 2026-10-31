@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  isTextOnlyPasteEvent,
-  shouldPreferClipboardTextForPaste,
-} from "./forkPasteAsText";
+import { isTextOnlyPasteEvent, shouldPreferClipboardTextForPaste } from "./forkPasteAsText";
 
 describe("text-only composer paste", () => {
   it("only bypasses image attachment handling when Paste as Text is armed", () => {
