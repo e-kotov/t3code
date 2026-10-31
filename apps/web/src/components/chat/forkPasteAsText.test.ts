@@ -10,7 +10,7 @@ describe("text-only composer paste", () => {
     expect(pasteAsText(true, "Copied from Word", event, insertText)).toBe(true);
     expect(event.preventDefault).toHaveBeenCalledOnce();
     expect(event.stopPropagation).toHaveBeenCalledOnce();
-    expect(insertText).toHaveBeenCalledWith("Copied from Word");
+    expect(insertText).toHaveBeenCalledWith("Copied from Word", "cursor");
   });
 
   it("consumes a text-only paste with no plain text without falling back to an image", () => {
