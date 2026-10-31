@@ -1,5 +1,5 @@
 // @effect-diagnostics nodeBuiltinImport:off - Owns a temporary native Codex database fixture.
-import { DatabaseSync } from "node:sqlite";
+import * as NodeSqlite from "node:sqlite";
 import { assert, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { ProviderDriverKind, ProviderInstanceId, ThreadId, ProviderThreadId } from "@t3tools/contracts";
@@ -29,7 +29,7 @@ it.effect("refreshes resumed task families, preserves missing/partial values and
     const authPath = path.join(home, "auth.json");
     const credentials = (account: string) => JSON.stringify({ tokens: { account_id: account, access_token: "private-token" } });
     yield* fs.writeFileString(authPath, credentials("account"));
-    const db = new DatabaseSync(path.join(home, "state_5.sqlite"));
+    const db = new NodeSqlite.DatabaseSync(path.join(home, "state_5.sqlite"));
     yield* Effect.addFinalizer(() => Effect.sync(() => db.close()));
     db.exec(`CREATE TABLE threads(id TEXT,source TEXT,model_provider TEXT,created_at INTEGER,updated_at INTEGER,creator_account_id TEXT,attached_thread_parent_id TEXT);
       CREATE TABLE thread_spawn_edges(child_thread_id TEXT,parent_thread_id TEXT);

@@ -22,7 +22,7 @@ export function createForkThreadQuotaAtoms<R, E>(runtime: Atom.AtomRuntime<Envir
         const signer = yield* Effect.serviceOption(ManagedRelay.ManagedRelayDpopSigner);
         const remoteAuthorization = yield* Effect.serviceOption(RemoteAuthorization.RemoteEnvironmentAuthorization);
         const client = yield* Effect.serviceOption(HttpClient.HttpClient);
-        if (Option.isNone(client)) return Effect.never;
+        if (Option.isNone(client)) return yield* Effect.never;
         return yield* executeAuthenticatedEnvironmentHttpRequest({
           prepared, signer, remoteAuthorization, group: "threadQuota", method: "GET",
           url: (urls) => urls.read({ params: { threadId } }), timeoutMs: 15_000,

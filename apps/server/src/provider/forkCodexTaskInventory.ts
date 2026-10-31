@@ -1,5 +1,5 @@
 // @effect-diagnostics nodeBuiltinImport:off - Codex owns this external SQLite database; open it read-only.
-import { DatabaseSync } from "node:sqlite";
+import * as NodeSqlite from "node:sqlite";
 
 interface NativeThread {
   id: string;
@@ -12,7 +12,7 @@ interface NativeThread {
 }
 
 export function readCodexTaskInventory(dbPath: string, threadId: string, accountId: string) {
-  const db = new DatabaseSync(dbPath, { readOnly: true });
+  const db = new NodeSqlite.DatabaseSync(dbPath, { readOnly: true });
   try {
     const columns = new Set(db.prepare("PRAGMA table_info(threads)").all().map((row) => row.name));
     const optional = ["creator_account_id", "attached_thread_parent_id"].map((name) =>

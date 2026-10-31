@@ -34,6 +34,9 @@ const Response = Schema.Struct({
 const Credentials = Schema.Struct({
   tokens: Schema.Struct({ access_token: Schema.NonEmptyString, account_id: Schema.NonEmptyString }),
 });
+const decodeConfig = Schema.decodeUnknownEffect(CodexSettings);
+const decodeCredentials = Schema.decodeUnknownEffect(Schema.fromJsonString(Credentials));
+const decodeResponse = Schema.decodeUnknownEffect(Response);
 
 export class ForkThreadQuota extends Context.Service<ForkThreadQuota, {
   readonly read: (threadId: ThreadId) => Effect.Effect<Reading>;
@@ -63,7 +66,7 @@ const make = Effect.gen(function* () {
       const snapshot = yield* instance.snapshot.getSnapshot;
       if (snapshot.auth.type !== "chatgpt") return empty("unsupported");
       const configured = (yield* settings.getSettings).providerInstances[native.providerInstanceId];
-      const config = yield* Schema.decodeUnknownEffect(CodexSettings)(configured?.config);
+      const config = yield* decodeConfig(configured?.config);
       if (config.setupMode === "managed") return empty("unsupported");
       const layout = yield* resolveCodexHomeLayout(config).pipe(Effect.provideService(Path.Path, path));
       if (configured?.environment?.some((variable) => variable.name === "CODEX_HOME" && typeof variable.value !== "string")) return empty("unsupported");
@@ -72,7 +75,7 @@ const make = Effect.gen(function* () {
       const home = layout.effectiveHomePath ?? (inheritedHome ? path.resolve(expandHomePath(inheritedHome, yield* HostProcess.HomeDirectory)) : layout.sharedHomePath);
       const authPath = path.join(home, "auth.json");
       const readCredentials = fs.readFileString(authPath).pipe(
-        Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Credentials))),
+        Effect.flatMap(decodeCredentials),
       );
       const credentials = yield* readCredentials;
       if (snapshot.auth.workspaceId && snapshot.auth.workspaceId !== credentials.tokens.account_id) return empty("unsupported");
@@ -100,7 +103,7 @@ const make = Effect.gen(function* () {
           }] }),
         ));
         if (response.status !== 200) return empty("error");
-        const payload = yield* response.json.pipe(Effect.flatMap(Schema.decodeUnknownEffect(Response)));
+        const payload = yield* response.json.pipe(Effect.flatMap(decodeResponse));
         const after = yield* readCredentials;
         if (after.tokens.account_id !== credentials.tokens.account_id) return empty("error");
         const current = yield* projection.getThreadRecords(threadId, ["providerThreads"]);
