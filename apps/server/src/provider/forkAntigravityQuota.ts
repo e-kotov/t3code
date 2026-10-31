@@ -2,13 +2,23 @@ import * as Effect from "effect/Effect";
 import { resolveAntigravityReleaseAsset } from "./antigravityRelease.ts";
 
 export function antigravityQuotaUserAgent(
-  version: string | null,
+  input: { readonly runtimeVersion?: Effect.Effect<string | null> },
   platform: NodeJS.Platform,
   architecture: string,
 ) {
-  const runtimeVersion =
-    version ?? resolveAntigravityReleaseAsset(platform, architecture)?.version ?? "1.0.0";
-  return `antigravity/acp/${runtimeVersion} (aidev_client; os_type=${platform}; arch=${architecture})`;
+  // Without the fork's runtime version, keep upstream's hub identity.
+  if (input.runtimeVersion === undefined) {
+    return Effect.succeed(
+      `antigravity/hub/2.24.0 (aidev_client; os_type=${platform}; arch=${architecture}; cl=963137146)`,
+    );
+  }
+  return input.runtimeVersion.pipe(
+    Effect.map((version) => {
+      const runtimeVersion =
+        version ?? resolveAntigravityReleaseAsset(platform, architecture)?.version ?? "1.0.0";
+      return `antigravity/acp/${runtimeVersion} (aidev_client; os_type=${platform}; arch=${architecture})`;
+    }),
+  );
 }
 
 export function antigravityQuotaFamily(bucketId: string, groupName: string | undefined) {

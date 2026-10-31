@@ -28,7 +28,6 @@ export const watchThreadCachePolicies = Effect.fn("ThreadCachePolicyService.watc
 ) {
   const settings = yield* ServerSettings.ServerSettingsService;
   const projections = yield* ProjectionStore.ProjectionStoreV2;
-  const changes = yield* settings.subscribeChanges;
   let previousKey: string | undefined;
   const refresh = Effect.fn("ThreadCachePolicyService.refresh")(
     function* () {
@@ -50,5 +49,12 @@ export const watchThreadCachePolicies = Effect.fn("ThreadCachePolicyService.watc
     },
     Effect.catch((cause) => Effect.logWarning("Refreshing idle cache policies failed", { cause })),
   );
-  yield* forkParked(refresh().pipe(Effect.andThen(Stream.runForEach(changes, refresh))));
+  // Subscribes inside the fiber so a failing watcher never blocks idle compaction from starting.
+  yield* forkParked(
+    Effect.suspend(() => settings.subscribeChanges).pipe(
+      Effect.flatMap((changes) =>
+        refresh().pipe(Effect.andThen(Stream.runForEach(changes, refresh))),
+      ),
+    ),
+  );
 });

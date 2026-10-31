@@ -178,6 +178,7 @@ import { CopyTextButton } from "./CopyTextButton";
 import { getReviewSectionIdForCheckpoint } from "../review/reviewModel";
 import { setReviewSelectedSectionId } from "../review/reviewState";
 import { Menu } from "../../components/ui/Menu";
+import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import { copyPromptLink } from "../prompt-links/prompt-link-actions";
 import { parseReviewCommentMessageSegments } from "../review/reviewCommentSelection";
 import {
@@ -433,6 +434,8 @@ function UserMessageCopyButton(props: {
 function AssistantForkButton(props: {
   readonly environmentId: EnvironmentId;
   readonly iconColor: ColorValue;
+  readonly buttonSize: number;
+  readonly iconSize: number;
   readonly projectedItem: OrchestrationV2ProjectedTurnItem;
   readonly sourceTitle: string;
 }) {
@@ -489,13 +492,18 @@ function AssistantForkButton(props: {
           .finally(() => setBusy(false));
       }}
       className="h-7 w-7 items-center justify-center disabled:opacity-40"
+      style={
+        Platform.OS === "android"
+          ? { width: props.buttonSize, height: props.buttonSize }
+          : undefined
+      }
     >
       {busy ? (
         <AppActivityIndicator size="small" />
       ) : (
         <SymbolView
           name="arrow.triangle.branch"
-          size={13}
+          size={props.iconSize}
           tintColor={props.iconColor}
           type="monochrome"
         />
@@ -1619,6 +1627,7 @@ function renderFeedEntry(
     readonly renderViewedImage: MarkdownImageRenderer;
     readonly renderReasoning: (text: string) => ReactNode;
     readonly iconSubtleColor: string | import("react-native").ColorValue;
+    readonly replyActionSize: { readonly button: number; readonly icon: number };
     readonly screenColor: string;
     readonly userBubbleColor: string | import("react-native").ColorValue;
     readonly markdownStyles: MarkdownStyleSets;
@@ -2221,13 +2230,15 @@ function renderFeedEntry(
               accessibilityLabel="Copy message"
               text={renderedText}
               tintColor={iconSubtleColor}
-              buttonSize={28}
-              iconSize={13}
+              buttonSize={props.replyActionSize.button}
+              iconSize={props.replyActionSize.icon}
             />
             {message.projectedItem ? (
               <AssistantForkButton
                 environmentId={props.environmentId}
                 iconColor={iconSubtleColor}
+                buttonSize={props.replyActionSize.button}
+                iconSize={props.replyActionSize.icon}
                 projectedItem={message.projectedItem}
                 sourceTitle={props.threadTitle}
               />
@@ -2695,6 +2706,15 @@ export const ThreadFeed = memo(function ThreadFeed(
 
   const theme = useUniwindTheme();
   const iconSubtleColor = theme["--color-icon-subtle"];
+  const { buttonSize: androidButtonSize, smallIconSize: androidIconSize } =
+    useAndroidControlSizing();
+  const replyActionSize = useMemo(
+    () =>
+      Platform.OS === "android"
+        ? { button: androidButtonSize, icon: androidIconSize }
+        : { button: 28, icon: 13 },
+    [androidButtonSize, androidIconSize],
+  );
   const screenColor = theme["--color-screen"];
   const userBubbleColor = theme["--color-user-bubble"];
   const openSkillInstructions = (path: string) => {
@@ -3578,6 +3598,7 @@ export const ThreadFeed = memo(function ThreadFeed(
             renderViewedImage,
             renderReasoning,
             iconSubtleColor,
+            replyActionSize,
             screenColor,
             userBubbleColor,
             markdownStyles,
