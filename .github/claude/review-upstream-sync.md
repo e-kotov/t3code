@@ -11,6 +11,8 @@ Judge only the fix:
 - Does it resolve every listed conflict or failure, keeping both the fork feature and upstream's
   change? Did it restore code upstream deleted, or drop or disable a fork feature?
 - Did it break a fork mount that merged cleanly, or change anything beyond what was needed?
+- Will the next upstream merge conflict again? Flag fork edits inside upstream-owned code beyond
+  small mount lines, or upstream code rewritten where upstream's version plus a mount would do.
 - Is anything likely to fail typecheck, lint or tests, or behave wrongly at runtime?
 - If it lowered `scripts/fork-footprint-budget.json` via `--write`, is each reduction an
   intentional extraction or feature retirement rather than a lost fork integration?
