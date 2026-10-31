@@ -76,6 +76,7 @@ async function mountDraft(draftName: string) {
   const router = getRouter(createMemoryHistory({ initialEntries: [`/draft/${draftId}`] }));
   await router.load();
   const app = stack.use(await render(<AppRoot router={router} />, { router: false }));
+  await expect.element(page.getByText("render", { exact: true }).first()).toBeVisible();
   const disposable = stack.move();
   return Object.assign(app, {
     draftId,
