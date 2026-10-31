@@ -18,7 +18,7 @@ export function usePasteToFocusComposer(
   composerRef: ComposerHandleRef,
 ) {
   const pasteAsTextShortcutUntilRef = useRef(0);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- attaches window keydown and paste capture listeners that route stray pastes into the composer
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- listens for paste-as-text shortcuts and routes stray pastes into the composer
   useEffect(() => {
     if (!activeThreadId) return;
     const removeDesktopPasteAsTextListener = listenForDesktopPasteAsText(
