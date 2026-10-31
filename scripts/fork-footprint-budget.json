@@ -130,7 +130,7 @@
     "apps/web/src/components/chat/OpenInPicker.tsx": 69,
     "apps/web/src/components/chat/OpenInPickerShortcut.ts": 54,
     "apps/web/src/components/chat/PanelLayoutControls.tsx": 5,
-    "apps/web/src/components/chat/ThreadDetailsPanel.tsx": 8,
+    "apps/web/src/components/chat/ThreadDetailsPanel.tsx": 9,
     "apps/web/src/components/chat/usePasteToFocusComposer.ts": 12,
     "apps/web/src/components/preview/PreviewView.tsx": 7,
     "apps/web/src/components/preview/openDiscoveredPort.ts": 1,
