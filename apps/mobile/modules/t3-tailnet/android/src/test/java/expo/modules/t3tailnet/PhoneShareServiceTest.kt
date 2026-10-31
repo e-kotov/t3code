@@ -40,8 +40,6 @@ class PhoneShareServiceTest {
     var sharePresent = false
     var rejectShare = false
     var stopped = false
-    var inventoryRequests = 0
-    override fun requestInventoryRefresh() { inventoryRequests += 1 }
     override fun launchWork(work: () -> Unit) { jobs.addLast(work) }
     override fun serverReady() = ready && !stopped
     override fun probeServer() = when {
@@ -100,24 +98,6 @@ class PhoneShareServiceTest {
       assertNull(shadowOf(manager).getNotification(73003))
       assertEquals("Off", PhoneShareService.status(app))
     } finally { controller.destroy() }
-  }
-
-  @Test fun startingSharingWithAnAlreadyRunningServerRequestsInventoryOnce() {
-    val controller = Robolectric.buildService(FakeService::class.java).create()
-    val service = controller.get()
-    try {
-      service.onStartCommand(Intent(), 0, 1)
-      service.runNext()
-      shadowOf(Looper.getMainLooper()).idle()
-      assertEquals(1, service.inventoryRequests)
-      assertEquals("Available on your tailnet", PhoneShareService.status(app))
-      shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(15))
-      service.runNext()
-      assertEquals(1, service.inventoryRequests)
-    } finally {
-      PhoneShareService.setEnabled(app, false)
-      controller.destroy()
-    }
   }
 
   @Test fun failedPromotionDoesNotCrashOrRequestStickyRestart() {

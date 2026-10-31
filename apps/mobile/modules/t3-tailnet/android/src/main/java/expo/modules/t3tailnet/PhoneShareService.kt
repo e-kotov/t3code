@@ -105,18 +105,6 @@ open class PhoneShareService : Service() {
   protected open fun launchWork(work: () -> Unit) = session.start(work)
   protected open fun startTailnet() = TailnetEngine.start(applicationContext, IDLE_SECONDS)
   protected open fun tailnetCall(method: String, args: JSONObject = JSONObject()) = TailnetEngine.call(method, args)
-  protected open fun requestInventoryRefresh() {
-    if (checkSelfPermission("com.termux.permission.RUN_COMMAND") != PackageManager.PERMISSION_GRANTED) return
-    try {
-      val command = Intent("com.termux.RUN_COMMAND").setClassName("com.termux", "com.termux.app.RunCommandService")
-        .putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/home/.local/bin/t3-termux")
-        .putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("inventory"))
-        .putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
-        .putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
-        .putExtra("com.termux.RUN_COMMAND_COMMAND_LABEL", "Refresh phone inventory")
-      startService(command)
-    } catch (_: Exception) { /* An optional refresh must not prevent sharing. */ }
-  }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     if (failed) { stopSelf(); return START_NOT_STICKY }
@@ -134,9 +122,7 @@ open class PhoneShareService : Service() {
 
   private fun startSharing() {
     try {
-      if (serverReady()) {
-        requestInventoryRefresh()
-      } else {
+      if (!serverReady()) {
         check(checkSelfPermission("com.termux.permission.RUN_COMMAND") == PackageManager.PERMISSION_GRANTED) { "Grant T3 the Termux permission first." }
         val command = Intent("com.termux.RUN_COMMAND").setClassName("com.termux", "com.termux.app.RunCommandService")
           .putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/home/.local/bin/t3-termux")
