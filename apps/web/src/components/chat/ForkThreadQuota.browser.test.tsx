@@ -11,7 +11,11 @@ import { render } from "../../../test/render";
 
 const state = vi.hoisted(() => ({ nativeId: "native-one", weekly: 1.25 }));
 vi.mock("../../state/entities", () => ({
-  useQuietThreadShell: () => ({ activeProviderThreadId: state.nativeId }),
+  useQuietThreadShell: () => ({ activeProviderThreadId: "same-provider-row" }),
+  useQuietThreadProjection: () => ({ projection: {
+    thread: { activeProviderThreadId: "same-provider-row" },
+    providerThreads: [{ id: "same-provider-row", nativeThreadRef: { nativeId: state.nativeId } }],
+  } }),
 }));
 vi.mock("../../connection/runtime", () => ({ connectionAtomRuntime: {} }));
 vi.mock("@t3tools/client-runtime/state/fork-thread-quota", async () => {

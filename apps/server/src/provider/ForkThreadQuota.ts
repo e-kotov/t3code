@@ -149,8 +149,10 @@ const make = Effect.gen(function* () {
         const after = yield* readCredentials;
         if (after.tokens.account_id !== credentials.tokens.account_id) return empty("error");
         const current = yield* projection.getThreadRecords(threadId, ["providerThreads"]);
+        const currentNative = current.providerThreads.find((row) => row.id === native.id);
         if (
           current.thread.activeProviderThreadId !== native.id ||
+          currentNative?.nativeThreadRef?.nativeId !== task.thread_id ||
           (yield* providers.getInstance(native.providerInstanceId)) !== instance
         )
           return empty("error");

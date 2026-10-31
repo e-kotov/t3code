@@ -9,6 +9,8 @@ import {
   ProviderThreadId,
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
+import * as Deferred from "effect/Deferred";
+import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
@@ -54,6 +56,8 @@ it.effect(
       let weekly: number | null = 150.25;
       let responseId = "root";
       let rotateAccount = false;
+      let activeNativeTask = "root";
+      let delayed: { entered: Deferred.Deferred<void>; release: Deferred.Deferred<void> } | null = null;
       const client = HttpClient.make((request) =>
         Effect.gen(function* () {
           calls++;
@@ -62,6 +66,10 @@ it.effect(
             "https://chatgpt.com/backend-api/wham/usage/thread_usage/query_v2",
           );
           assert.equal(request.headers["chatgpt-account-id"], "account");
+          if (delayed) {
+            yield* Deferred.succeed(delayed.entered, undefined);
+            yield* Deferred.await(delayed.release);
+          }
           if (rotateAccount) yield* fs.writeFileString(authPath, credentials("other-account"));
           return HttpClientResponse.fromWeb(
             request,
@@ -92,7 +100,7 @@ it.effect(
                 id: nativeId,
                 driver,
                 providerInstanceId: instanceId,
-                nativeThreadRef: { nativeId: "root" },
+                nativeThreadRef: { nativeId: activeNativeTask },
               },
             ],
           }),
@@ -145,6 +153,21 @@ it.effect(
         assert.equal((yield* quota.read(threadId)).status, "error");
         responseId = "root";
         status = "available";
+        weekly = 158;
+        yield* TestClock.adjust("61 seconds");
+        delayed = { entered: yield* Deferred.make<void>(), release: yield* Deferred.make<void>() };
+        const inFlight = yield* quota.read(threadId).pipe(Effect.forkChild);
+        yield* Deferred.await(delayed.entered);
+        db.exec("INSERT INTO threads VALUES('replacement','appServer','openai',1,1,'account',NULL)");
+        activeNativeTask = "replacement";
+        yield* Deferred.succeed(delayed.release, undefined);
+        const stale = yield* Fiber.join(inFlight);
+        assert.equal(stale.status, "error");
+        assert.isNull(stale.weeklyPercent);
+        delayed = null;
+        responseId = "replacement";
+        weekly = 3.75;
+        assert.equal((yield* quota.read(threadId)).weeklyPercent, 3.75);
         rotateAccount = true;
         yield* TestClock.adjust("61 seconds");
         assert.equal((yield* quota.read(threadId)).status, "error");

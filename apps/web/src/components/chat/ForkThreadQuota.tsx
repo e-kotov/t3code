@@ -7,7 +7,7 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { ThreadDetailsSection } from "./ThreadDetailsSection";
 import { quotaAmountText } from "./forkThreadQuotaText";
 import type { ThreadDetailsUsageInput } from "./ThreadDetailsUsage";
-import { useQuietThreadShell } from "../../state/entities";
+import { useQuietThreadProjection } from "../../state/entities";
 
 const readings = createForkThreadQuotaAtoms(connectionAtomRuntime);
 
@@ -48,9 +48,12 @@ function CodexTaskQuota({
   threadId: ThreadId;
   accountKey: string;
 }) {
-  const thread = useQuietThreadShell({ environmentId, threadId });
+  const projection = useQuietThreadProjection({ environmentId, threadId })?.projection;
+  const native = projection?.providerThreads.find(
+    (row) => row.id === projection.thread.activeProviderThreadId,
+  );
   const result = useAtomValue(
-    readings(JSON.stringify([environmentId, threadId, thread?.activeProviderThreadId, accountKey])),
+    readings(JSON.stringify([environmentId, threadId, native?.id, native?.nativeThreadRef?.nativeId, accountKey])),
   );
   const reading = AsyncResult.getOrElse(result, (): Reading | null => null);
   if (reading?.status === "unsupported") return null;
