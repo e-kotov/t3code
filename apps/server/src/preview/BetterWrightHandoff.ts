@@ -198,7 +198,7 @@ const make = Effect.gen(function* () {
           } finally {
             active = undefined;
             busy = !stopped;
-              cleanupFailed = !stopped;
+            cleanupFailed = !stopped;
             cancelActive = () => undefined;
             cleanup.resolve();
           }

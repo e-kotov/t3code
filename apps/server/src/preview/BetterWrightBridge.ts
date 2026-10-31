@@ -52,7 +52,8 @@ export function betterWrightSocketUrl(value: string): string {
 
 const stopProcess = (child: NodeChildProcess.ChildProcess, exited: Promise<void>) => async () => {
   if (child.exitCode !== null || child.signalCode !== null) {
-    if (child.exitCode !== 0) throw new Error("BetterWright viewer exited without verified cleanup.");
+    if (child.exitCode !== 0)
+      throw new Error("BetterWright viewer exited without verified cleanup.");
     return;
   }
   child.kill("SIGTERM");
