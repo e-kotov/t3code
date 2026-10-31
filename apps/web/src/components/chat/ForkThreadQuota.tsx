@@ -11,15 +11,47 @@ import { useQuietThreadShell } from "../../state/entities";
 
 const readings = createForkThreadQuotaAtoms(connectionAtomRuntime);
 
-export function ForkThreadQuota({ environmentId, threadId, usage }: { environmentId: EnvironmentId; threadId: ThreadId; usage: ThreadDetailsUsageInput }) {
-  if (usage.providers.find((provider) => provider.instanceId === usage.providerInstanceId)?.driver !== "codex") return null;
+export function ForkThreadQuota({
+  environmentId,
+  threadId,
+  usage,
+}: {
+  environmentId: EnvironmentId;
+  threadId: ThreadId;
+  usage: ThreadDetailsUsageInput;
+}) {
+  if (
+    usage.providers.find((provider) => provider.instanceId === usage.providerInstanceId)?.driver !==
+    "codex"
+  )
+    return null;
   const provider = usage.providers.find((entry) => entry.instanceId === usage.providerInstanceId);
-  return <CodexTaskQuota environmentId={environmentId} threadId={threadId} accountKey={JSON.stringify([provider?.instanceId, provider?.auth.workspaceId, provider?.auth.email])} />;
+  return (
+    <CodexTaskQuota
+      environmentId={environmentId}
+      threadId={threadId}
+      accountKey={JSON.stringify([
+        provider?.instanceId,
+        provider?.auth.workspaceId,
+        provider?.auth.email,
+      ])}
+    />
+  );
 }
 
-function CodexTaskQuota({ environmentId, threadId, accountKey }: { environmentId: EnvironmentId; threadId: ThreadId; accountKey: string }) {
+function CodexTaskQuota({
+  environmentId,
+  threadId,
+  accountKey,
+}: {
+  environmentId: EnvironmentId;
+  threadId: ThreadId;
+  accountKey: string;
+}) {
   const thread = useQuietThreadShell({ environmentId, threadId });
-  const result = useAtomValue(readings(JSON.stringify([environmentId, threadId, thread?.activeProviderThreadId, accountKey])));
+  const result = useAtomValue(
+    readings(JSON.stringify([environmentId, threadId, thread?.activeProviderThreadId, accountKey])),
+  );
   const reading = AsyncResult.getOrElse(result, (): Reading | null => null);
   if (reading?.status === "unsupported") return null;
   return (

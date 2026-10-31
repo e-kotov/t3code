@@ -72,7 +72,9 @@ const make = Effect.gen(function* () {
     });
     return yield* Effect.gen(function* () {
       const records = yield* projection.getThreadRecords(threadId, ["providerThreads"]);
-      const native = records.providerThreads.find((row) => row.id === records.thread.activeProviderThreadId);
+      const native = records.providerThreads.find(
+        (row) => row.id === records.thread.activeProviderThreadId,
+      );
       if (native?.driver !== "codex" || !native.nativeThreadRef) return empty("unsupported");
       const instance = yield* providers.getInstance(native.providerInstanceId);
       if (!instance?.enabled || instance.driverKind !== "codex") return empty("unsupported");
@@ -81,20 +83,34 @@ const make = Effect.gen(function* () {
       const configured = (yield* settings.getSettings).providerInstances[native.providerInstanceId];
       const config = yield* decodeConfig(configured?.config);
       if (config.setupMode === "managed") return empty("unsupported");
-      const layout = yield* resolveCodexHomeLayout(config).pipe(Effect.provideService(Path.Path, path));
-      if (configured?.environment?.some((variable) => variable.name === "CODEX_HOME" && typeof variable.value !== "string")) return empty("unsupported");
+      const layout = yield* resolveCodexHomeLayout(config).pipe(
+        Effect.provideService(Path.Path, path),
+      );
+      if (
+        configured?.environment?.some(
+          (variable) => variable.name === "CODEX_HOME" && typeof variable.value !== "string",
+        )
+      )
+        return empty("unsupported");
       const environment = yield* mergeProviderInstanceEnvironment(configured?.environment);
       const inheritedHome = environment.CODEX_HOME?.trim();
-      const home = layout.effectiveHomePath ?? (inheritedHome ? path.resolve(expandHomePath(inheritedHome, yield* HostProcess.HomeDirectory)) : layout.sharedHomePath);
+      const home =
+        layout.effectiveHomePath ??
+        (inheritedHome
+          ? path.resolve(expandHomePath(inheritedHome, yield* HostProcess.HomeDirectory))
+          : layout.sharedHomePath);
       const authPath = path.join(home, "auth.json");
-      const readCredentials = fs.readFileString(authPath).pipe(
-        Effect.flatMap(decodeCredentials),
-      );
+      const readCredentials = fs.readFileString(authPath).pipe(Effect.flatMap(decodeCredentials));
       const credentials = yield* readCredentials;
-      if (snapshot.auth.workspaceId && snapshot.auth.workspaceId !== credentials.tokens.account_id) return empty("unsupported");
-      const task = yield* Effect.try(() => readCodexTaskInventory(
-        path.join(home, "state_5.sqlite"), native.nativeThreadRef!.nativeId, credentials.tokens.account_id,
-      ));
+      if (snapshot.auth.workspaceId && snapshot.auth.workspaceId !== credentials.tokens.account_id)
+        return empty("unsupported");
+      const task = yield* Effect.try(() =>
+        readCodexTaskInventory(
+          path.join(home, "state_5.sqlite"),
+          native.nativeThreadRef!.nativeId,
+          credentials.tokens.account_id,
+        ),
+      );
       if (!task) return empty("unsupported");
       const key = JSON.stringify([
         native.providerInstanceId,
@@ -133,8 +149,13 @@ const make = Effect.gen(function* () {
         const after = yield* readCredentials;
         if (after.tokens.account_id !== credentials.tokens.account_id) return empty("error");
         const current = yield* projection.getThreadRecords(threadId, ["providerThreads"]);
-        if (current.thread.activeProviderThreadId !== native.id || (yield* providers.getInstance(native.providerInstanceId)) !== instance) return empty("error");
-        if (payload.threads.length !== 1 || payload.threads[0]?.thread_id !== task.thread_id) return empty("error");
+        if (
+          current.thread.activeProviderThreadId !== native.id ||
+          (yield* providers.getInstance(native.providerInstanceId)) !== instance
+        )
+          return empty("error");
+        if (payload.threads.length !== 1 || payload.threads[0]?.thread_id !== task.thread_id)
+          return empty("error");
         const row = payload.threads[0];
         if (row.data_status === "unavailable") return empty("unavailable");
         return {

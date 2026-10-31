@@ -11,10 +11,15 @@ export const layer = HttpApiBuilder.group(
   "threadQuota",
   Effect.fnUntraced(function* (handlers) {
     const quota = yield* ForkThreadQuota.ForkThreadQuota;
-    return handlers.handle("read", Effect.fn("environment.threadQuota.read")(function* (args) {
-      yield* requireEnvironmentScope(AuthOrchestrationReadScope);
-      yield* HttpEffect.appendPreResponseHandler((_request, response) => Effect.succeed(HttpServerResponse.setHeader(response, "cache-control", "no-store")));
-      return yield* quota.read(args.params.threadId);
-    }));
+    return handlers.handle(
+      "read",
+      Effect.fn("environment.threadQuota.read")(function* (args) {
+        yield* requireEnvironmentScope(AuthOrchestrationReadScope);
+        yield* HttpEffect.appendPreResponseHandler((_request, response) =>
+          Effect.succeed(HttpServerResponse.setHeader(response, "cache-control", "no-store")),
+        );
+        return yield* quota.read(args.params.threadId);
+      }),
+    );
   }),
 );

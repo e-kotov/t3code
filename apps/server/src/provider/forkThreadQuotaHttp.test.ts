@@ -1,6 +1,12 @@
 import { assert, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { AuthSessionId, EnvironmentHttpApi, EnvironmentAuthenticatedAuth, EnvironmentAuthenticatedPrincipal, type AuthEnvironmentScope } from "@t3tools/contracts";
+import {
+  AuthSessionId,
+  EnvironmentHttpApi,
+  EnvironmentAuthenticatedAuth,
+  EnvironmentAuthenticatedPrincipal,
+  type AuthEnvironmentScope,
+} from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as HttpApi from "effect/http-api/HttpApi";
@@ -17,20 +23,39 @@ it.effect("requires the read grant before querying quota and safely encodes thre
     const queried: string[] = [];
     const routes = HttpApiBuilder.layer(QuotaTestApi).pipe(
       Layer.provide(Routes.layer),
-      Layer.provide(Layer.succeed(Quota.ForkThreadQuota, {
-        read: (id) => Effect.sync(() => {
-          queried.push(id);
-          return { status: "available" as const, checkedAt: "2026-10-31T12:00:00Z", dataAsOf: null,
-            fiveHourPercent: 0, weeklyPercent: 150.25, balanceCredits: null };
+      Layer.provide(
+        Layer.succeed(Quota.ForkThreadQuota, {
+          read: (id) =>
+            Effect.sync(() => {
+              queried.push(id);
+              return {
+                status: "available" as const,
+                checkedAt: "2026-10-31T12:00:00Z",
+                dataAsOf: null,
+                fiveHourPercent: 0,
+                weeklyPercent: 150.25,
+                balanceCredits: null,
+              };
+            }),
         }),
-      })),
-      Layer.provide(Layer.succeed(EnvironmentAuthenticatedAuth, (effect) => Effect.suspend(() => effect.pipe(
-        Effect.provideService(EnvironmentAuthenticatedPrincipal, {
-          sessionId: AuthSessionId.make("test"), subject: "test", method: "bearer-access-token",
-          scopes: new Set<AuthEnvironmentScope>(allowed ? ["orchestration:read"] : []),
-        }),
-      )))),
-      Layer.provide(HttpPlatform.layer), Layer.provide(Etag.layerWeak), Layer.provide(NodeServices.layer),
+      ),
+      Layer.provide(
+        Layer.succeed(EnvironmentAuthenticatedAuth, (effect) =>
+          Effect.suspend(() =>
+            effect.pipe(
+              Effect.provideService(EnvironmentAuthenticatedPrincipal, {
+                sessionId: AuthSessionId.make("test"),
+                subject: "test",
+                method: "bearer-access-token",
+                scopes: new Set<AuthEnvironmentScope>(allowed ? ["orchestration:read"] : []),
+              }),
+            ),
+          ),
+        ),
+      ),
+      Layer.provide(HttpPlatform.layer),
+      Layer.provide(Etag.layerWeak),
+      Layer.provide(NodeServices.layer),
     );
     const { handler, dispose } = HttpRouter.toWebHandler(routes, { disableLogger: true });
     yield* Effect.addFinalizer(() => Effect.promise(dispose));
