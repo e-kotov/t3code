@@ -1,3 +1,4 @@
+import { defaultScheduledTaskBinding, scheduledTaskWorkspaces } from "./automationDestination.ts";
 import {
   CommandId,
   type RunId,
@@ -1000,6 +1001,11 @@ const make = Effect.gen(function* () {
         }),
       ),
     );
+  const automationWorkspace = scheduledTaskWorkspaces(
+    requireProject,
+    gitDriver,
+    scheduledTaskWorkspaceStrategy,
+  );
 
   const projectDefaultModelSelection = (
     project: Effect.Success<ReturnType<typeof requireProject>>,
@@ -1863,9 +1869,14 @@ const make = Effect.gen(function* () {
       const projectId = yield* resolveProjectTarget(parent, input.projectId);
       yield* assertLiveCallerForOtherProject(scope, parent, projectId);
       const project = yield* requireProject(projectId);
-      const bindToCurrentThread =
-        input.bindToCurrentThread ??
-        (parent !== undefined && parent.thread.projectId === projectId);
+      const settings = yield* serverSettings.getSettings.pipe(
+        Effect.mapError(() => failure("orchestration_error", "Unable to read server settings.")),
+      );
+      const bindToCurrentThread = defaultScheduledTaskBinding(
+        input.bindToCurrentThread,
+        settings.agentScheduledTasksUseCurrentThread,
+        parent !== undefined && parent.thread.projectId === projectId,
+      );
       if (bindToCurrentThread && (parent === undefined || parent.thread.projectId !== projectId)) {
         return yield* failure(
           "invalid_request",
@@ -1886,7 +1897,7 @@ const make = Effect.gen(function* () {
         schedule: input.schedule,
         projectId,
         threadId: bindToCurrentThread && parent !== undefined ? parent.thread.id : null,
-        workspaceStrategy: scheduledTaskWorkspaceStrategy(bindToCurrentThread),
+        workspaceStrategy: yield* automationWorkspace(projectId, bindToCurrentThread),
         modelSelection,
         runtimeMode: limits.runtimeMode,
         interactionMode: limits.interactionMode,
@@ -1905,7 +1916,7 @@ const make = Effect.gen(function* () {
             }),
       };
       const { task } = yield* scheduledTasks
-        .upsert(upsertInput)
+        .upsert({ ...upsertInput, keepExistingOnReplay: true })
         .pipe(
           Effect.mapError((error) =>
             failure("orchestration_error", `Could not schedule task: ${error.message}`),
@@ -1958,7 +1969,7 @@ const make = Effect.gen(function* () {
         const workspaceStrategy =
           input.bindToCurrentThread === undefined
             ? existing.workspaceStrategy
-            : scheduledTaskWorkspaceStrategy(input.bindToCurrentThread);
+            : yield* automationWorkspace(existing.projectId, input.bindToCurrentThread);
         const upsertInput: ScheduledTaskUpsertInput = {
           id: existing.id,
           title: input.title ?? existing.title,

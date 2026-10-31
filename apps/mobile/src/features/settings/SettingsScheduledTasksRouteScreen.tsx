@@ -1,3 +1,4 @@
+import { AutomationDestinationSetting } from "./AutomationDestinationSetting";
 import * as Dialog from "../../components/ui/Dialog";
 import { useAtomValue } from "@effect/atom-react";
 import {
@@ -1320,6 +1321,10 @@ function EnvironmentTasks({
         />
       }
     >
+      <AutomationDestinationSetting
+        environment={environment}
+        projectSelected={projectIds !== null}
+      />
       {tasks.error ? (
         <Text className="p-4 text-base text-danger-foreground">{tasks.error}</Text>
       ) : !tasks.data ? (
