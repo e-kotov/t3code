@@ -1,7 +1,27 @@
 import { classifyComposerAttachmentFile } from "./composerAttachmentFiles";
-import { pasteTextToFocusComposer } from "./composerFocusRedirect";
+import {
+  pasteTextToFocusComposer,
+  shouldRedirectInputToComposer,
+} from "./composerFocusRedirect";
+import { splitTransferredFiles } from "./workspaceFileDrop";
 
 const textOnlyPasteEvents = new WeakSet<Event>();
+
+interface ComposerPasteEvent {
+  readonly clipboardData: DataTransfer;
+  readonly nativeEvent: Event;
+}
+
+interface PasteAsTextShortcutRef {
+  current: number;
+}
+
+interface ComposerPasteData {
+  readonly files: File[];
+  readonly folders: File[];
+  readonly plainText: string;
+  readonly preferClipboardText: boolean;
+}
 
 export function shouldPreferClipboardTextForPaste(input: {
   readonly bypassAutoAttachment: boolean;
@@ -30,17 +50,55 @@ export function isTextOnlyPasteEvent(event: Event): boolean {
   return textOnlyPasteEvents.has(event);
 }
 
-export function textForPasteToFocusedComposer(
-  event: ClipboardEvent,
+function preferTextForPaste(
   bypassAutoAttachment: boolean,
-): string | null {
+  plainText: string,
+  files: ReadonlyArray<File>,
+  folders: ReadonlyArray<File>,
+): boolean {
+  return shouldPreferClipboardTextForPaste({
+    bypassAutoAttachment,
+    plainText,
+    files,
+    hasFolders: folders.length > 0,
+  });
+}
+
+export function prepareComposerPaste(
+  event: ComposerPasteEvent,
+  bypassAutoAttachment: boolean,
+): ComposerPasteData {
+  const { files, folders } = splitTransferredFiles(event.clipboardData);
+  const plainText = event.clipboardData.getData("text/plain");
+  const preferClipboardText = preferTextForPaste(
+    bypassAutoAttachment,
+    plainText,
+    files,
+    folders,
+  );
+  if (preferClipboardText) markTextOnlyPasteEvent(event.nativeEvent);
+  return { files, folders, plainText, preferClipboardText };
+}
+
+export function pasteToFocusedComposer(
+  event: ClipboardEvent,
+  pasteAsTextShortcutUntilRef: PasteAsTextShortcutRef,
+): { text: string; clipboardData: DataTransfer; bypassAutoAttachment: boolean } | null {
+  const bypassAutoAttachment = Date.now() <= pasteAsTextShortcutUntilRef.current;
+  pasteAsTextShortcutUntilRef.current = 0;
   const clipboardData = event.clipboardData;
   if (!clipboardData) return null;
-  const preferClipboardText = shouldPreferClipboardTextForPaste({
+  const { files, folders } = splitTransferredFiles(clipboardData);
+  const preferClipboardText = preferTextForPaste(
     bypassAutoAttachment,
-    plainText: clipboardData.getData("text/plain"),
-    files: Array.from(clipboardData.files),
-    hasFolders: false,
-  });
-  return pasteTextToFocusComposer(event, preferClipboardText);
+    clipboardData.getData("text/plain"),
+    files,
+    folders,
+  );
+  const text = preferClipboardText
+    ? shouldRedirectInputToComposer(event)
+      ? clipboardData.getData("text/plain")
+      : null
+    : pasteTextToFocusComposer(event);
+  return text === null ? null : { text, clipboardData, bypassAutoAttachment };
 }
