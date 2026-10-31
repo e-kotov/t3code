@@ -1,5 +1,6 @@
-import { pasteTextToFocusComposer, shouldRedirectInputToComposer } from "./composerFocusRedirect";
+import { shouldRedirectInputToComposer } from "./composerFocusRedirect";
 import { readPastedComposerContext } from "../composerInlineTokenPaste";
+import { listenForDesktopPasteAsText, pasteTextToFocusComposer } from "./forkPasteAsText";
 import { isPasteAsTextShortcut } from "@t3tools/client-runtime/text-paste";
 import { useEffect, useRef } from "react";
 import { isMacPlatform } from "../../lib/utils";
@@ -17,9 +18,13 @@ export function usePasteToFocusComposer(
   composerRef: ComposerHandleRef,
 ) {
   const pasteAsTextShortcutUntilRef = useRef(0);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- attaches window keydown and paste capture listeners that route stray pastes into the composer
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- listens for paste-as-text shortcuts and routes stray pastes into the composer
   useEffect(() => {
     if (!activeThreadId) return;
+    const removeDesktopPasteAsTextListener = listenForDesktopPasteAsText(
+      window,
+      pasteAsTextShortcutUntilRef,
+    );
     const keyHandler = (event: KeyboardEvent) => {
       if (
         shouldRedirectInputToComposer(event) &&
@@ -32,7 +37,7 @@ export function usePasteToFocusComposer(
       if (isCommandPaletteOpen() || isInSideChatPane(event.target)) return;
       if (getTerminalFocusOwner() !== null) return;
       if (composerRef.current?.isModelPickerOpen()) return;
-      const text = pasteTextToFocusComposer(event);
+      const text = pasteTextToFocusComposer(event, pasteAsTextShortcutUntilRef);
       const clipboardData = event.clipboardData;
       if (text === null || clipboardData === null) return;
       const bypassAutoAttachment = Date.now() <= pasteAsTextShortcutUntilRef.current;
@@ -51,6 +56,7 @@ export function usePasteToFocusComposer(
     return () => {
       window.removeEventListener("keydown", keyHandler, true);
       window.removeEventListener("paste", handler, true);
+      removeDesktopPasteAsTextListener();
     };
   }, [activeThreadId, composerRef]);
 }

@@ -148,6 +148,7 @@ import {
   shouldUseCompactComposerPrimaryActions,
   shouldUseCompactComposerFooter,
 } from "../composerFooterLayout";
+import { shouldPreferClipboardTextForPaste } from "./forkPasteAsText";
 import {
   type ComposerCitationCommentRequest,
   type ComposerPromptEditorHandle,
@@ -2516,10 +2517,18 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     const { files, folders } = splitTransferredFiles(event.clipboardData);
     const plainText = event.clipboardData.getData("text/plain");
     const bypassAutoAttachment = consumePasteAsTextShortcut(pasteAsTextShortcutUntilRef);
+    const preferClipboardText = shouldPreferClipboardTextForPaste({
+      event: event.nativeEvent,
+      bypassAutoAttachment,
+      plainText,
+      files,
+      folders,
+    });
     if (
       folders.length > 0 ||
       (activeThreadId &&
         files.length > 0 &&
+        !preferClipboardText &&
         shouldHandleComposerAttachmentPaste({ files, plainText }))
     ) {
       event.preventDefault();
