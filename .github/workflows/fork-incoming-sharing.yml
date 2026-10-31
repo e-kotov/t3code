@@ -81,6 +81,7 @@ jobs:
               assert test['status'] == 'failed' and 'AssertionError' in '\n'.join(test['failureMessages']), test
           print(f"Proved {len(assertions)} failing regression cases on the pre-fix source.")
           PYTHON
+          echo '✅ Historical shared-file proof passed: the tests reject the pre-fix code.' >> "$GITHUB_STEP_SUMMARY"
       - name: Test incoming shares and document imports
         run: |
           vp test run apps/mobile/src/features/observability/forkObserve.test.ts apps/mobile/src/features/sharing/forkIncomingShareEvents.test.ts apps/mobile/src/features/sharing/forkSharedDocuments.test.ts apps/mobile/src/features/sharing/forkShareDestinationController.test.ts apps/mobile/src/features/sharing/forkShareDestinations.test.ts apps/mobile/src/features/sharing/incoming-share-inbox.test.ts apps/mobile/src/features/sharing/incoming-share-model.test.ts apps/mobile/src/features/threads/incomingShareImport.test.ts apps/mobile/src/features/sharing/forkSharedQueueRecovery.test.ts apps/mobile/src/state/use-composer-drafts.test.ts apps/mobile/src/state/thread-outbox.test.ts apps/mobile/src/lib/composerContext.test.ts
@@ -90,13 +91,15 @@ jobs:
           cp "$source" "$RUNNER_TEMP/observe.ts"
           trap 'cp "$RUNNER_TEMP/observe.ts" "$source"' EXIT
           git show "b39ffd011ddcea79c75b456c0a4db05cbb6efad0:$source" > "$source"
-          if vp test run apps/mobile/src/features/observability/forkObserve.test.ts > "$RUNNER_TEMP/observe-regression.log" 2>&1; then
+          # An explicit reporter keeps expected failures out of GitHub annotations and test summaries.
+          if vp test run apps/mobile/src/features/observability/forkObserve.test.ts --reporter=default > "$RUNNER_TEMP/observe-regression.log" 2>&1; then
             cat "$RUNNER_TEMP/observe-regression.log"
             echo 'The startup regression must fail when Observe is imported without a project ID.'
             exit 1
           fi
           cat "$RUNNER_TEMP/observe-regression.log"
           python3 -c 'import os, pathlib; assert "Project ID is required to send observability metrics" in (pathlib.Path(os.environ["RUNNER_TEMP"]) / "observe-regression.log").read_text()'
+          echo '✅ Historical startup proof passed: the tests detect the old missing-project-ID crash. Expected failures remain in the step log.' >> "$GITHUB_STEP_SUMMARY"
       - name: Install Chromium for candidate checks
         if: github.event_name != 'push'
         run: node apps/web/node_modules/playwright/cli.js install --with-deps chromium
@@ -142,13 +145,24 @@ jobs:
           cp "$source" "$RUNNER_TEMP/forkIncomingShareEvents.ts"
           trap 'cp "$RUNNER_TEMP/forkIncomingShareEvents.ts" "$source"' EXIT
           git show "92290213e87cfe7993cec791b3da420b1fdb3b0b:$source" > "$source"
-          if vp test run apps/mobile/src/features/sharing/forkIncomingShareEvents.test.ts > "$RUNNER_TEMP/share-regression.log" 2>&1; then
+          if vp test run apps/mobile/src/features/sharing/forkIncomingShareEvents.test.ts --reporter=default > "$RUNNER_TEMP/share-regression.log" 2>&1; then
             cat "$RUNNER_TEMP/share-regression.log"
             echo 'The incoming-share regression must fail with foreground-only delivery.'
             exit 1
           fi
           cat "$RUNNER_TEMP/share-regression.log"
           python3 -c 'import os, pathlib; assert "AssertionError" in (pathlib.Path(os.environ["RUNNER_TEMP"]) / "share-regression.log").read_text()'
+          echo '✅ Historical incoming-share proof passed: the tests detect the old missed-share behavior. Expected failures remain in the step log.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Report validation scope
+        env:
+          NATIVE_CHECKS: ${{ github.event_name == 'workflow_dispatch' && inputs.native_checks }}
+        run: |
+          echo '✅ Current-source sharing and document-import tests passed. Historical proofs above deliberately use old code; their expected failures are not failures in this revision.' >> "$GITHUB_STEP_SUMMARY"
+          if [ "$NATIVE_CHECKS" = true ]; then
+            echo '✅ Android native dependency and parser checks passed.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'ℹ️ Android native dependency and parser checks were not run. This run does not verify a native build or on-device behavior.' >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Capture formatting fixes
         if: failure()
         run: |
