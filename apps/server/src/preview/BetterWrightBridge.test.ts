@@ -145,11 +145,11 @@ describe("BetterWright handoff", () => {
     expect(() => betterWrightSocketUrl(value)).toThrow();
   });
 
-  it("uses a literal argument vector and gracefully stops only its spawned viewer", async () => {
+  it.each([0, 1])("validates its spawned viewer shutdown (exit %d)", async (exitCode) => {
     const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-handoff-"));
     try {
       const output = NodePath.join(root, "args.json");
-      const script = `const fs=require('node:fs');fs.writeFileSync(${JSON.stringify(output)}, JSON.stringify(process.argv.slice(1)));process.on('SIGTERM',()=>process.exit(0));process.stdout.write('Live view: http://127.0.0.1:18765/?t=private-test-token\\n');setInterval(()=>{},1000);`;
+      const script = `const fs=require('node:fs');fs.writeFileSync(${JSON.stringify(output)}, JSON.stringify(process.argv.slice(1)));process.on('SIGTERM',()=>process.exit(${exitCode}));process.stdout.write('Live view: http://127.0.0.1:18765/?t=private-test-token\\n');setInterval(()=>{},1000);`;
       const command = [process.execPath, "-e", script, "--"];
       const viewer = await startBetterWrightViewer(
         betterWrightCommand(JSON.stringify(command)),
@@ -157,7 +157,8 @@ describe("BetterWright handoff", () => {
         new AbortController().signal,
       );
       expect(viewer.url).toBe(url);
-      await viewer.stop();
+      if (exitCode === 0) await viewer.stop();
+      else await expect(viewer.stop()).rejects.toThrow("shutdown failed");
       expect(JSON.parse(await NodeFSP.readFile(output, "utf8"))).toEqual([
         "--session",
         "research",

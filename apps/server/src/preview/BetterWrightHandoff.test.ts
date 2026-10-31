@@ -132,7 +132,9 @@ it.live(
       const opened = yield* PubSub.take(subscription).pipe(
         Effect.raceFirst(
           Fiber.join(request).pipe(
-            Effect.andThen(Effect.die(new Error("Handoff ended before publishing its browser tab."))),
+            Effect.andThen(
+              Effect.die(new Error("Handoff ended before publishing its browser tab.")),
+            ),
           ),
         ),
       );
@@ -149,14 +151,12 @@ it.live(
         openDownload: () => Effect.succeedNone,
         answerFileChooser: () => Effect.succeed(false),
         attachViewer: (input) =>
-          handoff
-            .attachViewer(input)
-            .pipe(
-              Effect.filterOrFail(
-                (viewer) => viewer !== undefined,
-                () => new ServerBrowser.ServerBrowserTabNotFoundError(input),
-              ),
+          handoff.attachViewer(input).pipe(
+            Effect.filterOrFail(
+              (viewer) => viewer !== undefined,
+              () => new ServerBrowser.ServerBrowserTabNotFoundError(input),
             ),
+          ),
       });
       const routes = routeLayer.pipe(
         Layer.provide(Layer.succeed(ServerBrowser.ServerBrowser, browser)),

@@ -10,6 +10,7 @@ export interface BetterWrightTarget {
 
 export interface BetterWrightProcess {
   readonly url: string;
+  readonly closed: Promise<void>;
   readonly stop: () => Promise<void>;
 }
 
@@ -50,7 +51,10 @@ export function betterWrightSocketUrl(value: string): string {
 }
 
 const stopProcess = (child: NodeChildProcess.ChildProcess, exited: Promise<void>) => async () => {
-  if (child.exitCode !== null || child.signalCode !== null) return;
+  if (child.exitCode !== null || child.signalCode !== null) {
+    if (child.exitCode !== 0) throw new Error("BetterWright viewer exited without verified cleanup.");
+    return;
+  }
   child.kill("SIGTERM");
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -66,6 +70,8 @@ const stopProcess = (child: NodeChildProcess.ChildProcess, exited: Promise<void>
         );
       }),
     ]);
+    if (child.exitCode !== 0)
+      throw new Error("BetterWright viewer shutdown failed; inspect the host process.");
   } finally {
     clearTimeout(timer);
   }
@@ -134,7 +140,7 @@ export async function startBetterWrightViewer(
   );
   try {
     signal.throwIfAborted();
-    return { url: await ready.promise, stop };
+    return { url: await ready.promise, stop, closed: exited };
   } catch (error) {
     await stop();
     throw error;

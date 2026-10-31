@@ -65,6 +65,7 @@ const make = Effect.gen(function* () {
   const manager = yield* PreviewManager.PreviewManager;
   const runPromise = Effect.runPromiseWith(yield* Effect.context<never>());
   let busy = false;
+  let cleanupFailed = false;
   let settling: Promise<void> = Promise.resolve();
   let cancelActive: () => void = () => undefined;
   let active: { threadId: string; tabId: string; bridge: BetterWrightBridge } | undefined;
@@ -78,6 +79,10 @@ const make = Effect.gen(function* () {
     let cleaned: Promise<void> = Promise.resolve();
     return yield* Effect.tryPromise({
       try: async (parentSignal) => {
+        if (cleanupFailed)
+          throw new Error(
+            "A previous browser viewer did not stop cleanly. Inspect it and restart this T3 server before another handoff.",
+          );
         if (busy)
           throw new Error(
             "A BetterWright handoff is already active on this environment; finish it first.",
@@ -132,6 +137,7 @@ const make = Effect.gen(function* () {
               return pending;
             },
           );
+          void viewer.closed.then(() => bridge?.finish("cancelled"));
           timer = setTimeout(() => bridge?.finish("timed-out"), input.timeoutMs ?? 300_000);
           attachTimer = setTimeout(() => bridge?.finish("cancelled"), 25_000);
           signal.throwIfAborted();
@@ -192,6 +198,7 @@ const make = Effect.gen(function* () {
           } finally {
             active = undefined;
             busy = !stopped;
+              cleanupFailed = !stopped;
             cancelActive = () => undefined;
             cleanup.resolve();
           }
