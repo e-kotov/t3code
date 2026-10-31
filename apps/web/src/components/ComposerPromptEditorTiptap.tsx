@@ -124,6 +124,7 @@ import { composerCodeBlockHighlight } from "./composerCodeBlockHighlight";
 import { importPastedComposerText } from "./composerInlineTokenPaste";
 import { didComposerSelectionChangeVisibly } from "./composerSelection";
 import type { ComposerDraftContextRecords } from "./composerContextPresentation";
+import { isTextOnlyPasteEvent } from "./chat/forkPasteAsText";
 
 export interface ComposerPromptEditorHandle {
   focus: () => void;
@@ -1348,7 +1349,8 @@ function ComposerPromptEditorTiptapInner(
         },
         handlePaste: (view, event) => {
           const clipboardData = event.clipboardData;
-          if (!clipboardData || clipboardData.files.length > 0) return false;
+          const textOnlyPaste = isTextOnlyPasteEvent(event);
+          if (!clipboardData || (clipboardData.files.length > 0 && !textOnlyPaste)) return false;
           const pastedText = clipboardData.getData("text/plain");
           if (!pastedText) return false;
           event.preventDefault();

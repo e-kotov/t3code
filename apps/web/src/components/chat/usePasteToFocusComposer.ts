@@ -1,5 +1,6 @@
-import { pasteTextToFocusComposer, shouldRedirectInputToComposer } from "./composerFocusRedirect";
+import { shouldRedirectInputToComposer } from "./composerFocusRedirect";
 import { readPastedComposerContext } from "../composerInlineTokenPaste";
+import { textForPasteToFocusedComposer } from "./forkPasteAsText";
 import { isPasteAsTextShortcut } from "@t3tools/client-runtime/text-paste";
 import { useEffect, useRef } from "react";
 import { isMacPlatform } from "../../lib/utils";
@@ -32,11 +33,12 @@ export function usePasteToFocusComposer(
       if (isCommandPaletteOpen() || isInSideChatPane(event.target)) return;
       if (getTerminalFocusOwner() !== null) return;
       if (composerRef.current?.isModelPickerOpen()) return;
-      const text = pasteTextToFocusComposer(event);
-      const clipboardData = event.clipboardData;
-      if (text === null || clipboardData === null) return;
       const bypassAutoAttachment = Date.now() <= pasteAsTextShortcutUntilRef.current;
       pasteAsTextShortcutUntilRef.current = 0;
+      const clipboardData = event.clipboardData;
+      if (clipboardData === null) return;
+      const text = textForPasteToFocusedComposer(event, bypassAutoAttachment);
+      if (text === null) return;
       if (
         ((readPastedComposerContext(clipboardData)?.records.length ?? 0) === 0 &&
           composerRef.current?.pasteTextAtEnd(text, { bypassAutoAttachment })) ||
