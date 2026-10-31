@@ -1,6 +1,11 @@
 import { createMemoryHistory } from "@tanstack/react-router";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
-import { ThreadId } from "@t3tools/contracts";
+import {
+  AuthOrchestrationOperateScope,
+  type AuthEnvironmentScope,
+  type EnvironmentId,
+  ThreadId,
+} from "@t3tools/contracts";
 import { DEFAULT_CLIENT_SETTINGS } from "@t3tools/contracts/settings";
 import type { Editor } from "@tiptap/core";
 import type * as Context from "effect/Context";
@@ -41,6 +46,20 @@ vi.mock(import("~/rpc/requestLatencyState"), async (original) => ({
   ...(await original()),
   trackRpcRequestSent: () => {},
 }));
+
+vi.mock(import("~/state/session"), async (original) => {
+  const actual = await original();
+  const canOperate = (scope: AuthEnvironmentScope) => scope === AuthOrchestrationOperateScope;
+  return {
+    ...actual,
+    readEnvironmentScope: (environmentId: EnvironmentId, scope: AuthEnvironmentScope) =>
+      canOperate(scope) || actual.readEnvironmentScope(environmentId, scope),
+    useEnvironmentScope: (environmentId: EnvironmentId | null, scope: AuthEnvironmentScope) => {
+      const allowed = actual.useEnvironmentScope(environmentId, scope);
+      return canOperate(scope) || allowed;
+    },
+  };
+});
 
 async function mountDraft(draftName: string) {
   const stack = new AsyncDisposableStack();
