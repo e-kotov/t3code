@@ -119,9 +119,13 @@ Release and maintainer details: [fork releases](../operations/fork-release.md).
 
 On a server with an existing BetterWright sidecar, set
 `T3CODE_BETTERWRIGHT_VIEW_COMMAND` to a JSON array naming its trusted viewer
-launcher. For example, `["/home/user/.local/bin/betterwright","view","--host","127.0.0.1"]`.
+launcher, for example `["/home/user/bin/sidecar-browser","view"]` for an
+existing-only wrapper. Stock `betterwright view` can start a replacement browser
+and does not meet this contract. Set `T3CODE_BETTERWRIGHT_RUN_COMMAND` to the same
+wrapper's run command, such as `["/home/user/bin/sidecar-browser","run"]`; T3 uses
+it to check which taps need the mobile keyboard.
 A sidecar wrapper that fixes loopback itself can omit `--host`.
-The launcher must attach to the existing daemon, fail if the sidecar is absent,
+Both commands must attach to the existing daemon, fail if the sidecar is absent,
 accept `--session`, optional `--profile`, and `--port 0`, and stop its own viewer
 gracefully on SIGTERM. It must retain the browser and existing logins.
 
@@ -138,6 +142,7 @@ is required. Use the T3 connection for the host that owns the BetterWright page;
 a phone-local server cannot attach to Raven's or GWDG's loopback viewer.
 Only one handoff can run per server. The adapter supports page clicks, scrolling
 and text entry; downloads, file uploads and native browser dialogs are outside
-this handoff. Other programs with direct BetterWright access must also leave the
+this handoff. Password-protected BetterWright live viewers are unsupported;
+T3 itself authenticates viewer access. Other programs with direct BetterWright access must also leave the
 page alone while the human operates it. Release does not establish that a site
 accepted a CAPTCHA or granted access.

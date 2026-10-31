@@ -1,11 +1,11 @@
 // @effect-diagnostics nodeBuiltinImport:off globalTimers:off - Owns the external viewer process and WebSocket outside Effect.
-import { spawn, type ChildProcess } from "node:child_process";
+import * as NodeChildProcess from "node:child_process";
 import type { ServerBrowserViewerOutput } from "./ServerBrowser.ts";
 
 export interface BetterWrightTarget {
   readonly session: string;
   readonly pageId: string;
-  readonly profile?: string;
+  readonly profile?: string | undefined;
 }
 
 export interface BetterWrightProcess {
@@ -13,11 +13,11 @@ export interface BetterWrightProcess {
   readonly stop: () => Promise<void>;
 }
 
-export function betterWrightCommand(value: string | undefined): ReadonlyArray<string> {
-  if (!value) throw new Error("Set T3CODE_BETTERWRIGHT_VIEW_COMMAND to the host's sidecar viewer command (a JSON array).");
+export function betterWrightCommand(value: string | undefined, name = "T3CODE_BETTERWRIGHT_VIEW_COMMAND"): ReadonlyArray<string> {
+  if (!value) throw new Error(`Set ${name} to the host's existing-only sidecar command (a JSON array).`);
   const parsed: unknown = JSON.parse(value);
   if (!Array.isArray(parsed) || parsed.length === 0 || !parsed.every((part) => typeof part === "string" && part.length > 0)) {
-    throw new Error("T3CODE_BETTERWRIGHT_VIEW_COMMAND must be a nonempty JSON array of command arguments.");
+    throw new Error(`${name} must be a nonempty JSON array of command arguments.`);
   }
   return parsed;
 }
@@ -33,7 +33,7 @@ export function betterWrightSocketUrl(value: string): string {
   return url.href;
 }
 
-const stopProcess = (child: ChildProcess, exited: Promise<void>) => async () => {
+const stopProcess = (child: NodeChildProcess.ChildProcess, exited: Promise<void>) => async () => {
   if (child.exitCode !== null || child.signalCode !== null) return;
   child.kill("SIGTERM");
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -52,7 +52,7 @@ const stopProcess = (child: ChildProcess, exited: Promise<void>) => async () => 
 export async function startBetterWrightViewer(
   command: ReadonlyArray<string>, target: BetterWrightTarget, signal: AbortSignal,
 ): Promise<BetterWrightProcess> {
-  const child = spawn(command[0]!, [...command.slice(1), "--session", target.session,
+  const child = NodeChildProcess.spawn(command[0]!, [...command.slice(1), "--session", target.session,
     ...(target.profile ? ["--profile", target.profile] : []), "--port", "0"], {
     stdio: ["ignore", "pipe", "pipe"],
     env: { ...process.env, NO_COLOR: "1", BETTERWRIGHT_LIVE_VIEW_HOST: "127.0.0.1",
@@ -124,11 +124,15 @@ export class BetterWrightBridge {
   private readonly keys = new Map<string, Record<string, unknown>>();
   private readonly buttons = new Map<string, Record<string, unknown>>();
   private readonly update: (url: string, title: string) => void;
+  private readonly probe: (x: number, y: number) => Promise<boolean>;
+  private probeGeneration = 0;
 
   constructor(url: string, target: BetterWrightTarget, update: (url: string, title: string) => void,
-    makeSocket: (url: string) => WebSocket = (value) => new WebSocket(value)) {
+    makeSocket: (url: string) => WebSocket = (value) => new WebSocket(value),
+    probe: (x: number, y: number) => Promise<boolean> = () => Promise.resolve(false)) {
     this.target = target;
     this.update = update;
+    this.probe = probe;
     this.socket = makeSocket(betterWrightSocketUrl(url));
     this.socket.binaryType = "arraybuffer";
     this.socket.addEventListener("error", () => this.fail());
@@ -181,7 +185,8 @@ export class BetterWrightBridge {
       const target = tabs.find((tab) => tab?.sessionId === this.target.session && tab.id === this.target.pageId);
       if (!target) return this.fail();
       if (target.streaming !== true) {
-        if (this.bound || this.selected) return this.fail();
+        if (this.bound) return this.fail();
+        if (this.selected) return;
         this.selected = true;
         this.send({ t: "tab", id: this.target.pageId });
         return;
@@ -272,7 +277,13 @@ export class BetterWrightBridge {
       case "navigate":
         if (typeof message.url === "string" && /^https?:\/\//.test(message.url)) this.send({ t: "navigate", url: message.url });
         break;
-      case "probe": viewer.push({ _tag: "probe", x, y, editable: true }); break;
+      case "probe": {
+        const generation = ++this.probeGeneration;
+        void this.probe(x, y).catch(() => false).then((editable) => {
+          if (!this.ended && this.owner === id && this.probeGeneration === generation) viewer.push({ _tag: "probe", x, y, editable });
+        });
+        break;
+      }
     }
   }
 

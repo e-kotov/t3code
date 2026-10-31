@@ -1147,7 +1147,9 @@ export const layerMcpTransport = McpServer.layerHttp({
 
 /** Every tool the T3 MCP server advertises. AgentContextBudget.test.ts measures this set. */
 export const layerTools = Layer.mergeAll(
-  toolkitRegistration(BetterWrightHandoffTool.toolkit, BetterWrightHandoffTool.handlers).pipe(Layer.provide(BetterWrightHandoffTool.serviceLayer)),
+  toolkitRegistration(BetterWrightHandoffTool.toolkit, BetterWrightHandoffTool.handlers).pipe(
+    Layer.provide(BetterWrightHandoffTool.serviceLayer),
+  ),
   layerPreviewToolkit,
   layerOrchestratorToolkit,
   layerThreadToolkit,

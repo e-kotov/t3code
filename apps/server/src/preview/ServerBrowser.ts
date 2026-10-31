@@ -1312,7 +1312,10 @@ const make = Effect.gen(function* () {
   };
 
   const ensureTab = (snapshot: PreviewSessionSnapshot): Promise<ServerTab> => {
-    if (handoff.manages(snapshot.threadId, snapshot.tabId)) return Promise.reject(new ServerBrowserTabNotFoundError({ threadId: snapshot.threadId, tabId: snapshot.tabId }));
+    if (handoff.manages(snapshot.threadId, snapshot.tabId))
+      return Promise.reject(
+        new ServerBrowserTabNotFoundError({ threadId: snapshot.threadId, tabId: snapshot.tabId }),
+      );
     const key = tabKey(snapshot.threadId, snapshot.tabId);
     const pending = pendingTabs.get(key);
     if (pending) return pending;
@@ -2657,4 +2660,6 @@ const make = Effect.gen(function* () {
   });
 });
 
-export const layer = Layer.effect(ServerBrowser, make).pipe(Layer.provideMerge(BetterWrightHandoff.layer));
+export const layer = Layer.effect(ServerBrowser, make).pipe(
+  Layer.provideMerge(BetterWrightHandoff.layer),
+);

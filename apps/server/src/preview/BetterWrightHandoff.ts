@@ -1,5 +1,5 @@
-// @effect-diagnostics nodeBuiltinImport:off globalTimers:off - The bridge owns native process/socket callbacks.
-import { randomUUID } from "node:crypto";
+// @effect-diagnostics nodeBuiltinImport:off globalTimersInEffect:off - The bridge owns native process/socket callbacks.
+import * as NodeCrypto from "node:crypto";
 import { OrchestratorMcpFailure, ThreadId } from "@t3tools/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -11,11 +11,12 @@ import * as Schema from "effect/Schema";
 import * as PreviewManager from "./Manager.ts";
 import type { ServerBrowser, ServerBrowserViewer, ServerBrowserViewerOutput } from "./ServerBrowser.ts";
 import { betterWrightCommand, BetterWrightBridge, startBetterWrightViewer } from "./BetterWrightBridge.ts";
+import { probeBetterWright } from "./BetterWrightProbe.ts";
 
 export const BrowserHandoffInput = Schema.Struct({
-  session: Schema.String.check(Schema.isNonEmpty(), Schema.isMaxLength(128)),
-  pageId: Schema.String.check(Schema.isNonEmpty(), Schema.isMaxLength(128)),
-  profile: Schema.optional(Schema.String.check(Schema.isNonEmpty(), Schema.isMaxLength(64))),
+  session: Schema.String.check(Schema.isPattern(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/), Schema.isMaxLength(128)),
+  pageId: Schema.String.check(Schema.isPattern(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/), Schema.isMaxLength(128)),
+  profile: Schema.optional(Schema.String.check(Schema.isPattern(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/), Schema.isMaxLength(64))),
   prompt: Schema.String.check(Schema.isNonEmpty(), Schema.isMaxLength(1000)),
   timeoutMs: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 10_000, maximum: 600_000 }))),
 });
@@ -32,41 +33,62 @@ export class BetterWrightHandoff extends Context.Service<BetterWrightHandoff, {
   readonly manages: (threadId: string, tabId: string) => boolean;
   readonly closed: (threadId: string, tabId: string) => void;
   readonly attachViewer: (input: AttachInput) => Effect.Effect<ServerBrowserViewer | undefined, never, Scope.Scope>;
-}>()("t3/fork/BetterWrightHandoff") {}
+}>()("t3/preview/BetterWrightHandoff") {}
 
-export const make = Effect.gen(function* () {
+const make = Effect.gen(function* () {
   const manager = yield* PreviewManager.PreviewManager;
   const runPromise = Effect.runPromiseWith(yield* Effect.context<never>());
   let busy = false;
+  let settling: Promise<void> = Promise.resolve();
+  let cancelActive = () => undefined;
   let active: { threadId: string; tabId: string; bridge: BetterWrightBridge } | undefined;
   const manages = (threadId: string, tabId: string) => active?.threadId === threadId && active.tabId === tabId;
 
   const request = Effect.fn("BetterWrightHandoff.request")(function* (threadId: ThreadId, input: BrowserHandoffInput) {
+    let cleaned: Promise<void> = Promise.resolve();
     return yield* Effect.tryPromise({
-      try: async (signal) => {
+      try: async (parentSignal) => {
         if (busy) throw new Error("A BetterWright handoff is already active on this environment; finish it first.");
         const command = betterWrightCommand(process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND);
+        const runCommand = betterWrightCommand(process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND, "T3CODE_BETTERWRIGHT_RUN_COMMAND");
         busy = true;
+        const cleanup = Promise.withResolvers<void>();
+        cleaned = settling = cleanup.promise;
+        const cancellation = new AbortController();
+        const signal = AbortSignal.any([parentSignal, cancellation.signal]);
+        cancelActive = () => cancellation.abort();
         let bridge: BetterWrightBridge | undefined;
         let viewer: Awaited<ReturnType<typeof startBetterWrightViewer>> | undefined;
         let tabId: string | undefined;
         let timer: ReturnType<typeof setTimeout> | undefined;
+        let attachTimer: ReturnType<typeof setTimeout> | undefined;
+        let lastNavigation = { url: "about:blank", title: input.prompt };
+        const probeAbort = new AbortController();
+        const probes = new Set<Promise<boolean>>();
         const abort = () => bridge?.finish("cancelled");
         signal.addEventListener("abort", abort, { once: true });
         try {
           viewer = await startBetterWrightViewer(command, input, signal);
           bridge = new BetterWrightBridge(viewer.url, input, (url, title) => {
+            lastNavigation = { url, title };
             if (!tabId) return;
             void runPromise(manager.reportStatus({ threadId, tabId,
               navStatus: { _tag: "Success", url, title }, canGoBack: false, canGoForward: false,
               serverControlled: true }).pipe(Effect.ignore));
+          }, undefined, (x, y) => {
+            const pending = probeBetterWright(runCommand, input, x, y, probeAbort.signal);
+            probes.add(pending);
+            void pending.finally(() => probes.delete(pending));
+            return pending;
           });
           timer = setTimeout(() => bridge?.finish("timed-out"), input.timeoutMs ?? 300_000);
+          attachTimer = setTimeout(() => bridge?.finish("cancelled"), 25_000);
           signal.throwIfAborted();
           const ready = await Promise.race([
             bridge.waitUntilReady().then(() => "ready" as const),
             bridge.waitUntilFinished(),
           ]);
+          clearTimeout(attachTimer);
           if (ready !== "ready") return { outcome: ready, message: "The requested browser page could not be attached. Do not continue as if the human completed it." };
           const current = bridge;
           const snapshot = await runPromise(manager.open({ threadId, runtime: "server", reveal: true,
@@ -75,7 +97,7 @@ export const make = Effect.gen(function* () {
           tabId = snapshot.tabId;
           await runPromise(manager.markHeadless({ threadId, tabId }));
           await runPromise(manager.reportStatus({ threadId, tabId,
-            navStatus: { _tag: "Success", url: "about:blank", title: input.prompt },
+            navStatus: { _tag: "Success", ...lastNavigation },
             canGoBack: false, canGoForward: false, serverControlled: true }));
           const outcome = await bridge.waitUntilFinished();
           return { outcome, message: outcome === "completed"
@@ -83,19 +105,26 @@ export const make = Effect.gen(function* () {
             : "Browser handoff ended without completion. Do not assume the CAPTCHA or login succeeded." };
         } finally {
           clearTimeout(timer);
+          clearTimeout(attachTimer);
           signal.removeEventListener("abort", abort);
+          probeAbort.abort();
+          await Promise.all(probes);
           bridge?.finish("cancelled");
+          let stopped = false;
           try {
             if (tabId) await runPromise(manager.close({ threadId, tabId }).pipe(Effect.ignore));
             await viewer?.stop();
+            stopped = true;
           } finally {
             active = undefined;
-            busy = false;
+            busy = !stopped;
+            cancelActive = () => undefined;
+            cleanup.resolve();
           }
         }
       },
       catch: (cause) => new OrchestratorMcpFailure({ code: "invalid_request", message: cause instanceof Error ? cause.message : "Browser handoff failed." }),
-    });
+    }).pipe(Effect.ensuring(Effect.promise(() => cleaned)));
   });
 
   const attachViewer = Effect.fn("BetterWrightHandoff.attachViewer")(function* (input: AttachInput) {
@@ -103,7 +132,7 @@ export const make = Effect.gen(function* () {
     const bridge = active!.bridge;
     const output = yield* Queue.make<ServerBrowserViewerOutput>({ capacity: 64, strategy: "dropping" });
     const runFork = Effect.runForkWith(yield* Effect.context<never>());
-    const id = randomUUID();
+    const id = NodeCrypto.randomUUID();
     const detach = bridge.attach(id, { canOperate: input.canOperate, push: (value) => {
       runFork(Queue.offer(output, value._tag === "frame" ? { ...value, ack: Effect.void } : value));
     } });
@@ -111,7 +140,11 @@ export const make = Effect.gen(function* () {
     return { output, input: (message: unknown) => Effect.sync(() => bridge.input(id, message)) };
   });
 
-  yield* Effect.addFinalizer(() => Effect.sync(() => active?.bridge.finish("cancelled")));
+  yield* Effect.addFinalizer(() => Effect.promise(async () => {
+    cancelActive();
+    active?.bridge.finish("cancelled");
+    await settling;
+  }));
   return BetterWrightHandoff.of({ request, manages, attachViewer,
     closed: (threadId, tabId) => { if (manages(threadId, tabId)) active?.bridge.finish("cancelled"); },
   });
