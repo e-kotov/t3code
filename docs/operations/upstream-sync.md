@@ -82,8 +82,8 @@ so a broken upstream commit that upstream fixes itself needs no action.
 The push uses the `UPSTREAM_SYNC_TOKEN` repository secret, a fine-grained token for this
 repository with **Actions**, **Contents** and **Workflows** read/write. `GITHUB_TOKEN` cannot push
 commits that change files under `.github/workflows/`. Claude sync also dispatches its check with
-this token: a run dispatched with `GITHUB_TOKEN` never fires `workflow_run`, so a failed check of
-a `sync/claude-*` branch would not start the follow-up fix.
+this token: checks it dispatched with `GITHUB_TOKEN` completed without firing `workflow_run`, so a
+failed `sync/claude-*` check never reached Claude sync.
 
 ## Resolving a blocked sync
 
