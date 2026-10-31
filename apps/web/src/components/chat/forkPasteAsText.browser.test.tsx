@@ -10,8 +10,8 @@ import { page } from "vite-plus/test/browser";
 import { AppRoot } from "~/AppRoot";
 import { serializeEditorDoc } from "~/composer-rich-text-doc";
 import { DraftId, useComposerDraftStore } from "~/composerDraftStore";
+import { DESKTOP_PASTE_AS_TEXT_EVENT } from "~/lib/desktopPasteAsText";
 import { __setClientSettingsForTests } from "~/hooks/useSettings";
-import { isMacPlatform } from "~/lib/utils";
 import { getRouter } from "~/router";
 import {
   ENVIRONMENT_ID,
@@ -22,14 +22,17 @@ import {
 import { act, render } from "../../../test/render";
 
 // The socket is the only fake layer; see test/appScenarios.renders.tsx.
-vi.mock("../../../../../packages/client-runtime/src/connection/driver.ts", async (importOriginal) => {
-  const [actual, { fakeDriver }, Layer] = await Promise.all([
-    importOriginal<{ readonly ConnectionDriver: Context.Key<unknown, FakeDriver> }>(),
-    import("../../../test/fakeEnvironment"),
-    import("effect/Layer"),
-  ]);
-  return { ...actual, layer: Layer.succeed(actual.ConnectionDriver, fakeDriver) };
-});
+vi.mock(
+  "../../../../../packages/client-runtime/src/connection/driver.ts",
+  async (importOriginal) => {
+    const [actual, { fakeDriver }, Layer] = await Promise.all([
+      importOriginal<{ readonly ConnectionDriver: Context.Key<unknown, FakeDriver> }>(),
+      import("../../../test/fakeEnvironment"),
+      import("effect/Layer"),
+    ]);
+    return { ...actual, layer: Layer.succeed(actual.ConnectionDriver, fakeDriver) };
+  },
+);
 
 vi.mock(import("~/rpc/requestLatencyState"), async (original) => ({
   ...(await original()),
@@ -61,22 +64,15 @@ function editorIn(container: HTMLElement): Editor {
   return element.editor;
 }
 
-function pasteAsTextShortcut() {
-  return new KeyboardEvent("keydown", {
-    key: "v",
-    shiftKey: true,
-    metaKey: isMacPlatform(navigator.platform),
-    ctrlKey: !isMacPlatform(navigator.platform),
-    bubbles: true,
-  });
-}
-
 function screenshotClipboard(text: string) {
   const clipboardData = new DataTransfer();
   clipboardData.setData("text/plain", text);
   const imageBytes = Uint8Array.from(
     atob(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+      [
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAY",
+        "AAjCB0C8AAAAASUVORK5CYII=",
+      ].join(""),
     ),
     (character) => character.charCodeAt(0),
   ).buffer;
@@ -84,31 +80,34 @@ function screenshotClipboard(text: string) {
   return clipboardData;
 }
 
-it("keeps selection, editor paste handling, and image suppression for a focused paste", async () => {
-  await using app = await mountDraft("paste-focused");
-  await expect.element(page.getByTestId("composer-editor")).toBeVisible();
-  const editor = editorIn(app.container);
+it(
+  "keeps selection, editor paste handling, and image suppression for a focused paste",
+  async () => {
+    await using app = await mountDraft("paste-focused");
+    await expect.element(page.getByTestId("composer-editor")).toBeVisible();
+    const editor = editorIn(app.container);
 
-  await act(async () => {
-    editor.commands.setContent("prefix old suffix");
-    editor.commands.setTextSelection({ from: 8, to: 11 });
-    editor.view.dom.dispatchEvent(pasteAsTextShortcut());
-    const paste = new ClipboardEvent("paste", {
-      bubbles: true,
-      cancelable: true,
-      clipboardData: screenshotClipboard("replacement"),
+    await act(async () => {
+      editor.commands.setContent("prefix old suffix");
+      editor.commands.setTextSelection({ from: 8, to: 11 });
+      window.dispatchEvent(new Event(DESKTOP_PASTE_AS_TEXT_EVENT));
+      const paste = new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: screenshotClipboard("replacement"),
+      });
+      editor.view.dom.dispatchEvent(paste);
+      expect(paste.defaultPrevented).toBe(true);
     });
-    editor.view.dom.dispatchEvent(paste);
-    expect(paste.defaultPrevented).toBe(true);
-  });
 
-  expect(serializeEditorDoc(editor.state.doc).value).toBe("prefix replacement suffix");
-  expect(app.container.querySelector('[aria-label="Remove screenshot.png"]')).toBeNull();
-  await act(async () => {
-    editor.commands.undo();
-  });
-  expect(serializeEditorDoc(editor.state.doc).value).toBe("prefix old suffix");
-});
+    expect(serializeEditorDoc(editor.state.doc).value).toBe("prefix replacement suffix");
+    expect(app.container.querySelector('[aria-label="Remove screenshot.png"]')).toBeNull();
+    await act(async () => {
+      editor.commands.undo();
+    });
+    expect(serializeEditorDoc(editor.state.doc).value).toBe("prefix old suffix");
+  },
+);
 
 it("routes a text-plus-image paste from the timeline into the composer", async () => {
   await using app = await mountDraft("paste-unfocused");

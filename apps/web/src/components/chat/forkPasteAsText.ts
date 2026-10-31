@@ -83,7 +83,11 @@ export function prepareComposerPaste(
 export function pasteToFocusedComposer(
   event: ClipboardEvent,
   pasteAsTextShortcutUntilRef: PasteAsTextShortcutRef,
-): { text: string; clipboardData: DataTransfer; bypassAutoAttachment: boolean } | null {
+): {
+  text: string;
+  clipboardData: DataTransfer;
+  bypassAutoAttachment: boolean;
+} | null {
   const bypassAutoAttachment = Date.now() <= pasteAsTextShortcutUntilRef.current;
   pasteAsTextShortcutUntilRef.current = 0;
   const clipboardData = event.clipboardData;
@@ -95,10 +99,13 @@ export function pasteToFocusedComposer(
     files,
     folders,
   );
-  const text = preferClipboardText
-    ? shouldRedirectInputToComposer(event)
+  let text: string | null;
+  if (preferClipboardText) {
+    text = shouldRedirectInputToComposer(event)
       ? clipboardData.getData("text/plain")
-      : null
-    : pasteTextToFocusComposer(event);
+      : null;
+  } else {
+    text = pasteTextToFocusComposer(event);
+  }
   return text === null ? null : { text, clipboardData, bypassAutoAttachment };
 }
