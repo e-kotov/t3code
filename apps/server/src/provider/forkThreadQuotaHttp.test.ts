@@ -6,16 +6,19 @@ import {
   EnvironmentAuthenticatedAuth,
   EnvironmentAuthenticatedPrincipal,
   type AuthEnvironmentScope,
+  ForkThreadQuota as QuotaReading,
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Schema from "effect/Schema";
 import * as HttpApi from "effect/http-api/HttpApi";
 import * as HttpApiBuilder from "effect/http-api/HttpApiBuilder";
 import { HttpRouter, HttpPlatform, Etag } from "effect/http";
 import * as Quota from "./ForkThreadQuota.ts";
 import * as Routes from "./forkThreadQuotaHttp.ts";
 
-class QuotaTestApi extends HttpApi.make("quota-test").add(EnvironmentHttpApi.groups.threadQuota) {}
+class QuotaTestApi extends HttpApi.make("environment").add(EnvironmentHttpApi.groups.threadQuota) {}
+const decodeReading = Schema.decodeUnknownEffect(QuotaReading);
 
 it.effect("requires the read grant before querying quota and safely encodes thread ids", () =>
   Effect.gen(function* () {
@@ -68,7 +71,7 @@ it.effect("requires the read grant before querying quota and safely encodes thre
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("cache-control"), "no-store");
     assert.deepEqual(queried, ["mcp:thread"]);
-    const data = yield* Effect.promise(() => response.json());
+    const data = yield* Effect.promise(() => response.json()).pipe(Effect.flatMap(decodeReading));
     assert.equal(data.weeklyPercent, 150.25);
   }).pipe(Effect.scoped),
 );

@@ -1,5 +1,6 @@
 import { CodexSettings, type ForkThreadQuota as Reading, type ThreadId } from "@t3tools/contracts";
 import * as Clock from "effect/Clock";
+import * as DateTime from "effect/DateTime";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -43,6 +44,18 @@ const Credentials = Schema.Struct({
 const decodeConfig = Schema.decodeUnknownEffect(CodexSettings);
 const decodeCredentials = Schema.decodeUnknownEffect(Schema.fromJsonString(Credentials));
 const decodeResponse = Schema.decodeUnknownEffect(Response);
+const encodeCacheKey = Schema.encodeSync(
+  Schema.fromJsonString(
+    Schema.Tuple([
+      Schema.String,
+      Schema.String,
+      Schema.String,
+      Schema.String,
+      Schema.Array(Schema.String),
+      Schema.Number,
+    ]),
+  ),
+);
 
 export class ForkThreadQuota extends Context.Service<
   ForkThreadQuota,
@@ -64,7 +77,7 @@ const make = Effect.gen(function* () {
     const now = yield* Clock.currentTimeMillis;
     const empty = (status: Reading["status"]): Reading => ({
       status,
-      checkedAt: new Date(now).toISOString(),
+      checkedAt: DateTime.formatIso(DateTime.makeUnsafe(now)),
       dataAsOf: null,
       fiveHourPercent: null,
       weeklyPercent: null,
@@ -75,7 +88,8 @@ const make = Effect.gen(function* () {
       const native = records.providerThreads.find(
         (row) => row.id === records.thread.activeProviderThreadId,
       );
-      if (native?.driver !== "codex" || !native.nativeThreadRef) return empty("unsupported");
+      const nativeTaskId = native?.nativeThreadRef?.nativeId;
+      if (native?.driver !== "codex" || !nativeTaskId) return empty("unsupported");
       const instance = yield* providers.getInstance(native.providerInstanceId);
       if (!instance?.enabled || instance.driverKind !== "codex") return empty("unsupported");
       const snapshot = yield* instance.snapshot.getSnapshot;
@@ -107,12 +121,12 @@ const make = Effect.gen(function* () {
       const task = yield* Effect.try(() =>
         readCodexTaskInventory(
           path.join(home, "state_5.sqlite"),
-          native.nativeThreadRef!.nativeId,
+          nativeTaskId,
           credentials.tokens.account_id,
         ),
       );
       if (!task) return empty("unsupported");
-      const key = JSON.stringify([
+      const key = encodeCacheKey([
         native.providerInstanceId,
         home,
         credentials.tokens.account_id,
@@ -162,7 +176,7 @@ const make = Effect.gen(function* () {
         if (row.data_status === "unavailable") return empty("unavailable");
         return {
           status: row.data_status,
-          checkedAt: new Date(now).toISOString(),
+          checkedAt: DateTime.formatIso(DateTime.makeUnsafe(now)),
           dataAsOf: payload.data_as_of ?? null,
           fiveHourPercent: row.five_hour_limit_percent ?? null,
           weeklyPercent: row.weekly_limit_percent ?? null,

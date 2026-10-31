@@ -1,5 +1,6 @@
 // @effect-diagnostics nodeBuiltinImport:off - Codex owns this external SQLite database; open it read-only.
 import * as NodeSqlite from "node:sqlite";
+import * as DateTime from "effect/DateTime";
 
 interface NativeThread {
   id: string;
@@ -87,7 +88,7 @@ export function readCodexTaskInventory(dbPath: string, threadId: string, account
       return null;
     return {
       thread_id: threadId,
-      created_at: new Date(root.created_at * 1000).toISOString(),
+      created_at: DateTime.formatIso(DateTime.makeUnsafe(root.created_at * 1000)),
       descendant_thread_ids: [...members].filter((id) => id !== threadId).sort(),
       updatedAt: Math.max(...family.map((row) => row.updated_at)) * 1000,
     };

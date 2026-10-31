@@ -53,7 +53,15 @@ function CodexTaskQuota({
     (row) => row.id === projection.thread.activeProviderThreadId,
   );
   const result = useAtomValue(
-    readings(JSON.stringify([environmentId, threadId, native?.id, native?.nativeThreadRef?.nativeId, accountKey])),
+    readings(
+      JSON.stringify([
+        environmentId,
+        threadId,
+        native?.id,
+        native?.nativeThreadRef?.nativeId,
+        accountKey,
+      ]),
+    ),
   );
   const reading = AsyncResult.getOrElse(result, (): Reading | null => null);
   if (reading?.status === "unsupported") return null;

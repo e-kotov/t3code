@@ -7,16 +7,36 @@ import {
   ThreadId,
 } from "@t3tools/contracts";
 import type { ThreadDetailsUsageInput } from "./ThreadDetailsUsage";
-import { render } from "../../../test/render";
+import { act, render } from "../../../test/render";
 
-const state = vi.hoisted(() => ({ nativeId: "native-one", weekly: 1.25 }));
-vi.mock("../../state/entities", () => ({
-  useQuietThreadShell: () => ({ activeProviderThreadId: "same-provider-row" }),
-  useQuietThreadProjection: () => ({ projection: {
-    thread: { activeProviderThreadId: "same-provider-row" },
-    providerThreads: [{ id: "same-provider-row", nativeThreadRef: { nativeId: state.nativeId } }],
-  } }),
+const state = vi.hoisted(() => ({
+  nativeId: "native-one",
+  weekly: 1.25,
+  listeners: new Set<() => void>(),
 }));
+vi.mock("../../state/entities", async () => {
+  const { useSyncExternalStore } = await import("react");
+  return {
+    useQuietThreadShell: () => ({ activeProviderThreadId: "same-provider-row" }),
+    useQuietThreadProjection: () => {
+      const nativeId = useSyncExternalStore(
+        (notify) => {
+          state.listeners.add(notify);
+          return () => {
+            state.listeners.delete(notify);
+          };
+        },
+        () => state.nativeId,
+      );
+      return {
+        projection: {
+          thread: { activeProviderThreadId: "same-provider-row" },
+          providerThreads: [{ id: "same-provider-row", nativeThreadRef: { nativeId } }],
+        },
+      };
+    },
+  };
+});
 vi.mock("../../connection/runtime", () => ({ connectionAtomRuntime: {} }));
 vi.mock("@t3tools/client-runtime/state/fork-thread-quota", async () => {
   const { Atom, AsyncResult } = await import("effect/reactivity");
@@ -57,15 +77,11 @@ it("replaces the prior reading when a thread changes native task or Codex accoun
     />,
   );
   await expect.element(page.getByText("Weekly 1.25%", { exact: true })).toBeVisible();
-  state.nativeId = "native-two";
-  state.weekly = 2.5;
-  await screen.rerender(
-    <ForkThreadQuota
-      environmentId={environmentId}
-      threadId={threadId}
-      usage={usage("account-one")}
-    />,
-  );
+  await act(() => {
+    state.nativeId = "native-two";
+    state.weekly = 2.5;
+    for (const notify of state.listeners) notify();
+  });
   await expect.element(page.getByText("Weekly 2.5%", { exact: true })).toBeVisible();
   await expect.element(page.getByText("Weekly 1.25%", { exact: true })).not.toBeInTheDocument();
   state.weekly = 3.75;

@@ -57,7 +57,8 @@ it.effect(
       let responseId = "root";
       let rotateAccount = false;
       let activeNativeTask = "root";
-      let delayed: { entered: Deferred.Deferred<void>; release: Deferred.Deferred<void> } | null = null;
+      let delayed: { entered: Deferred.Deferred<void>; release: Deferred.Deferred<void> } | null =
+        null;
       const client = HttpClient.make((request) =>
         Effect.gen(function* () {
           calls++;
@@ -70,7 +71,8 @@ it.effect(
             yield* Deferred.succeed(delayed.entered, undefined);
             yield* Deferred.await(delayed.release);
           }
-          if (rotateAccount) yield* fs.writeFileString(authPath, credentials("other-account"));
+          if (rotateAccount)
+            yield* fs.writeFileString(authPath, credentials("other-account")).pipe(Effect.orDie);
           return HttpClientResponse.fromWeb(
             request,
             new Response(
@@ -158,7 +160,9 @@ it.effect(
         delayed = { entered: yield* Deferred.make<void>(), release: yield* Deferred.make<void>() };
         const inFlight = yield* quota.read(threadId).pipe(Effect.forkChild);
         yield* Deferred.await(delayed.entered);
-        db.exec("INSERT INTO threads VALUES('replacement','appServer','openai',1,1,'account',NULL)");
+        db.exec(
+          "INSERT INTO threads VALUES('replacement','appServer','openai',1,1,'account',NULL)",
+        );
         activeNativeTask = "replacement";
         yield* Deferred.succeed(delayed.release, undefined);
         const stale = yield* Fiber.join(inFlight);
