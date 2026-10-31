@@ -63,7 +63,7 @@ export class BetterWrightHandoff extends Context.Service<
 >()("t3/preview/BetterWrightHandoff") {}
 
 export const make = Effect.fn("BetterWrightHandoff.make")(function* (
-  startViewer = startBetterWrightViewer,
+  startViewer: typeof startBetterWrightViewer = startBetterWrightViewer,
 ) {
   const manager = yield* PreviewManager.PreviewManager;
   const runPromise = Effect.runPromiseWith(yield* Effect.context<never>());
@@ -112,9 +112,10 @@ export const make = Effect.fn("BetterWrightHandoff.make")(function* (
         const abort = () => bridge?.finish("cancelled");
         signal.addEventListener("abort", abort, { once: true });
         try {
-          viewer = await startViewer(command, input, signal);
+          const started = await startViewer(command, input, signal);
+          viewer = started;
           bridge = new BetterWrightBridge(
-            viewer.url,
+            started.url,
             input,
             (url, title) => {
               lastNavigation = { url, title };
@@ -140,7 +141,7 @@ export const make = Effect.fn("BetterWrightHandoff.make")(function* (
               return pending;
             },
           );
-          void viewer.closed.then(() => bridge?.finish("cancelled"));
+          void started.closed.then(() => bridge?.finish("cancelled"));
           timer = setTimeout(() => bridge?.finish("timed-out"), input.timeoutMs ?? 300_000);
           attachTimer = setTimeout(() => bridge?.finish("cancelled"), 25_000);
           signal.throwIfAborted();

@@ -44,21 +44,27 @@ it.live("refuses another handoff after unsuccessful startup cleanup", () => {
   return Effect.gen(function* () {
     const previousView = process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND;
     const previousRun = process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND;
-    const script = "process.on('SIGTERM',()=>{});console.log('http://public.invalid:18765/?t=private-test-token');setInterval(()=>{},1000);";
+    const script =
+      "process.on('SIGTERM',()=>{});console.log('http://public.invalid:18765/?t=private-test-token');setInterval(()=>{},1000);";
     process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND = JSON.stringify([
-      process.execPath, "-e", script, "--",
+      process.execPath,
+      "-e",
+      script,
+      "--",
     ]);
     process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND = JSON.stringify([process.execPath]);
-    yield* Effect.addFinalizer(() => Effect.promise(async () => {
-      for (const orphan of orphans) {
-        if (orphan.processId !== undefined) process.kill(orphan.processId, "SIGKILL");
-        await orphan.closed;
-      }
-      if (previousView === undefined) delete process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND;
-      else process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND = previousView;
-      if (previousRun === undefined) delete process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND;
-      else process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND = previousRun;
-    }));
+    yield* Effect.addFinalizer(() =>
+      Effect.promise(async () => {
+        for (const orphan of orphans) {
+          if (orphan.processId !== undefined) process.kill(orphan.processId, "SIGKILL");
+          await orphan.closed;
+        }
+        if (previousView === undefined) delete process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND;
+        else process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND = previousView;
+        if (previousRun === undefined) delete process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND;
+        else process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND = previousRun;
+      }),
+    );
     const handoff = yield* Handoff.BetterWrightHandoff;
     const input = { session: "research", pageId: "page-1", prompt: "Complete the CAPTCHA" };
     const first = yield* handoff.request(ThreadId.make("failed-start"), input).pipe(Effect.flip);
@@ -69,14 +75,19 @@ it.live("refuses another handoff after unsuccessful startup cleanup", () => {
     const second = yield* handoff.request(ThreadId.make("second-start"), input).pipe(Effect.flip);
     expect(second.message).toContain("previous browser viewer");
     expect(attempts).toBe(1);
-  }).pipe(Effect.provide(
-    Layer.effect(Handoff.BetterWrightHandoff, Handoff.make(startViewer)).pipe(
-      Layer.provideMerge(Manager.layer),
-      Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "t3-handoff-failed-start-" })),
-      Layer.provide(NodeCrypto.layer),
-      Layer.provide(NodeServices.layer),
+  }).pipe(
+    Effect.provide(
+      Layer.effect(Handoff.BetterWrightHandoff, Handoff.make(startViewer)).pipe(
+        Layer.provideMerge(Manager.layer),
+        Layer.provide(
+          ServerConfig.layerTest(process.cwd(), { prefix: "t3-handoff-failed-start-" }),
+        ),
+        Layer.provide(NodeCrypto.layer),
+        Layer.provide(NodeServices.layer),
+      ),
     ),
-  ), Effect.scoped);
+    Effect.scoped,
+  );
 });
 
 it.live(

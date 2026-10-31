@@ -19,7 +19,9 @@ export class BetterWrightCleanupError extends Error {
   readonly closed: Promise<void>;
 
   constructor(processId: number | undefined, closed: Promise<void>) {
-    super("BetterWright viewer startup cleanup failed; inspect its process before another handoff.");
+    super(
+      "BetterWright viewer startup cleanup failed; inspect its process before another handoff.",
+    );
     this.processId = processId;
     this.closed = closed;
   }
