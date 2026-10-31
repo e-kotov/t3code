@@ -12,8 +12,10 @@ import { serializeEditorDoc } from "~/composer-rich-text-doc";
 import { composerTargetKey, DraftId, useComposerDraftStore } from "~/composerDraftStore";
 import { __setClientSettingsForTests } from "~/hooks/useSettings";
 import { DESKTOP_PASTE_AS_TEXT_EVENT } from "~/lib/desktopPasteAsText";
+import { isMacPlatform } from "~/lib/utils";
 import { getRouter } from "~/router";
 import { countPreparingComposerImages } from "./preparingComposerImages";
+import { isTextOnlyPasteEvent } from "./forkPasteAsText";
 import {
   ENVIRONMENT_ID,
   PROJECT_ID,
@@ -68,6 +70,16 @@ function editorIn(container: HTMLElement): Editor {
   return element.editor;
 }
 
+function pasteAsTextShortcut() {
+  return new KeyboardEvent("keydown", {
+    key: "v",
+    shiftKey: true,
+    metaKey: isMacPlatform(navigator.platform),
+    ctrlKey: !isMacPlatform(navigator.platform),
+    bubbles: true,
+  });
+}
+
 function screenshotClipboard(text: string) {
   const clipboardData = new DataTransfer();
   clipboardData.setData("text/plain", text);
@@ -93,8 +105,10 @@ it("keeps selection, editor paste handling, and image suppression for a focused 
   await act(async () => {
     const editor = editorIn(app.container);
     expect(editor.view.dom.isConnected).toBe(true);
-    editor.commands.focus();
+    editor.view.focus();
+    expect(document.activeElement).toBe(editor.view.dom);
     editor.commands.setTextSelection({ from: 8, to: 11 });
+    editor.view.dom.dispatchEvent(pasteAsTextShortcut());
     editor.view.dom.dispatchEvent(new Event(DESKTOP_PASTE_AS_TEXT_EVENT, { bubbles: true }));
     const paste = new ClipboardEvent("paste", {
       bubbles: true,
@@ -102,6 +116,7 @@ it("keeps selection, editor paste handling, and image suppression for a focused 
       clipboardData: screenshotClipboard("replacement"),
     });
     editor.view.dom.dispatchEvent(paste);
+    expect(isTextOnlyPasteEvent(paste)).toBe(true);
     expect(paste.defaultPrevented).toBe(true);
   });
 
