@@ -109,7 +109,8 @@ case "$cmd" in
     PATH="$(git rev-parse --show-toplevel)/node_modules/.bin:$PATH"
     status=0
     if [ -n "${FORK_CHANGED_CHECKS_BASE:-}" ]; then
-      vp run check:changed "$FORK_CHANGED_CHECKS_BASE" || status=1
+      # A large upstream merge changes hundreds of test files; the default 900 s kills the run.
+      CHECK_CHANGED_TIMEOUT="${CHECK_CHANGED_TIMEOUT:-2400}" vp run check:changed "$FORK_CHANGED_CHECKS_BASE" || status=1
     fi
     for package in packages/contracts packages/shared packages/client-runtime packages/ssh apps/server apps/web apps/mobile apps/desktop; do
       echo "::group::$package typecheck"
