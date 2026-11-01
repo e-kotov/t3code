@@ -27,14 +27,18 @@ it.effect("bases new-thread worktrees on a branch the checkout has", () =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const git = yield* GitVcsDriver.GitVcsDriver;
-    const workspaceIn = (setup: ReadonlyArray<ReadonlyArray<string>>, boundToThread = false) =>
+    const workspaceIn = (
+      setup: ReadonlyArray<ReadonlyArray<string>>,
+      boundToThread = false,
+      strategy: typeof upstream | { readonly type: "worktree"; readonly baseRef: string; readonly startFromOrigin: boolean } = upstream,
+    ) =>
       Effect.gen(function* () {
         const cwd = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-automation-" });
         for (const args of setup) yield* git.execute({ operation: "test.setupRepo", cwd, args });
         const workspace = yield* scheduledTaskWorkspaces(
           () => Effect.succeed({ workspaceRoot: cwd }),
           git,
-          (bound) => (bound ? { type: "root" } : upstream),
+          (bound) => Effect.succeed(bound ? { type: "root" as const } : strategy),
         )(ProjectId.make("project:automation"), boundToThread);
         return { cwd, workspace };
       });
@@ -72,6 +76,18 @@ it.effect("bases new-thread worktrees on a branch the checkout has", () =>
       });
       yield* git.resolveCommit({ cwd, revision: baseRef });
     }
+    const remoteMaster = { ...upstream, baseRef: "origin/master" };
+    const selected = yield* workspaceIn(
+      [
+        ["init", "-b", "main"],
+        commit,
+        ["remote", "add", "origin", "/nonexistent/remote.git"],
+        ["update-ref", "refs/remotes/origin/master", "HEAD"],
+      ],
+      false,
+      remoteMaster,
+    );
+    expect(selected.workspace).toEqual(remoteMaster);
     expect(yield* workspaceFor([["init", "-b", "master"], commit], true)).toEqual({
       type: "root",
     });
