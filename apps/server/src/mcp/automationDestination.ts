@@ -13,21 +13,24 @@ export function defaultScheduledTaskBinding(
   return requested ?? (useCurrentThread && hasMatchingThread);
 }
 
-// Upstream bases new-thread runs on `main`; use a branch the checkout really has, or HEAD.
+// Upstream falls back to `main` even when absent; use a branch the checkout really has, or HEAD.
 // `checkWorktreeBase` is advisory: it accepts `main` whenever any remote exists.
-export function scheduledTaskWorkspaces<E, R>(
+export function scheduledTaskWorkspaces<E, R, E2, R2>(
   requireProject: (projectId: ProjectId) => Effect.Effect<{ readonly workspaceRoot: string }, E, R>,
   git: Pick<
     GitVcsDriver.GitVcsDriver["Service"],
     "resolveCommit" | "resolvePrimaryRemoteName" | "resolveDefaultBranchName" | "remoteBranchExists"
   >,
-  upstream: (boundToThread: boolean) => WorkspaceStrategy,
+  upstream: (
+    boundToThread: boolean,
+    projectId: ProjectId,
+  ) => Effect.Effect<WorkspaceStrategy, E2, R2>,
 ) {
   return Effect.fn("OrchestratorMcpService.scheduledTaskWorkspace")(function* (
     projectId: ProjectId,
     boundToThread: boolean,
   ) {
-    const strategy = upstream(boundToThread);
+    const strategy = yield* upstream(boundToThread, projectId);
     if (strategy.type !== "worktree") return strategy;
     const cwd = (yield* requireProject(projectId)).workspaceRoot;
     const hasCommit = (revision: string) =>
@@ -35,6 +38,9 @@ export function scheduledTaskWorkspaces<E, R>(
         Effect.as(true),
         Effect.orElseSucceed(() => false),
       );
+    for (const ref of [`refs/heads/${strategy.baseRef}`, `refs/remotes/${strategy.baseRef}`]) {
+      if (yield* hasCommit(ref)) return strategy;
+    }
     // A plain folder, or a repository without commits, cannot host a worktree.
     if (!(yield* hasCommit("HEAD"))) return { type: "root" } satisfies WorkspaceStrategy;
     const remote = yield* git.resolvePrimaryRemoteName(cwd).pipe(Effect.orElseSucceed(() => null));

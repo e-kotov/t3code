@@ -3,7 +3,7 @@ import type { ServerConfig, SlurmJobStatus } from "@t3tools/contracts";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
-import { withLateEditorConfig } from "../ws.ts";
+import { withLateConfigDiscovery } from "../ws.ts";
 import { optional, SlurmJob, withStatusUpdates } from "./SlurmJob.ts";
 
 it.effect("emits the new event only to clients that opt in", () =>
@@ -30,7 +30,7 @@ it.effect("late editor snapshots preserve the newest Slurm observation", () =>
       serverNow: 1000,
     };
     const config = { availableEditors: [], slurmJobStatus: null } as unknown as ServerConfig;
-    const events = yield* withLateEditorConfig(
+    const events = yield* withLateConfigDiscovery(
       config,
       Stream.make({ version: 1, type: "slurmJobStatusUpdated", payload: job }),
       {
@@ -38,6 +38,7 @@ it.effect("late editor snapshots preserve the newest Slurm observation", () =>
           Deferred.await(sent).pipe(Effect.as(["file-manager"] as const)),
         resolveFileManagerRevealKind: () => Effect.succeed("file-explorer" as const),
       },
+      { resolveTargets: () => Effect.succeed([]) },
     ).pipe(
       Stream.tap((event) =>
         event.type === "slurmJobStatusUpdated" ? Deferred.succeed(sent, undefined) : Effect.void,

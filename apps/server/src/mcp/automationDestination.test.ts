@@ -34,7 +34,7 @@ it.effect("bases new-thread worktrees on a branch the checkout has", () =>
         const workspace = yield* scheduledTaskWorkspaces(
           () => Effect.succeed({ workspaceRoot: cwd }),
           git,
-          (bound) => (bound ? { type: "root" } : upstream),
+          (bound) => Effect.succeed(bound ? { type: "root" } : upstream),
         )(ProjectId.make("project:automation"), boundToThread);
         return { cwd, workspace };
       });
