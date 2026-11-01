@@ -32,6 +32,8 @@ import {
   resolveBrowserProxyOpen,
 } from "../../../preview/browserProxyOpen.ts";
 
+const decodePreviewOpenInput = Schema.decodeUnknownSync(PreviewAutomationOpenInput);
+
 it.effect("preview_open navigates the opened tab to a dev server in one tool call", () =>
   Effect.scoped(
     Effect.gen(function* () {
@@ -89,7 +91,7 @@ it.effect("preview_open navigates the opened tab to a dev server in one tool cal
         { operation: "navigate", input: { target } },
       ]);
       const openedRoute = resolveBrowserProxyOpen(
-        Schema.decodeUnknownSync(PreviewAutomationOpenInput)(requests[0]!.input),
+        decodePreviewOpenInput(requests[0]!.input),
         "socks5://default-proxy:1080",
       );
       expect(openedRoute.proxyUrl).toBe("");
