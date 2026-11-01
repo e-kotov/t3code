@@ -30,7 +30,11 @@ it.effect("bases new-thread worktrees on a branch the checkout has", () =>
     const workspaceIn = (
       setup: ReadonlyArray<ReadonlyArray<string>>,
       boundToThread = false,
-      strategy: typeof upstream | { readonly type: "worktree"; readonly baseRef: string; readonly startFromOrigin: boolean } = upstream,
+      strategy: {
+        readonly type: "worktree";
+        readonly baseRef: string;
+        readonly startFromOrigin: boolean;
+      } = upstream,
     ) =>
       Effect.gen(function* () {
         const cwd = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-automation-" });
@@ -49,7 +53,11 @@ it.effect("bases new-thread worktrees on a branch the checkout has", () =>
     expect(yield* workspaceFor([])).toEqual({ type: "root" });
     expect(yield* workspaceFor([["init", "-b", "main"]])).toEqual({ type: "root" });
     expect(yield* workspaceFor([["init", "-b", "main"], commit])).toEqual(upstream);
+    expect(
+      yield* workspaceFor([["init", "-b", "main"], commit, ["checkout", "--orphan", "unborn"]]),
+    ).toEqual(upstream);
     expect(yield* workspaceFor([["init", "-b", "master"], commit])).toEqual(head);
+    expect(yield* workspaceFor([["init", "-b", "develop"], commit])).toEqual(head);
     // A remote alone must not make an absent `main` look usable.
     expect(
       yield* workspaceFor([

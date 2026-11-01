@@ -3,6 +3,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import {
   EnvironmentId,
   PreviewTabId,
+  PreviewAutomationOpenInput,
   ProviderInstanceId,
   ThreadId,
   type PreviewAutomationRequest,
@@ -13,6 +14,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as Stream from "effect/Stream";
+import * as Schema from "effect/Schema";
 
 import {
   createPendingAttachmentId,
@@ -25,6 +27,7 @@ import { liveThreadsLayer } from "../../McpToolAccess.testkit.ts";
 import * as PreviewAutomationBroker from "../../PreviewAutomationBroker.ts";
 import { claimPreviewRecording, layerStandard } from "./handlers.ts";
 import { PreviewStandardToolkit } from "./tools.ts";
+import { assertBrowserProxyTarget, resolveBrowserProxyOpen } from "../../../preview/browserProxyOpen.ts";
 
 it.effect("preview_open navigates the opened tab to a dev server in one tool call", () =>
   Effect.scoped(
@@ -76,9 +79,15 @@ it.effect("preview_open navigates the opened tab to a dev server in one tool cal
         .pipe(Stream.unwrap, Stream.runCollect);
       expect(results.at(-1)?.result).toEqual(status);
       expect(requests.map(({ operation, input }) => ({ operation, input }))).toEqual([
-        { operation: "open", input: { open: false, show: false, reuseExistingTab: false } },
+        { operation: "open", input: { open: false, show: false, reuseExistingTab: false, proxyUrl: "" } },
         { operation: "navigate", input: { target } },
       ]);
+      const openedRoute = resolveBrowserProxyOpen(
+        Schema.decodeUnknownSync(PreviewAutomationOpenInput)(requests[0]!.input),
+        "socks5://default-proxy:1080",
+      );
+      expect(openedRoute.proxyUrl).toBe("");
+      expect(() => assertBrowserProxyTarget(openedRoute.proxyUrl, status.url)).not.toThrow();
       expect(requests[1]?.tabId).toBe(tabId);
       expect(requests[1]?.tabIdExplicit).toBe(true);
     }).pipe(

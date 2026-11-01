@@ -203,7 +203,9 @@ const handlers = {
       const opened = yield* invokeTargeted<PreviewAutomationStatus>(
         "open",
         normalizePreviewOpenInput(
-          target === undefined && url !== undefined ? { ...input, url } : input,
+          target === undefined
+            ? { ...input, ...(url === undefined ? {} : { url }) }
+            : { ...input, proxyUrl: input.proxyUrl ?? "" },
         ),
       );
       if (target === undefined || opened.tabId === null) return opened;

@@ -26,17 +26,20 @@ export function scheduledTaskWorkspaces<E, R>(
     projectId: ProjectId,
     boundToThread: boolean,
   ) {
-    if (boundToThread) return yield* upstream(boundToThread, projectId);
+    const strategy = yield* upstream(boundToThread, projectId);
+    if (strategy.type !== "worktree") return strategy;
     const cwd = (yield* requireProject(projectId)).workspaceRoot;
     const hasCommit = (revision: string) =>
       git.resolveCommit({ cwd, revision }).pipe(
         Effect.as(true),
         Effect.orElseSucceed(() => false),
       );
-    // A plain folder, or a repository without commits, cannot host a worktree.
+    const selectedRef = strategy.baseRef.includes("/")
+      ? `refs/remotes/${strategy.baseRef}`
+      : `refs/heads/${strategy.baseRef}`;
+    if ((yield* hasCommit(strategy.baseRef)) || (yield* hasCommit(selectedRef))) return strategy;
+    // An unborn checkout may still have a usable selected branch.
     if (!(yield* hasCommit("HEAD"))) return { type: "root" } satisfies WorkspaceStrategy;
-    const strategy = yield* upstream(boundToThread, projectId);
-    if (strategy.type !== "worktree" || (yield* hasCommit(strategy.baseRef))) return strategy;
     const remote = yield* git.resolvePrimaryRemoteName(cwd).pipe(Effect.orElseSucceed(() => null));
     const defaultBranch =
       remote === null

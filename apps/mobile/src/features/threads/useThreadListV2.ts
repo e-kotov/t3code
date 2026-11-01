@@ -170,6 +170,8 @@ export function useThreadListV2(input: {
         ),
       }),
     [
+      input.conversationSortOrder,
+      input.conversationGrouping,
       input.pendingOrder,
       threads,
       input.environmentId,

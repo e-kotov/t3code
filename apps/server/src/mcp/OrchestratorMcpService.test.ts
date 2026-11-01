@@ -2708,8 +2708,9 @@ describe("OrchestratorMcpService provider resolution", () => {
         name: "no remote, neither main nor master",
         remote: null,
         remoteDefault: null,
-        refs: ["refs/heads/develop"],
-        baseRef: "main",
+        refs: ["HEAD", "refs/heads/develop"],
+        baseRef: "HEAD",
+        startFromOrigin: false,
       },
       {
         name: "no recorded HEAD, remote main and a stale local master",
@@ -2760,7 +2761,7 @@ describe("OrchestratorMcpService provider resolution", () => {
         refs: ["refs/remotes/upstream/main"],
         baseRef: "upstream/main",
       },
-    ])("$name starts from $baseRef", ({ remote, remoteDefault, refs, baseRef }) =>
+    ])("$name starts from $baseRef", ({ remote, remoteDefault, refs, baseRef, startFromOrigin }) =>
       Effect.gen(function* () {
         const saved = yield* Ref.make<ReadonlyArray<ScheduledTask["workspaceStrategy"]>>([]);
         const gitFailure = (cwd: string, detail: string) =>
@@ -2785,7 +2786,7 @@ describe("OrchestratorMcpService provider resolution", () => {
         );
         yield* mcp.scheduleTask(client, { projectId, prompt: "Check the build", schedule });
         assert.deepEqual(yield* Ref.get(saved), [
-          { type: "worktree", baseRef, startFromOrigin: true },
+          { type: "worktree", baseRef, startFromOrigin: startFromOrigin ?? true },
         ]);
       }),
     );

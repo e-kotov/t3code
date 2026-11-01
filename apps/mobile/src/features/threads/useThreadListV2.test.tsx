@@ -241,4 +241,23 @@ it("reuses a large thread list across tab renders and updates when its inputs ch
   expect(loaded.layout.items).toHaveLength(160);
   expect(loaded.olderSettledShelf.isListed(threads[150]!)).toBe(true);
   expect(loaded.items).not.toBe(loading.items);
+
+  const preferenceThreads = threads.slice(0, 3).map((thread, index) => ({
+    ...thread,
+    createdAt: ["2026-01-01T00:00:00.000Z", "2026-01-03T00:00:00.000Z", "2026-01-02T00:00:00.000Z"][index]!,
+  }));
+  const preferences = { ...input, threads: preferenceThreads };
+  await act(async () => root.render(<Probe input={preferences} tab="chats" />));
+  await act(async () =>
+    root.render(<Probe input={{ ...preferences, conversationSortOrder: "created_at" }} tab="chats" />),
+  );
+  expect(seen.at(-1)!.layout.items.map((item) => item.thread.id)).toEqual([
+    "thread-1", "thread-2", "thread-0",
+  ]);
+  await act(async () =>
+    root.render(<Probe input={{ ...preferences, conversationSortOrder: "created_at", conversationGrouping: "machine" }} tab="chats" />),
+  );
+  expect(seen.at(-1)!.layout.items.map((item) => item.thread.id)).toEqual([
+    "thread-2", "thread-0", "thread-1",
+  ]);
 });

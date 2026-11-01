@@ -35,7 +35,7 @@ import {
 } from "../cloud/pinnedRuntime.ts";
 import { compareExactServiceVersions, isExactServiceVersion } from "../cloud/serviceProtocol.ts";
 import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
-import { managedUpdateRefusal } from "../policy/managedUpdates.ts";
+import { managedUpdateRefusal } from "../policy/forkManagedUpdates.ts";
 import * as ProcessRunner from "../processRunner.ts";
 import { isProcessAlive, readPersistedServerRuntimeState } from "../serverRuntimeState.ts";
 import { projectLocationFlags, resolveCliAuthConfig } from "./config.ts";
