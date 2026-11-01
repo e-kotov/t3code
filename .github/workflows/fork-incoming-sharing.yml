@@ -102,7 +102,13 @@ jobs:
           echo '✅ Historical startup proof passed: the tests detect the old missing-project-ID crash. Expected failures remain in the step log.' >> "$GITHUB_STEP_SUMMARY"
       - name: Install Chromium for candidate checks
         if: github.event_name != 'push'
-        run: node apps/web/node_modules/playwright/cli.js install --with-deps chromium
+        run: |
+          node apps/web/node_modules/playwright/cli.js install chromium
+          browser=$(find "$HOME/.cache/ms-playwright" -name chrome-headless-shell -type f -print -quit)
+          test -n "$browser"
+          if ldd "$browser" | grep '=> not found'; then
+            node apps/web/node_modules/playwright/cli.js install-deps chromium
+          fi
       - name: Check changed code for a candidate
         if: github.event_name != 'push'
         run: |
