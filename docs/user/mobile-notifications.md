@@ -7,6 +7,10 @@ Pair your Android app with a server, then enable **Direct notifications** in
 arrive through your paired connection, without a T3 Connect account or Google
 push service. Tap an alert to open its conversation.
 
+Subagent completion alerts are off by default. To receive them, enable
+**Subagent completion alerts** in the same settings. Subagent approval, input
+and failure alerts still come through.
+
 A persistent **T3 direct notifications** notification shows whether the listener
 is connected. Its **Stop** action disables listening. If you connect through an
 SSH tunnel, keep the tunnel app running too. For screen-off delivery, exclude

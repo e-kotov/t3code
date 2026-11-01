@@ -1,0 +1,42 @@
+name: Fork Android notifications
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/fork-android-notifications.yml"
+      - "apps/mobile/modules/t3-agent-notifications/**"
+      - "apps/mobile/src/features/agent-awareness/**"
+      - "apps/mobile/src/features/settings/DirectSettingsNotificationsRouteScreen.tsx"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  notifications:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          node-version-file: package.json
+          run-install: false
+          cache: true
+      - run: vp install
+      - name: Typecheck mobile
+        run: vp run --filter @t3tools/mobile typecheck
+      - name: Check notification frontend
+        run: vp test run apps/mobile/src/features/agent-awareness/directNotifications.test.ts
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c
+      - name: Generate Android project
+        working-directory: apps/mobile
+        run: vp exec expo prebuild --platform android --no-install
+      - name: Test native notification handling
+        working-directory: apps/mobile/android
+        run: ./gradlew :t3-agent-notifications:testDebugUnitTest --no-daemon --max-workers=2

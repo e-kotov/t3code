@@ -37,6 +37,13 @@ class T3AgentNotificationsModule : Module() {
       appContext.reactContext?.let { DirectNotificationService.setEnabled(it, enabled) }
     }
 
+    Function("notifyOnSubagentCompletion") {
+      appContext.reactContext?.let { DirectNotificationService.notifyOnSubagentCompletion(it) } ?: false
+    }
+    Function("setNotifyOnSubagentCompletion") { enabled: Boolean ->
+      appContext.reactContext?.let { DirectNotificationService.setNotifyOnSubagentCompletion(it, enabled) }
+    }
+
     Function("updateDirectNotificationConnections") { connectionsJson: String, scheme: String ->
       appContext.reactContext?.let { DirectNotificationService.updateConnections(it, connectionsJson, scheme) }
     }

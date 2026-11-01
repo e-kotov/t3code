@@ -50,4 +50,28 @@ class DirectAgentEventsTest {
     assertTrue(events.accept(update(thread("cancelled", "next"))).isEmpty())
     assertTrue(events.accept(update(thread("completed", "next").put("archivedAt", "2026-10-11"))).isEmpty())
   }
+  @Test fun mainThreadOnlySuppressesOnlySubagentCompletionsAndCanBeChangedWhileListening() {
+    var notifySubagents = false
+    val events = DirectAgentEvents { notifySubagents }
+    fun subagent(status: String, run: String = "run", request: String? = null) =
+      thread(status, run, request).put("lineage", JSONObject().put("relationshipToParent", "subagent"))
+    events.accept(snapshot(subagent("running")))
+    assertTrue(events.accept(update(subagent("completed"))).isEmpty())
+    assertEquals("Agent needs approval", events.accept(update(subagent("waiting", "next", "approval"))).single().body)
+    val input = subagent("waiting", "next", "input")
+    input.getJSONObject("pendingRuntimeRequest").put("kind", "input")
+    assertEquals("Agent needs your input", events.accept(update(input)).single().body)
+    assertEquals("Agent stopped with an error", events.accept(update(subagent("failed", "next"))).single().body)
+    assertEquals("Agent finished", events.accept(update(thread("completed", "main"))).single().body)
+    val fork = thread("completed", "fork").put("lineage", JSONObject().put("relationshipToParent", "fork"))
+    assertEquals("Agent finished", events.accept(update(fork)).single().body)
+    notifySubagents = true
+    assertEquals("Agent finished", events.accept(update(subagent("completed", "last"))).single().body)
+  }
+  @Test fun subagentCompletionAlertsAreOffByDefault() {
+    val events = DirectAgentEvents()
+    val lineage = JSONObject().put("relationshipToParent", "subagent")
+    events.accept(snapshot(thread("running").put("lineage", lineage)))
+    assertTrue(events.accept(update(thread("completed").put("lineage", lineage))).isEmpty())
+  }
 }
