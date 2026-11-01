@@ -87,7 +87,7 @@
     "apps/server/src/mcp/McpHttpServer.ts": 4,
     "apps/server/src/mcp/OrchestratorMcpService.test.ts": 9,
     "apps/server/src/mcp/OrchestratorMcpService.ts": 23,
-    "apps/server/src/mcp/toolkits/preview/handlers.test.ts": 17,
+    "apps/server/src/mcp/toolkits/preview/handlers.test.ts": 19,
     "apps/server/src/mcp/toolkits/preview/handlers.ts": 8,
     "apps/server/src/mcp/toolkits/preview/tools.ts": 2,
     "apps/server/src/orchestration-v2/Adapters/AntigravityAdapterV2.ts": 4,
