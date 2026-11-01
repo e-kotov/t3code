@@ -8,6 +8,7 @@ import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as ServerConfig from "../config.ts";
+import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
 import * as AnalyticsService from "./AnalyticsService.ts";
 
 it.layer(NodeServices.layer)("EK telemetry policy", (it) => {
@@ -19,6 +20,7 @@ it.layer(NodeServices.layer)("EK telemetry policy", (it) => {
         return Effect.succeed(HttpClientResponse.fromWeb(request, new Response("{}")));
       });
       const runtime = AnalyticsService.layer.pipe(
+        Layer.provide(ManagedPolicy.layerTest()),
         Layer.provideMerge(
           ServerConfig.ServerConfig.layerTest(process.cwd(), {
             prefix: "t3-fork-telemetry-",

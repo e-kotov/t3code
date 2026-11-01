@@ -10,8 +10,10 @@ import * as SecretStore from "../auth/ServerSecretStore.ts";
 import * as ServerConfig from "../config.ts";
 import * as Sqlite from "../persistence/Sqlite.ts";
 import * as Settings from "../serverSettings.ts";
+import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
 
 const environment = SecretStore.layer.pipe(
+  Layer.provideMerge(ManagedPolicy.layerTest()),
   Layer.provideMerge(Sqlite.layerMemory),
   Layer.provideMerge(ServerConfig.layerTest(process.cwd(), { prefix: "t3-proxy-settings-" })),
   Layer.provide(NodeCrypto.layer),
