@@ -40,6 +40,10 @@ class DirectNotificationService : Service() {
     }
 
     fun isEnabled(context: Context): Boolean = context.getSharedPreferences(STORE, MODE_PRIVATE).getBoolean("enabled", false)
+    fun notifyOnSubagentCompletion(context: Context): Boolean = context.getSharedPreferences(STORE, MODE_PRIVATE).getBoolean("notifyOnSubagentCompletion", false)
+    fun setNotifyOnSubagentCompletion(context: Context, enabled: Boolean) {
+      context.getSharedPreferences(STORE, MODE_PRIVATE).edit().putBoolean("notifyOnSubagentCompletion", enabled).apply()
+    }
     fun status(): String = summary
 
     fun setEnabled(context: Context, enabled: Boolean) {
@@ -172,7 +176,7 @@ class DirectNotificationService : Service() {
     private var closed = false
     private var failures = 0
     private var socket: WebSocket? = null
-    private val events = DirectAgentEvents()
+    private val events = DirectAgentEvents { notifyOnSubagentCompletion(this@DirectNotificationService) }
     private val seen = LinkedHashSet<String>()
     private val reconnect = Runnable { connect() }
     private var lastFrameAt = android.os.SystemClock.elapsedRealtime()

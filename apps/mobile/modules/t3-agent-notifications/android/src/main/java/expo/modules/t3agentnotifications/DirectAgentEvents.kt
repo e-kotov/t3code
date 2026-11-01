@@ -5,7 +5,7 @@ import org.json.JSONObject
 internal data class DirectAgentAlert(val threadId: String, val key: String, val title: String, val body: String)
 
 /** Remember only status/identifiers, never conversation text. Initial snapshots are a quiet baseline. */
-internal class DirectAgentEvents {
+internal class DirectAgentEvents(private val notifyOnSubagentCompletion: () -> Boolean = { false }) {
   private data class ThreadState(val runId: String, val status: String, val requestId: String)
   private val threads = mutableMapOf<String, ThreadState>()
   private var initialized = false
@@ -61,6 +61,9 @@ internal class DirectAgentEvents {
     // A newly discovered stopped conversation isn't evidence that it just finished.
     if (previous == null || next.runId.isEmpty()) return null
     if (next.runId == previous.runId && next.status == previous.status) return null
+    if (next.status == "completed" && !notifyOnSubagentCompletion() &&
+      (row.optJSONObject("lineage")?.optString("relationshipToParent") == "subagent" ||
+        !row.isNull("delegatedFrom"))) return null
     val body = when (next.status) {
       "completed" -> "Agent finished"
       "failed" -> "Agent stopped with an error"

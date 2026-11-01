@@ -9,9 +9,12 @@ import { runtime } from "../../lib/runtime";
 import {
   openDirectNotificationBatterySettings,
   setDirectNotificationsEnabled,
+  setNotifyOnSubagentCompletion,
   supportsDirectNotifications,
+  supportsSubagentCompletionNotifications,
   useDirectNotificationStatus,
   useDirectNotificationsEnabled,
+  useNotifyOnSubagentCompletion,
 } from "../agent-awareness/directNotifications";
 import { requestAgentNotificationPermission } from "../agent-awareness/notificationPermissions";
 import { SettingsRow } from "./components/SettingsRow";
@@ -22,6 +25,7 @@ import { SettingsSwitchRow } from "./components/SettingsSwitchRow";
 /** Android notifications straight from paired servers, for builds without T3 Connect. */
 export function DirectSettingsNotificationsRouteScreen() {
   const enabled = useDirectNotificationsEnabled();
+  const notifySubagentCompletion = useNotifyOnSubagentCompletion();
   const [busy, setBusy] = useState(false);
   const status = useDirectNotificationStatus();
   const toggle = async (value: boolean) => {
@@ -60,6 +64,14 @@ export function DirectSettingsNotificationsRouteScreen() {
             onValueChange={(value) => {
               void toggle(value);
             }}
+          />
+          <SettingsSwitchRow
+            icon="bell.badge"
+            label="Subagent completion alerts"
+            value={notifySubagentCompletion}
+            disabled={!enabled || !supportsSubagentCompletionNotifications()}
+            subtitle="Get an alert when a subagent finishes. Input, approval and error alerts always come through."
+            onValueChange={setNotifyOnSubagentCompletion}
           />
           <SettingsRow
             icon="bolt.circle"

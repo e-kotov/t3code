@@ -14,6 +14,8 @@ interface DirectNotificationsNative {
   addListener(event: "onDirectNotificationStatus", listener: () => void): { remove(): void };
   directNotificationsEnabled(): boolean;
   setDirectNotificationsEnabled(enabled: boolean): void;
+  notifyOnSubagentCompletion?(): boolean;
+  setNotifyOnSubagentCompletion?(enabled: boolean): void;
   updateDirectNotificationConnections(connectionsJson: string, scheme: string): void;
   directNotificationStatus(): string;
   openBatteryOptimizationSettings(): void;
@@ -24,12 +26,14 @@ const native =
     : null;
 const listeners = new Set<() => void>();
 let enabled = native?.directNotificationsEnabled?.() ?? false;
+let notifySubagentCompletion = native?.notifyOnSubagentCompletion?.() ?? false;
 let status =
   native?.directNotificationStatus?.() ??
   "Install a newer Android app to enable direct notifications";
 
 function refreshEnabled() {
   enabled = native?.directNotificationsEnabled?.() ?? false;
+  notifySubagentCompletion = native?.notifyOnSubagentCompletion?.() ?? false;
   status = native?.directNotificationStatus?.() ?? status;
   for (const listener of listeners) listener();
 }
@@ -47,6 +51,16 @@ function subscribe(listener: () => void) {
 }
 export function useDirectNotificationsEnabled(): boolean {
   return useSyncExternalStore(subscribe, () => enabled);
+}
+export function useNotifyOnSubagentCompletion(): boolean {
+  return useSyncExternalStore(subscribe, () => notifySubagentCompletion);
+}
+export function supportsSubagentCompletionNotifications(): boolean {
+  return typeof native?.setNotifyOnSubagentCompletion === "function";
+}
+export function setNotifyOnSubagentCompletion(value: boolean): void {
+  native?.setNotifyOnSubagentCompletion?.(value);
+  refreshEnabled();
 }
 export function supportsDirectNotifications(): boolean {
   return typeof native?.updateDirectNotificationConnections === "function";
