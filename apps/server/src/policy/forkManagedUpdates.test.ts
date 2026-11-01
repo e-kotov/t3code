@@ -12,6 +12,10 @@ it("applies managed update restrictions to EK prereleases", () => {
   expect(managedUpdateRefusal(document, "stable")).toBeUndefined();
   expect(managedUpdateRefusal(document, "ek")).toBe(managedUpdateRefusal(document, "nightly"));
   expect(managedUpdateRefusal(document, "ek")).toBeDefined();
-  expect(managedUpdateRefusal({ ...document, limits: { updates: { mode: "auto" } } }, "ek")).toBeUndefined();
-  expect(managedUpdateRefusal({ ...document, limits: { updates: { mode: "off" } } }, "ek")).toBeDefined();
+  expect(
+    managedUpdateRefusal({ ...document, limits: { updates: { mode: "auto" } } }, "ek"),
+  ).toBeUndefined();
+  expect(
+    managedUpdateRefusal({ ...document, limits: { updates: { mode: "off" } } }, "ek"),
+  ).toBeDefined();
 });

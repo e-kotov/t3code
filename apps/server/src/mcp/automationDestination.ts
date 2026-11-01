@@ -20,7 +20,10 @@ export function scheduledTaskWorkspaces<E, R>(
     GitVcsDriver.GitVcsDriver["Service"],
     "resolveCommit" | "resolvePrimaryRemoteName" | "resolveDefaultBranchName" | "remoteBranchExists"
   >,
-  upstream: (boundToThread: boolean, projectId: ProjectId) => Effect.Effect<WorkspaceStrategy, E, R>,
+  upstream: (
+    boundToThread: boolean,
+    projectId: ProjectId,
+  ) => Effect.Effect<WorkspaceStrategy, E, R>,
 ) {
   return Effect.fn("OrchestratorMcpService.scheduledTaskWorkspace")(function* (
     projectId: ProjectId,
