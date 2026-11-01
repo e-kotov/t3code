@@ -10,6 +10,12 @@ import { executeAuthenticatedEnvironmentHttpRequest } from "./environmentHttpAut
 import { createEnvironmentSessionAtoms } from "./session.ts";
 import { minuteTick } from "../clock.ts";
 
+// Clock notifications must not replace their own listener during the clock's Set iteration.
+const minuteTickAtom = Atom.make((get) => {
+  get.addFinalizer(minuteTick.subscribe(() => get.setSelf(minuteTick.getSnapshot())));
+  return minuteTick.getSnapshot();
+}).pipe(Atom.setIdleTTL(0));
+
 export function createForkThreadQuotaAtoms<R, E>(
   runtime: Atom.AtomRuntime<EnvironmentRegistry.EnvironmentRegistry | R, E>,
 ) {
@@ -18,7 +24,7 @@ export function createForkThreadQuotaAtoms<R, E>(
     const [environmentId, threadId] = JSON.parse(key) as [EnvironmentId, ThreadId];
     return runtime
       .atom((get) => {
-        get.addFinalizer(minuteTick.subscribe(() => get.refreshSelf()));
+        get(minuteTickAtom);
         const prepared = Option.getOrNull(get(session.preparedConnectionValueAtom(environmentId)));
         if (!prepared) return Effect.never;
         return Effect.gen(function* () {

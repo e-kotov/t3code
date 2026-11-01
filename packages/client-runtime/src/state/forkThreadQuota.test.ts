@@ -1,10 +1,14 @@
 import { EnvironmentId, ThreadId, type ForkThreadQuota } from "@t3tools/contracts";
+import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as SubscriptionRef from "effect/SubscriptionRef";
 import { AsyncResult, Atom, AtomRegistry } from "effect/reactivity";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 import { minuteTick } from "../clock.ts";
 import { PrimaryConnectionTarget, type PreparedConnection } from "../connection/model.ts";
+import type { NetworkStatus } from "../connection/model.ts";
+import type { ConnectionCatalogEntry } from "../connection/catalog.ts";
 import { EnvironmentRegistry } from "../connection/registry.ts";
 import { layerRemoteHttpClient } from "../rpc/http.ts";
 
@@ -38,7 +42,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function setup(delayMs: number, connected = true) {
+function setup(requestMode: "immediate" | "in flight", connected = true) {
   vi.useFakeTimers({ now: Date.parse("2026-01-01T00:00:01Z") });
   const subscribe = minuteTick.subscribe;
   let tickCallbacks = 0;
@@ -57,13 +61,28 @@ function setup(delayMs: number, connected = true) {
     weeklyPercent: null,
     balanceCredits: null,
   };
-  const fetch = vi.fn<typeof globalThis.fetch>(async () => {
+  const pendingResponses: Array<() => void> = [];
+  const fetch = vi.fn<typeof globalThis.fetch>(() => {
     const response = Response.json(reading);
-    if (delayMs > 0) await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
-    return response;
+    if (requestMode === "immediate") return Promise.resolve(response);
+    const pending = Promise.withResolvers<Response>();
+    pendingResponses.push(() => pending.resolve(response));
+    return pending.promise;
   });
   const runtime = Atom.runtime(
-    Layer.mergeAll(Layer.mock(EnvironmentRegistry)({}), layerRemoteHttpClient(fetch)),
+    Layer.mergeAll(
+      Layer.unwrap(
+        Effect.gen(function* () {
+          return Layer.mock(EnvironmentRegistry)({
+            entries: yield* SubscriptionRef.make<
+              ReadonlyMap<EnvironmentId, ConnectionCatalogEntry>
+            >(new Map()),
+            networkStatus: yield* SubscriptionRef.make<NetworkStatus>("online"),
+          });
+        }),
+      ),
+      layerRemoteHttpClient(fetch),
+    ),
   );
   const family = createForkThreadQuotaAtoms(runtime);
   const atom = family(JSON.stringify([environmentId, threadId]));
@@ -78,32 +97,41 @@ function setup(delayMs: number, connected = true) {
       reading = { ...reading, ...next };
     },
     tickCallbacks: () => tickCallbacks,
+    settle: async () => {
+      await vi.advanceTimersByTimeAsync(0);
+      for (const complete of pendingResponses.splice(0)) complete();
+      await vi.advanceTimersByTimeAsync(0);
+    },
   };
 }
 
-it.each([0, 50])(
-  "refreshes missing and revised readings once per tick with a %i ms request and releases on unmount",
-  async (delayMs) => {
-    const h = setup(delayMs);
+it.each(["immediate", "in flight"] as const)(
+  "refreshes missing and revised readings once per tick with an %s request and releases on unmount",
+  async (requestMode) => {
+    const h = setup(requestMode);
     try {
       const unmountFirst = h.registry.mount(h.atom);
       const unmountSecond = h.registry.mount(h.atom);
       await vi.advanceTimersByTimeAsync(100);
+      await h.settle();
       expect(h.fetch).toHaveBeenCalledTimes(1);
       expect(h.value()?.status).toBe("unavailable");
 
       h.setReading({ status: "available", weeklyPercent: 1.25 });
       await vi.advanceTimersByTimeAsync(60_000);
+      await h.settle();
       expect(h.fetch).toHaveBeenCalledTimes(2);
       expect(h.value()?.weeklyPercent).toBe(1.25);
 
       h.setReading({ weeklyPercent: 2.5 });
       await vi.advanceTimersByTimeAsync(60_000);
+      await h.settle();
       expect(h.fetch).toHaveBeenCalledTimes(3);
       expect(h.value()?.weeklyPercent).toBe(2.5);
 
       unmountFirst();
       await vi.advanceTimersByTimeAsync(60_000);
+      await h.settle();
       expect(h.fetch).toHaveBeenCalledTimes(4);
       unmountSecond();
       await vi.advanceTimersByTimeAsync(1);
@@ -115,6 +143,7 @@ it.each([0, 50])(
       h.setReading({ weeklyPercent: 3.75 });
       const unmountReopened = h.registry.mount(h.atom);
       await vi.advanceTimersByTimeAsync(100);
+      await h.settle();
       expect(h.fetch).toHaveBeenCalledTimes(5);
       expect(h.value()?.weeklyPercent).toBe(3.75);
       unmountReopened();
@@ -125,7 +154,7 @@ it.each([0, 50])(
 );
 
 it("survives ticks without a prepared connection and reads when it connects", async () => {
-  const h = setup(0, false);
+  const h = setup("immediate", false);
   try {
     const unmount = h.registry.mount(h.atom);
     await vi.advanceTimersByTimeAsync(60_000);
