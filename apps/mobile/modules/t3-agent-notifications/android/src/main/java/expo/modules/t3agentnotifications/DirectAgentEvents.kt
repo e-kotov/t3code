@@ -62,7 +62,8 @@ internal class DirectAgentEvents(private val notifyOnSubagentCompletion: () -> B
     if (previous == null || next.runId.isEmpty()) return null
     if (next.runId == previous.runId && next.status == previous.status) return null
     if (next.status == "completed" && !notifyOnSubagentCompletion() &&
-      row.optJSONObject("lineage")?.optString("relationshipToParent") == "subagent") return null
+      (row.optJSONObject("lineage")?.optString("relationshipToParent") == "subagent" ||
+        !row.isNull("delegatedFrom"))) return null
     val body = when (next.status) {
       "completed" -> "Agent finished"
       "failed" -> "Agent stopped with an error"

@@ -59,7 +59,7 @@ class DirectAgentEventsTest {
     assertTrue(events.accept(update(subagent("completed"))).isEmpty())
     assertEquals("Agent needs approval", events.accept(update(subagent("waiting", "next", "approval"))).single().body)
     val input = subagent("waiting", "next", "input")
-    input.getJSONObject("pendingRuntimeRequest").put("kind", "input")
+    input.getJSONObject("pendingRuntimeRequest").put("kind", "user_input")
     assertEquals("Agent needs your input", events.accept(update(input)).single().body)
     assertEquals("Agent stopped with an error", events.accept(update(subagent("failed", "next"))).single().body)
     assertEquals("Agent finished", events.accept(update(thread("completed", "main"))).single().body)
@@ -73,5 +73,21 @@ class DirectAgentEventsTest {
     val lineage = JSONObject().put("relationshipToParent", "subagent")
     events.accept(snapshot(thread("running").put("lineage", lineage)))
     assertTrue(events.accept(update(thread("completed").put("lineage", lineage))).isEmpty())
+  }
+  @Test fun remoteSubagentCompletionIsOptInButRequestsAndFailuresStillAlert() {
+    var notifySubagents = false
+    val events = DirectAgentEvents { notifySubagents }
+    fun remote(status: String, run: String = "run", request: String? = null) = thread(status, run, request)
+      .put("lineage", JSONObject().put("relationshipToParent", JSONObject.NULL))
+      .put("delegatedFrom", JSONObject().put("environmentId", "parent-machine").put("threadId", "parent"))
+    events.accept(snapshot(remote("running")))
+    assertTrue(events.accept(snapshot(remote("completed"))).isEmpty())
+    assertEquals("Agent needs approval", events.accept(update(remote("waiting", "next", "approval"))).single().body)
+    val input = remote("waiting", "next", "input")
+    input.getJSONObject("pendingRuntimeRequest").put("kind", "user_input")
+    assertEquals("Agent needs your input", events.accept(update(input)).single().body)
+    assertEquals("Agent stopped with an error", events.accept(update(remote("failed", "next"))).single().body)
+    notifySubagents = true
+    assertEquals("Agent finished", events.accept(update(remote("completed", "last"))).single().body)
   }
 }
