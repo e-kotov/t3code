@@ -1,10 +1,8 @@
-name: Claude sync
+name: Upstream conflict resolver
 
-# Resolves an upstream sync from main that conflicted or failed a check. Claude Opus (high effort)
-# fixes it, a second Claude run reviews the fix, and one follow-up fix handles the review's
-# findings or, if the review approved, a later failed check. The result is one merge commit on
-# sync/claude-<time>, which upstream-sync.yml checks and promotes. Billed to the Claude Platform
-# key ANTHROPIC_API_KEY, capped per run. See docs/operations/upstream-sync.md.
+# Resolves an upstream sync with Claude Code and Pi in configurable priority order. The other
+# agent takes over if the preferred one fails. The result is checked by upstream-sync.yml.
+# See docs/operations/upstream-sync.md.
 on:
   push:
     branches: [main, "sync/fix-claude-bootstrap-*"]
@@ -34,6 +32,10 @@ concurrency:
 env:
   CLAUDE_CODE_VERSION: "2.1.308"
   CLAUDE_MODEL: claude-opus-5-5
+  PI_VERSION: "1.4.0"
+  PI_MODEL: meta/muse-spark-1.3-contributor
+  PI_THINKING: xhigh
+  UPSTREAM_RESOLVER_ORDER: ${{ vars.UPSTREAM_RESOLVER_ORDER || 'claude,pi' }}
   NODE_OPTIONS: --max-old-space-size=4096
 
 jobs:
@@ -170,11 +172,19 @@ jobs:
           run-install: false
       - name: Install Claude independently of project dependencies
         if: steps.prepare.outputs.branch != ''
+        continue-on-error: true
         working-directory: ${{ runner.temp }}
         run: |
           npm install --prefix "$RUNNER_TEMP/claude-cli" --no-audit --no-fund "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
           echo "$RUNNER_TEMP/claude-cli/node_modules/.bin" >> "$GITHUB_PATH"
-      - name: Try dependencies and give any installation failure to Claude
+      - name: Install Pi independently of project dependencies
+        if: steps.prepare.outputs.branch != ''
+        continue-on-error: true
+        working-directory: ${{ runner.temp }}
+        run: |
+          npm install --prefix "$RUNNER_TEMP/pi-cli" --no-audit --no-fund "@earendil-works/pi-coding-agent@$PI_VERSION"
+          echo "$RUNNER_TEMP/pi-cli/node_modules/.bin" >> "$GITHUB_PATH"
+      - name: Try dependencies and give any installation failure to the resolver
         if: steps.prepare.outputs.branch != ''
         run: |
           if vp install > "$RUNNER_TEMP/dependencies.log" 2>&1; then
@@ -187,25 +197,31 @@ jobs:
               tail -60 "$RUNNER_TEMP/dependencies.log"
             } >> "$RUNNER_TEMP/context.md"
           fi
-      - name: Fix with Claude
+      - name: Fix merge
         id: fix
         if: steps.prepare.outputs.mode == 'fix'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AI_GATEWAY_API_KEY: ${{ secrets.VERCEL_AI_GATEWAY_API_KEY }}
+          PI_CODING_AGENT_DIR: ${{ runner.temp }}/pi-home
         run: scripts/claude-sync.sh fix 10
-      - name: Review the fix with Claude
+      - name: Review the fix
         id: review
         if: steps.prepare.outputs.mode == 'fix'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AI_GATEWAY_API_KEY: ${{ secrets.VERCEL_AI_GATEWAY_API_KEY }}
+          PI_CODING_AGENT_DIR: ${{ runner.temp }}/pi-home
         run: scripts/claude-sync.sh review 4
-      - name: Follow-up fix with Claude
+      - name: Follow-up fix
         id: follow-up
         if: >-
           steps.prepare.outputs.mode == 'ci' ||
           (steps.prepare.outputs.mode == 'fix' && steps.review.outputs.verdict == 'changes')
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AI_GATEWAY_API_KEY: ${{ secrets.VERCEL_AI_GATEWAY_API_KEY }}
+          PI_CODING_AGENT_DIR: ${{ runner.temp }}/pi-home
         run: scripts/claude-sync.sh follow-up 8
       - name: Require repaired dependencies to install with the frozen lockfile
         id: verify-dependencies
@@ -218,11 +234,15 @@ jobs:
           VERDICT: ${{ steps.review.outputs.verdict }}
           FOLLOW_UP: ${{ steps.follow-up.outcome == 'success' && 'used' || 'unused' }}
           MODE: ${{ steps.prepare.outputs.mode }}
+          RESOLVER_ORDER: ${{ env.UPSTREAM_RESOLVER_ORDER }}
+          FIX_AGENT: ${{ steps.fix.outputs.agent }}
+          REVIEW_AGENT: ${{ steps.review.outputs.agent }}
+          FOLLOW_UP_AGENT: ${{ steps.follow-up.outputs.agent }}
         run: |
           set -euo pipefail
           if [ -f .claude-needs-decision.md ]; then
             {
-              echo "Claude asked for a decision; nothing is pushed or promoted:"
+              echo "The resolver asked for a decision; nothing is pushed or promoted:"
               echo
               cat .claude-needs-decision.md
             } | tee -a "$GITHUB_STEP_SUMMARY"
@@ -239,7 +259,7 @@ jobs:
           upstream=$(git rev-parse "$MERGE^2")
           merged=$(git commit-tree "HEAD^{tree}" -p "$MERGE^1" -p "$upstream" \
             -m "Merge upstream main ${upstream:0:10}" \
-            -m "Resolved by Claude ($CLAUDE_MODEL) in GitHub Actions; see the Claude sync run." \
+            -m "Resolved by fix=${FIX_AGENT:-none}, review=${REVIEW_AGENT:-skipped}, follow-up=${FOLLOW_UP_AGENT:-none} (priority $RESOLVER_ORDER); see the resolver run." \
             -m "Claude-Review: ${review:-none}
           Claude-Follow-Up: $FOLLOW_UP")
           git branch -f resolved "$merged"

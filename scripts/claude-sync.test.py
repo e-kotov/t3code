@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise Claude recovery with a broken lockfile; --live uses real Claude and pnpm in CI."""
+"""Exercise ordered Claude/Pi recovery with a broken lockfile; --live uses Claude and pnpm."""
 import io
 import json
 import os
@@ -42,6 +42,11 @@ class ClaudeSyncTests(unittest.TestCase):
             directory.mkdir()
         self.env = dict(os.environ, RUNNER_TEMP=str(self.runtime), CI="true",
                         CLAUDE_MODEL=os.environ.get("CLAUDE_MODEL", WORKFLOW["env"]["CLAUDE_MODEL"]),
+                        PI_MODEL=WORKFLOW["env"]["PI_MODEL"],
+                        PI_THINKING=WORKFLOW["env"]["PI_THINKING"],
+                        PI_CODING_AGENT_DIR=str(self.runtime / "pi-home"),
+                        UPSTREAM_RESOLVER_ORDER="claude,pi",
+                        AI_GATEWAY_API_KEY="fixture-gateway-key",
                         VP_GIT_HOOKS="0", PATH=str(self.bin) + os.pathsep + os.environ["PATH"])
         for name in ("GITHUB_PATH", "GITHUB_OUTPUT", "GITHUB_STEP_SUMMARY"):
             path = self.runtime / name
@@ -51,7 +56,12 @@ class ClaudeSyncTests(unittest.TestCase):
         self.expected = self.runtime / "expected-lock.yaml"
         self.env["EXPECTED_LOCK"] = str(self.expected)
         if not LIVE:
-            self.executable("npm", 'touch "$RUNNER_TEMP/cli-installed"')
+            self.executable("npm", r'''if [[ "$*" == *pi-coding-agent* ]]; then
+  touch "$RUNNER_TEMP/pi-installed"
+else
+  touch "$RUNNER_TEMP/cli-installed"
+fi
+''')
             self.executable("vp", r'''if ! cmp -s pnpm-lock.yaml "$EXPECTED_LOCK"; then
   echo 'ERR_PNPM_INCONSISTENT_PATCH_HASH: lockfile disagrees with patchedDependencies' >&2
   exit 1
@@ -65,15 +75,37 @@ assert (runtime / "cli-installed").exists(), "Claude must install independently"
 if os.environ.get("EXPECT_FAILED_INSTALL") == "1":
     assert not (runtime / "dependencies-installed").exists()
     assert "ERR_PNPM_INCONSISTENT_PATCH_HASH" in sys.argv[sys.argv.index("-p") + 1]
+if os.environ.get("CLAUDE_FAIL") == "1":
+    (runtime / "claude-ran").touch()
+    print(json.dumps({"result": "Gateway unavailable", "subtype": "error_api_error"}))
+    sys.exit(int(os.environ.get("CLAUDE_FAILURE_EXIT", "1")))
 (runtime / "claude-ran").touch()
 if os.environ.get("LEAVE_BROKEN") != "1":
     pathlib.Path("pnpm-lock.yaml").write_text(pathlib.Path(os.environ["EXPECTED_LOCK"]).read_text())
 print(json.dumps({"result": "Fixture repair attempted", "subtype": "success"}))
 PYTHON
 ''')
+            self.executable("pi", r'''python3 - "$@" <<'PYTHON'
+import os, pathlib, sys
+runtime = pathlib.Path(os.environ["RUNNER_TEMP"])
+assert (runtime / "pi-installed").exists(), "Pi must install independently"
+assert os.environ.get("AI_GATEWAY_API_KEY") == "fixture-gateway-key"
+assert "--provider" in sys.argv and sys.argv[sys.argv.index("--provider") + 1] == "vercel-ai-gateway"
+assert "--model" in sys.argv and sys.argv[sys.argv.index("--model") + 1] == "meta/muse-spark-1.3-contributor"
+assert "--thinking" in sys.argv and sys.argv[sys.argv.index("--thinking") + 1] == "xhigh"
+(runtime / "pi-ran").touch()
+if sys.argv[sys.argv.index("--tools") + 1] == "read,grep,find,ls":
+    print('{"verdict":"changes","findings":["The mount was dropped."],"summary":"One issue."}')
+    sys.exit(0)
+pathlib.Path("pnpm-lock.yaml").write_text(pathlib.Path(os.environ["EXPECTED_LOCK"]).read_text())
+print("Fixture repair attempted")
+PYTHON
+''')
         prompt = self.root / ".github/claude/fix-upstream-sync.md"
         prompt.parent.mkdir(parents=True)
         shutil.copyfile(ROOT / ".github/claude/fix-upstream-sync.md", prompt)
+        shutil.copyfile(ROOT / ".github/claude/review-upstream-sync.md",
+                        self.root / ".github/claude/review-upstream-sync.md")
         (self.root / ".gitignore").write_text("node_modules/\n.session-node-version\n")
         (self.root / "AGENTS.md").write_text(
             "Repair only pnpm-lock.yaml. Preserve the local dependency and its patch. "
@@ -149,9 +181,9 @@ PYTHON
         result = self.command("bash", str(ROOT / "scripts/claude-sync.sh"), "fix", "2", check=False)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         if LIVE:
-            reply = json.loads((self.runtime / "claude-fix.json").read_text())
+            reply = json.loads((self.runtime / "fix-result").read_text())
             report = "Claude recovery smoke: " + json.dumps({
-                "model": self.env["CLAUDE_MODEL"], "result": reply.get("subtype"),
+                "agent": "claude", "model": self.env["CLAUDE_MODEL"], "result": reply.get("subtype"),
                 "cost_usd": reply.get("total_cost_usd"), "budget_usd": 2,
             })
             print(report, flush=True)
@@ -160,7 +192,11 @@ PYTHON
                 with open(summary, "a") as output:
                     output.write(report + "\n")
         else:
-            self.assertTrue((self.runtime / "claude-ran").exists())
+            order = self.env["UPSTREAM_RESOLVER_ORDER"].split(",")
+            expected = order[0]
+            if expected == "claude" and self.env.get("CLAUDE_FAIL") == "1":
+                expected = order[1]
+            self.assertTrue((self.runtime / f"{expected}-ran").exists())
         return self.run_step(step_with_id("verify-dependencies"))
 
     def break_lockfile(self):
@@ -198,6 +234,36 @@ PYTHON
     def test_already_installable_candidate_still_reaches_claude(self):
         result = self.install_then_fix()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    @unittest.skipIf(LIVE, "The live smoke exercises one bounded Claude repair only")
+    def test_pi_falls_back_when_claude_api_call_fails(self):
+        self.break_lockfile()
+        self.env["CLAUDE_FAIL"] = "1"
+        self.env["CLAUDE_FAILURE_EXIT"] = "0"
+        result = self.install_then_fix()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((self.runtime / "claude-ran").exists())
+        self.assertTrue((self.runtime / "pi-ran").exists())
+        self.assertIn("agent=pi", Path(self.env["GITHUB_OUTPUT"]).read_text())
+
+    @unittest.skipIf(LIVE, "The live smoke exercises one bounded Claude repair only")
+    def test_pi_can_be_selected_as_first_resolver(self):
+        self.env["UPSTREAM_RESOLVER_ORDER"] = "pi,claude"
+        result = self.install_then_fix()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((self.runtime / "pi-ran").exists())
+        self.assertFalse((self.runtime / "claude-ran").exists())
+
+    @unittest.skipIf(LIVE, "The live smoke exercises one bounded Claude repair only")
+    def test_pi_review_returns_structured_findings(self):
+        self.env["UPSTREAM_RESOLVER_ORDER"] = "pi,claude"
+        (self.runtime / "pi-installed").touch()
+        (self.runtime / "fix-base").write_text("HEAD\n")
+        result = self.command("bash", str(ROOT / "scripts/claude-sync.sh"), "review", "4", check=False)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("agent=pi", Path(self.env["GITHUB_OUTPUT"]).read_text())
+        self.assertIn("verdict=changes", Path(self.env["GITHUB_OUTPUT"]).read_text())
+        self.assertEqual((self.runtime / "findings.md").read_text(), "- The mount was dropped.\n")
 
     @unittest.skipIf(LIVE, "Covered locally without a model call")
     def test_toolchain_uses_clean_main_when_candidate_manifest_is_conflicted(self):

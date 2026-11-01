@@ -30,47 +30,66 @@ they are not tied to upstream stable releases.
 4. If the checks pass, the merge commit is pushed to `main`. Upstream workflows that became active are
    disabled; only fork-owned workflows stay enabled.
 
-## Conflicts and failed checks: Claude
+## Conflicts and failed checks: Claude Code and Pi
 
 When a sync started from `main` still has conflicts after mergiraf, the merge step commits the
 conflicted merge, markers included. When it merged cleanly but a check failed, its merge is kept
 as it is. Either way the run uploads it as `upstream-handoff`, and
-`.github/workflows/claude-sync.yml` resolves it with Claude Code (pinned version) and the Claude
-Platform key `ANTHROPIC_API_KEY`, in a workspace with a monthly spend limit:
+`.github/workflows/claude-sync.yml` resolves it with Claude Code and Pi. The preferred agent and
+fallback order defaults to `claude,pi`; set the repository Actions variable
+`UPSTREAM_RESOLVER_ORDER` to `pi,claude` to prefer Pi. Set it in **Settings → Secrets and
+variables → Actions → Variables**; leave it unset to keep Claude first. Invalid values fail before
+either model runs.
 
-1. **Fix**: Claude Opus at high effort (`--effort high`) gets
+Claude uses its pinned CLI, the Claude Platform key `ANTHROPIC_API_KEY`, and the workspace's
+monthly spend limit. Pi uses its pinned CLI, Vercel AI Gateway, and the `VERCEL_AI_GATEWAY_API_KEY`
+repository secret. A failed API call or invalid review result advances to the next agent in the
+configured order. A completed fix that later fails review or checks follows the normal review and
+follow-up stages; it does not trigger fallback by itself.
+
+1. **Fix**: the first available resolver gets
    [`.github/claude/fix-upstream-sync.md`](../../.github/claude/fix-upstream-sync.md) plus the
    conflicted files or an excerpt of the failed checks' error lines
-   (`scripts/fork-sync-excerpt.py`). Vite+ is bootstrapped from clean fork-main manifests and
-   Claude is installed outside the candidate, so conflicted package files cannot prevent it
-   starting. An initial dependency install may fail; its error goes into Claude's context.
-   Claude resolves manifests and the lockfile, installs dependencies, then typechecks and tests
-   what it touches. It may edit files and run `git` read commands, `vp` and the budget script;
-   it has no network tools and no push credentials.
-2. **Review**: a second, read-only Claude run reviews only that fix
+   (`scripts/fork-sync-excerpt.py`). Vite+ is bootstrapped from clean fork-main manifests. Both
+   agents are installed outside the candidate, so conflicted package files cannot prevent them
+   starting. An initial dependency install may fail; its error goes into the resolver's context.
+   The selected resolver addresses manifest and lockfile conflicts, installs dependencies, then
+   typechecks and tests what it touches. Pi uses `meta/muse-spark-1.3-contributor` through AI
+   Gateway at `xhigh` thinking. Meta does not support `max` for the Contributor model. If the
+   first agent exits after making partial changes, the next agent is told to inspect and continue
+   from the current worktree.
+2. **Review**: a second, read-only run by the first available resolver reviews only that fix
    ([`.github/claude/review-upstream-sync.md`](../../.github/claude/review-upstream-sync.md)) and
    returns a structured verdict.
-3. **Follow-up fix**, once: for the review's findings, or, if the review approved, for a failed
-   check of the resolution.
+3. **Follow-up fix**, once: the first available resolver addresses the review's findings or, if
+   the review approved, a failed check of the resolution.
 4. A mandatory `vp install --frozen-lockfile` must pass after the fix/review cycle. Initial
    installation failure never bypasses this gate. A requested product decision still stops the run.
 5. The workflow rebuilds one merge commit with the original parents (fork `main`, upstream), pushes
    it as `sync/claude-<UTC time>` from a job that runs no repository code, and dispatches this
    workflow with `promote_only`. The usual checks decide promotion; the branch is deleted after
-   it. If they fail after the follow-up is used, or Claude writes `.claude-needs-decision.md`, the
-   run fails (GitHub emails it) and the branch stays for Egor. Decision requests also appear in
+   it. If they fail after the follow-up is used, or the resolver writes
+   `.claude-needs-decision.md`, the run fails (GitHub emails it) and the branch stays for Egor.
+   Decision requests also appear in
    the job log and the downloadable `claude-decision` artifact, so `gh run view --log-failed` or
    `gh run download -n claude-decision` can retrieve them without a browser login. While a
    `sync/claude-*` branch exists, no new resolution starts; delete it to re-enable automatic resolution.
 
-Each Claude run has a spend cap (`--max-budget-usd`: fix 10, review 4, follow-up 8 US dollars), so
-one sync costs at most about 22 dollars of Platform credits and usually far less. The job that runs
-Claude also installs and runs repository code with the API key in its environment; the workspace
-spend limit bounds what a compromised dependency could do with it.
+Each Claude CLI run has a spend cap (`--max-budget-usd`: fix 10, review 4, follow-up 8 US dollars).
+Configure a separate, budgeted Vercel AI Gateway API key for Pi; Gateway key budgets are soft caps,
+and the request that crosses a limit may still finish. The Contributor model grants Meta permission
+to use submitted prompts, code, files, context, and responses to train future models; use the
+standard Muse Spark model instead if that data use is not acceptable. See [Meta's Contributor mode
+terms](https://dev.meta.ai/docs/pricing-rate-limits) and [Vercel Gateway budgets](https://vercel.com/docs/ai-gateway/observability-and-spend/budgets).
+
+The resolver job runs repository code with the selected model credential in its environment and
+has no push credential. The separate promotion job runs no repository code. As before, keep the
+Claude workspace spend limit and the Gateway key budget bounded.
 
 Workflow changes run `scripts/claude-sync.test.py` without a model call. The regression executes
-actual workflow shell steps with a failed installer and checks that Claude still runs, an
-unrepaired lockfile still blocks validation, and bootstrap uses clean manifests. To exercise
+actual workflow shell steps with a failed installer and checks that the preferred resolver runs,
+Pi takes over when Claude's API call fails, the resolver order can be reversed, an unrepaired
+lockfile still blocks validation, and bootstrap uses clean manifests. To exercise
 one real repair of a deliberately inconsistent patch hash on a tiny local dependency, dispatch
 `claude-sync.yml` with `live_smoke=true`. This uses the configured Claude model, caps the call
 at 2 USD, verifies a real frozen install and the retained patch, and never promotes a branch.
@@ -83,7 +102,7 @@ The push uses the `UPSTREAM_SYNC_TOKEN` repository secret, a fine-grained token 
 repository with **Actions**, **Contents** and **Workflows** read/write. `GITHUB_TOKEN` cannot push
 commits that change files under `.github/workflows/`. Claude sync also dispatches its check with
 this token: checks it dispatched with `GITHUB_TOKEN` completed without firing `workflow_run`, so a
-failed `sync/claude-*` check never reached Claude sync.
+failed `sync/claude-*` check never reached the resolver workflow.
 
 ## Resolving a blocked sync
 
