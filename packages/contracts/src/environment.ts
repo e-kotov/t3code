@@ -28,6 +28,7 @@ export type ExecutionEnvironmentPlatformArch = typeof ExecutionEnvironmentPlatfo
 
 export const ENVIRONMENT_MACHINE_KINDS = [
   "server",
+  "phone",
   "cloud",
   "linux",
   "desktop",

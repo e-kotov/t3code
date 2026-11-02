@@ -3,6 +3,7 @@ import { SymbolView, type AppSymbolName } from "./ui/AppSymbol";
 
 export const ENVIRONMENT_MACHINE_SYMBOLS = {
   server: "server.rack",
+  phone: "iphone",
   cloud: "cloud",
   linux: "terminal",
   desktop: "desktopcomputer",
@@ -13,6 +14,7 @@ export const ENVIRONMENT_MACHINE_SYMBOLS = {
 
 const ENVIRONMENT_MACHINE_KIND_LABELS: Record<EnvironmentMachineKind, string> = {
   server: "Server",
+  phone: "Phone",
   cloud: "Cloud VM",
   linux: "Linux/WSL",
   desktop: "Desktop",
