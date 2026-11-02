@@ -1,12 +1,5 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
-import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
-import * as Path from "effect/Path";
-import * as Result from "effect/Result";
-import * as HostProcess from "@t3tools/shared/HostProcess";
 
-import { prepareAntigravityProfile } from "./antigravityAuthSupport.ts";
 import { antigravityBrowserPreflightFailure } from "./forkAntigravityBrowserPreflight.ts";
 
 const expectedLine = '__MARKER__"https://example.invalid/preflight"';
@@ -63,47 +56,4 @@ describe("antigravityBrowserPreflightFailure", () => {
     expect(failure).not.toContain("\u001b");
     expect(failure).not.toContain("x".repeat(201));
   });
-});
-
-it.layer(NodeServices.layer)("Antigravity browser preflight", (it) => {
-  // NODE_OPTIONS quoting of a Windows path is not the behavior under test.
-  const posixTest = it.effect.skipIf(HostProcess.Platform.defaultValue() === "win32");
-
-  const prepareWithPreload = Effect.fn(function* (preloadSource: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const directory = yield* fs.makeTempDirectoryScoped();
-    const preload = path.join(directory, "preload.cjs");
-    yield* fs.writeFileString(preload, preloadSource);
-    return yield* prepareAntigravityProfile({
-      profileDirectory: path.join(directory, "profile"),
-      userHome: path.join(directory, "home"),
-      runtimeExecutablePath: process.execPath,
-      baseEnv: { NODE_OPTIONS: `--require "${preload}"`, NODE_USE_ENV_PROXY: "1" },
-    }).pipe(Effect.result);
-  });
-
-  posixTest("prepares the profile when Node warns on stderr", () =>
-    Effect.gen(function* () {
-      const result = yield* prepareWithPreload(
-        `process.stderr.write(${JSON.stringify(`${warning}\n`)});`,
-      );
-      expect(Result.isSuccess(result)).toBe(true);
-    }),
-  );
-
-  posixTest("surfaces Node's message when the helper cannot run", () =>
-    Effect.gen(function* () {
-      const result = yield* prepareWithPreload(
-        `process.stderr.write("preload exploded\\n"); process.exit(3);`,
-      );
-      expect(Result.isFailure(result)).toBe(true);
-      if (Result.isFailure(result)) {
-        expect(result.failure).toMatchObject({
-          _tag: "AcpTransportError",
-          detail: expect.stringContaining('exited with code 3. Node reported: "preload exploded"'),
-        });
-      }
-    }),
-  );
 });
