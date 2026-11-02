@@ -17,6 +17,7 @@ import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 import * as AcpErrors from "effect-acp/errors";
 
 import { collectUint8StreamText } from "@t3tools/provider-core/server/collectStreamText";
+import { antigravityBrowserPreflightFailure } from "./forkAntigravityBrowserPreflight.ts";
 import type * as AcpSessionRuntime from "@t3tools/provider-acp/server/AcpSessionRuntime";
 import {
   antigravityUserSkillDirectories,
@@ -384,15 +385,13 @@ export const prepareAntigravityProfile = Effect.fn("prepareAntigravityProfile")(
       ],
       { concurrency: "unbounded" },
     );
-    if (
-      Number(exitCode) !== 0 ||
-      stdout.bytes !== 0 ||
-      stdout.truncated ||
-      stderr.truncated ||
-      stderr.text !== `${ANTIGRAVITY_AUTH_BROWSER_MARKER}"${browserPreflightUrl}"\n`
-    ) {
-      return yield* authSupportError("Antigravity browser suppression could not be verified.");
-    }
+    const failure = antigravityBrowserPreflightFailure({
+      exitCode: Number(exitCode),
+      stdout,
+      stderr,
+      expectedLine: `${ANTIGRAVITY_AUTH_BROWSER_MARKER}"${browserPreflightUrl}"`,
+    });
+    if (failure !== undefined) return yield* authSupportError(failure);
   }).pipe(
     Effect.scoped,
     Effect.timeoutOrElse({
