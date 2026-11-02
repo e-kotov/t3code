@@ -102,7 +102,7 @@ export function CompactUsageControl({
         align="end"
         padding="compact"
         className={cn(
-          "max-w-[calc(100vw-2rem)]",
+          "overflow-x-hidden max-w-[calc(100vw-2rem)]",
           providers.length === 3 ? "w-128" : providers.length === 2 ? "w-92" : "w-64",
         )}
         initialFocus={false}
@@ -124,7 +124,7 @@ export function CompactUsageControl({
         {notices.length > 0 ? (
           <div className="mt-1 text-3xs text-warning-foreground">
             <p>Partial report. Some account limits are unavailable.</p>
-            <ul className="max-h-16 overflow-y-auto">
+            <ul className="max-h-16 overflow-x-hidden overflow-y-auto wrap-anywhere">
               {[...new Set(notices)].map((notice) => (
                 <li key={notice}>{notice}</li>
               ))}
@@ -139,7 +139,7 @@ export function CompactUsageControl({
         ) : null}
         <div
           className={cn(
-            "mt-2 grid max-h-[min(28rem,calc(var(--available-height)-4rem))] grid-cols-1 gap-x-4 gap-y-3 overflow-y-auto",
+            "mt-2 grid max-h-[min(28rem,calc(var(--available-height)-4rem))] grid-cols-1 gap-x-4 gap-y-3 overflow-x-hidden overflow-y-auto",
             GRID_COLUMNS[providers.length],
           )}
         >
