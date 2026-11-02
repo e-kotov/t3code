@@ -197,7 +197,7 @@
     "packages/contracts/src/previewAutomation.ts": 8,
     "packages/contracts/src/rpc.ts": 2,
     "packages/contracts/src/server.ts": 3,
-    "packages/contracts/src/settings.ts": 61,
+    "packages/contracts/src/settings.ts": 58,
     "packages/shared/package.json": 20,
     "packages/shared/src/editor.ts": 2,
     "packages/shared/src/htmlRender.ts": 1,

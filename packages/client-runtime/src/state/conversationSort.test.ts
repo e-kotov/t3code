@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { sortSidebarConversations } from "./conversationSort.ts";
-import { sortSidebarConversations as sortFromThreadSortSubpath } from "./threadSortEntry.ts";
+import {
+  selectSidebarConversationSortOrder,
+  sortSidebarConversations,
+} from "./conversationSort.ts";
+import {
+  selectSidebarConversationSortOrder as selectFromThreadSortSubpath,
+  sortSidebarConversations as sortFromThreadSortSubpath,
+} from "./threadSortEntry.ts";
 
 const NOW = Date.parse("2026-06-02T12:00:00.000Z");
 
@@ -39,6 +45,22 @@ const ids = (threads: ReadonlyArray<{ readonly id: string }>) => threads.map(({ 
 describe("sortSidebarConversations", () => {
   it("stays reachable through the thread-sort subpath", () => {
     expect(sortFromThreadSortSubpath).toBe(sortSidebarConversations);
+    expect(selectFromThreadSortSubpath).toBe(selectSidebarConversationSortOrder);
+  });
+
+  it("toggles the selected sort on a repeat choice and resets when choosing another sort", () => {
+    expect(selectSidebarConversationSortOrder("updated_at", "updated_at")).toBe(
+      "updated_at_reversed",
+    );
+    expect(selectSidebarConversationSortOrder("updated_at_reversed", "updated_at")).toBe(
+      "updated_at",
+    );
+    expect(selectSidebarConversationSortOrder("updated_at_reversed", "created_at")).toBe(
+      "created_at",
+    );
+    expect(selectSidebarConversationSortOrder("cache_expiry", "cache_expiry")).toBe(
+      "cache_expiry_reversed",
+    );
   });
 
   it("orders recent activity by the latest user message, then updatedAt, then id", () => {
@@ -61,6 +83,33 @@ describe("sortSidebarConversations", () => {
       "y@env-a",
       "x@env-a",
       "x@env-b",
+    ]);
+  });
+
+  it("reverses the selected sort while keeping deterministic ties", () => {
+    const threads = [
+      thread("b", {
+        createdAt: "2026-06-02T10:00:00.000Z",
+        latestUserMessageAt: "2026-06-02T10:00:00.000Z",
+      }),
+      thread("a", {
+        createdAt: "2026-06-02T10:00:00.000Z",
+        latestUserMessageAt: "2026-06-02T10:00:00.000Z",
+      }),
+      thread("old", {
+        createdAt: "2026-06-01T10:00:00.000Z",
+        latestUserMessageAt: "2026-06-01T10:00:00.000Z",
+      }),
+    ];
+    expect(ids(sortSidebarConversations(threads, "updated_at_reversed", NOW))).toEqual([
+      "old",
+      "a",
+      "b",
+    ]);
+    expect(ids(sortSidebarConversations(threads, "created_at_reversed", NOW))).toEqual([
+      "old",
+      "a",
+      "b",
     ]);
   });
 
@@ -95,6 +144,19 @@ describe("sortSidebarConversations", () => {
     expect(ids(sortSidebarConversations(threads, "cache_expiry", later)).slice(0, 2)).toEqual([
       "late-expiry",
       "cold-recent",
+    ]);
+  });
+
+  it("reverses cache expiry and activity order together", () => {
+    const threads = [
+      thread("cold-recent", { latestUserMessageAt: "2026-06-02T11:59:00.000Z" }),
+      thread("late-expiry", { cacheHud: cacheHud("2026-06-02T11:58:00.000Z", 10 * 60_000) }),
+      thread("soon-expiry", { cacheHud: cacheHud("2026-06-02T11:58:00.000Z", 5 * 60_000) }),
+    ];
+    expect(ids(sortSidebarConversations(threads, "cache_expiry_reversed", NOW))).toEqual([
+      "cold-recent",
+      "late-expiry",
+      "soon-expiry",
     ]);
   });
 

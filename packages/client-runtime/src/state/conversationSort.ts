@@ -5,9 +5,36 @@ import type {
 import type { EnvironmentThreadShell } from "./models.ts";
 import { getThreadSortTimestamp, toSortableTimestamp, type ThreadSortInput } from "./threadSort.ts";
 
-/** Sorts the visible Working/Active shelves. Cache expiry is a live estimate:
-    known, still-hot deadlines lead earliest-first; cold or unknown rows follow
-    by recent user activity. */
+export type SidebarConversationSortCriterion = "updated_at" | "created_at" | "cache_expiry";
+
+const REVERSED_SORT_ORDER: Readonly<
+  Record<SidebarConversationSortCriterion, SidebarConversationSortOrder>
+> = {
+  updated_at: "updated_at_reversed",
+  created_at: "created_at_reversed",
+  cache_expiry: "cache_expiry_reversed",
+};
+
+export function getSidebarConversationSortCriterion(
+  order: SidebarConversationSortOrder,
+): SidebarConversationSortCriterion {
+  return order.replace("_reversed", "") as SidebarConversationSortCriterion;
+}
+
+export function isSidebarConversationSortReversed(order: SidebarConversationSortOrder): boolean {
+  return order.endsWith("_reversed");
+}
+
+export function selectSidebarConversationSortOrder(
+  current: SidebarConversationSortOrder,
+  criterion: SidebarConversationSortCriterion,
+): SidebarConversationSortOrder {
+  if (getSidebarConversationSortCriterion(current) !== criterion) return criterion;
+  return isSidebarConversationSortReversed(current) ? criterion : REVERSED_SORT_ORDER[criterion];
+}
+
+/** Sorts the visible Working/Active shelves. Reversed variants invert the whole order.
+    Cache expiry uses live deadlines, then falls back to recent user activity. */
 export function sortSidebarConversations<
   T extends ThreadSortInput & {
     readonly id: string;
@@ -22,6 +49,8 @@ export function sortSidebarConversations<
   nowMs: number,
   grouping: SidebarConversationGrouping = "none",
 ): T[] {
+  const direction = isSidebarConversationSortReversed(order) ? -1 : 1;
+  const criterion = getSidebarConversationSortCriterion(order);
   const identity = (left: T, right: T) =>
     left.id.localeCompare(right.id) ||
     (left.environmentId ?? "").localeCompare(right.environmentId ?? "");
@@ -32,13 +61,12 @@ export function sortSidebarConversations<
       const groupOrder = (left.environmentId ?? "").localeCompare(right.environmentId ?? "");
       if (groupOrder !== 0) return groupOrder;
     }
-    if (order === "created_at") {
-      return (
-        (toSortableTimestamp(right.createdAt) ?? 0) - (toSortableTimestamp(left.createdAt) ?? 0) ||
-        identity(left, right)
-      );
+    if (criterion === "created_at") {
+      const createdAtOrder =
+        (toSortableTimestamp(right.createdAt) ?? 0) - (toSortableTimestamp(left.createdAt) ?? 0);
+      return direction * createdAtOrder || identity(left, right);
     }
-    if (order === "cache_expiry") {
+    if (criterion === "cache_expiry") {
       const deadline = (thread: T) => {
         const hud = thread.cacheHud;
         if (
@@ -53,11 +81,11 @@ export function sortSidebarConversations<
       const leftExpiry = deadline(left);
       const rightExpiry = deadline(right);
       if (leftExpiry !== null || rightExpiry !== null) {
-        if (leftExpiry === null) return 1;
-        if (rightExpiry === null) return -1;
-        if (leftExpiry !== rightExpiry) return leftExpiry - rightExpiry;
+        if (leftExpiry === null) return direction;
+        if (rightExpiry === null) return -direction;
+        if (leftExpiry !== rightExpiry) return direction * (leftExpiry - rightExpiry);
       }
     }
-    return activity(right) - activity(left) || identity(left, right);
+    return direction * (activity(right) - activity(left)) || identity(left, right);
   });
 }
