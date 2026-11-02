@@ -53,7 +53,7 @@ const fixture = Effect.fn("ForkAntigravityQuotaTest.fixture")(function* (
       if (options.failure === "schema") return json({ groups: "invalid" });
       const correctIdentity =
         request.headers["user-agent"] ===
-        `antigravity/acp/${options.unknownVersion ? "1.4.1" : version} (aidev_client; os_type=darwin; arch=arm64)`;
+        `antigravity/acp/${options.unknownVersion ? "1.4.5" : version} (aidev_client; os_type=darwin; arch=arm64)`;
       const buckets = options.empty
         ? []
         : [
@@ -150,8 +150,8 @@ it.effect("uses the pinned ACP identity when a custom executable has no recorded
     expect(limits.unavailable).toBeUndefined();
     expect(limits.windows).toHaveLength(4);
     expect(userAgents).toEqual([
-      "antigravity/acp/1.4.1 (aidev_client; os_type=darwin; arch=arm64)",
-      "antigravity/acp/1.4.1 (aidev_client; os_type=darwin; arch=arm64)",
+      "antigravity/acp/1.4.5 (aidev_client; os_type=darwin; arch=arm64)",
+      "antigravity/acp/1.4.5 (aidev_client; os_type=darwin; arch=arm64)",
     ]);
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
