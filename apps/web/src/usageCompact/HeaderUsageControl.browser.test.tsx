@@ -36,6 +36,8 @@ vi.mock(import("./useHeaderUsage"), () => ({
     notices: [],
     authNotices: [],
     disconnected: [],
+    activeModel: null,
+    activeDriver: null,
     onOpenFullView: () => {},
   }),
 }));

@@ -85,8 +85,39 @@ describe("compact usage", () => {
       now,
     );
     expect(result[1]?.remaining).toBe(0);
-    expect(result[2]?.remaining).toBe(10);
+    // Antigravity defaults to primary Gemini models
+    expect(result[2]?.remaining).toBe(60);
     expect(result[2]?.windows.map((window) => window.label)).toEqual(["Gemini Pro", "Claude"]);
+
+    // When switched to a Claude proxy model, Antigravity reflects the proxy quota
+    const proxyResult = compactUsage(
+      [
+        {
+          ...claude,
+          limits: {
+            ...claude.limits,
+            windows: [
+              ...claude.limits.windows,
+              { id: "seven_day", kind: "weekly", label: "Week", usedPercent: 100 },
+            ],
+          },
+        },
+        {
+          ...agy,
+          limits: {
+            ...agy.limits,
+            windows: [
+              { id: "gemini-pro", kind: "other", label: "Gemini Pro", usedPercent: 40 },
+              { id: "claude", kind: "other", label: "Claude", usedPercent: 90 },
+            ],
+          },
+        },
+      ],
+      now,
+      undefined,
+      "claude-opus-5-5",
+    );
+    expect(proxyResult[2]?.remaining).toBe(10);
   });
 
   it("keeps optional Claude spending out of subscription headlines", () => {
@@ -190,16 +221,169 @@ describe("compact usage", () => {
       { label: "w", remaining: 55 },
     ]);
 
-    // Antigravity takes the tightest weekly limit (3p-weekly remaining 60% vs gemini-weekly 80%)
+    // Antigravity defaults to primary Gemini limits (gemini-weekly remaining 80%)
     const agyResult = compactUsage([agy], now, new Set(["antigravity"]))[0]!;
     expect(agyResult.bars).toEqual([
       { label: "5h", remaining: 90 },
-      { label: "w", remaining: 60 },
+      { label: "w", remaining: 80 },
     ]);
+
+    // Switching active model to a 3p proxy model switches Antigravity to 3p-weekly (remaining 60%)
+    const agy3pResult = compactUsage([agy], now, new Set(["antigravity"]), "claude-3-5-sonnet")[0]!;
+    expect(agy3pResult.bars).toEqual([{ label: "w", remaining: 60 }]);
 
     // Provider without readable windows has empty bars
     const emptyResult = compactUsage([], now, new Set(["codex"]))[0]!;
     expect(emptyResult.bars).toEqual([]);
+  });
+
+  it("switches quota targets dynamically based on the active thread model (Fable, Argon, 3p)", () => {
+    const claude = {
+      ...account("claudeAgent", 0),
+      limits: {
+        checkedAt: "2026-10-26T11:59:00Z",
+        windows: [
+          { id: "five_hour", kind: "session" as const, label: "Session", usedPercent: 20 },
+          { id: "seven_day", kind: "weekly" as const, label: "Weekly", usedPercent: 40 },
+          {
+            id: "seven_day_fable",
+            kind: "weekly" as const,
+            label: "Weekly · Fable",
+            usedPercent: 75,
+          },
+        ],
+      },
+    };
+    const agy = {
+      ...account("antigravity", 0),
+      limits: {
+        checkedAt: "2026-10-26T11:59:00Z",
+        windows: [
+          { id: "gemini-5h", kind: "session" as const, label: "Gemini · 5-hour", usedPercent: 10 },
+          {
+            id: "gemini-weekly",
+            kind: "weekly" as const,
+            label: "Gemini · Weekly",
+            usedPercent: 30,
+          },
+          {
+            id: "gemini-argon-wtu-weekly",
+            kind: "weekly" as const,
+            label: "Gemini 4 Argon · Weekly",
+            usedPercent: 95,
+          },
+          {
+            id: "3p-weekly",
+            kind: "weekly" as const,
+            label: "Claude & GPT (shared) · Weekly",
+            usedPercent: 60,
+          },
+        ],
+      },
+    };
+
+    // Default (no activeModel or standard model)
+    const defaultRes = compactUsage([claude, agy], now);
+    expect(defaultRes[1]?.bars).toEqual([
+      { label: "5h", remaining: 80 },
+      { label: "w", remaining: 60 },
+    ]);
+    expect(defaultRes[2]?.bars).toEqual([
+      { label: "5h", remaining: 90 },
+      { label: "w", remaining: 70 },
+    ]);
+
+    // Active model: Fable
+    const fableRes = compactUsage([claude, agy], now, undefined, "claude-fable-5-1");
+    expect(fableRes[1]?.bars).toEqual([
+      { label: "5h", remaining: 80 },
+      { label: "w", remaining: 25 },
+    ]);
+
+    // Active model: Argon
+    const argonRes = compactUsage([claude, agy], now, undefined, "gemini-4-argon");
+    expect(argonRes[2]?.bars).toEqual([{ label: "w", remaining: 5 }]);
+    expect(argonRes[2]?.remaining).toBe(5);
+  });
+
+  it("does not leak activeModel to other providers when activeDriver is specified (Greptile P2 #2)", () => {
+    const agy = {
+      ...account("antigravity", 0),
+      limits: {
+        checkedAt: "2026-10-26T11:59:00Z",
+        windows: [
+          { id: "gemini-5h", kind: "session" as const, label: "Gemini · 5-hour", usedPercent: 10 },
+          {
+            id: "gemini-weekly",
+            kind: "weekly" as const,
+            label: "Gemini · Weekly",
+            usedPercent: 20,
+          },
+          {
+            id: "3p-weekly",
+            kind: "weekly" as const,
+            label: "Claude & GPT · Weekly",
+            usedPercent: 80,
+          },
+        ],
+      },
+    };
+    // Codex chat with gpt-6-astra should not switch Antigravity to 3p proxy
+    const res = compactUsage([agy], now, new Set(["antigravity"]), "gpt-6-astra", "codex");
+    expect(res[0]?.bars).toEqual([
+      { label: "5h", remaining: 90 },
+      { label: "w", remaining: 80 },
+    ]);
+    expect(res[0]?.remaining).toBe(80);
+  });
+
+  it("returns null remaining and empty bars when an explicit model family has no quota window (Greptile P2 #3)", () => {
+    const agyWithoutArgon = {
+      ...account("antigravity", 0),
+      limits: {
+        checkedAt: "2026-10-26T11:59:00Z",
+        windows: [
+          { id: "gemini-5h", kind: "session" as const, label: "Gemini · 5-hour", usedPercent: 10 },
+          {
+            id: "gemini-weekly",
+            kind: "weekly" as const,
+            label: "Gemini · Weekly",
+            usedPercent: 20,
+          },
+        ],
+      },
+    };
+    // Selected Argon, but account has no Argon quota reported: must NOT fall back to primary Gemini
+    const res = compactUsage(
+      [agyWithoutArgon],
+      now,
+      new Set(["antigravity"]),
+      "gemini-4-argon",
+      "antigravity",
+    );
+    expect(res[0]?.bars).toEqual([]);
+    expect(res[0]?.remaining).toBeNull();
+  });
+
+  it("reflects exhausted quota from other kinds as the limiting allowance (Greptile P2 #4)", () => {
+    const olderAgy = {
+      ...account("antigravity", 0),
+      limits: {
+        checkedAt: "2026-10-26T11:59:00Z",
+        windows: [
+          { id: "gemini-quota", kind: "other" as const, label: "Gemini Quota", usedPercent: 100 },
+          {
+            id: "gemini-weekly",
+            kind: "weekly" as const,
+            label: "Gemini · Weekly",
+            usedPercent: 20,
+          },
+        ],
+      },
+    };
+    const res = compactUsage([olderAgy], now, new Set(["antigravity"]));
+    // The exhausted generic quota (0% remaining) must be the limiting remaining
+    expect(res[0]?.remaining).toBe(0);
   });
 
   it("groups reported Family · Window labels without renaming other windows", () => {
