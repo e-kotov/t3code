@@ -38,7 +38,7 @@ vi.mock("../../components/ui/Menu", () => ({
     onPressAction,
     children,
   }: {
-    titlel: string;
+    title: string;
     actions: { id?: string; title?: string; state?: string }[];
     onPressAction: (event: { nativeEvent: { event: string } }) => void;
     children: ReactNode;
@@ -64,13 +64,13 @@ function HomeFilters() {
   return (
     <ConversationThreadListFilters
       gutter={0}
-      environments={{}}
-      projects={{}}
+      environments={[]}
+      projects={[]}
       selectedEnvironmentId={null}
       selectedProjectKey={null}
       onEnvironmentChange={() => {}}
       onProjectChange={() => {}}
-      conversationList{conversationListControls(options, (patch) =>
+      conversationList={conversationListControls(options, (patch) =>
         setOptions((current) => ({ ...current, ...patch })),
       )}
     />

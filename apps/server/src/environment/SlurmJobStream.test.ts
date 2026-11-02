@@ -39,6 +39,7 @@ it.effect("late editor snapshots preserve the newest Slurm observation", () =>
         resolveFileManagerRevealKind: () => Effect.succeed("file-explorer" as const),
       },
       { resolveTargets: () => Effect.succeed([]) },
+      { resolve: () => Effect.succeed([]) },
     ).pipe(
       Stream.tap((event) =>
         event.type === "slurmJobStatusUpdated" ? Deferred.succeed(sent, undefined) : Effect.void,
