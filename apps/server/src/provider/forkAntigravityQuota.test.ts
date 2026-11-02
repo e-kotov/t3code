@@ -52,8 +52,7 @@ const fixture = Effect.fn("ForkAntigravityQuotaTest.fixture")(function* (
       userAgents.push(request.headers["user-agent"]);
       if (options.failure === "http") return json({ error: "Unavailable" }, 503);
       if (options.failure === "schema") return json({ groups: "invalid" });
-      const pinnedVersion =
-        resolveAntigravityReleaseAsset("darwin", "arm64")?.version ?? "1.0.0";
+      const pinnedVersion = resolveAntigravityReleaseAsset("darwin", "arm64")?.version ?? "1.0.0";
       const correctIdentity =
         request.headers["user-agent"] ===
         `antigravity/acp/${options.unknownVersion ? pinnedVersion : version} (aidev_client; os_type=darwin; arch=arm64)`;
@@ -150,8 +149,7 @@ it.effect("uses the pinned ACP identity when a custom executable has no recorded
   Effect.gen(function* () {
     const { probe, userAgents } = yield* fixture({ unknownVersion: true });
     const limits = yield* probe;
-    const pinnedVersion =
-      resolveAntigravityReleaseAsset("darwin", "arm64")?.version ?? "1.0.0";
+    const pinnedVersion = resolveAntigravityReleaseAsset("darwin", "arm64")?.version ?? "1.0.0";
     expect(limits.unavailable).toBeUndefined();
     expect(limits.windows).toHaveLength(4);
     expect(userAgents).toEqual([
