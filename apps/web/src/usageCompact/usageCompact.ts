@@ -18,10 +18,76 @@ export interface CompactUsageBar {
   readonly remaining: number;
 }
 
+function isArgonModel(model?: string | null | undefined): boolean {
+  return typeof model === "string" && model.toLowerCase().includes("argon");
+}
+
+function isProxyModel(model?: string | null | undefined): boolean {
+  if (typeof model !== "string") return false;
+  const lower = model.toLowerCase();
+  return lower.startsWith("claude-") || lower.startsWith("gpt-");
+}
+
+function isFableModel(model?: string | null | undefined): boolean {
+  return typeof model === "string" && model.toLowerCase().includes("fable");
+}
+
+function isArgonWindow(w: LimitPoolWindow): boolean {
+  return w.id.toLowerCase().includes("argon") || w.label.toLowerCase().includes("argon");
+}
+
+function isProxyWindow(w: LimitPoolWindow): boolean {
+  const text = `${w.id} ${w.label}`.toLowerCase();
+  return (
+    text.includes("proxy") ||
+    text.includes("3p") ||
+    text.includes("third-party") ||
+    text.includes("claude") ||
+    text.includes("gpt")
+  );
+}
+
+function isFableWindow(w: LimitPoolWindow): boolean {
+  return w.id.toLowerCase().includes("fable") || w.label.toLowerCase().includes("fable");
+}
+
+function isPrimaryGeminiWindow(w: LimitPoolWindow): boolean {
+  return !isArgonWindow(w) && !isProxyWindow(w);
+}
+
+function selectRelevantWindows(
+  windows: readonly LimitPoolWindow[],
+  driver: string,
+  activeModel?: string | null | undefined,
+): readonly LimitPoolWindow[] {
+  if (driver === "antigravity") {
+    if (isArgonModel(activeModel)) {
+      return windows.filter(isArgonWindow);
+    }
+    if (isProxyModel(activeModel)) {
+      return windows.filter(isProxyWindow);
+    }
+    const primary = windows.filter(isPrimaryGeminiWindow);
+    return primary.length > 0 ? primary : windows;
+  }
+  if (driver === "claudeAgent") {
+    if (isFableModel(activeModel)) {
+      const fable = windows.filter(isFableWindow);
+      if (fable.length === 0) return [];
+      return windows.filter((w) => w.kind === "session" || isFableWindow(w));
+    }
+    const standard = windows.filter((w) => !isFableWindow(w));
+    return standard.length > 0 ? standard : windows;
+  }
+  return windows;
+}
+
 export function compactUsage(
   accounts: readonly LimitAccount[],
   now: number,
   drivers?: ReadonlySet<string>,
+  activeModel?: string | null | undefined,
+  activeDriver?: string | null | undefined,
 ) {
   const pools = collectLimitPools(
     accounts.filter((account) => !account.limits.unavailable),
@@ -34,10 +100,34 @@ export function compactUsage(
     const quotaWindows = windows.filter(
       (window) => provider.driver !== "claudeAgent" || window.id !== "monthly_spend",
     );
-    const headlineWindows = quotaWindows.length > 0 ? quotaWindows : windows;
+
+    const isDriverMatch =
+      !activeDriver ||
+      activeDriver === provider.driver ||
+      (provider.driver === "claudeAgent" &&
+        (activeDriver === "anthropic" || activeDriver === "claude"));
+    const effectiveModel = isDriverMatch ? activeModel : null;
+
+    const isExplicit =
+      isArgonModel(effectiveModel) || isProxyModel(effectiveModel) || isFableModel(effectiveModel);
+
+    const relevantQuotaWindows = selectRelevantWindows(
+      quotaWindows,
+      provider.driver,
+      effectiveModel,
+    );
+
+    const headlineWindows =
+      isExplicit && relevantQuotaWindows.length === 0
+        ? []
+        : relevantQuotaWindows.length > 0
+          ? relevantQuotaWindows
+          : quotaWindows.length > 0
+            ? quotaWindows
+            : windows;
 
     const tightest = (kind: LimitPoolWindow["kind"]) => {
-      const matching = quotaWindows.filter((window) => window.kind === kind);
+      const matching = headlineWindows.filter((window) => window.kind === kind);
       return matching.length === 0
         ? null
         : Math.max(0, Math.min(100, Math.min(...matching.map((w) => w.remainingPercent))));
@@ -51,14 +141,16 @@ export function compactUsage(
       ...(monthly === null ? [] : [{ label: "mo", remaining: monthly }]),
     ];
 
+    const remaining =
+      headlineWindows.length === 0
+        ? null
+        : Math.max(0, Math.min(100, Math.min(...headlineWindows.map((w) => w.remainingPercent))));
+
     return {
       ...provider,
       accounts: pool?.accounts ?? [],
       windows,
-      remaining:
-        headlineWindows.length === 0
-          ? null
-          : Math.max(0, Math.min(100, Math.min(...headlineWindows.map((w) => w.remainingPercent)))),
+      remaining,
       bars,
     };
   });
