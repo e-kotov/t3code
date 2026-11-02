@@ -56,6 +56,7 @@ import {
   ProviderDriverKind,
 } from "./providerInstance.ts";
 import { PullRequestMergeMethod } from "./pullRequest.ts";
+import { SIDEBAR_CONVERSATION_SORT_ORDER_VALUES } from "./sidebarConversationSettings.ts";
 
 export const TimestampFormat = Schema.Literals(["locale", "12-hour", "24-hour"]);
 export type TimestampFormat = typeof TimestampFormat.Type;
@@ -73,11 +74,7 @@ export const SidebarThreadSortOrder = Schema.Literals(["updated_at", "created_at
 export type SidebarThreadSortOrder = typeof SidebarThreadSortOrder.Type;
 const DEFAULT_SIDEBAR_THREAD_SORT_ORDER: SidebarThreadSortOrder = "updated_at";
 
-export const SidebarConversationSortOrder = Schema.Literals([
-  "updated_at",
-  "created_at",
-  "cache_expiry",
-]);
+export const SidebarConversationSortOrder = Schema.Literals(SIDEBAR_CONVERSATION_SORT_ORDER_VALUES);
 export type SidebarConversationSortOrder = typeof SidebarConversationSortOrder.Type;
 const DEFAULT_SIDEBAR_CONVERSATION_SORT_ORDER: SidebarConversationSortOrder = "updated_at";
 export const SidebarConversationGrouping = Schema.Literals(["none", "machine"]);

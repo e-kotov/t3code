@@ -63,9 +63,9 @@ describe("conversation list options", () => {
       { id: "grouping:machine", title: "By machine", state: "on" },
     ]);
     expect(conversationListMenuActions(options)[0]?.subactions).toEqual([
-      { id: "sort:updated_at", title: "Recent activity", state: "on" },
-      { id: "sort:created_at", title: "Created", state: "off" },
-      { id: "sort:cache_expiry", title: "Cache expiry", state: "off" },
+      { id: "sort:updated_at", title: "Recent activity · Newest first", state: "on" },
+      { id: "sort:created_at", title: "Created · Newest first", state: "off" },
+      { id: "sort:cache_expiry", title: "Cache expiry · Soonest first", state: "off" },
     ]);
   });
 
