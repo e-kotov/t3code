@@ -168,7 +168,7 @@ it("shows every reported window of all harnesses in one shared popup", async () 
   await expect
     .element(
       page.getByRole("button", {
-        name: "Usage remaining: Codex 35%, Claude 33%, Antigravity 1%. Phone and GWDG are not connected. Open full usage",
+        name: "Usage remaining: Codex 35%, Claude 33%, Antigravity 88%. Phone and GWDG are not connected. Open full usage",
       }),
     )
     .toBeVisible();
@@ -272,4 +272,51 @@ it("marks readable quotas partial when a connected source fails", async () => {
   await expect
     .element(page.getByText("CLI Proxy: Source probe failed", { exact: true }))
     .toBeVisible();
+});
+
+it("renders inline percentages beside bars and switches quota based on activeModel and activeDriver", async () => {
+  const accounts = [
+    account("antigravity", [
+      { id: "gemini-5h", kind: "session", label: "Gemini · 5-hour", usedPercent: 10 },
+      { id: "gemini-weekly", kind: "weekly", label: "Gemini · Weekly", usedPercent: 20 },
+      {
+        id: "gemini-argon-wtu-weekly",
+        kind: "weekly",
+        label: "Gemini 4 Argon · Weekly",
+        usedPercent: 99,
+      },
+    ]),
+  ];
+
+  // Default: primary Gemini (5h at 90%, w at 80%)
+  const { unmount } = await render(
+    <CompactUsageControl
+      accounts={accounts}
+      drivers={new Set(["antigravity"])}
+      onOpenFullView={() => {}}
+    />,
+  );
+  await expect
+    .element(
+      page.getByRole("button", { name: "Usage remaining: Antigravity 80%. Open full usage" }),
+    )
+    .toBeVisible();
+  await expect.element(page.getByText("90%", { exact: true })).toBeVisible();
+  await expect.element(page.getByText("80%", { exact: true })).toBeVisible();
+  unmount();
+
+  // Active Argon model with Antigravity driver: switches to Argon (1%)
+  await using _screen2 = await render(
+    <CompactUsageControl
+      accounts={accounts}
+      drivers={new Set(["antigravity"])}
+      activeModel="gemini-4-argon"
+      activeDriver="antigravity"
+      onOpenFullView={() => {}}
+    />,
+  );
+  await expect
+    .element(page.getByRole("button", { name: "Usage remaining: Antigravity 1%. Open full usage" }))
+    .toBeVisible();
+  await expect.element(page.getByText("1%", { exact: true })).toBeVisible();
 });

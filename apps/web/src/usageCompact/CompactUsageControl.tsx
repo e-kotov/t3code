@@ -16,6 +16,9 @@ export function CompactUsageControl({
   notices = [],
   authNotices = [],
   disconnected = [],
+  activeModel,
+  activeDriver,
+  now: explicitNow,
   onOpenFullView,
 }: {
   accounts: Parameters<typeof compactUsage>[0];
@@ -23,12 +26,15 @@ export function CompactUsageControl({
   notices?: readonly string[];
   authNotices?: readonly string[];
   disconnected?: readonly string[];
+  activeModel?: string | null | undefined;
+  activeDriver?: string | null | undefined;
+  now?: number;
   onOpenFullView: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const nowMinute = useNowMinute();
-  const now = Date.parse(`${nowMinute}:00Z`);
-  const providers = compactUsage(accounts, now, drivers);
+  const now = explicitNow ?? Date.parse(`${nowMinute}:00Z`);
+  const providers = compactUsage(accounts, now, drivers, activeModel, activeDriver);
   if (providers.length === 0) return null;
   const summary = providers
     .map((provider) => `${provider.label} ${percent(provider.remaining)}`)
@@ -82,15 +88,28 @@ export function CompactUsageControl({
                         style={{ width: `${bar.remaining}%` }}
                       />
                     </span>
+                    <span
+                      className={cn(
+                        "font-mono text-4xs whitespace-nowrap tabular-nums font-medium",
+                        quotaColor(bar.remaining),
+                      )}
+                    >
+                      {percent(bar.remaining)}
+                    </span>
                   </span>
                 ))}
               </span>
             ) : null}
-            <span
-              className={`font-mono text-2xs whitespace-nowrap tabular-nums ${quotaColor(provider.remaining)}`}
-            >
-              {percent(provider.remaining)}
-            </span>
+            {provider.bars.length === 0 ||
+            (provider.remaining !== null &&
+              provider.bars.length > 0 &&
+              provider.remaining < Math.min(...provider.bars.map((b) => b.remaining))) ? (
+              <span
+                className={`font-mono text-2xs whitespace-nowrap tabular-nums ${quotaColor(provider.remaining)}`}
+              >
+                {percent(provider.remaining)}
+              </span>
+            ) : null}
           </span>
         ))}
         {notices.length > 0 || disconnected.length > 0 || authNotices.length > 0 ? (
