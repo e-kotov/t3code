@@ -732,10 +732,14 @@ describe("thread outbox recovery rollback", () => {
       [threadKey]: { text: "my unsent draft", attachments: [] },
     });
     await harness.manager.enqueue(message);
-    await expect(restoreRejectedQueuedMessage(message, "provider disabled")).resolves.toBe("restored");
+    await expect(restoreRejectedQueuedMessage(message, "provider disabled")).resolves.toBe(
+      "restored",
+    );
     expect(composerDrafts.getComposerDraftSnapshot(threadKey).text).toBe("my unsent draft");
     expect(remainingMessages()).toEqual([]);
-    expect(appAtomRegistry.get(threadComposerErrorsAtom)[threadKey]?.message).toContain("provider disabled");
+    expect(appAtomRegistry.get(threadComposerErrorsAtom)[threadKey]?.message).toContain(
+      "provider disabled",
+    );
   });
 
   it("does not record a creation outcome for a rejected follow-up message", async () => {
