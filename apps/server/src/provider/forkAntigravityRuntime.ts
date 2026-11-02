@@ -10,8 +10,8 @@ export function checkAntigravityRuntime(version: string | null, instanceId: Prov
           operation: "resolve",
           detail:
             `Antigravity ACP ${version} writes a run-workflow SKILL.md into session workspaces. ` +
-            "In Settings > Providers on this environment, choose Update Antigravity to install 1.4.1. " +
-            "If Binary path is set, replace that runtime with 1.4.1 yourself or clear the override first.",
+            "In Settings > Providers on this environment, choose Update Antigravity to install 1.4.5. " +
+            "If Binary path is set, replace that runtime with 1.4.5 yourself or clear the override first.",
         }),
       )
     : Effect.void;
