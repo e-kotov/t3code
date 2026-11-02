@@ -403,6 +403,23 @@ export async function restoreRejectedQueuedMessage(
     }
     const revision = threadOutboxRevision(queuedMessage.messageId);
 
+    if (
+      queuedMessage.compactAction &&
+      queuedMessage.text.trim().toLowerCase() === "/compact" &&
+      queuedMessage.attachments.length === 0 &&
+      !queuedMessage.context &&
+      !queuedMessage.creation
+    ) {
+      const removed = await removeThreadOutboxMessage(
+        queuedMessage,
+        revision,
+        () => !appAtomRegistry.get(editingQueuedMessageIdsAtom)[queuedMessage.messageId],
+      );
+      if (!removed) return "deferred";
+      setThreadComposerError(threadKey, `Compaction failed: ${message}`, queuedMessage.messageId);
+      return "restored";
+    }
+
     await waitForComposerDraftsLoaded();
     if (appAtomRegistry.get(editingQueuedMessageIdsAtom)[queuedMessage.messageId]) {
       return "deferred";

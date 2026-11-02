@@ -83,6 +83,7 @@ it("shows context and queues compaction only when allowed", async () => {
     expect(mocks.enqueue).toHaveBeenCalledWith(
       expect.objectContaining({
         text: "/compact",
+        compactAction: true,
         attachments: [],
         dispatchMode: "queue",
         environmentId: "env",

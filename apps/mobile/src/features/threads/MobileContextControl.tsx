@@ -37,6 +37,7 @@ export function MobileContextControl({
         messageId: MessageId.make(metadata.messageId),
         commandId: CommandId.make(metadata.commandId),
         text: "/compact",
+        compactAction: true,
         attachments: [],
         dispatchMode: "queue",
         createdAt: metadata.createdAt,

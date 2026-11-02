@@ -722,6 +722,22 @@ describe("thread outbox recovery rollback", () => {
     ).toEqual({ kind: "failed", message, reason: "rejected by server" });
   });
 
+  it("reports rejected menu compaction without changing the draft", async () => {
+    const message = {
+      ...queuedMessage({ messageId: "menu-compaction", text: "/compact" }),
+      compactAction: true as const,
+    };
+    const threadKey = `${message.environmentId}:${message.threadId}`;
+    appAtomRegistry.set(composerDrafts.composerDraftsAtom, {
+      [threadKey]: { text: "my unsent draft", attachments: [] },
+    });
+    await harness.manager.enqueue(message);
+    await expect(restoreRejectedQueuedMessage(message, "provider disabled")).resolves.toBe("restored");
+    expect(composerDrafts.getComposerDraftSnapshot(threadKey).text).toBe("my unsent draft");
+    expect(remainingMessages()).toEqual([]);
+    expect(appAtomRegistry.get(threadComposerErrorsAtom)[threadKey]?.message).toContain("provider disabled");
+  });
+
   it("does not record a creation outcome for a rejected follow-up message", async () => {
     const message = queuedMessage({ messageId: "message-followup-restore", text: "follow up" });
     await harness.manager.enqueue(message);
