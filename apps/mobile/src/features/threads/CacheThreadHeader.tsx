@@ -13,6 +13,7 @@ import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/model
 import type { ComponentProps } from "react";
 import { CacheHud } from "./CacheHud";
 import { ThreadHeader } from "./ThreadHeader";
+import { MobileContextControl } from "./MobileContextControl";
 
 const emptyDetail = Atom.make<EnvironmentThreadStructure | null>(null);
 
@@ -21,7 +22,10 @@ export function CacheThreadHeader({
   cacheServerConfig,
   ...props
 }: Omit<ComponentProps<typeof ThreadHeader>, "children"> & {
-  readonly cacheThread: Pick<EnvironmentThreadShell, "cacheHud" | "modelSelection">;
+  readonly cacheThread: Pick<
+    EnvironmentThreadShell,
+    "cacheHud" | "modelSelection" | "environmentId" | "id"
+  >;
   readonly cacheServerConfig: ServerConfig | null;
 }) {
   const { selectedThreadDetailRef } = useThreadSelection();
@@ -35,6 +39,7 @@ export function CacheThreadHeader({
     <ThreadHeader {...props}>
       <CacheHud
         hud={hud}
+        contextControl={<MobileContextControl hud={hud} thread={cacheThread} />}
         modelLabel={cacheThread.modelSelection.model}
         effortLabel={formatModelSelectionEffort(
           cacheThread.modelSelection,
