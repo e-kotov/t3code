@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useSyncExternalStore, type ReactNode } from "react";
 import { useIsFocused } from "@react-navigation/native";
 import { AppState, View } from "react-native";
 import type { OrchestrationV2CacheHud, ServerProviderUsageWindow } from "@t3tools/contracts";
@@ -22,6 +22,7 @@ export function CacheHud(props: {
   usageWindows?: readonly ServerProviderUsageWindow[];
   modelLabel?: string;
   effortLabel?: string | null;
+  contextControl?: ReactNode;
 }) {
   const focused = useIsFocused();
   const now = useNowMinuteMs();
@@ -87,6 +88,7 @@ export function CacheHud(props: {
     <View className="gap-0.5 px-4 py-1.5">
       <View className="flex-row items-center gap-2">
         {content}
+        {props.contextControl}
         {modelLabel ? (
           <View className="min-w-0 shrink items-end">
             <Text className="font-mono text-[10px] text-foreground-muted" numberOfLines={1}>
