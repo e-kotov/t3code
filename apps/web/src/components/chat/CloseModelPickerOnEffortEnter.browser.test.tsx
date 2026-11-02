@@ -1,5 +1,6 @@
-import { expect, it } from "vite-plus/test";
-import { userEvent } from "vite-plus/test/browser";
+import { useState } from "react";
+import { expect, it, vi } from "vite-plus/test";
+import { page, userEvent } from "vite-plus/test/browser";
 
 import "~/index.css";
 
@@ -8,17 +9,32 @@ import { CloseModelPickerOnEffortEnter } from "./CloseModelPickerOnEffortEnter";
 
 it("applies an effort level before closing on Enter", async () => {
   const events: string[] = [];
+
+  function Picker() {
+    const [open, setOpen] = useState(true);
+    if (!open) return null;
+
+    return (
+      <CloseModelPickerOnEffortEnter
+        onClose={() => {
+          events.push("closed");
+          setOpen(false);
+        }}
+      >
+        <button type="button" data-effort-level onClick={() => events.push("selected")}>
+          High
+        </button>
+      </CloseModelPickerOnEffortEnter>
+    );
+  }
+
   await using screen = await render(
-    <CloseModelPickerOnEffortEnter onClose={() => events.push("closed")}>
-      <button type="button" data-effort-level onClick={() => events.push("selected")}>
-        High
-      </button>
-    </CloseModelPickerOnEffortEnter>,
+    <Picker />,
   );
 
   (screen.getByRole("button", { name: "High" }).element() as HTMLElement).focus();
   await userEvent.keyboard("{Enter}");
 
-  expect(events).toEqual(["selected", "closed"]);
-  expect(screen.getByRole("button", { name: "High" })).toBeInTheDocument();
+  await vi.waitFor(() => expect(events).toEqual(["selected", "closed"]));
+  await expect.element(page.getByRole("button", { name: "High" })).not.toBeInTheDocument();
 });
