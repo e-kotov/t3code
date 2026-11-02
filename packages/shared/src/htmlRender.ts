@@ -227,6 +227,7 @@ export const HTML_RENDER_THEME_GUIDE = [
   "(most have a matching -foreground; accent, destructive, and warning also have -surface),",
   "--chart-1 to --chart-6, --radius, --font-sans, --font-mono.",
   "The base sheet sets background, text, and font.",
+  "For secondary text use --muted-foreground; --muted is a background color.",
 ].join(" ");
 
 export const HTML_RENDER_LAYOUT_GUIDE = [
