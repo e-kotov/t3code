@@ -28,9 +28,7 @@ it("applies an effort level before closing on Enter", async () => {
     );
   }
 
-  await using screen = await render(
-    <Picker />,
-  );
+  await using screen = await render(<Picker />);
 
   (screen.getByRole("button", { name: "High" }).element() as HTMLElement).focus();
   await userEvent.keyboard("{Enter}");
