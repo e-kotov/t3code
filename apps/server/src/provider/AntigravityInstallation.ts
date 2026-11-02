@@ -375,7 +375,7 @@ export const makeAntigravityInstallation = Effect.fn("AntigravityInstallation.ma
           baseEnv: environment,
           // A shallow scoped profile cleans up unpacked files within Windows' path limit.
           tempDirectory: profileDirectory,
-        });
+        }).pipe(Effect.mapError((cause) => installationError("verify", cause.message, cause)));
         const runtime = yield* makeAntigravityAcpRuntime({
           spawn: buildAntigravityAcpSpawnInput({
             installation: executable,
