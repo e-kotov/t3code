@@ -38,7 +38,7 @@ vi.mock("../../components/ui/Menu", () => ({
     onPressAction,
     children,
   }: {
-    title: string;
+    titlel: string;
     actions: { id?: string; title?: string; state?: string }[];
     onPressAction: (event: { nativeEvent: { event: string } }) => void;
     children: ReactNode;
@@ -64,13 +64,13 @@ function HomeFilters() {
   return (
     <ConversationThreadListFilters
       gutter={0}
-      environments={[]}
-      projects={[]}
+      environments={{}}
+      projects={{}}
       selectedEnvironmentId={null}
       selectedProjectKey={null}
       onEnvironmentChange={() => {}}
       onProjectChange={() => {}}
-      conversationList={conversationListControls(options, (patch) =>
+      conversationList{conversationListControls(options, (patch) =>
         setOptions((current) => ({ ...current, ...patch })),
       )}
     />
@@ -100,7 +100,7 @@ it("lets the iOS filter row change sort and grouping independently and return to
   expect(choice("sort:cache_expiry").getAttribute("aria-checked")).toBe("true");
   expect(choice("grouping:machine").getAttribute("aria-checked")).toBe("true");
   expect(host.querySelector('button[aria-label="Sort conversations"]')?.textContent).toBe(
-    "Cache expiry",
+    "Cache expiry · Soonest first",
   );
   expect(host.querySelector('button[aria-label="Group conversations"]')?.textContent).toBe(
     "By machine",
