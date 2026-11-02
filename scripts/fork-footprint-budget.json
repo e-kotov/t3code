@@ -131,6 +131,7 @@
     "apps/web/src/components/Sidebar.tsx": 66,
     "apps/web/src/components/chat/ChatComposer.tsx": 13,
     "apps/web/src/components/chat/ChatHeader.tsx": 1,
+    "apps/web/src/components/chat/ComposerFooterControls.tsx": 2,
     "apps/web/src/components/chat/OpenInPicker.browser.test.tsx": 14,
     "apps/web/src/components/chat/OpenInPicker.tsx": 69,
     "apps/web/src/components/chat/OpenInPickerShortcut.ts": 54,
