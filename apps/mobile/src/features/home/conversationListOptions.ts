@@ -1,4 +1,10 @@
 import type { MenuAction } from "@react-native-menu/menu";
+import {
+  getSidebarConversationSortCriterion,
+  isSidebarConversationSortReversed,
+  selectSidebarConversationSortOrder,
+  type SidebarConversationSortCriterion,
+} from "@t3tools/client-runtime/state/thread-sort";
 import type { SidebarConversationGrouping, SidebarConversationSortOrder } from "@t3tools/contracts";
 
 /** Fork conversation sort and machine grouping, held with the Home list options. */
@@ -8,7 +14,7 @@ export interface ConversationListOptions {
 }
 
 export interface ConversationListControls extends ConversationListOptions {
-  readonly onConversationSortOrderChange: (value: SidebarConversationSortOrder) => void;
+  readonly onConversationSortOrderChange: (value: SidebarConversationSortCriterion) => void;
   readonly onConversationGroupingChange: (value: SidebarConversationGrouping) => void;
 }
 
@@ -21,7 +27,7 @@ const SORT_CHOICES = [
   ["updated_at", "Recent activity"],
   ["created_at", "Created"],
   ["cache_expiry", "Cache expiry"],
-] as const satisfies ReadonlyArray<readonly [SidebarConversationSortOrder, string]>;
+] as const satisfies ReadonlyArray<readonly [SidebarConversationSortCriterion, string]>;
 
 const GROUPING_CHOICES = [
   ["none", "No grouping"],
@@ -36,7 +42,12 @@ export function conversationListControls(
     conversationSortOrder: options.conversationSortOrder,
     conversationGrouping: options.conversationGrouping,
     onConversationSortOrderChange: (value) => {
-      updateOptions({ conversationSortOrder: value });
+      updateOptions({
+        conversationSortOrder: selectSidebarConversationSortOrder(
+          options.conversationSortOrder,
+          value,
+        ),
+      });
     },
     onConversationGroupingChange: (value) => {
       updateOptions({ conversationGrouping: value });
@@ -63,11 +74,21 @@ export function conversationChoiceActions(
   const choices: ReadonlyArray<readonly [string, string]> =
     kind === "sort" ? SORT_CHOICES : GROUPING_CHOICES;
   const selected = kind === "sort" ? options.conversationSortOrder : options.conversationGrouping;
-  return choices.map(([value, title]) => ({
-    id: `${kind}:${value}`,
-    title,
-    state: selected === value ? ("on" as const) : offState,
-  }));
+  return choices.map(([value, title]) => {
+    const isSelected =
+      kind === "sort"
+        ? getSidebarConversationSortCriterion(options.conversationSortOrder) === value
+        : selected === value;
+    const direction =
+      kind === "sort"
+        ? directionLabel(value as SidebarConversationSortCriterion, options.conversationSortOrder)
+        : undefined;
+    return {
+      id: `${kind}:${value}`,
+      title: direction ? `${title} · ${direction}` : title,
+      state: isSelected ? ("on" as const) : offState,
+    };
+  });
 }
 
 export function conversationListMenuActions(options: ConversationListOptions): MenuAction[] {
@@ -124,8 +145,12 @@ export function buildConversationListFilterSubmenus(props: Partial<ConversationL
       title: "Sort conversations",
       items: SORT_CHOICES.map(([value, title]) => ({
         type: "action" as const,
-        title,
-        state: props.conversationSortOrder === value ? ("on" as const) : ("off" as const),
+        title: `${title} · ${directionLabel(value, props.conversationSortOrder ?? "updated_at")}`,
+        state:
+          getSidebarConversationSortCriterion(props.conversationSortOrder ?? "updated_at") ===
+          value
+            ? ("on" as const)
+            : ("off" as const),
         onPress: () => onSortOrderChange(value),
       })),
     });
@@ -144,4 +169,15 @@ export function buildConversationListFilterSubmenus(props: Partial<ConversationL
     });
   }
   return submenus;
+}
+
+function directionLabel(
+  criterion: SidebarConversationSortCriterion,
+  order: SidebarConversationSortOrder,
+): string {
+  const reversed =
+    getSidebarConversationSortCriterion(order) === criterion &&
+    isSidebarConversationSortReversed(order);
+  if (criterion === "cache_expiry") return reversed ? "Latest first" : "Soonest first";
+  return reversed ? "Oldest first" : "Newest first";
 }

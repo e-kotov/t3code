@@ -74,9 +74,9 @@ export type SidebarThreadSortOrder = typeof SidebarThreadSortOrder.Type;
 const DEFAULT_SIDEBAR_THREAD_SORT_ORDER: SidebarThreadSortOrder = "updated_at";
 
 export const SidebarConversationSortOrder = Schema.Literals([
-  "updated_at",
-  "created_at",
-  "cache_expiry",
+  "updated_at", "updated_at_reversed",
+  "created_at", "created_at_reversed",
+  "cache_expiry", "cache_expiry_reversed",
 ]);
 export type SidebarConversationSortOrder = typeof SidebarConversationSortOrder.Type;
 const DEFAULT_SIDEBAR_CONVERSATION_SORT_ORDER: SidebarConversationSortOrder = "updated_at";

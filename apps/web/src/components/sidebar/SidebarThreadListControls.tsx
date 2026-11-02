@@ -1,12 +1,32 @@
-import { ArrowDownWideNarrowIcon, Layers2Icon } from "lucide-react";
+import { ArrowDownWideNarrowIcon, CheckIcon, Layers2Icon } from "lucide-react";
 
-import type {
-  SidebarConversationGrouping,
-  SidebarConversationSortOrder,
-} from "@t3tools/contracts/settings";
+import {
+  getSidebarConversationSortCriterion,
+  isSidebarConversationSortReversed,
+  selectSidebarConversationSortOrder,
+  type SidebarConversationSortCriterion,
+} from "@t3tools/client-runtime/state/thread-sort";
+
+import type { SidebarConversationGrouping } from "@t3tools/contracts/settings";
 import { updateClientSettings, useClientSettings } from "../../hooks/useSettings";
-import { Menu, MenuGroup, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuTrigger } from "../ui/menu";
+import {
+  Menu,
+  MenuGroup,
+  MenuItem,
+  MenuPopup,
+  MenuRadioGroup,
+  MenuRadioItem,
+  MenuTrigger,
+} from "../ui/menu";
 import { SidebarHeaderIconButton } from "./SidebarThreadHeader";
+
+const SORT_CHOICES = [
+  ["updated_at", "Recent activity", "Newest first", "Oldest first"],
+  ["created_at", "Created", "Newest first", "Oldest first"],
+  ["cache_expiry", "Cache expiry", "Soonest first", "Latest first"],
+] as const satisfies ReadonlyArray<
+  readonly [SidebarConversationSortCriterion, string, string, string]
+>;
 
 export function SidebarThreadListControls() {
   const sortOrder = useClientSettings((s) => s.sidebarConversationSortOrder);
@@ -26,18 +46,32 @@ export function SidebarThreadListControls() {
             <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
               Sort conversations
             </div>
-            <MenuRadioGroup
-              value={sortOrder}
-              onValueChange={(value) =>
-                void updateClientSettings({
-                  sidebarConversationSortOrder: value as SidebarConversationSortOrder,
-                })
-              }
-            >
-              <MenuRadioItem value="updated_at">Recent activity</MenuRadioItem>
-              <MenuRadioItem value="created_at">Created</MenuRadioItem>
-              <MenuRadioItem value="cache_expiry">Cache expiry</MenuRadioItem>
-            </MenuRadioGroup>
+            {SORT_CHOICES.map(([criterion, label, defaultDirection, reverseDirection]) => {
+              const selected = getSidebarConversationSortCriterion(sortOrder) === criterion;
+              const reversed = selected && isSidebarConversationSortReversed(sortOrder);
+              return (
+                <MenuItem
+                  key={criterion}
+                  role="menuitemradio"
+                  aria-checked={selected}
+                  className={selected ? "bg-accent/60" : undefined}
+                  onClick={() =>
+                    void updateClientSettings({
+                      sidebarConversationSortOrder: selectSidebarConversationSortOrder(
+                        sortOrder,
+                        criterion,
+                      ),
+                    })
+                  }
+                >
+                  {selected ? <CheckIcon aria-hidden="true" /> : <span className="size-4" />}
+                  <span className="min-w-0 flex-1">{label}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {reversed ? reverseDirection : defaultDirection}
+                  </span>
+                </MenuItem>
+              );
+            })}
           </MenuGroup>
         </MenuPopup>
       </Menu>
