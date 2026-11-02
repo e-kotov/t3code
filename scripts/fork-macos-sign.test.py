@@ -5,6 +5,9 @@ import os
 from pathlib import Path
 import plistlib
 import sys
+import shutil
+import subprocess
+import uuid
 import unittest
 
 sys.dont_write_bytecode = True
@@ -17,11 +20,11 @@ FIXTURE = r'''
 #include <stdio.h>
 #include <string.h>
 int main(int argc, char **argv) {
-    if (argc != 3) return 2;
+    if (argc != 4) return 2;
     SecKeychainSetUserInteractionAllowed(false);
     SecKeychainRef keychain = NULL;
     OSStatus status = SecKeychainOpen(argv[1], &keychain);
-    const char *service = "t3code-ek-signing-regression";
+    const char *service = argv[3];
     const char *account = "fixture";
     const char *secret = "fixture-secret";
     if (!status && strcmp(argv[2], "write") == 0) {
@@ -30,12 +33,15 @@ int main(int argc, char **argv) {
     } else if (!status) {
         UInt32 length = 0;
         void *value = NULL;
+        SecKeychainItemRef item = NULL;
         status = SecKeychainFindGenericPassword(keychain, strlen(service), service,
-            strlen(account), account, &length, &value, NULL);
+            strlen(account), account, &length, &value, &item);
         if (!status) {
             if (length != strlen(secret) || memcmp(value, secret, length) != 0) status = -1;
             SecKeychainItemFreeContent(NULL, value);
+            if (!status && strcmp(argv[2], "delete") == 0) status = SecKeychainItemDelete(item);
         }
+        if (item) CFRelease(item);
     }
     if (keychain) CFRelease(keychain);
     printf("build %d: %d\n", REVISION, (int)status);
@@ -79,27 +85,45 @@ def fixture(root, version, revision):
     return app, executable
 
 
-@unittest.skipUnless(sys.platform == "darwin" and os.environ.get("FORK_MACOS_CERTIFICATE_BASE64"),
+@unittest.skipUnless(sys.platform == "darwin" and os.environ.get("FORK_MACOS_APPLE_CERTIFICATE_BASE64"),
                      "Native signing/Keychain regression runs in the Mac signing job.")
 class MacSigningTest(unittest.TestCase):
     def test_updated_build_retains_keychain_access_and_both_installers_keep_signatures(self):
         original_search_list = signing.run("security", "list-keychains", "-d", "user")
-        certificate = base64.b64decode(os.environ["FORK_MACOS_CERTIFICATE_BASE64"], validate=True)
+        certificate = base64.b64decode(os.environ["FORK_MACOS_APPLE_CERTIFICATE_BASE64"], validate=True)
         with signing.scratch("t3code-ek-signing-test-") as directory:
             root = Path(directory)
-            with signing.signing_keychain(certificate, os.environ["FORK_MACOS_CERTIFICATE_PASSWORD"]) as keychain:
+            with signing.signing_keychain(certificate, os.environ["FORK_MACOS_APPLE_CERTIFICATE_PASSWORD"]) as keychain:
                 first, first_exe = fixture(root / "first", "0.1.0-ek.1", 1)
                 updated, updated_exe = fixture(root / "updated", "0.1.0-ek.2", 2)
                 signing.sign_app(first, keychain, "0.1.0-ek.1")
                 signing.sign_app(updated, keychain, "0.1.0-ek.2")
                 self.assertNotEqual(first_exe.read_bytes(), updated_exe.read_bytes())
-                self.assertIn(b"build 1: 0", signing.run(first_exe, keychain, "write"))
-                self.assertIn(b"build 2: 0", signing.run(updated_exe, keychain, "read"))
+                service = f"t3code-signing-test-{uuid.uuid4()}"
+                self.assertIn(b"build 1: 0", signing.run(first_exe, keychain, "write", service))
+                self.assertIn(b"build 2: 0", signing.run(updated_exe, keychain, "read", service))
+                # The login keychain has partition ACLs; a newly created legacy keychain does not.
+                login_keychain = Path.home() / "Library/Keychains/login.keychain-db"
+                active = root / "active" / signing.APP_NAME
+                active.parent.mkdir()
+                shutil.copytree(first, active)
+                live_exe = active / "Contents/MacOS/Fixture"
+                try:
+                    self.assertIn(b"build 1: 0", signing.run(live_exe, login_keychain, "write", service))
+                    shutil.rmtree(active)
+                    shutil.copytree(updated, active)
+                    self.assertIn(b"build 2: 0", signing.run(live_exe, login_keychain, "read", service))
+                finally:
+                    shutil.rmtree(active)
+                    shutil.copytree(first, active)
+                    result = subprocess.run([str(live_exe), str(login_keychain), "delete", service],
+                                            capture_output=True)
+                    self.assertEqual(result.returncode, 0, result.stdout.decode(errors="replace"))
                 before_install = updated_exe.read_bytes()
                 signing.run("ruby", "-e", CASK_FIXTURE,
                             Path(__file__).with_name("fork-homebrew-cask.rb"), updated.parent)
                 self.assertEqual(updated_exe.read_bytes(), before_install)
-                self.assertIn(b"build 2: 0", signing.run(updated_exe, keychain, "read"))
+                self.assertIn(b"build 2: 0", signing.run(updated_exe, keychain, "read", service))
 
                 payload = root / "payload"
                 payload.mkdir()

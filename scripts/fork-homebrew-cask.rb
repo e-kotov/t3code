@@ -26,7 +26,7 @@ cask "t3-code-ek" do
           "--deep",
           "--strict",
           "-R",
-          '=identifier "pro.ekotov.t3code" and certificate root = H"6eea3d76ac584a617c48490ba138e98da1f4aa78"',
+          '=identifier "pro.ekotov.t3code" and anchor apple generic and certificate leaf[subject.OU] = "2MC7X68AVT" and certificate leaf[field.1.2.840.113635.100.6.1.12] exists',
           "{{appdir}}/T3 Code EK.app",
         ]
     run "/usr/bin/xattr",

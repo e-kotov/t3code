@@ -10,7 +10,7 @@ the `t3-code` Homebrew cask install upstream T3 Code.
 
 | Platform                             | Fork distribution                                           | Signing and verification limits                                                                                                                                   |
 | ------------------------------------ | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| macOS Apple Silicon                  | DMG / ZIP, or Homebrew below                                | Signed with the fork's persistent private certificate; not Apple signed or notarized. CI verifies signatures and cross-build Keychain access, not the native GUI. |
+| macOS Apple Silicon                  | DMG / ZIP, or Homebrew below                                | Signed with an Apple Development certificate for a personal team; not notarized. CI verifies signatures and cross-build Keychain access, not the native GUI. |
 | Android ARM64                        | Signed `-arm64.apk`                                         | Signed with the fork's persistent key, not upstream's key. CI covers build and native regression checks; device behavior needs manual verification.               |
 | Linux x64                            | `t3-VERSION-linux-x64.tar.gz` server and bundled web client | SHA-256 checksums; no signed desktop package. Linux desktop GUI is neither built nor tested.                                                                      |
 | Native Termux ARM64                  | `t3-VERSION-termux-arm64.tar.gz`                            | SHA-256 checksums; runtime setup compiles native dependencies on the phone. Packaging CI is not a device test.                                                    |
@@ -27,15 +27,15 @@ brew install --cask e-kotov/tap/t3-code-ek
 ```
 
 Update with `brew update` followed by `brew upgrade --cask t3-code-ek`.
-The cask verifies the DMG checksum and the app's pinned signing certificate, preserves
+The cask verifies the DMG checksum and the app's Apple signing team and identifier, preserves
 the release signature, and clears quarantine. This does not provide Apple notarization.
 A manually downloaded app may need approval in macOS Privacy & Security.
 
-When moving from an older ad-hoc-signed build, macOS may ask for the login Keychain
-password once more. Choose **Always Allow** for `t3code Safe Storage`; subsequent
-releases signed with the same certificate should retain that approval. Private signing
-provides a stable app identity, not an Apple-verified publisher. Do not delete the Safe
-Storage item: existing encrypted connection data depends on it.
+When moving from an older build, macOS may ask for the login Keychain password once more.
+Choose **Always Allow** for `t3code Safe Storage`; later builds signed with the same Apple
+team and app identity are intended to retain that approval. This was tested with disposable
+Keychain items, not every existing login Keychain. Do not delete the Safe Storage item:
+existing encrypted connection data depends on it.
 
 ## Android
 

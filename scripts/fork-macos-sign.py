@@ -13,8 +13,11 @@ import tempfile
 
 APP_ID = "pro.ekotov.t3code"
 APP_NAME = "T3 Code EK.app"
-CERTIFICATE_SHA1 = "6eea3d76ac584a617c48490ba138e98da1f4aa78"
-REQUIREMENT = f'identifier "{APP_ID}" and certificate root = H"{CERTIFICATE_SHA1}"'
+CERTIFICATE_SHA1 = "b895b5d41ee6565fc7134fd1fbac080dac14b8ce"
+TEAM_ID = "2MC7X68AVT"
+REQUIREMENT = (f'identifier "{APP_ID}" and anchor apple generic and '
+               f'certificate leaf[subject.OU] = "{TEAM_ID}" and '
+               'certificate leaf[field.1.2.840.113635.100.6.1.12] exists')
 MACHO_MAGICS = {
     bytes.fromhex(value)
     for value in ("feedface", "cefaedfe", "feedfacf", "cffaedfe", "cafebabe", "bebafeca", "cafebabf", "bfbafeca")
@@ -130,8 +133,8 @@ def main():
     parser.add_argument("output", type=Path)
     parser.add_argument("--version", required=True)
     args = parser.parse_args()
-    certificate = base64.b64decode(os.environ["FORK_MACOS_CERTIFICATE_BASE64"], validate=True)
-    password = os.environ["FORK_MACOS_CERTIFICATE_PASSWORD"]
+    certificate = base64.b64decode(os.environ["FORK_MACOS_APPLE_CERTIFICATE_BASE64"], validate=True)
+    password = os.environ["FORK_MACOS_APPLE_CERTIFICATE_PASSWORD"]
     if not certificate or not password:
         raise ValueError("Both persistent Mac signing secrets are required.")
     with signing_keychain(certificate, password) as keychain:
