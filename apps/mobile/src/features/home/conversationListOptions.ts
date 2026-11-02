@@ -145,7 +145,10 @@ export function buildConversationListFilterSubmenus(props: Partial<ConversationL
       title: "Sort conversations",
       items: SORT_CHOICES.map(([value, title]) => ({
         type: "action" as const,
-        title: `${title} · ${directionLabel(value, props.conversationSortOrder ?? "updated_at")}`,
+        title: `${title} · ${directionLabel(
+          value,
+          props.conversationSortOrder ?? "updated_at",
+        )}`,
         state:
           getSidebarConversationSortCriterion(props.conversationSortOrder ?? "updated_at") ===
           value

@@ -54,7 +54,6 @@ export function SidebarThreadListControls() {
                   key={criterion}
                   role="menuitemradio"
                   aria-checked={selected}
-                  className={selected ? "bg-accent/60" : undefined}
                   onClick={() =>
                     void updateClientSettings({
                       sidebarConversationSortOrder: selectSidebarConversationSortOrder(

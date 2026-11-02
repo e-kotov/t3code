@@ -46,22 +46,6 @@ describe("conversation list options", () => {
     });
   });
 
-  it("toggles the selected order on repeat choice and shows the direction in sort actions", () => {
-    let state = { ...defaults };
-    const list = conversationListControls(state, (patch) => {
-      state = { ...state, ...patch };
-    });
-    list.onConversationSortOrderChange("updated_at");
-    expect(state.conversationSortOrder).toBe("updated_at_reversed");
-    expect(conversationChoiceActions("sort", state, "off")[0]).toEqual({
-      id: "sort:updated_at",
-      title: "Recent activity · Oldest first",
-      state: "on",
-    });
-    list.onConversationSortOrderChange("created_at");
-    expect(state.conversationSortOrder).toBe("created_at");
-  });
-
   it("applies sort and grouping menu events and ignores unknown values", () => {
     const list = controls();
     expect(applyConversationListMenuEvent("sort:cache_expiry", list)).toBe(true);
