@@ -1,3 +1,4 @@
+import { recoverRejectedCompactAction } from "./forkCompactActionRecovery";
 import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
 import * as Dialog from "../components/ui/Dialog";
 import {
@@ -403,22 +404,8 @@ export async function restoreRejectedQueuedMessage(
     }
     const revision = threadOutboxRevision(queuedMessage.messageId);
 
-    if (
-      queuedMessage.compactAction &&
-      queuedMessage.text.trim().toLowerCase() === "/compact" &&
-      queuedMessage.attachments.length === 0 &&
-      !queuedMessage.context &&
-      !queuedMessage.creation
-    ) {
-      const removed = await removeThreadOutboxMessage(
-        queuedMessage,
-        revision,
-        () => !appAtomRegistry.get(editingQueuedMessageIdsAtom)[queuedMessage.messageId],
-      );
-      if (!removed) return "deferred";
-      setThreadComposerError(threadKey, `Compaction failed: ${message}`, queuedMessage.messageId);
-      return "restored";
-    }
+    const compactRecovery = await recoverRejectedCompactAction(queuedMessage, revision, message);
+    if (compactRecovery) return compactRecovery;
 
     await waitForComposerDraftsLoaded();
     if (appAtomRegistry.get(editingQueuedMessageIdsAtom)[queuedMessage.messageId]) {
