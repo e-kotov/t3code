@@ -12,6 +12,7 @@ import type { ContextWindowSnapshot } from "../../lib/contextWindow";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { Menu, MenuPopup, MenuTrigger } from "../ui/menu";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { closeModelPickerOnEffortEnter } from "./CloseModelPickerOnEffortEnter";
 import { ComposerControl, ComposerControlIcon } from "./ComposerControl";
 import { focusRequestedPermission, useComposerMenuProps } from "./composerEventScope";
 import { ComposerPrimaryActions } from "./ComposerPrimaryActions";
@@ -400,6 +401,7 @@ export function ComposerModelPicker({
         onMultipleModelSelectionsChange(null);
         onProviderModelSelect(instanceId, model);
       }}
+      {...closeModelPickerOnEffortEnter(pickerProps)}
     />
   );
 }
