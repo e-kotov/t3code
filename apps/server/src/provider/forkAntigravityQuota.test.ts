@@ -5,6 +5,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { HttpClient, HttpClientResponse } from "effect/http";
+import { resolveAntigravityReleaseAsset } from "./antigravityRelease.ts";
 import { makeAntigravityUsageProbe } from "./antigravityUsageLimits.ts";
 
 const fixture = Effect.fn("ForkAntigravityQuotaTest.fixture")(function* (
@@ -51,9 +52,10 @@ const fixture = Effect.fn("ForkAntigravityQuotaTest.fixture")(function* (
       userAgents.push(request.headers["user-agent"]);
       if (options.failure === "http") return json({ error: "Unavailable" }, 503);
       if (options.failure === "schema") return json({ groups: "invalid" });
+      const pinnedVersion = resolveAntigravityReleaseAsset("darwin", "arm64")?.version ?? "1.0.0";
       const correctIdentity =
         request.headers["user-agent"] ===
-        `antigravity/acp/${options.unknownVersion ? "1.4.5" : version} (aidev_client; os_type=darwin; arch=arm64)`;
+        `antigravity/acp/${options.unknownVersion ? pinnedVersion : version} (aidev_client; os_type=darwin; arch=arm64)`;
       const buckets = options.empty
         ? []
         : [
@@ -147,11 +149,12 @@ it.effect("uses the pinned ACP identity when a custom executable has no recorded
   Effect.gen(function* () {
     const { probe, userAgents } = yield* fixture({ unknownVersion: true });
     const limits = yield* probe;
+    const pinnedVersion = resolveAntigravityReleaseAsset("darwin", "arm64")?.version ?? "1.0.0";
     expect(limits.unavailable).toBeUndefined();
     expect(limits.windows).toHaveLength(4);
     expect(userAgents).toEqual([
-      "antigravity/acp/1.4.5 (aidev_client; os_type=darwin; arch=arm64)",
-      "antigravity/acp/1.4.5 (aidev_client; os_type=darwin; arch=arm64)",
+      `antigravity/acp/${pinnedVersion} (aidev_client; os_type=darwin; arch=arm64)`,
+      `antigravity/acp/${pinnedVersion} (aidev_client; os_type=darwin; arch=arm64)`,
     ]);
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
