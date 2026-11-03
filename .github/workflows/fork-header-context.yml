@@ -1,0 +1,80 @@
+name: Fork header context
+
+on:
+  push:
+    branches: ["feat/header-context-inline"]
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/fork-header-context.yml"
+      - "apps/web/src/components/chat/HeaderContextLabels*"
+      - "apps/web/src/components/chat/ChatHeader.tsx"
+      - "apps/web/src/components/MachineGroupConnectionStatus.tsx"
+      - "apps/web/src/components/ConnectionStatusDot.tsx"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: header-context-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch --no-tags origin main "$CHECKOUT_REF"
+          git checkout --detach "$CHECKOUT_REF"
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          node-version-file: package.json
+          run-install: false
+          cache: true
+      - run: vp install
+      - name: Install Chromium
+        run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
+      - name: Capture previous header
+        run: |
+          source=apps/web/src/components/chat/ChatHeader.tsx
+          cp "$source" "$RUNNER_TEMP/ChatHeader.tsx"
+          trap 'cp "$RUNNER_TEMP/ChatHeader.tsx" "$source"' EXIT
+          git show "origin/main:$source" > "$source"
+          VITE_HEADER_CONTEXT_CAPTURE=before vp test run apps/web/src/components/chat/HeaderContextLabels.app.browser.test.tsx
+      - name: Check changed code
+        run: vp run check:changed origin/main
+      - name: Capture the header states and verify shared connection behavior
+        env:
+          VITE_HEADER_CONTEXT_CAPTURE: after
+        run: |
+          vp test run apps/web/src/components/chat/HeaderContextLabels.browser.test.tsx apps/web/src/components/chat/HeaderContextLabels.app.browser.test.tsx
+          vp test run packages/client-runtime/src/connection/machineGroupStatus.test.ts
+      - name: Check fork footprint
+        run: |
+          git fetch --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
+          python3 scripts/fork-footprint-budget.py
+      - name: Capture formatting fixes
+        if: failure()
+        run: |
+          git diff --name-only --diff-filter=AM -z origin/main HEAD | xargs -0 -r vp fmt --no-error-on-unmatched-pattern
+          git diff --binary > "$RUNNER_TEMP/header-context-format.patch"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: header-context-evidence
+          path: |
+            .t3/header-evidence/
+            ${{ runner.temp }}/header-context-format.patch
+          retention-days: 7
