@@ -2,7 +2,7 @@ import { RegistryContext, useAtomValue } from "@effect/atom-react";
 import { EnvironmentId, ThreadId, resolveEnvironmentMachineKind } from "@t3tools/contracts";
 import { Atom, AtomRegistry } from "effect/reactivity";
 import { expect, it, vi } from "vite-plus/test";
-import { page, userEvent } from "vite-plus/test/browser";
+import { userEvent } from "vite-plus/test/browser";
 
 import { render } from "../../test/render";
 import { ThreadContextChip } from "./ThreadContextChip";
@@ -75,10 +75,11 @@ it("keeps a thread's destination and copied reference while its machine is renam
     const longLink = screen.getByRole("link", { name: `${longName} · Routing` });
     await expect.element(longLink).toBeVisible();
     await userEvent.hover(longLink);
-    const tooltip = page.getByRole("tooltip");
-    await expect.element(tooltip).toHaveTextContent(longName);
+    const tooltip = () => document.querySelector<HTMLDivElement>('[data-slot="tooltip-popup"]');
+    await vi.waitFor(() => expect(tooltip()?.textContent).toContain(longName));
+    await expect.element(tooltip()).toBeVisible();
     await userEvent.unhover(longLink);
-    await expect.element(tooltip).not.toBeInTheDocument();
+    await vi.waitFor(() => expect(tooltip()).toBeNull());
 
     registry.set(environment, null);
     const unknown = screen.getByRole("link", { name: "Unknown machine · Routing" });
@@ -89,8 +90,9 @@ it("keeps a thread's destination and copied reference while its machine is renam
       .element(unknown.element().querySelector<SVGSVGElement>(".lucide-circle-dashed"))
       .toBeVisible();
     await userEvent.hover(unknown);
-    await expect.element(tooltip).toHaveTextContent("Unknown machine");
-    await expect.element(tooltip).toHaveTextContent(environmentId);
+    await vi.waitFor(() => expect(tooltip()?.textContent).toContain(environmentId));
+    await expect.element(tooltip()).toBeVisible();
+    await expect.element(tooltip()).toHaveTextContent("Unknown machine");
   } finally {
     registry.dispose();
   }
