@@ -17,7 +17,7 @@ const isSqliteBusy = (cause: unknown) =>
     ("code" in cause && cause.code === "SQLITE_BUSY"));
 
 const lockError = (
-  _tag: "TimedOut" | "Unknown",
+  _tag: "Busy" | "TimedOut" | "Unknown",
   lockPath: string,
   description: string,
   cause?: unknown,
@@ -52,11 +52,14 @@ const holdPublishLock = Effect.fn("publishWithoutReplace.holdPublishLock")(funct
       db.exec("PRAGMA busy_timeout = 0; BEGIN EXCLUSIVE;");
       return true;
     },
-    catch: (cause) => cause,
+    catch: (cause) =>
+      isSqliteBusy(cause)
+        ? lockError("Busy", lockPath, "Another process holds the publish lock.", cause)
+        : lockError("Unknown", lockPath, "Could not take the publish lock.", cause),
   }).pipe(
-    Effect.catchIf(isSqliteBusy, () => Effect.succeed(false)),
-    Effect.mapError((cause) =>
-      lockError("Unknown", lockPath, "Could not take the publish lock.", cause),
+    Effect.catchIf(
+      (error) => error.reason._tag === "Busy",
+      () => Effect.succeed(false),
     ),
   );
   for (let attempt = 1; !(yield* tryLock); attempt++) {
