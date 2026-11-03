@@ -7,10 +7,12 @@ import type { ThreadInspectorMode } from "./thread-inspector-content-stack";
 import { useThreadHeaderOptions } from "./useThreadHeaderOptions";
 import { useWorkspaceBackNavigation } from "../workspace/useAndroidWorkspaceNavigation";
 import { PullRequestGlyph } from "../pull-requests/pullRequestGlyphs";
+import { threadHeaderActionsAppBarProps } from "./thread-header-actions-menu";
 
 export function ThreadHeader(
   props: Parameters<typeof useThreadHeaderOptions>[0] & {
     readonly children?: ReactNode;
+    readonly headerMenu?: Parameters<typeof threadHeaderActionsAppBarProps>[1];
     readonly hasThreadCwd: boolean;
     readonly hasWorkspaceRoot: boolean;
     readonly fileInspectorSupported: boolean;
@@ -83,8 +85,7 @@ export function ThreadHeader(
         title={props.title}
         subtitle={props.subtitle}
         sidebar={native.sidebar}
-        options={native.options}
-        optionsVersion={native.optionsVersion}
+        {...threadHeaderActionsAppBarProps(native, props.headerMenu)}
         trailing={
           props.fileInspectorSupported && props.hasThreadCwd ? (
             <ScreenHeaderButton

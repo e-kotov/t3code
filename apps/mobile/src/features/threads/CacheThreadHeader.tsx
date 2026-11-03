@@ -14,6 +14,7 @@ import type { ComponentProps } from "react";
 import { CacheHud } from "./CacheHud";
 import { ThreadHeader } from "./ThreadHeader";
 import { MobileContextControl } from "./MobileContextControl";
+import { useThreadHeaderActionsMenu } from "./useThreadHeaderActionsMenu";
 
 const emptyDetail = Atom.make<EnvironmentThreadStructure | null>(null);
 
@@ -22,10 +23,7 @@ export function CacheThreadHeader({
   cacheServerConfig,
   ...props
 }: Omit<ComponentProps<typeof ThreadHeader>, "children"> & {
-  readonly cacheThread: Pick<
-    EnvironmentThreadShell,
-    "cacheHud" | "modelSelection" | "environmentId" | "id"
-  >;
+  readonly cacheThread: EnvironmentThreadShell;
   readonly cacheServerConfig: ServerConfig | null;
 }) {
   const { selectedThreadDetailRef } = useThreadSelection();
@@ -35,8 +33,10 @@ export function CacheThreadHeader({
       : environmentThreadDetails.quietThreadAtom(selectedThreadDetailRef),
   );
   const hud = focusedCacheHud(cacheThread.cacheHud, detail?.projection);
+  const threadActions = useThreadHeaderActionsMenu(cacheThread);
   return (
-    <ThreadHeader {...props}>
+    <ThreadHeader {...props} headerMenu={threadActions.menu}>
+      {threadActions.sheet}
       <CacheHud
         hud={hud}
         contextControl={<MobileContextControl hud={hud} thread={cacheThread} />}
