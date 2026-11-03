@@ -8,8 +8,16 @@ style: ours, the merge base, theirs), or the error excerpt of the fork's failed 
 findings to address. Git's merge, rerere and the mergiraf merge tool already handled everything
 else.
 
-Read AGENTS.md and .agents/skills/fork-development/SKILL.md first: fork logic lives in fork-owned
-files, and fork edits in upstream-owned files are kept to small mount points.
+Read AGENTS.md and .agents/skills/fork-development/SKILL.md first. Every resolution must keep
+future upstream merges clean:
+
+- Upstream-owned code follows upstream. Take upstream's version as the base and re-add the fork's
+  behavior as the smallest mount: an import plus a line or two that calls fork-owned code. Do not
+  rewrite, reformat, rename or reorder upstream code around a fork change.
+- When a fork mount no longer fits upstream's new structure, move the fork logic into a fork-owned
+  file (new or existing) and mount it, rather than spreading fork lines through upstream code.
+- Reuse upstream APIs through small adapters; do not copy upstream's private internals into fork
+  files. Do not edit upstream tests to pass; fix the fork code so upstream behavior holds.
 
 1. Fix exactly what "This run" describes. In conflicted files remove every marker and keep both
    sides' intent: "ours" is fork code, "theirs" is upstream's change. When upstream removed or
@@ -20,6 +28,7 @@ files, and fork edits in upstream-owned files are kept to small mount points.
    entry missing from a list that upstream rebuilt.
 3. Change only what the merge requires: no unrelated refactors, formatting passes or dependency
    changes, edits under .github/, or fixes to problems that already exist on the fork's main.
+   Moving a conflicting fork change into a fork-owned file is part of the merge, not a refactor.
 4. Verify: dependency installation may have failed before you started; its error appears in
    "This run". Resolve manifest and lockfile conflicts first, preserving dependency patches and
    both sides' required version changes. Run `vp install`; if the merged lockfile needs
