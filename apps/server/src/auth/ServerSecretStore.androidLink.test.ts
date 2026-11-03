@@ -35,6 +35,11 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
           entries.filter((entry) => entry.startsWith("secret-request")),
           ["secret-request.bin"],
         );
+        // Windows has no POSIX permission bits.
+        if (process.platform !== "win32") {
+          const info = yield* fileSystem.stat(`${secretStore.directory ?? ""}/secret-request.bin`);
+          assert.strictEqual(info.mode & 0o777, 0o600);
+        }
       }).pipe(Effect.provide(layerLinkDeniedSecretStore())),
     );
 

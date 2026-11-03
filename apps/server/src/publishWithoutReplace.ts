@@ -19,7 +19,10 @@ export const publishWithoutReplace = Effect.fn("publishWithoutReplace")(function
       (linkError) => {
         const stagingPath = `${fromPath}.publish`;
         return fileSystem.copyFile(fromPath, stagingPath).pipe(
-          // Flush the copy to disk first, so a published file is never empty after power loss.
+          // Keep the source permissions, such as 0600 for secrets, on the published copy.
+          Effect.andThen(fileSystem.stat(fromPath)),
+          Effect.flatMap((info) => fileSystem.chmod(stagingPath, info.mode & 0o777)),
+          // Flush the copy to disk first, so a published file is never partial after power loss.
           Effect.andThen(
             Effect.scoped(
               Effect.flatMap(fileSystem.open(stagingPath, { flag: "r+" }), (file) => file.sync),
