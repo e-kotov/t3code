@@ -1,7 +1,8 @@
 import type { EnvironmentConnectionPhase, EnvironmentPresentation } from "@t3tools/client-runtime/connection";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
+import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { EnvironmentId, ProviderDriverKind, ProviderInstanceId, ThreadId, type ScopedThreadRef, type ServerProvider } from "@t3tools/contracts";
+import { EnvironmentId, ProjectId, ProviderDriverKind, ProviderInstanceId, ThreadId, type ScopedThreadRef, type ServerProvider } from "@t3tools/contracts";
 import { expect, it, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser";
 import { act, render } from "../../../test/render";
@@ -77,7 +78,7 @@ function setup() {
   }
 }
 
-function header(environmentId = REMOTE) {
+function header(environmentId = REMOTE, project: EnvironmentProject | null = null) {
   return (
     <div className="flex h-12 w-full items-center bg-background px-3" data-testid="header-context">
       <ChatHeader
@@ -85,7 +86,7 @@ function header(environmentId = REMOTE) {
         activeThreadId={THREAD}
         activeThreadTitle="Header indicators"
         isServerThread={false}
-        activeProject={null}
+        activeProject={project}
         parentThreadLink={null}
         onOpenThread={() => {}}
         rightPanelOpen={false}
@@ -139,4 +140,26 @@ it("updates an unsent model choice and clears the previous machine's model when 
   if (import.meta.env.VITE_HEADER_CONTEXT_CAPTURE) {
     await screen.getByTestId("header-context").screenshot({ path: "../../../../../.t3/header-evidence/narrow.png" });
   }
+});
+
+it("uses the composer's available provider fallback and project default before a draft has a choice", async () => {
+  setup();
+  const fallback = { ...provider("Available fallback"), instanceId: ProviderInstanceId.make("codex-fallback"), models: [{ slug: "fallback-model", name: "Available fallback", isCustom: false, capabilities: null }] };
+  fixture.providers.set(REMOTE, [{ ...provider("Unavailable model"), availability: "unavailable" }, fallback]);
+  await using screen = await render(header());
+  await expect.element(screen.getByRole("button", { name: /^Model: Available fallback/ })).toBeVisible();
+  fixture.shells.delete(REMOTE);
+  const project = {
+    environmentId: REMOTE,
+    id: ProjectId.make("header-project"),
+    title: "Fleet",
+    workspaceRoot: "/workspace/fleet",
+    repositoryIdentity: null,
+    defaultModelSelection: { instanceId: fallback.instanceId, model: "fallback-model" },
+    scripts: [],
+    createdAt: "2026-11-03T12:00:00Z",
+    updatedAt: "2026-11-03T12:00:00Z",
+  } satisfies EnvironmentProject;
+  await screen.rerender(header(REMOTE, project));
+  await expect.element(screen.getByRole("button", { name: /^Model: Available fallback/ })).toBeVisible();
 });

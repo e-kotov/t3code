@@ -1,19 +1,24 @@
 import { useAtomValue } from "@effect/atom-react";
 import { connectionStatusText } from "@t3tools/client-runtime/connection";
+import { threadSupportsProviderHandoff } from "@t3tools/client-runtime/state/thread-workflows";
+import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import { resolveEnvironmentMachineKind, type ScopedThreadRef } from "@t3tools/contracts";
 
 import { useComposerDraftModelState } from "../../composerDraftStore";
 import { useEnvironmentSettings } from "../../hooks/useSettings";
 import { useThreadRouteTarget } from "../../hooks/useThreadRouteTarget";
-import { providerInstanceEntriesFor, shouldShowInstanceBadge } from "../../providerInstances";
-import { useQuietThreadShell } from "../../state/entities";
+import { shouldShowInstanceBadge } from "../../providerInstances";
+import { useQuietThreadProjection, useQuietThreadShell } from "../../state/entities";
 import { useEnvironmentPresentation } from "../../state/presentation";
 import { providersIgnoringCheckedAtAtom } from "../../state/server";
 import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
 import { MachineGroupConnectionStatus } from "../MachineGroupConnectionStatus";
+import { deriveLockedProvider } from "../ChatView.logic";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { ProviderInstanceIcon } from "./ProviderInstanceIcon";
 import { getTriggerDisplayModelName } from "./providerIconUtils";
+import { useComposerProviderModel } from "./useComposerProviderModel";
+import { getComposerPromptInjectionState } from "./composerProviderState";
 
 export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedThreadRef }) {
   const { presentation } = useEnvironmentPresentation(threadRef.environmentId);
@@ -47,26 +52,48 @@ export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedTh
   );
 }
 
-export function HeaderModelLabel({ threadRef }: { readonly threadRef: ScopedThreadRef }) {
+export function HeaderModelLabel({ threadRef, project }: {
+  readonly threadRef: ScopedThreadRef;
+  readonly project: EnvironmentProject | null;
+}) {
   const thread = useQuietThreadShell(threadRef);
+  const projection = useQuietThreadProjection(thread ? threadRef : null);
   const routeTarget = useThreadRouteTarget();
-  const draft = useComposerDraftModelState(
-    routeTarget?.kind === "draft" ? routeTarget.draftId : threadRef,
-  );
+  const target = routeTarget?.kind === "draft" ? routeTarget.draftId : threadRef;
+  const draft = useComposerDraftModelState(target);
   const providers = useAtomValue(providersIgnoringCheckedAtAtom(threadRef.environmentId));
   const settings = useEnvironmentSettings(threadRef.environmentId);
-  const instanceId =
-    draft.activeProvider ?? thread?.runtime?.providerInstanceId ?? thread?.modelSelection.instanceId;
-  const selection = instanceId
-    ? (draft.modelSelectionByProvider[instanceId] ??
-      (thread?.modelSelection.instanceId === instanceId ? thread.modelSelection : null))
-    : null;
-  const entries = providerInstanceEntriesFor(providers, settings, thread?.projectId ?? null);
-  const entry = entries.find((candidate) => candidate.instanceId === instanceId);
-  const model = entry?.models.find((candidate) => candidate.slug === selection?.model);
-  if (!selection?.model) return null;
-  const modelLabel = model ? getTriggerDisplayModelName(model, entry?.driverKind) : selection.model;
-  const details = `${model?.name ?? selection.model} (${selection.model})${entry ? ` · ${entry.displayName}` : ""}`;
+  const canHandoff = threadSupportsProviderHandoff(projection?.projection ?? null);
+  const lockedProvider = deriveLockedProvider({
+    thread,
+    selectedProvider: draft.activeProvider,
+    threadProvider: thread?.modelSelection.instanceId ?? project?.defaultModelSelection?.instanceId ?? null,
+    providers,
+  });
+  const resolved = useComposerProviderModel({
+    providerStatuses: providers,
+    settings,
+    activeProjectId: project?.id ?? thread?.projectId ?? null,
+    threadRef: target,
+    threadModelSelection: thread?.modelSelection,
+    projectModelSelection: project?.defaultModelSelection,
+    promptInjectionState: getComposerPromptInjectionState(""),
+    candidateInstanceIds: [
+      draft.activeProvider,
+      thread?.runtime?.providerInstanceId,
+      thread?.modelSelection.instanceId,
+      project?.defaultModelSelection?.instanceId,
+    ],
+    lockedProvider: canHandoff ? null : lockedProvider,
+    lockedInstanceId: canHandoff ? null : thread?.runtime?.providerInstanceId ?? thread?.modelSelection.instanceId,
+  });
+  const entry = resolved.selectedProviderEntry;
+  const retainedSelection = (draft.activeProvider ? draft.modelSelectionByProvider[draft.activeProvider] : null) ?? thread?.modelSelection;
+  const modelSlug = entry ? resolved.selectedModel : retainedSelection?.model;
+  const model = entry?.models.find((candidate) => candidate.slug === modelSlug);
+  if (!modelSlug) return null;
+  const modelLabel = model ? getTriggerDisplayModelName(model, entry?.driverKind) : modelSlug;
+  const details = `${model?.name ?? modelSlug} (${modelSlug})${entry ? ` · ${entry.displayName}` : ""}`;
 
   return (
     <Tooltip>
@@ -87,11 +114,11 @@ export function HeaderModelLabel({ threadRef }: { readonly threadRef: ScopedThre
             accentColor={entry.accentColor}
             acpRegistryAgentId={entry.acpRegistryAgentId}
             acpRegistryIconUrl={entry.acpRegistryIconUrl}
-            showBadge={shouldShowInstanceBadge(entry, entries)}
+            showBadge={shouldShowInstanceBadge(entry, resolved.providerInstanceEntries)}
             size="compact"
           />
         ) : null}
-        <span className="truncate">{modelLabel}</span>
+        <span className={entry ? "hidden truncate @min-[16rem]/header-context:block" : "truncate"}>{modelLabel}</span>
       </TooltipTrigger>
       <TooltipPopup>{details}</TooltipPopup>
     </Tooltip>

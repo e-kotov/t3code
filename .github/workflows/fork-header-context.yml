@@ -74,6 +74,7 @@ jobs:
         if: always()
         with:
           name: header-context-evidence
+          include-hidden-files: true
           path: |
             .t3/header-evidence/
             ${{ runner.temp }}/header-context-format.patch
