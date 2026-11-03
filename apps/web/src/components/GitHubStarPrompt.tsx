@@ -139,10 +139,21 @@ async function starRepository(environmentId: EnvironmentId) {
 }
 
 /**
+ * Fork policy: the upstream GitHub star prompt is disabled on the EK fork.
+ * Kept configurable for testing.
+ */
+export let forkStarPromptEnabled = false;
+
+export function setForkStarPromptEnabledForTest(enabled: boolean): void {
+  forkStarPromptEnabled = enabled;
+}
+
+/**
  * Counts a sent prompt. After more than five, asks once per session for a star until dismissed,
  * unless the environment's GitHub account already starred the repo. Waits until the user is idle.
  */
 export async function recordPromptSent(environmentId: EnvironmentId): Promise<void> {
+  if (!forkStarPromptEnabled) return;
   if (shownThisSession) return;
   try {
     if (getLocalStorageItem(DISMISSED_KEY, Schema.Boolean)) return;

@@ -29,8 +29,10 @@ vi.mock("@t3tools/client-runtime/state/runtime", () => ({
 
 const environmentId = EnvironmentId.make("environment-1");
 const IDLE_MS = 30_000;
+let forkEnabled = true;
 
-function setup({ sent = 0, writable = true, alreadyStarred = false } = {}) {
+function setup({ sent = 0, writable = true, alreadyStarred = false, enabled = true } = {}) {
+  forkEnabled = enabled;
   add.mockReset();
   update.mockReset();
   openExternal.mockClear();
@@ -66,6 +68,7 @@ function setup({ sent = 0, writable = true, alreadyStarred = false } = {}) {
 async function startSession() {
   vi.resetModules();
   const session = await import("./GitHubStarPrompt");
+  session.setForkStarPromptEnabledForTest(forkEnabled);
   return {
     // Sends a prompt, then leaves the page idle long enough to ask.
     send: async () => {
@@ -82,6 +85,13 @@ const click = (props: unknown) => (props as { onClick: () => unknown }).onClick(
 
 describe("recordPromptSent", () => {
   vi.useFakeTimers();
+
+  it("never asks when disabled on the fork by default", async () => {
+    setup({ sent: 5, enabled: false });
+    await (await startSession()).send();
+    expect(add).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
 
   it("asks only after the focused page is idle", async () => {
     setup({ sent: 5 });
