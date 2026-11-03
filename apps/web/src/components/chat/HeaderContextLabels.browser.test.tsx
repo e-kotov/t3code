@@ -20,6 +20,7 @@ import { expect, it, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser";
 import { act, render } from "../../../test/render";
 import { useComposerDraftStore } from "../../composerDraftStore";
+import { AppAtomRegistryProvider } from "../../rpc/atomRegistry";
 import { ChatHeader } from "./ChatHeader";
 import "../../index.css";
 
@@ -28,7 +29,7 @@ const fixture = vi.hoisted(() => ({
   shells: new Map<string, EnvironmentThreadShell>(),
   listeners: new Set<() => void>(),
   settings: null as UnifiedSettings | null,
-  setProviders: (_id: EnvironmentId, _providers: ReadonlyArray<ServerProvider>) => {
+  setProviders: (_id: EnvironmentId, _providers: ReadonlyArray<ServerProvider>): void => {
     throw new Error("Provider fixture is not initialized");
   },
 }));
@@ -60,7 +61,7 @@ vi.mock(import("../../state/server"), async (original) => {
   const { Atom } = await import("effect/reactivity");
   const { appAtomRegistry } = await import("../../rpc/atomRegistry");
   const providers = Atom.family((_id: EnvironmentId) =>
-    Atom.make<ReadonlyArray<ServerProvider>>([]),
+    Atom.keepAlive(Atom.make<ReadonlyArray<ServerProvider>>([])),
   );
   fixture.setProviders = (id, value) => {
     appAtomRegistry.set(providers(id), value);
@@ -142,20 +143,22 @@ function header(
   defaultModelSelection?: ModelSelection | null,
 ) {
   return (
-    <div className="flex h-12 w-full items-center bg-background px-3" data-testid="header-context">
-      <ChatHeader
-        activeThreadEnvironmentId={environmentId}
-        activeThreadId={THREAD}
-        activeThreadTitle="Header indicators"
-        isServerThread={false}
-        activeProject={project}
-        defaultModelSelection={defaultModelSelection}
-        parentThreadLink={null}
-        onOpenThread={() => {}}
-        rightPanelOpen={false}
-        onNewThreadInProject={() => {}}
-      />
-    </div>
+    <AppAtomRegistryProvider>
+      <div className="flex h-12 w-full items-center bg-background px-3" data-testid="header-context">
+        <ChatHeader
+          activeThreadEnvironmentId={environmentId}
+          activeThreadId={THREAD}
+          activeThreadTitle="Header indicators"
+          isServerThread={false}
+          activeProject={project}
+          defaultModelSelection={defaultModelSelection}
+          parentThreadLink={null}
+          onOpenThread={() => {}}
+          rightPanelOpen={false}
+          onNewThreadInProject={() => {}}
+        />
+      </div>
+    </AppAtomRegistryProvider>
   );
 }
 
