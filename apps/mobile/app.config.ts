@@ -118,6 +118,8 @@ function resolveAppVariant(value: string | undefined): AppVariant {
 }
 
 const variant = VARIANT_CONFIG[APP_VARIANT];
+// Copied thread links open the app. app.t3.codes/.well-known lists every variant's identifiers.
+const HOSTED_APP_HOST = "app.t3.codes";
 const iosBundleIdentifier = isIosPersonalTeamBuild
   ? personalTeamBundleIdentifier!
   : variant.iosBundleIdentifier;
@@ -254,6 +256,7 @@ const config: ExpoConfig = {
     associatedDomains: [
       `applinks:${variant.relyingParty}`,
       `webcredentials:${variant.relyingParty}`,
+      `applinks:${HOSTED_APP_HOST}`,
     ],
     entitlements: {
       "keychain-access-groups": [`$(AppIdentifierPrefix)${variant.iosBundleIdentifier}`],
@@ -305,6 +308,14 @@ const config: ExpoConfig = {
     predictiveBackGestureEnabled: true,
     // expo-sensors declares this for its pedometer, which the app does not use.
     blockedPermissions: ["android.permission.ACTIVITY_RECOGNITION"],
+    intentFilters: [
+      {
+        action: "VIEW",
+        autoVerify: true,
+        data: [{ scheme: "https", host: HOSTED_APP_HOST, pathPrefix: "/threads/" }],
+        category: ["BROWSABLE", "DEFAULT"],
+      },
+    ],
   },
   web: {
     favicon: variant.assets.appIcon,
