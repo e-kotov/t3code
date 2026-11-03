@@ -77,15 +77,17 @@ export function HeaderModelLabel({
   project,
   defaultModelSelection,
   context,
+  isServerThread,
 }: {
   readonly threadRef: ScopedThreadRef;
   readonly project: EnvironmentProject | null;
   readonly defaultModelSelection?: ModelSelection | null | undefined;
   readonly context?: HeaderModelContext | undefined;
+  readonly isServerThread: boolean;
 }) {
   const shell = useQuietThreadShell(context === undefined ? threadRef : null);
   const thread = context === undefined ? shell : context.thread;
-  const projection = useQuietThreadProjection(thread ? threadRef : null);
+  const projection = useQuietThreadProjection(thread && isServerThread ? threadRef : null);
   const routeTarget = useThreadRouteTarget();
   const target =
     context?.draftTarget ?? (routeTarget?.kind === "draft" ? routeTarget.draftId : threadRef);

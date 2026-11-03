@@ -43,7 +43,11 @@ import { cn } from "~/lib/utils";
 import { textDirection } from "~/textDirection";
 import { useClientSettings } from "../../hooks/useSettings";
 import { GuestShareIndicator } from "./GuestShareControls";
-import { HeaderMachineLabel, HeaderModelLabel, type HeaderModelContext } from "./HeaderContextLabels";
+import {
+  HeaderMachineLabel,
+  HeaderModelLabel,
+  type HeaderModelContext,
+} from "./HeaderContextLabels";
 
 interface ChatHeaderProps {
   activeThreadEnvironmentId: EnvironmentId;
@@ -443,6 +447,7 @@ export const ChatHeader = memo(function ChatHeader({
         project={activeProject}
         defaultModelSelection={defaultModelSelection}
         context={modelContext}
+        isServerThread={isServerThread}
       />
       {isServerThread ? <GuestShareIndicator threadRef={activeThreadRef} /> : null}
     </div>
