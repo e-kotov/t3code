@@ -3,9 +3,7 @@ import { resolveEnvironmentMachineKind, type EnvironmentId } from "@t3tools/cont
 import { useEnvironment } from "~/state/environments";
 import { EnvironmentMachineIcon } from "./EnvironmentMachineIcon";
 
-export function ThreadMachineLabel(props: {
-  readonly environmentId: EnvironmentId;
-}) {
+export function ThreadMachineLabel(props: { readonly environmentId: EnvironmentId }) {
   const environment = useEnvironment(props.environmentId);
   const label = environment?.label.trim() || props.environmentId;
   return (
@@ -14,7 +12,7 @@ export function ThreadMachineLabel(props: {
         kind={resolveEnvironmentMachineKind(environment?.serverConfig ?? null)}
       />
       <span className="max-w-32 shrink-0 truncate" title={label}>
-        {label} ·
+        {label} ·{" "}
       </span>
     </>
   );
