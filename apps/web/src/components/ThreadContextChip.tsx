@@ -5,6 +5,7 @@ import { MessagesSquareIcon } from "lucide-react";
 
 import { useProject, useThreadShell } from "~/state/entities";
 import { ContextChip, ContextChipLabel } from "./ContextChip";
+import { ThreadMachineLabel } from "./ThreadMachineLabel";
 import { ProjectFavicon } from "./ProjectFavicon";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 
@@ -25,10 +26,10 @@ export function ThreadContextChip(props: {
             kind="thread"
             {...(props.unreadable ? { state: "invalid" as const } : {})}
             render={<Link to="/$environmentId/$threadId" params={{ environmentId, threadId }} />}
-            aria-label={`Thread, ${title}`}
             data-markdown-copy={props.copyMarkdown}
             className="no-underline"
           >
+            <ThreadMachineLabel environmentId={environmentId} />
             {project ? (
               <ProjectFavicon project={project} className="size-[1em] self-center" />
             ) : (
