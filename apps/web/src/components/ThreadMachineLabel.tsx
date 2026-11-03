@@ -10,9 +10,7 @@ export function ThreadMachineLabel(props: { readonly environmentId: EnvironmentI
   return (
     <>
       {environment ? (
-        <EnvironmentMachineIcon
-          kind={resolveEnvironmentMachineKind(environment.serverConfig)}
-        />
+        <EnvironmentMachineIcon kind={resolveEnvironmentMachineKind(environment.serverConfig)} />
       ) : (
         <CircleDashedIcon />
       )}

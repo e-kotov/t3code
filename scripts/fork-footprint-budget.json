@@ -143,7 +143,7 @@
     "apps/web/src/components/RightPanelTabs.tsx": 4,
     "apps/web/src/components/Sidebar.logic.ts": 8,
     "apps/web/src/components/Sidebar.tsx": 66,
-    "apps/web/src/components/ThreadContextChip.tsx": 3,
+    "apps/web/src/components/ThreadContextChip.tsx": 4,
     "apps/web/src/components/chat/ChatComposer.tsx": 13,
     "apps/web/src/components/chat/ChatHeader.tsx": 21,
     "apps/web/src/components/chat/ComposerFooterControls.tsx": 2,
