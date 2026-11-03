@@ -2,7 +2,7 @@ import type { EnvironmentConnectionPhase, EnvironmentPresentation } from "@t3too
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { EnvironmentId, ProjectId, ProviderDriverKind, ProviderInstanceId, ThreadId, type ScopedThreadRef, type ServerProvider } from "@t3tools/contracts";
+import { EnvironmentId, ProjectId, ProviderDriverKind, ProviderInstanceId, ThreadId, type ModelSelection, type ScopedThreadRef, type ServerProvider } from "@t3tools/contracts";
 import { expect, it, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser";
 import { act, render } from "../../../test/render";
@@ -78,7 +78,7 @@ function setup() {
   }
 }
 
-function header(environmentId = REMOTE, project: EnvironmentProject | null = null) {
+function header(environmentId = REMOTE, project: EnvironmentProject | null = null, defaultModelSelection?: ModelSelection | null) {
   return (
     <div className="flex h-12 w-full items-center bg-background px-3" data-testid="header-context">
       <ChatHeader
@@ -87,6 +87,7 @@ function header(environmentId = REMOTE, project: EnvironmentProject | null = nul
         activeThreadTitle="Header indicators"
         isServerThread={false}
         activeProject={project}
+        defaultModelSelection={defaultModelSelection}
         parentThreadLink={null}
         onOpenThread={() => {}}
         rightPanelOpen={false}
@@ -162,4 +163,7 @@ it("uses the composer's available provider fallback and project default before a
   } satisfies EnvironmentProject;
   await screen.rerender(header(REMOTE, project));
   await expect.element(screen.getByRole("button", { name: /^Model: Available fallback/ })).toBeVisible();
+  fixture.providers.set(REMOTE, [{ ...fallback, models: [...fallback.models, { slug: "configured-model", name: "Configured default", isCustom: false, capabilities: null }] }]);
+  await screen.rerender(header(REMOTE, project, { instanceId: fallback.instanceId, model: "configured-model" }));
+  await expect.element(screen.getByRole("button", { name: /^Model: Configured default/ })).toBeVisible();
 });

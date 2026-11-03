@@ -2,7 +2,8 @@ import { useAtomValue } from "@effect/atom-react";
 import { connectionStatusText } from "@t3tools/client-runtime/connection";
 import { threadSupportsProviderHandoff } from "@t3tools/client-runtime/state/thread-workflows";
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
-import { resolveEnvironmentMachineKind, type ScopedThreadRef } from "@t3tools/contracts";
+import { resolveEnvironmentMachineKind, type ModelSelection, type ScopedThreadRef } from "@t3tools/contracts";
+import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 
 import { useComposerDraftModelState } from "../../composerDraftStore";
 import { useEnvironmentSettings } from "../../hooks/useSettings";
@@ -52,9 +53,10 @@ export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedTh
   );
 }
 
-export function HeaderModelLabel({ threadRef, project }: {
+export function HeaderModelLabel({ threadRef, project, defaultModelSelection }: {
   readonly threadRef: ScopedThreadRef;
   readonly project: EnvironmentProject | null;
+  readonly defaultModelSelection?: ModelSelection | null | undefined;
 }) {
   const thread = useQuietThreadShell(threadRef);
   const projection = useQuietThreadProjection(thread ? threadRef : null);
@@ -63,11 +65,14 @@ export function HeaderModelLabel({ threadRef, project }: {
   const draft = useComposerDraftModelState(target);
   const providers = useAtomValue(providersIgnoringCheckedAtAtom(threadRef.environmentId));
   const settings = useEnvironmentSettings(threadRef.environmentId);
+  const projectModelSelection = defaultModelSelection !== undefined
+    ? defaultModelSelection
+    : resolveProjectSettings(settings, project?.id ?? null, project ?? undefined).settings.defaultModelSelection;
   const canHandoff = threadSupportsProviderHandoff(projection?.projection ?? null);
   const lockedProvider = deriveLockedProvider({
     thread,
     selectedProvider: draft.activeProvider,
-    threadProvider: thread?.modelSelection.instanceId ?? project?.defaultModelSelection?.instanceId ?? null,
+    threadProvider: thread?.modelSelection.instanceId ?? projectModelSelection?.instanceId ?? null,
     providers,
   });
   const resolved = useComposerProviderModel({
@@ -76,13 +81,13 @@ export function HeaderModelLabel({ threadRef, project }: {
     activeProjectId: project?.id ?? thread?.projectId ?? null,
     threadRef: target,
     threadModelSelection: thread?.modelSelection,
-    projectModelSelection: project?.defaultModelSelection,
+    projectModelSelection,
     promptInjectionState: getComposerPromptInjectionState(""),
     candidateInstanceIds: [
       draft.activeProvider,
       thread?.runtime?.providerInstanceId,
       thread?.modelSelection.instanceId,
-      project?.defaultModelSelection?.instanceId,
+      projectModelSelection?.instanceId,
     ],
     lockedProvider: canHandoff ? null : lockedProvider,
     lockedInstanceId: canHandoff ? null : thread?.runtime?.providerInstanceId ?? thread?.modelSelection.instanceId,

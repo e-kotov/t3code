@@ -1,6 +1,7 @@
 import {
   AuthOrchestrationOperateScope,
   type EnvironmentId,
+  type ModelSelection,
   type ScopedThreadRef,
   type ThreadId,
 } from "@t3tools/contracts";
@@ -51,6 +52,7 @@ interface ChatHeaderProps {
   activeThreadLinkOrigin?: string | null | undefined;
   isServerThread: boolean;
   activeProject: EnvironmentProject | null;
+  defaultModelSelection?: ModelSelection | null | undefined;
   parentThreadLink: { threadId: ThreadId; title: string } | null;
   onOpenThread: (threadId: ThreadId) => void;
   rightPanelOpen: boolean;
@@ -78,6 +80,7 @@ export const ChatHeader = memo(function ChatHeader({
   activeThreadLinkOrigin,
   isServerThread,
   activeProject,
+  defaultModelSelection,
   parentThreadLink,
   onOpenThread,
   rightPanelOpen,
@@ -433,7 +436,7 @@ export const ChatHeader = memo(function ChatHeader({
           ) : null}
         </WorkspaceBreadcrumbItem>
       </WorkspaceBreadcrumb>
-      <HeaderModelLabel threadRef={activeThreadRef} project={activeProject} />
+      <HeaderModelLabel threadRef={activeThreadRef} project={activeProject} defaultModelSelection={defaultModelSelection} />
       {isServerThread ? <GuestShareIndicator threadRef={activeThreadRef} /> : null}
     </div>
   );
