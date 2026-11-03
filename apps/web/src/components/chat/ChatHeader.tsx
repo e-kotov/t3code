@@ -436,7 +436,11 @@ export const ChatHeader = memo(function ChatHeader({
           ) : null}
         </WorkspaceBreadcrumbItem>
       </WorkspaceBreadcrumb>
-      <HeaderModelLabel threadRef={activeThreadRef} project={activeProject} defaultModelSelection={defaultModelSelection} />
+      <HeaderModelLabel
+        threadRef={activeThreadRef}
+        project={activeProject}
+        defaultModelSelection={defaultModelSelection}
+      />
       {isServerThread ? <GuestShareIndicator threadRef={activeThreadRef} /> : null}
     </div>
   );
