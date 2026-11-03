@@ -22,6 +22,7 @@ import { resolveServiceLauncherMode } from "../cloud/serviceLauncherClient.ts";
 import * as ServerConfig from "../config.ts";
 import { databaseMigrationHead } from "../persistence/databaseMigrationHead.ts";
 import * as ProcessRunner from "../processRunner.ts";
+import { publishWithoutReplace } from "../publishWithoutReplace.ts";
 import { resolveServerEnvironmentLabel } from "./ServerEnvironmentLabel.ts";
 import { detectServerEnvironmentMachineKind } from "./ServerEnvironmentMachine.ts";
 
@@ -129,7 +130,7 @@ const makeIdentity = Effect.gen(function* () {
       });
       yield* fileSystem.writeFileString(tempPath, `${value}\n`);
       // Publish the completed file without replacing an ID created by another process.
-      yield* fileSystem.link(tempPath, destinationPath).pipe(
+      yield* publishWithoutReplace(fileSystem, tempPath, destinationPath).pipe(
         Effect.catchIf(
           (cause) => cause.reason._tag === "AlreadyExists",
           () => Effect.void,
