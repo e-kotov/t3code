@@ -1,46 +1,14 @@
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
-import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as PlatformError from "effect/PlatformError";
-import * as Ref from "effect/Ref";
 
 import * as ServerConfig from "../config.ts";
+import { layerLinkDeniedFileSystem } from "../testUtils/linkDeniedFileSystem.ts";
 import * as ServerSecretStore from "./ServerSecretStore.ts";
-
-// Android refuses link() for apps such as Termux with EACCES, which Effect reports as PermissionDenied.
-// Each refusal waits until `creators` callers have arrived, so they all reach the fallback together.
-const layerLinkDeniedFileSystem = (creators: number) =>
-  Layer.effect(
-    FileSystem.FileSystem,
-    Effect.gen(function* () {
-      const fileSystem = yield* FileSystem.FileSystem;
-      const arrived = yield* Ref.make(0);
-      const allArrived = yield* Deferred.make<void>();
-
-      return {
-        ...fileSystem,
-        link: (fromPath, toPath) =>
-          Effect.gen(function* () {
-            if ((yield* Ref.updateAndGet(arrived, (count) => count + 1)) >= creators) {
-              yield* Deferred.succeed(allArrived, undefined);
-            }
-            yield* Deferred.await(allArrived);
-            return yield* PlatformError.systemError({
-              _tag: "PermissionDenied",
-              module: "FileSystem",
-              method: "link",
-              pathOrDescriptor: `${fromPath} -> ${toPath}`,
-              description: "Permission denied while creating a hard link.",
-            });
-          }),
-      } satisfies FileSystem.FileSystem;
-    }),
-  ).pipe(Layer.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)));
 
 const layerLinkDeniedSecretStore = (creators = 1) =>
   ServerSecretStore.layer.pipe(

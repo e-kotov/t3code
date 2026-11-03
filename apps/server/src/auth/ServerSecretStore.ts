@@ -10,7 +10,7 @@ import * as PlatformError from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 
 import * as ServerConfig from "../config.ts";
-import { publishSecretFile } from "./publishSecretFile.ts";
+import { publishWithoutReplace } from "../publishWithoutReplace.ts";
 
 const secretStoreErrorContext = {
   resource: Schema.String,
@@ -247,7 +247,7 @@ export const make = Effect.gen(function* () {
             }),
           );
           yield* fileSystem.chmod(tempPath, 0o600);
-          yield* publishSecretFile(fileSystem, tempPath, secretPath);
+          yield* publishWithoutReplace(fileSystem, tempPath, secretPath);
         }).pipe(
           Effect.ensuring(fileSystem.remove(tempPath).pipe(Effect.ignore)),
           Effect.mapError(
