@@ -15,6 +15,7 @@ import {
   type ScopedThreadRef,
   type ServerProvider,
 } from "@t3tools/contracts";
+import { DEFAULT_UNIFIED_SETTINGS, type UnifiedSettings } from "@t3tools/contracts/settings";
 import { expect, it, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser";
 import { act, render } from "../../../test/render";
@@ -24,17 +25,32 @@ import "../../index.css";
 
 const fixture = vi.hoisted(() => ({
   presentations: new Map<string, EnvironmentPresentation>(),
-  providers: new Map<string, ReadonlyArray<ServerProvider>>(),
   shells: new Map<string, EnvironmentThreadShell>(),
+  listeners: new Set<() => void>(),
+  settings: null as UnifiedSettings | null,
+  setProviders: (_id: EnvironmentId, _providers: ReadonlyArray<ServerProvider>) => {
+    throw new Error("Provider fixture is not initialized");
+  },
 }));
 
-vi.mock(import("../../state/presentation"), async (original) => ({
-  ...(await original()),
-  useEnvironmentPresentation: (id: EnvironmentId | null) => ({
-    isReady: true,
-    presentation: id ? (fixture.presentations.get(id) ?? null) : null,
-  }),
-}));
+vi.mock(import("../../state/presentation"), async (original) => {
+  const { useSyncExternalStore } = await import("react");
+  return {
+    ...(await original()),
+    useEnvironmentPresentation: (id: EnvironmentId | null) => ({
+      isReady: true,
+      presentation: useSyncExternalStore(
+        (listener) => {
+          fixture.listeners.add(listener);
+          return () => {
+            fixture.listeners.delete(listener);
+          };
+        },
+        () => (id ? (fixture.presentations.get(id) ?? null) : null),
+      ),
+    }),
+  };
+});
 vi.mock(import("../../state/entities"), async (original) => ({
   ...(await original()),
   useQuietThreadShell: (ref: ScopedThreadRef | null) =>
@@ -42,10 +58,29 @@ vi.mock(import("../../state/entities"), async (original) => ({
 }));
 vi.mock(import("../../state/server"), async (original) => {
   const { Atom } = await import("effect/reactivity");
+  const { appAtomRegistry } = await import("../../rpc/atomRegistry");
+  const providers = Atom.family((_id: EnvironmentId) =>
+    Atom.make<ReadonlyArray<ServerProvider>>([]),
+  );
+  fixture.setProviders = (id, value) => {
+    appAtomRegistry.set(providers(id), value);
+  };
   return {
     ...(await original()),
-    providersIgnoringCheckedAtAtom: (id: EnvironmentId) =>
-      Atom.make(fixture.providers.get(id) ?? []),
+    providersIgnoringCheckedAtAtom: providers,
+  };
+});
+vi.mock(import("../../hooks/useSettings"), async (original) => {
+  const actual = await original();
+  return {
+    ...actual,
+    useEnvironmentSettings: ((
+      _id: EnvironmentId,
+      selector?: (settings: UnifiedSettings) => unknown,
+    ) => {
+      const settings = fixture.settings ?? DEFAULT_UNIFIED_SETTINGS;
+      return selector ? selector(settings) : settings;
+    }) as typeof actual.useEnvironmentSettings,
   };
 });
 
@@ -74,21 +109,25 @@ function provider(name: string): ServerProvider {
     checkedAt: "2026-11-03T12:00:00Z",
     slashCommands: [],
     skills: [],
-    models: [{ slug: "shared-model", name, shortName: name, isCustom: false, capabilities: null }],
+    models: [
+      { slug: "shared-model", name, shortName: name, isCustom: false, capabilities: null },
+      { slug: "other-model", name: "Other available model", isCustom: false, capabilities: null },
+    ],
   };
 }
 
 function setup() {
   fixture.presentations.clear();
-  fixture.providers.clear();
   fixture.shells.clear();
+  fixture.listeners.clear();
+  fixture.settings = null;
   useComposerDraftStore.setState({ draftsByThreadKey: {}, draftThreadsByThreadKey: {} });
   for (const [id, label, modelName] of [
     [MAC, "Mac", "GPT-6.1 Sol"],
     [REMOTE, "GWDG", "Remote custom model"],
   ] as const) {
     fixture.presentations.set(id, presentation(label, "connected"));
-    fixture.providers.set(id, [provider(modelName)]);
+    fixture.setProviders(id, [provider(modelName)]);
     fixture.shells.set(id, {
       modelSelection: { instanceId: INSTANCE, model: "shared-model" },
       runtime: null,
@@ -149,8 +188,10 @@ it("follows the active machine through pending, recovery and a later disconnect"
     "reconnecting",
     "connected",
   ] as const) {
-    fixture.presentations.set(REMOTE, presentation("GWDG", phase));
-    await screen.rerender(header());
+    await act(() => {
+      fixture.presentations.set(REMOTE, presentation("GWDG", phase));
+      for (const listener of fixture.listeners) listener();
+    });
     const pending = phase === "connecting" || phase === "reconnecting";
     expect(screen.container.querySelector("[data-header-machine] .bg-warning") !== null).toBe(
       pending,
@@ -179,16 +220,15 @@ it("updates an unsent model choice and clears the previous machine's model when 
   setup();
   await page.viewport(390, 260);
   await using screen = await render(header());
+  const store = useComposerDraftStore.getState();
   await act(() =>
-    useComposerDraftStore
-      .getState()
-      .setModelSelection(scopeThreadRef(REMOTE, THREAD), {
-        instanceId: INSTANCE,
-        model: "private-custom-slug",
-      }),
+    store.setModelSelection(scopeThreadRef(REMOTE, THREAD), {
+      instanceId: INSTANCE,
+      model: "other-model",
+    }),
   );
   await expect
-    .element(screen.getByRole("button", { name: /^Model: private-custom-slug/ }))
+    .element(screen.getByRole("button", { name: /^Model: Other available model/ }))
     .toBeVisible();
   await screen.rerender(header(MAC));
   await expect.element(screen.getByRole("button", { name: /^Model: GPT-6.1 Sol/ })).toBeVisible();
@@ -209,7 +249,13 @@ it("uses the composer's available provider fallback and project default before a
       { slug: "fallback-model", name: "Available fallback", isCustom: false, capabilities: null },
     ],
   };
-  fixture.providers.set(REMOTE, [
+  fixture.settings = {
+    ...DEFAULT_UNIFIED_SETTINGS,
+    providerInstances: {
+      [fallback.instanceId]: { driver: fallback.driver, enabled: true, config: {} },
+    },
+  };
+  fixture.setProviders(REMOTE, [
     { ...provider("Unavailable model"), availability: "unavailable" },
     fallback,
   ]);
@@ -233,20 +279,22 @@ it("uses the composer's available provider fallback and project default before a
   await expect
     .element(screen.getByRole("button", { name: /^Model: Available fallback/ }))
     .toBeVisible();
-  fixture.providers.set(REMOTE, [
-    {
-      ...fallback,
-      models: [
-        ...fallback.models,
-        {
-          slug: "configured-model",
-          name: "Configured default",
-          isCustom: false,
-          capabilities: null,
-        },
-      ],
-    },
-  ]);
+  await act(() =>
+    fixture.setProviders(REMOTE, [
+      {
+        ...fallback,
+        models: [
+          ...fallback.models,
+          {
+            slug: "configured-model",
+            name: "Configured default",
+            isCustom: false,
+            capabilities: null,
+          },
+        ],
+      },
+    ]),
+  );
   await screen.rerender(
     header(REMOTE, project, { instanceId: fallback.instanceId, model: "configured-model" }),
   );

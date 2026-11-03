@@ -35,7 +35,7 @@ vi.mock(import("~/rpc/requestLatencyState"), async (original) => ({
   trackRpcRequestSent: () => {},
 }));
 
-it("shows the active environment and reacts to a composer model choice in the complete client", async () => {
+it("shows the active environment and the composer's resolved model in the complete client", async () => {
   const thread = threadWithHistory("header-context-app", 1);
   using _environment = installFakeEnvironment([thread]);
   __setClientSettingsForTests({
@@ -64,17 +64,12 @@ it("shows the active environment and reacts to a composer model choice in the co
   if (import.meta.env.VITE_HEADER_CONTEXT_CAPTURE) {
     await app.locator.screenshot({ path: "../../../../../.t3/header-evidence/after-client.png" });
   }
+  const store = useComposerDraftStore.getState();
   await act(() =>
-    useComposerDraftStore
-      .getState()
-      .setModelSelection(scopeThreadRef(ENVIRONMENT_ID, thread.id), {
-        instanceId: ProviderInstanceId.make("codex"),
-        model: "custom-model-choice",
-      }),
+    store.setModelSelection(scopeThreadRef(ENVIRONMENT_ID, thread.id), {
+      instanceId: ProviderInstanceId.make("codex"),
+      model: "custom-model-choice",
+    }),
   );
-  await vi.waitFor(() =>
-    expect(header?.querySelector("[data-header-model]")?.textContent).toContain(
-      "custom-model-choice",
-    ),
-  );
+  expect(header?.querySelector("[data-header-model]")?.textContent).toContain("GPT-5.4");
 });
