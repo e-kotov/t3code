@@ -1,7 +1,10 @@
 import { useAtomValue } from "@effect/atom-react";
 import { connectionStatusText } from "@t3tools/client-runtime/connection";
 import { threadSupportsProviderHandoff } from "@t3tools/client-runtime/state/thread-workflows";
-import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
+import type {
+  EnvironmentProject,
+  EnvironmentThreadShell,
+} from "@t3tools/client-runtime/state/shell";
 import {
   resolveEnvironmentMachineKind,
   type ModelSelection,
@@ -9,7 +12,7 @@ import {
 } from "@t3tools/contracts";
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 
-import { useComposerDraftModelState } from "../../composerDraftStore";
+import { useComposerDraftModelState, type ComposerThreadTarget } from "../../composerDraftStore";
 import { useEnvironmentSettings } from "../../hooks/useSettings";
 import { useThreadRouteTarget } from "../../hooks/useThreadRouteTarget";
 import { shouldShowInstanceBadge } from "../../providerInstances";
@@ -24,6 +27,11 @@ import { ProviderInstanceIcon } from "./ProviderInstanceIcon";
 import { getTriggerDisplayModelName } from "./providerIconUtils";
 import { useComposerProviderModel } from "./useComposerProviderModel";
 import { getComposerPromptInjectionState } from "./composerProviderState";
+
+export interface HeaderModelContext {
+  readonly thread: EnvironmentThreadShell | null | undefined;
+  readonly draftTarget: ComposerThreadTarget;
+}
 
 export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedThreadRef }) {
   const { presentation } = useEnvironmentPresentation(threadRef.environmentId);
@@ -68,15 +76,19 @@ export function HeaderModelLabel({
   threadRef,
   project,
   defaultModelSelection,
+  context,
 }: {
   readonly threadRef: ScopedThreadRef;
   readonly project: EnvironmentProject | null;
   readonly defaultModelSelection?: ModelSelection | null | undefined;
+  readonly context?: HeaderModelContext | undefined;
 }) {
-  const thread = useQuietThreadShell(threadRef);
+  const shell = useQuietThreadShell(context === undefined ? threadRef : null);
+  const thread = context === undefined ? shell : context.thread;
   const projection = useQuietThreadProjection(thread ? threadRef : null);
   const routeTarget = useThreadRouteTarget();
-  const target = routeTarget?.kind === "draft" ? routeTarget.draftId : threadRef;
+  const target =
+    context?.draftTarget ?? (routeTarget?.kind === "draft" ? routeTarget.draftId : threadRef);
   const draft = useComposerDraftModelState(target);
   const providers = useAtomValue(providersIgnoringCheckedAtAtom(threadRef.environmentId));
   const settings = useEnvironmentSettings(threadRef.environmentId);

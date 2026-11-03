@@ -43,7 +43,7 @@ import { cn } from "~/lib/utils";
 import { textDirection } from "~/textDirection";
 import { useClientSettings } from "../../hooks/useSettings";
 import { GuestShareIndicator } from "./GuestShareControls";
-import { HeaderMachineLabel, HeaderModelLabel } from "./HeaderContextLabels";
+import { HeaderMachineLabel, HeaderModelLabel, type HeaderModelContext } from "./HeaderContextLabels";
 
 interface ChatHeaderProps {
   activeThreadEnvironmentId: EnvironmentId;
@@ -53,6 +53,7 @@ interface ChatHeaderProps {
   isServerThread: boolean;
   activeProject: EnvironmentProject | null;
   defaultModelSelection?: ModelSelection | null | undefined;
+  modelContext?: HeaderModelContext | undefined;
   parentThreadLink: { threadId: ThreadId; title: string } | null;
   onOpenThread: (threadId: ThreadId) => void;
   rightPanelOpen: boolean;
@@ -81,6 +82,7 @@ export const ChatHeader = memo(function ChatHeader({
   isServerThread,
   activeProject,
   defaultModelSelection,
+  modelContext,
   parentThreadLink,
   onOpenThread,
   rightPanelOpen,
@@ -440,6 +442,7 @@ export const ChatHeader = memo(function ChatHeader({
         threadRef={activeThreadRef}
         project={activeProject}
         defaultModelSelection={defaultModelSelection}
+        context={modelContext}
       />
       {isServerThread ? <GuestShareIndicator threadRef={activeThreadRef} /> : null}
     </div>

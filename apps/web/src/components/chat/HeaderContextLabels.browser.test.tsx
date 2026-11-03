@@ -19,9 +19,10 @@ import { DEFAULT_UNIFIED_SETTINGS, type UnifiedSettings } from "@t3tools/contrac
 import { expect, it, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser";
 import { act, render } from "../../../test/render";
-import { useComposerDraftStore } from "../../composerDraftStore";
+import { DraftId, useComposerDraftStore } from "../../composerDraftStore";
 import { AppAtomRegistryProvider } from "../../rpc/atomRegistry";
 import { ChatHeader } from "./ChatHeader";
+import type { HeaderModelContext } from "./HeaderContextLabels";
 import "../../index.css";
 
 const fixture = vi.hoisted(() => ({
@@ -141,6 +142,7 @@ function header(
   environmentId = REMOTE,
   project: EnvironmentProject | null = null,
   defaultModelSelection?: ModelSelection | null,
+  modelContext?: HeaderModelContext,
 ) {
   return (
     <AppAtomRegistryProvider>
@@ -155,6 +157,7 @@ function header(
           isServerThread={false}
           activeProject={project}
           defaultModelSelection={defaultModelSelection}
+          modelContext={modelContext}
           parentThreadLink={null}
           onOpenThread={() => {}}
           rightPanelOpen={false}
@@ -236,6 +239,25 @@ it("updates an unsent model choice and clears the previous machine's model when 
   await expect
     .element(screen.getByRole("button", { name: /^Model: Other available model/ }))
     .toBeVisible();
+  const editingTarget = DraftId.make("header-queued-edit");
+  const editingContext = { thread: fixture.shells.get(REMOTE), draftTarget: editingTarget };
+  await screen.rerender(header(REMOTE, null, undefined, editingContext));
+  await expect
+    .element(screen.getByRole("button", { name: /^Model: Remote custom model/ }))
+    .toBeVisible();
+  await act(() =>
+    store.setModelSelection(editingTarget, { instanceId: INSTANCE, model: "other-model" }),
+  );
+  await expect
+    .element(screen.getByRole("button", { name: /^Model: Other available model/ }))
+    .toBeVisible();
+  await act(() =>
+    store.setModelSelection(editingTarget, { instanceId: INSTANCE, model: "shared-model" }),
+  );
+  await screen.rerender(header());
+  await expect
+    .element(screen.getByRole("button", { name: /^Model: Other available model/ }))
+    .toBeVisible();
   await screen.rerender(header(MAC));
   await expect.element(screen.getByRole("button", { name: /^Model: GPT-6.1 Sol/ })).toBeVisible();
   expect(screen.container.scrollWidth).toBeLessThanOrEqual(screen.container.clientWidth);
@@ -269,6 +291,10 @@ it("uses the composer's available provider fallback and project default before a
   await expect
     .element(screen.getByRole("button", { name: /^Model: Available fallback/ }))
     .toBeVisible();
+  const unlistedThread = {
+    ...fixture.shells.get(REMOTE),
+    modelSelection: { instanceId: fallback.instanceId, model: "fallback-model" },
+  } as EnvironmentThreadShell;
   fixture.shells.delete(REMOTE);
   const project = {
     environmentId: REMOTE,
@@ -306,5 +332,16 @@ it("uses the composer's available provider fallback and project default before a
   );
   await expect
     .element(screen.getByRole("button", { name: /^Model: Configured default/ }))
+    .toBeVisible();
+  await screen.rerender(
+    header(
+      REMOTE,
+      project,
+      { instanceId: fallback.instanceId, model: "configured-model" },
+      { thread: unlistedThread, draftTarget: scopeThreadRef(REMOTE, THREAD) },
+    ),
+  );
+  await expect
+    .element(screen.getByRole("button", { name: /^Model: Available fallback/ }))
     .toBeVisible();
 });
