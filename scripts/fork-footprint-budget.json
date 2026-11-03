@@ -135,6 +135,8 @@
     "apps/web/src/components/ComposerPromptEditorTiptap.tsx": 4,
     "apps/web/src/components/CustomSnoozeDialog.tsx": 3,
     "apps/web/src/components/EnvironmentMachineIcon.tsx": 11,
+    "apps/web/src/components/GitHubStarPrompt.test.ts": 12,
+    "apps/web/src/components/GitHubStarPrompt.tsx": 11,
     "apps/web/src/components/RightPanelTabs.tsx": 4,
     "apps/web/src/components/Sidebar.logic.ts": 8,
     "apps/web/src/components/Sidebar.tsx": 66,
