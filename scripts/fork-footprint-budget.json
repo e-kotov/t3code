@@ -23,6 +23,7 @@
     "apps/mobile/src/components/ComposerEditor.tsx": 2,
     "apps/mobile/src/components/EnvironmentMachineSymbol.tsx": 2,
     "apps/mobile/src/components/RenderErrorBoundary.tsx": 2,
+    "apps/mobile/src/components/ui/AndroidAnchoredMenu.tsx": 2,
     "apps/mobile/src/components/ui/AppSymbol.tsx": 2,
     "apps/mobile/src/connection/runtime.ts": 6,
     "apps/mobile/src/features/home/AndroidHomeFab.android.tsx": 2,
