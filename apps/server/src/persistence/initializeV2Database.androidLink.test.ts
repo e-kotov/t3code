@@ -4,9 +4,10 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import * as NodeSqlite from "node:sqlite";
 
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as PlatformNodePath from "@effect/platform-node/NodePath";
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 
 import { layerLinkDeniedFileSystem } from "../testUtils/linkDeniedFileSystem.ts";
 import { initializeV2Database } from "./initializeV2Database.ts";
@@ -38,8 +39,7 @@ it.effect("publishes the V1 snapshot when hard links are denied", () => {
       copy.close();
     }
   }).pipe(
-    Effect.provide(layerLinkDeniedFileSystem()),
-    Effect.provide(NodeServices.layer),
+    Effect.provide(Layer.mergeAll(layerLinkDeniedFileSystem(), PlatformNodePath.layer)),
     Effect.ensuring(Effect.sync(() => NodeFS.rmSync(directory, { recursive: true, force: true }))),
   );
 });

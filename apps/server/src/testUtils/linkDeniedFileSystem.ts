@@ -19,20 +19,19 @@ export const layerLinkDeniedFileSystem = (callers = 1) =>
 
       return {
         ...fileSystem,
-        link: (fromPath, toPath) =>
-          Effect.gen(function* () {
-            if ((yield* Ref.updateAndGet(arrived, (count) => count + 1)) >= callers) {
-              yield* Deferred.succeed(allArrived, undefined);
-            }
-            yield* Deferred.await(allArrived);
-            return yield* PlatformError.systemError({
-              _tag: "PermissionDenied",
-              module: "FileSystem",
-              method: "link",
-              pathOrDescriptor: `${fromPath} -> ${toPath}`,
-              description: "Permission denied while creating a hard link.",
-            });
-          }),
+        link: Effect.fn("LinkDeniedFileSystem.link")(function* (fromPath: string, toPath: string) {
+          if ((yield* Ref.updateAndGet(arrived, (count) => count + 1)) >= callers) {
+            yield* Deferred.succeed(allArrived, undefined);
+          }
+          yield* Deferred.await(allArrived);
+          return yield* PlatformError.systemError({
+            _tag: "PermissionDenied",
+            module: "FileSystem",
+            method: "link",
+            pathOrDescriptor: `${fromPath} -> ${toPath}`,
+            description: "Permission denied while creating a hard link.",
+          });
+        }),
       } satisfies FileSystem.FileSystem;
     }),
   ).pipe(Layer.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)));
