@@ -11,7 +11,7 @@ export function ThreadMachineLabel(props: { readonly environmentId: EnvironmentI
       <EnvironmentMachineIcon
         kind={resolveEnvironmentMachineKind(environment?.serverConfig ?? null)}
       />
-      <span className="max-w-32 shrink-0 truncate" title={label}>
+      <span className="max-w-32 shrink-0 truncate">
         {label} ·{" "}
       </span>
     </>
