@@ -12,7 +12,7 @@ import {
 import type * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
 import type * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
 import * as NodeSqliteClient from "@t3tools/shared/nodeSqliteClient";
-import * as Crypto from "effect/Crypto";
+import * as Digest from "effect/crypto/Digest";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -139,7 +139,7 @@ const finalRequestUsage = (updatedAt: string) => ({
 const setup = Effect.gen(function* () {
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const crypto = yield* Crypto.Crypto;
+  const digest = yield* Digest.Digest;
   const stateDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "antigravity-usage-" });
   const { profile } = yield* resolveAntigravityInstanceDirectories(stateDir, instanceId);
   const conversations = path.join(profile, "antigravity-acp", "conversations");
@@ -155,7 +155,7 @@ const setup = Effect.gen(function* () {
     } as unknown as ProviderAdapter.ProviderAdapterV2["Service"],
     {
       instanceId,
-      crypto,
+      digest,
       fileSystem,
       path,
       host: { paths: { stateDir } } as unknown as ProviderHost.ProviderHost["Service"],

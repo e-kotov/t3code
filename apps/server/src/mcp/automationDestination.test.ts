@@ -1,3 +1,4 @@
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { it } from "@effect/vitest";
 import { ProjectId } from "@t3tools/contracts";
@@ -106,10 +107,10 @@ it.effect("bases new-thread worktrees on a branch the checkout has", () =>
         Layer.provideMerge(VcsProcess.layer),
         Layer.provideMerge(
           ServerConfig.layerTest(process.cwd(), { prefix: "t3-automation-" }).pipe(
-            Layer.provide(NodeServices.layer),
+            Layer.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
           ),
         ),
-        Layer.provideMerge(NodeServices.layer),
+        Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
       ),
     ),
   ),

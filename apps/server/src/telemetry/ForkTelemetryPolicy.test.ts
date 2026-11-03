@@ -1,3 +1,4 @@
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
@@ -11,7 +12,7 @@ import * as ServerConfig from "../config.ts";
 import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
 import * as AnalyticsService from "./AnalyticsService.ts";
 
-it.layer(NodeServices.layer)("EK telemetry policy", (it) => {
+it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("EK telemetry policy", (it) => {
   it.effect.each([undefined, false, true])("analytics enabled=%s", (enabled) =>
     Effect.gen(function* () {
       const requests: string[] = [];

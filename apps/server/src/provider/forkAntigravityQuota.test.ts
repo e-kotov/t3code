@@ -1,4 +1,6 @@
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as Layer from "effect/Layer";
 import { expect, it } from "@effect/vitest";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Effect from "effect/Effect";
@@ -127,7 +129,7 @@ it.effect(
           usedPercent: 99,
         });
       }
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
 );
 
 it.effect("does not fill missing Gemini windows with per-model 100-percent readings", () =>
@@ -142,7 +144,7 @@ it.effect("does not fill missing Gemini windows with per-model 100-percent readi
       }
       expect(requests.some((url) => url.endsWith(":fetchAvailableModels"))).toBe(false);
     }
-  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  }).pipe(Effect.scoped, Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
 );
 
 it.effect("uses the pinned ACP identity when a custom executable has no recorded version", () =>
@@ -156,7 +158,7 @@ it.effect("uses the pinned ACP identity when a custom executable has no recorded
       `antigravity/acp/${pinnedVersion} (aidev_client; os_type=darwin; arch=arm64)`,
       `antigravity/acp/${pinnedVersion} (aidev_client; os_type=darwin; arch=arm64)`,
     ]);
-  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  }).pipe(Effect.scoped, Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
 );
 
 it.effect("reports HTTP and malformed-summary failures as failed probes", () =>
@@ -168,5 +170,5 @@ it.effect("reports HTTP and malformed-summary failures as failed probes", () =>
       expect(limits.unavailable?.reason).toBe("probeFailed");
       expect(requests.some((url) => url.endsWith(":fetchAvailableModels"))).toBe(false);
     }
-  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  }).pipe(Effect.scoped, Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
 );

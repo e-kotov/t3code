@@ -7,7 +7,7 @@ import type {
 import type * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
 import type * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
 import * as NodeSqliteClient from "@t3tools/shared/nodeSqliteClient";
-import * as Crypto from "effect/Crypto";
+import * as Digest from "effect/crypto/Digest";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -145,17 +145,18 @@ export const withAntigravityTurnUsage = Effect.fn("withAntigravityTurnUsage")(fu
   adapter: Adapter,
   services: {
     readonly instanceId: ProviderInstanceId;
-    readonly crypto: Crypto.Crypto;
+    readonly digest?: Digest.Digest["Service"];
     readonly fileSystem: FileSystem.FileSystem;
     readonly path: Path.Path;
     readonly host: ProviderHost.ProviderHost["Service"];
   },
 ) {
+  const digest = services.digest ?? (yield* Digest.Digest);
   const directories = yield* resolveAntigravityInstanceDirectories(
     services.host.paths.stateDir,
     services.instanceId,
   ).pipe(
-    Effect.provideService(Crypto.Crypto, services.crypto),
+    Effect.provideService(Digest.Digest, digest),
     Effect.provideService(Path.Path, services.path),
     Effect.option,
   );
