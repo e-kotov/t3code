@@ -14,6 +14,22 @@ import {
 } from "./thread-header-actions-menu";
 import { resolveThreadListV2SnoozeGateExpiryMs } from "./threadListV2";
 
+// Runs from a menu press; reading the clock here keeps it out of render.
+function selectSnoozeChoice(
+  choiceId: string,
+  displayedPresets: Parameters<
+    typeof resolveThreadListV2SnoozeMenuSelection
+  >[0]["displayedPresets"],
+  presets: Parameters<typeof resolveThreadListV2SnoozeMenuSelection>[0]["presets"],
+) {
+  return resolveThreadListV2SnoozeMenuSelection({
+    event: `snooze:${choiceId}`,
+    displayedPresets,
+    now: new Date(),
+    presets,
+  });
+}
+
 /** Settle, snooze and title actions for the open thread, matching its list row. */
 export function useThreadHeaderActionsMenu(thread: EnvironmentThreadShell) {
   const actions = useThreadListActions();
@@ -53,12 +69,7 @@ export function useThreadHeaderActionsMenu(thread: EnvironmentThreadShell) {
     onUnsettle: () => void actions.unsettleThread(thread),
     onWake: () => void actions.unsnoozeThread(thread),
     onSnooze: (choiceId) => {
-      const selection = resolveThreadListV2SnoozeMenuSelection({
-        event: `snooze:${choiceId}`,
-        displayedPresets: snoozeChoices,
-        now: new Date(),
-        presets,
-      });
+      const selection = selectSnoozeChoice(choiceId, snoozeChoices, presets);
       if (selection._tag === "selected") {
         void actions.snoozeThread(thread, selection.preset.snoozedUntil);
       } else if (selection._tag === "expired") {
