@@ -3342,6 +3342,8 @@ export default function ChatView(props: ChatViewProps) {
               activeThreadTitle={activeThread.title}
               activeThreadLinkOrigin={activeThreadShell?.linkOrigin?.label ?? null}
               activeProject={activeProject ?? null}
+              defaultModelSelection={activeProjectDefaultModelSelection}
+              modelContext={{ thread: activeThread, draftTarget: composerDraftTarget }}
               parentThreadLink={headerParentThreadLink}
               onOpenThread={onOpenRelatedThreadStable}
               rightPanelOpen={inlineRightPanelOwnsTitleBar}
