@@ -30,15 +30,13 @@ const layerLinkDeniedFileSystem = (creators: number) =>
               yield* Deferred.succeed(allArrived, undefined);
             }
             yield* Deferred.await(allArrived);
-            return yield* Effect.fail(
-              PlatformError.systemError({
-                _tag: "PermissionDenied",
-                module: "FileSystem",
-                method: "link",
-                pathOrDescriptor: `${fromPath} -> ${toPath}`,
-                description: "Permission denied while creating a hard link.",
-              }),
-            );
+            return yield* PlatformError.systemError({
+              _tag: "PermissionDenied",
+              module: "FileSystem",
+              method: "link",
+              pathOrDescriptor: `${fromPath} -> ${toPath}`,
+              description: "Permission denied while creating a hard link.",
+            });
           }),
       } satisfies FileSystem.FileSystem;
     }),

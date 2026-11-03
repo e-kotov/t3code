@@ -19,15 +19,13 @@ export const publishSecretFile = Effect.fn("ServerSecretStore.publishSecretFile"
         renameFallbackLock.withPermits(1)(
           Effect.gen(function* () {
             if (yield* fileSystem.exists(secretPath)) {
-              return yield* Effect.fail(
-                PlatformError.systemError({
-                  _tag: "AlreadyExists",
-                  module: "FileSystem",
-                  method: "link",
-                  pathOrDescriptor: secretPath,
-                  cause: linkError,
-                }),
-              );
+              return yield* PlatformError.systemError({
+                _tag: "AlreadyExists",
+                module: "FileSystem",
+                method: "link",
+                pathOrDescriptor: secretPath,
+                cause: linkError,
+              });
             }
             yield* fileSystem.rename(tempPath, secretPath);
           }),
