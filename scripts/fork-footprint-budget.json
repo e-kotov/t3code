@@ -88,6 +88,7 @@
     "apps/mobile/src/state/use-composer-drafts.ts": 3,
     "apps/mobile/src/state/use-thread-composer-state.ts": 13,
     "apps/mobile/vite.config.ts": 2,
+    "apps/server/src/auth/ServerSecretStore.ts": 3,
     "apps/server/src/cli/update.ts": 13,
     "apps/server/src/cloud/pinnedRuntime.ts": 2,
     "apps/server/src/environment/ServerEnvironment.ts": 1,
