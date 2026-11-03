@@ -142,7 +142,7 @@ async function starRepository(environmentId: EnvironmentId) {
  * Fork policy: the upstream GitHub star prompt is disabled on the EK fork.
  * Kept configurable for testing.
  */
-export let forkStarPromptEnabled = false;
+let forkStarPromptEnabled = false;
 
 export function setForkStarPromptEnabledForTest(enabled: boolean): void {
   forkStarPromptEnabled = enabled;
