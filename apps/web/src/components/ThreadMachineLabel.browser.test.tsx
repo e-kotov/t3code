@@ -52,7 +52,9 @@ it("keeps a thread's destination and copied reference while its machine is renam
     const link = screen.getByRole("link", { name: "Raven · Routing" });
     await expect.element(link).toHaveAttribute("href", `/${environmentId}/${threadId}`);
     await expect.element(link).toHaveAttribute("data-markdown-copy", copyMarkdown);
-    await expect.element(link.element().querySelector<SVGSVGElement>(".lucide-server")).toBeVisible();
+    await expect
+      .element(link.element().querySelector<SVGSVGElement>(".lucide-server"))
+      .toBeVisible();
 
     registry.set(environment, {
       label: "Raven HPC",
