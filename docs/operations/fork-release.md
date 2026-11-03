@@ -8,8 +8,8 @@ publishing account is required.
 
 ## Artifacts
 
-- Mac Apple Silicon only (no Intel builds): DMG and ZIP. Builds use the fork's persistent
-  private signing certificate and are not Apple notarized;
+- Mac Apple Silicon only (no Intel builds): DMG and ZIP. Builds are signed with Egor's
+  Apple Development certificate (personal team `2MC7X68AVT`) and are not notarized;
   macOS may require approval in Privacy & Security on first launch.
 - Android: standalone signed ARM64 APK (`-arm64.apk`), package `pro.ekotov.t3code`,
   labelled T3 Code EK. Targets ARM64 phones including Galaxy S23+; x86 emulators
@@ -44,8 +44,8 @@ brew install --cask e-kotov/tap/t3-code-ek
 brew upgrade --cask t3-code-ek
 ```
 
-The cask pins each DMG's SHA-256, verifies and preserves `T3 Code EK.app`'s private
-release signature, and clears its quarantine flag. This is not Apple notarization. When
+The cask pins each DMG's SHA-256, verifies and preserves `T3 Code EK.app`'s Apple
+Development signature, and clears its quarantine flag. This is not Apple notarization. When
 replacing upstream's `t3-code` cask, uninstall it without `--zap` so T3 data is
 retained, and remove it from any managed Homebrew package list.
 
@@ -148,17 +148,22 @@ Version/package/data remain compatible; use `SHA256SUMS-arm64` for this added AP
 
 ## Mac signing
 
-`FORK_MACOS_CERTIFICATE_BASE64` holds the base64-encoded PKCS12 signing identity;
-`FORK_MACOS_CERTIFICATE_PASSWORD` holds its password. Both are encrypted Actions
-secrets. Keep this identity across releases: replacing it requires another Keychain
-approval. The public SHA-1 certificate fingerprint is pinned in
-`scripts/fork-macos-sign.py` and `scripts/fork-homebrew-cask.rb`.
+`FORK_MACOS_APPLE_CERTIFICATE_BASE64` holds the base64-encoded PKCS12 Apple Development
+identity; `FORK_MACOS_APPLE_CERTIFICATE_PASSWORD` holds its password. Both are encrypted
+Actions secrets. The older `FORK_MACOS_CERTIFICATE_*` self-signed secrets are no longer read.
+`scripts/fork-macos-sign.py` selects the identity by its pinned SHA-1 fingerprint and
+verifies the identifier, Apple anchor and team `2MC7X68AVT`; the cask checks the same
+requirement without pinning the certificate. A renewed certificate from the same team
+is expected, but not yet tested, to keep existing Keychain approval. The certificate
+expires on 2027-11-02: before then, renew it, replace both secrets and update
+`CERTIFICATE_SHA1`.
 
 The fork-owned `mac_signed` job signs the upstream packager's output before publication.
 It uses an isolated temporary keychain, preserves native entitlements and installer
 layout, and verifies the signed app after extracting both final installers. Its native
-regression runs two different signed builds against one test Keychain item with
-interaction disabled. This does not verify the real user's existing Keychain ACL or GUI.
+regression runs two different signed builds against one test item, in a temporary keychain
+and in the runner's login keychain, with interaction disabled. This does not verify the
+real user's existing Keychain ACL or GUI.
 Missing or mismatched credentials fail the release; there is no unsigned fallback.
 The cask template comes from the exact release commit so installation preserves its
 identity. GitHub releases may distribute these signatures, but they do not provide
