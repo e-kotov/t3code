@@ -6,11 +6,13 @@ import { expect, it, vi } from "vite-plus/test";
 import { render } from "../../test/render";
 import { ThreadContextChip } from "./ThreadContextChip";
 
+type MachineEnvironment = {
+  label: string;
+  serverConfig: Parameters<typeof resolveEnvironmentMachineKind>[0];
+} | null;
+
 const state = vi.hoisted(() => ({
-  environment: undefined as Atom.Writable<{
-    label: string;
-    serverConfig: Parameters<typeof resolveEnvironmentMachineKind>[0];
-  } | null> | undefined,
+  environment: undefined as Atom.Writable<MachineEnvironment> | undefined,
 }));
 
 vi.mock("../state/environments", () => ({
@@ -24,18 +26,20 @@ vi.mock("../state/entities", () => ({
   useProject: () => null,
 }));
 
-it("keeps a thread's destination and copied reference while its machine is renamed or removed", async () => {
-  const environmentId = EnvironmentId.make("raven-environment");
-  const threadId = ThreadId.make("routing-thread");
-  const copyMarkdown = `[Routing](t3-thread://v2/${environmentId}/${threadId})`;
-  state.environment = Atom.make<{
-    label: string;
-    serverConfig: Parameters<typeof resolveEnvironmentMachineKind>[0];
-  } | null>({
+function setup() {
+  const environment = Atom.make<MachineEnvironment>({
     label: "Raven",
     serverConfig: null,
   });
-  const registry = AtomRegistry.make();
+  state.environment = environment;
+  return { environment, registry: AtomRegistry.make() };
+}
+
+it("keeps a thread's destination and copied reference while its machine is renamed or removed", async () => {
+  const { environment, registry } = setup();
+  const environmentId = EnvironmentId.make("raven-environment");
+  const threadId = ThreadId.make("routing-thread");
+  const copyMarkdown = `[Routing](t3-thread://v2/${environmentId}/${threadId})`;
   try {
     await using screen = await render(
       <RegistryContext value={registry}>
@@ -50,7 +54,7 @@ it("keeps a thread's destination and copied reference while its machine is renam
     await expect.element(link).toHaveAttribute("data-markdown-copy", copyMarkdown);
     await expect.element(link.element().querySelector(".lucide-server")!).toBeVisible();
 
-    registry.set(state.environment, {
+    registry.set(environment, {
       label: "Raven HPC",
       serverConfig: {
         environment: { platform: { os: "linux", arch: "x64", machine: "server" } },
@@ -61,7 +65,7 @@ it("keeps a thread's destination and copied reference while its machine is renam
     await expect.element(renamed).toBeVisible();
     await expect.element(renamed.element().querySelector(".lucide-laptop")!).toBeVisible();
 
-    registry.set(state.environment, null);
+    registry.set(environment, null);
     await expect
       .element(screen.getByRole("link", { name: "raven-environment · Routing" }))
       .toHaveAttribute("href", `/${environmentId}/${threadId}`);
