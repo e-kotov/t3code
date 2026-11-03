@@ -19,6 +19,12 @@ export const publishWithoutReplace = Effect.fn("publishWithoutReplace")(function
       (linkError) => {
         const stagingPath = `${fromPath}.publish`;
         return fileSystem.copyFile(fromPath, stagingPath).pipe(
+          // Flush the copy to disk first, so a published file is never empty after power loss.
+          Effect.andThen(
+            Effect.scoped(
+              Effect.flatMap(fileSystem.open(stagingPath, { flag: "r+" }), (file) => file.sync),
+            ),
+          ),
           Effect.andThen(
             renameFallbackLock.withPermits(1)(
               Effect.gen(function* () {
