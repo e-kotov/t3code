@@ -12,6 +12,7 @@ import { WindowHingeContext } from "../../native/window-hinge-context";
 import { OverlayPortal } from "./OverlayPortal";
 import { useAndroidControlSizing } from "./useAndroidControlSizing";
 import { MenuPopup } from "./MenuPopup";
+import { AnchoredMenuHighlight } from "./AnchoredMenuHighlight";
 
 const SCREEN_MARGIN = 12;
 const ANCHOR_GAP = 6;
@@ -168,6 +169,7 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
             onLayout={measureOverlay}
           >
             <Pressable accessible={false} className="absolute inset-0" onPress={close} />
+            <AnchoredMenuHighlight frame={local} />
             {!placeable || local === null ? null : !anchor.keyboardWasVisible ? (
               <MenuPopup
                 // Compose aligns to the trigger's start if it fits; hinge-safe triggers keep menus on their side.
