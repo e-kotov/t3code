@@ -144,7 +144,10 @@ function header(
 ) {
   return (
     <AppAtomRegistryProvider>
-      <div className="flex h-12 w-full items-center bg-background px-3" data-testid="header-context">
+      <div
+        className="flex h-12 w-full items-center bg-background px-3"
+        data-testid="header-context"
+      >
         <ChatHeader
           activeThreadEnvironmentId={environmentId}
           activeThreadId={THREAD}
