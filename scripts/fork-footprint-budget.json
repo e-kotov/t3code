@@ -142,7 +142,7 @@
     "apps/web/src/components/Sidebar.logic.ts": 8,
     "apps/web/src/components/Sidebar.tsx": 66,
     "apps/web/src/components/chat/ChatComposer.tsx": 13,
-    "apps/web/src/components/chat/ChatHeader.tsx": 9,
+    "apps/web/src/components/chat/ChatHeader.tsx": 13,
     "apps/web/src/components/chat/ComposerFooterControls.tsx": 2,
     "apps/web/src/components/chat/OpenInPicker.browser.test.tsx": 14,
     "apps/web/src/components/chat/OpenInPicker.tsx": 69,
