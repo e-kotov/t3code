@@ -90,9 +90,11 @@ it("keeps a thread's destination and copied reference while its machine is renam
       .element(unknown.element().querySelector<SVGSVGElement>(".lucide-circle-dashed"))
       .toBeVisible();
     await userEvent.hover(unknown);
-    await vi.waitFor(() => expect(tooltip()?.textContent).toContain(environmentId));
+    await vi.waitFor(() => {
+      expect(tooltip()?.textContent).toContain("Unknown machine");
+      expect(tooltip()?.textContent).toContain(environmentId);
+    });
     await expect.element(tooltip()).toBeVisible();
-    await expect.element(tooltip()).toHaveTextContent("Unknown machine");
   } finally {
     registry.dispose();
   }
