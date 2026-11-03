@@ -2,6 +2,7 @@ import { RegistryContext, useAtomValue } from "@effect/atom-react";
 import { EnvironmentId, ThreadId, resolveEnvironmentMachineKind } from "@t3tools/contracts";
 import { Atom, AtomRegistry } from "effect/reactivity";
 import { expect, it, vi } from "vite-plus/test";
+import { page, userEvent } from "vite-plus/test/browser";
 
 import { render } from "../../test/render";
 import { ThreadContextChip } from "./ThreadContextChip";
@@ -37,7 +38,7 @@ function setup() {
 
 it("keeps a thread's destination and copied reference while its machine is renamed or removed", async () => {
   const { environment, registry } = setup();
-  const environmentId = EnvironmentId.make("raven-environment");
+  const environmentId = EnvironmentId.make("3f2a1b4c-9d11-4f44-8e00-4c2e3355b7d9");
   const threadId = ThreadId.make("routing-thread");
   const copyMarkdown = `[Routing](t3-thread://v2/${environmentId}/${threadId})`;
   try {
@@ -69,10 +70,27 @@ it("keeps a thread's destination and copied reference while its machine is renam
       .element(renamed.element().querySelector<SVGSVGElement>(".lucide-laptop"))
       .toBeVisible();
 
+    const longName = "Raven research workstation with a machine name wider than the inline label";
+    registry.set(environment, { label: longName, serverConfig: null });
+    const longLink = screen.getByRole("link", { name: `${longName} · Routing` });
+    await expect.element(longLink).toBeVisible();
+    await userEvent.hover(longLink);
+    const tooltip = page.getByRole("tooltip");
+    await expect.element(tooltip).toHaveTextContent(longName);
+    await userEvent.unhover(longLink);
+    await expect.element(tooltip).not.toBeInTheDocument();
+
     registry.set(environment, null);
+    const unknown = screen.getByRole("link", { name: "Unknown machine · Routing" });
+    await expect.element(unknown).toHaveAttribute("href", `/${environmentId}/${threadId}`);
+    await expect.element(unknown).not.toHaveTextContent(environmentId);
+    await expect.element(unknown).toHaveAttribute("data-markdown-copy", copyMarkdown);
     await expect
-      .element(screen.getByRole("link", { name: "raven-environment · Routing" }))
-      .toHaveAttribute("href", `/${environmentId}/${threadId}`);
+      .element(unknown.element().querySelector<SVGSVGElement>(".lucide-circle-dashed"))
+      .toBeVisible();
+    await userEvent.hover(unknown);
+    await expect.element(tooltip).toHaveTextContent("Unknown machine");
+    await expect.element(tooltip).toHaveTextContent(environmentId);
   } finally {
     registry.dispose();
   }

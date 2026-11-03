@@ -5,7 +5,7 @@ import { MessagesSquareIcon } from "lucide-react";
 
 import { useProject, useThreadShell } from "~/state/entities";
 import { ContextChip, ContextChipLabel } from "./ContextChip";
-import { ThreadMachineLabel } from "./ThreadMachineLabel";
+import { ThreadMachineDetails, ThreadMachineLabel } from "./ThreadMachineLabel";
 import { ProjectFavicon } from "./ProjectFavicon";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 
@@ -40,6 +40,7 @@ export function ThreadContextChip(props: {
         }
       />
       <TooltipPopup side="top">
+        <ThreadMachineDetails environmentId={environmentId} />
         {props.unreadable
           ? "On another machine, so this machine's agent can't read it. Remove it or switch back to send."
           : shell
