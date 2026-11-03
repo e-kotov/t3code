@@ -7,6 +7,9 @@ export {
   cliArchivePlatformKey,
   cliArchiveTarCommand,
   parseChecksums,
+  releaseAssetUrl,
+  updateFeedFileName,
+  type CliArchivePlatformKey,
 } from "./cliRelease.ts";
 
 export const FORK_RELEASE_REPOSITORY = "e-kotov/t3code";
@@ -27,6 +30,14 @@ export function cliReleaseChannelOf(version: string): CliReleaseChannel {
 export function cliReleaseDownloadBaseUrl(version: string, baseUrl?: string): string {
   return UpstreamRelease.cliReleaseDownloadBaseUrl(
     version,
+    baseUrl?.trim() || FORK_RELEASE_DOWNLOAD_BASE_URL,
+  );
+}
+
+export function cliReleaseAssetUrl(version: string, fileName: string, baseUrl?: string): string {
+  return UpstreamRelease.cliReleaseAssetUrl(
+    version,
+    fileName,
     baseUrl?.trim() || FORK_RELEASE_DOWNLOAD_BASE_URL,
   );
 }
