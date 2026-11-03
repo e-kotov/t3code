@@ -1,6 +1,7 @@
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -36,7 +37,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
           ["secret-request.bin"],
         );
         // Windows has no POSIX permission bits.
-        if (process.platform !== "win32") {
+        if ((yield* HostProcess.Platform) !== "win32") {
           const info = yield* fileSystem.stat(`${secretStore.directory ?? ""}/secret-request.bin`);
           assert.strictEqual(info.mode & 0o777, 0o600);
         }
