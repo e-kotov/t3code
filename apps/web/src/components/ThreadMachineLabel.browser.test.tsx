@@ -84,7 +84,7 @@ it("keeps a thread's destination and copied reference while its machine is renam
     registry.set(environment, null);
     const unknown = screen.getByRole("link", { name: "Unknown machine · Routing" });
     await expect.element(unknown).toHaveAttribute("href", `/${environmentId}/${threadId}`);
-    await expect.element(unknown).not.toHaveTextContent(environmentId);
+    await vi.waitFor(() => expect(unknown.element().textContent).not.toContain(environmentId));
     await expect.element(unknown).toHaveAttribute("data-markdown-copy", copyMarkdown);
     await expect
       .element(unknown.element().querySelector<SVGSVGElement>(".lucide-circle-dashed"))
