@@ -6,7 +6,7 @@ they are not tied to upstream stable releases.
 
 ## Daily automation
 
-`.github/workflows/upstream-sync.yml` runs at 03:17, 09:17, 15:17 and 21:17 UTC and on manual dispatch. It runs
+`.github/workflows/upstream-sync.yml` runs daily at 02:00 UTC (03:00 CET / 04:00 CEST Berlin time) and on manual dispatch. It runs
 `scripts/fork-upstream-sync.sh`:
 
 1. `merge` merges upstream `main` into fork `main`. If upstream is already contained, it stops.
