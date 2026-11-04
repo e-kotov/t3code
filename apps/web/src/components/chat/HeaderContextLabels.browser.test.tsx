@@ -109,7 +109,9 @@ function presentation(
   return {
     entry: { target: { label } },
     connection: { phase, error: null, traceId: null },
-    serverConfig: scratchWorkspaceRoot ? { scratchWorkspaceRoot } : null,
+    serverConfig: scratchWorkspaceRoot
+      ? { scratchWorkspaceRoot, environment: { platform: { machine: "server" } } }
+      : null,
   } as EnvironmentPresentation;
 }
 
