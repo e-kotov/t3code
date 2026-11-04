@@ -138,7 +138,6 @@ function setup(props?: {
       for (const listener of harness.listeners) listener();
       root.render(
         <ThreadListToolbar
-          sidebar
           searchQuery=""
           onSearchQueryChange={() => {}}
           filterActions={[]}

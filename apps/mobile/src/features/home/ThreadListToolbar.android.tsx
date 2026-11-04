@@ -67,44 +67,48 @@ export function ThreadListToolbar(props: ThreadListToolbarProps) {
     props.onFilterSelect(id);
   };
 
-  return (
+  const appBar = (
+    <AppBar
+      title="T3 Code"
+      titleContent={
+        <WorkspaceBrandTitle
+          accessibilityLabel="T3 Code, Threads"
+          onOpenEnvironments={props.onOpenEnvironments}
+        />
+      }
+      search={{
+        value: props.searchQuery,
+        onChangeText: onSearchQueryChange,
+        placeholder: "Search",
+        accessibilityLabel: "Search threads",
+        active: searching,
+        onOpen: openSearch,
+        onClose: closeSearch,
+      }}
+      menus={
+        connectionState.hasConnections
+          ? [
+              {
+                title: "Filter threads",
+                icon: props.filterCustomized
+                  ? "line.3.horizontal.decrease.circle.fill"
+                  : "line.3.horizontal.decrease.circle",
+                items: appBarMenuItemsFromActions(filterActions, handleFilterSelect),
+              },
+            ]
+          : undefined
+      }
+    />
+  );
+
+  return props.cacheWarmingEnvironmentId ? (
     <>
-      <AppBar
-        title="T3 Code"
-        titleContent={
-          <WorkspaceBrandTitle
-            accessibilityLabel="T3 Code, Threads"
-            onOpenEnvironments={props.onOpenEnvironments}
-          />
-        }
-        search={{
-          value: props.searchQuery,
-          onChangeText: onSearchQueryChange,
-          placeholder: "Search",
-          accessibilityLabel: "Search threads",
-          active: searching,
-          onOpen: openSearch,
-          onClose: closeSearch,
-        }}
-        menus={
-          connectionState.hasConnections
-            ? [
-                {
-                  title: "Filter threads",
-                  icon: props.filterCustomized
-                    ? "line.3.horizontal.decrease.circle.fill"
-                    : "line.3.horizontal.decrease.circle",
-                  items: appBarMenuItemsFromActions(filterActions, handleFilterSelect),
-                },
-              ]
-            : undefined
-        }
-      />
-      {props.cacheWarmingEnvironmentId ? (
-        <View className="items-end pb-1 bg-header px-2">
-          <CacheWarmingToolbarControl environmentId={props.cacheWarmingEnvironmentId} />
-        </View>
-      ) : null}
+      {appBar}
+      <View className="items-end pb-1 bg-header px-2">
+        <CacheWarmingToolbarControl environmentId={props.cacheWarmingEnvironmentId} />
+      </View>
     </>
+  ) : (
+    appBar
   );
 }

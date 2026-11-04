@@ -12,5 +12,4 @@ export interface ThreadListToolbarProps {
   readonly onRequestVisibility?: () => void;
   readonly conversationList?: ConversationListControls;
   readonly cacheWarmingEnvironmentId?: EnvironmentId | null;
-  readonly sidebar?: boolean;
 }
