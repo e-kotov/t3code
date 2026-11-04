@@ -9,12 +9,13 @@ export function CloseModelPickerOnEffortEnter({
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- listens for capture keydown on the popup to close the picker on Enter when the model has no effort levels
   useEffect(() => {
     const root = ref.current;
     if (!root) return;
     const popup =
       root.closest<HTMLElement>("[data-model-picker-effort]")?.parentElement ??
-      root.closest<HTMLElement>("[role=\"dialog\"], [role=\"menu\"]") ??
+      root.closest<HTMLElement>('[role="dialog"], [role="menu"]') ??
       root.parentElement;
     if (!popup) return;
 
@@ -24,15 +25,17 @@ export function CloseModelPickerOnEffortEnter({
         event.altKey ||
         event.ctrlKey ||
         event.metaKey ||
-        event.shiftKey
+        event.shiftKey ||
+        (event.target instanceof Element && event.target.closest("[data-effort-level]"))
       ) {
         return;
       }
 
       window.requestAnimationFrame(() => {
-        const effortColumn = popup.querySelector("[data-model-picker-effort]");
+        if (!root.isConnected) return;
+        const effortColumn = popup.querySelector("[data-model-picker-effort]") ?? root;
         const hasEffortLevels =
-          effortColumn?.querySelector("[data-effort-level]:not(:disabled)") != null;
+          effortColumn.querySelector("[data-effort-level]:not(:disabled)") != null;
         if (!hasEffortLevels) {
           onClose();
         }
@@ -57,7 +60,7 @@ export function CloseModelPickerOnEffortEnter({
           event.ctrlKey ||
           event.metaKey ||
           !(target instanceof Element) ||
-          !target.matches("[data-effort-level]:not(:disabled)")
+          !target.closest("[data-effort-level]:not(:disabled)")
         ) {
           return;
         }
