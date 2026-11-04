@@ -1,9 +1,11 @@
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
-const config = vi.hoisted(() => ({
-  extra: {} as { eas?: { projectId?: unknown }; relay?: { url: string } },
+const { config, nativeImport } = vi.hoisted(() => ({
+  config: {
+    extra: {} as { eas?: { projectId?: unknown }; relay?: { url: string } },
+  },
+  nativeImport: vi.fn(),
 }));
-const nativeImport = vi.hoisted(() => vi.fn());
 vi.mock("expo-constants", () => ({ default: { expoConfig: config } }));
 vi.mock("expo-observe", () => {
   nativeImport();
