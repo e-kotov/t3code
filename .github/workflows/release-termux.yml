@@ -26,7 +26,7 @@ jobs:
           path: packager
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version: '26'
+          node-version: "26"
       - name: Verify existing build and check out its source
         env:
           GH_TOKEN: ${{ github.token }}

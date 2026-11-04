@@ -1,3 +1,4 @@
+import { ProviderDriverKind, ProviderInstanceId } from "@t3tools/contracts";
 import { useState } from "react";
 import { expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
@@ -5,7 +6,12 @@ import { page, userEvent } from "vite-plus/test/browser";
 import "~/index.css";
 
 import { act, render } from "../../../test/render";
-import { CloseModelPickerOnEffortEnter } from "./CloseModelPickerOnEffortEnter";
+import { deriveProviderInstanceEntries } from "../../providerInstances";
+import { ProviderModelPicker } from "./ProviderModelPicker";
+import {
+  CloseModelPickerOnEffortEnter,
+  closeModelPickerOnEffortEnter,
+} from "./CloseModelPickerOnEffortEnter";
 
 it("applies an effort level before closing on Enter", async () => {
   const events: string[] = [];
@@ -55,7 +61,9 @@ it("closes on Enter when the effort column has no effort levels", async () => {
             }
           }}
         />
-        <div role="option">Claude Sonnet 3.5</div>
+        <div role="option" data-highlighted>
+          Claude Sonnet 3.5
+        </div>
         <div data-model-picker-effort>
           <CloseModelPickerOnEffortEnter
             onClose={() => {
@@ -140,7 +148,9 @@ it("does not close on Enter when the effort column contains effort levels", asyn
             }
           }}
         />
-        <div role="option">Claude Sonnet 3.7</div>
+        <div role="option" data-highlighted>
+          Claude Sonnet 3.7
+        </div>
         <div data-model-picker-effort>
           <CloseModelPickerOnEffortEnter
             onClose={() => {
@@ -218,7 +228,9 @@ it("does not close on Enter during IME composition", async () => {
     return (
       <div data-model-picker-content>
         <input type="text" placeholder="Search models" />
-        <div role="option">Claude 3.5 Sonnet</div>
+        <div role="option" data-highlighted>
+          Claude 3.5 Sonnet
+        </div>
         <div data-model-picker-effort>
           <CloseModelPickerOnEffortEnter
             onClose={() => {
@@ -376,4 +388,179 @@ it("does not close on click when the effort column has no effort levels", async 
 
   await vi.waitFor(() => expect(events).toEqual(["model-clicked"]));
   await expect.element(page.getByRole("button", { name: "Gemini" })).toBeInTheDocument();
+});
+
+it("closes real ProviderModelPicker on Enter for a model with no effort levels", async () => {
+  const instanceId = ProviderInstanceId.make("codex");
+  const entries = deriveProviderInstanceEntries([
+    {
+      instanceId,
+      driver: ProviderDriverKind.make("codex"),
+      enabled: true,
+      installed: true,
+      version: null,
+      status: "ready",
+      auth: { status: "authenticated" },
+      checkedAt: "2026-01-01T00:00:00.000Z",
+      models: [],
+      slashCommands: [],
+      skills: [],
+    },
+  ]);
+  const options = new Map([
+    [
+      instanceId,
+      [
+        { slug: "plain", name: "Plain model" },
+        { slug: "old", name: "Old model", isLegacy: true },
+      ],
+    ],
+  ]);
+
+  function Picker() {
+    const [model, setModel] = useState("plain");
+    const [open, setOpen] = useState(false);
+    return (
+      <>
+        <span data-testid="state">{open ? "OPEN" : "CLOSED"}</span>
+        <ProviderModelPicker
+          environmentId={null}
+          activeInstanceId={instanceId}
+          model={model}
+          lockedProvider={null}
+          instanceEntries={entries}
+          modelOptionsByInstance={options as never}
+          triggerAriaLabel="Choose model"
+          open={open}
+          onOpenChange={setOpen}
+          onInstanceModelChange={(_, selected) => setModel(selected)}
+          {...closeModelPickerOnEffortEnter({
+            effortColumn: <div>No options</div>,
+            onOpenChange: setOpen,
+          })}
+        />
+      </>
+    );
+  }
+
+  await using screen = await render(<Picker />);
+  await screen.getByRole("button", { name: "Choose model" }).click();
+  const search = page.getByPlaceholder("Search models...");
+  await expect.element(search).toHaveFocus();
+  await userEvent.keyboard("{Enter}");
+  await vi.waitFor(() => expect.element(page.getByTestId("state")).toHaveTextContent("CLOSED"));
+});
+
+it("keeps real ProviderModelPicker open when pressing Enter on Show more", async () => {
+  const instanceId = ProviderInstanceId.make("codex");
+  const entries = deriveProviderInstanceEntries([
+    {
+      instanceId,
+      driver: ProviderDriverKind.make("codex"),
+      enabled: true,
+      installed: true,
+      version: null,
+      status: "ready",
+      auth: { status: "authenticated" },
+      checkedAt: "2026-01-01T00:00:00.000Z",
+      models: [],
+      slashCommands: [],
+      skills: [],
+    },
+  ]);
+  const options = new Map([
+    [
+      instanceId,
+      [
+        { slug: "plain", name: "Plain model" },
+        { slug: "old", name: "Old model", isLegacy: true },
+      ],
+    ],
+  ]);
+
+  function Picker() {
+    const [model, setModel] = useState("plain");
+    const [open, setOpen] = useState(false);
+    return (
+      <>
+        <span data-testid="state">{open ? "OPEN" : "CLOSED"}</span>
+        <ProviderModelPicker
+          environmentId={null}
+          activeInstanceId={instanceId}
+          model={model}
+          lockedProvider={null}
+          instanceEntries={entries}
+          modelOptionsByInstance={options as never}
+          triggerAriaLabel="Choose model"
+          open={open}
+          onOpenChange={setOpen}
+          onInstanceModelChange={(_, selected) => setModel(selected)}
+          {...closeModelPickerOnEffortEnter({
+            effortColumn: <div>No options</div>,
+            onOpenChange: setOpen,
+          })}
+        />
+      </>
+    );
+  }
+
+  await using screen = await render(<Picker />);
+  await screen.getByRole("button", { name: "Choose model" }).click();
+  const search = page.getByPlaceholder("Search models...");
+  await expect.element(search).toHaveFocus();
+  await expect.element(page.getByRole("option", { name: /Show more/ })).toBeInTheDocument();
+  await userEvent.keyboard("{ArrowDown}");
+  await userEvent.keyboard("{ArrowDown}");
+  await userEvent.keyboard("{ArrowDown}");
+  await expect
+    .element(page.getByRole("option", { name: /Show more/ }))
+    .toHaveAttribute("data-highlighted");
+  await userEvent.keyboard("{Enter}");
+  await expect.element(page.getByTestId("state")).toHaveTextContent("OPEN");
+  await expect.element(page.getByRole("option", { name: /Old model/ })).toBeInTheDocument();
+});
+
+it("does not close on Enter when focused on a favorite button", async () => {
+  const events: string[] = [];
+
+  function Picker() {
+    const [open, setOpen] = useState(true);
+    if (!open) return null;
+
+    return (
+      <div data-model-picker-content>
+        <div role="option">
+          <span>Claude 3.5 Sonnet</span>
+          <button
+            type="button"
+            aria-label="Add to favorites"
+            onClick={() => events.push("favorite-clicked")}
+          >
+            Star
+          </button>
+        </div>
+        <div data-model-picker-effort>
+          <CloseModelPickerOnEffortEnter
+            onClose={() => {
+              events.push("closed");
+              setOpen(false);
+            }}
+          >
+            <div>No effort levels</div>
+          </CloseModelPickerOnEffortEnter>
+        </div>
+      </div>
+    );
+  }
+
+  await using screen = await render(<Picker />);
+
+  const favButton = screen
+    .getByRole("button", { name: "Add to favorites" })
+    .element() as HTMLElement;
+  favButton.focus();
+  await userEvent.keyboard("{Enter}");
+
+  await vi.waitFor(() => expect(events).toEqual(["favorite-clicked"]));
+  await expect.element(page.getByRole("button", { name: "Add to favorites" })).toBeInTheDocument();
 });

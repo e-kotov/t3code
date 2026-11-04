@@ -47,36 +47,51 @@ export function CloseModelPickerOnEffortEnter({
         return;
       }
 
-      // Do NOT trigger on legacy-section headers or toggle rows
-      if (target.closest("[aria-expanded], [data-model-picker-legacy]")) {
-        return;
-      }
-
-      // ONLY trigger when the target is:
-      // 1) the search input (event.target instanceof HTMLInputElement or input[type="text"] inside the picker), OR
-      // 2) a model option button / item (target.closest('[role="option"]') or inside [data-model-picker-content])
       const isSearchInput =
         target instanceof HTMLInputElement ||
         target.matches('input[type="text"], input[type="search"], input:not([type])');
 
       if (isSearchInput) {
-        // When pressing Enter in search with 0 matching models, it does not close the picker
-        // (check if an active or selected model exists, or if there are options present)
-        const hasMatchingModel =
-          popup.querySelector('[role="option"]:not([aria-expanded])') != null ||
-          popup.querySelector("[data-highlighted]") != null ||
-          popup.querySelector('[aria-selected="true"]') != null;
-        if (!hasMatchingModel) {
+        const highlighted = popup.querySelector<HTMLElement>('[role="option"][data-highlighted]');
+        if (!highlighted || !highlighted.closest("[data-model-picker-content]")) {
+          return;
+        }
+        if (
+          highlighted.hasAttribute("aria-expanded") ||
+          highlighted.closest("[aria-expanded], [data-model-picker-legacy]") != null
+        ) {
+          return;
+        }
+        if (
+          highlighted.hasAttribute("data-disabled") ||
+          highlighted.getAttribute("aria-disabled") === "true"
+        ) {
+          return;
+        }
+        if (
+          highlighted.matches('button[data-favorite], button[aria-label*="favorite" i]') ||
+          highlighted.closest('button[data-favorite], button[aria-label*="favorite" i]') != null
+        ) {
           return;
         }
       } else {
-        const isModelOption =
-          (target.closest('[role="option"]') != null ||
-            target.closest("[data-model-picker-content]") != null) &&
-          !target.closest("[data-model-picker-sidebar], [data-model-picker-provider]") &&
-          !target.closest("[aria-expanded], [data-model-picker-legacy]");
+        if (target.closest("[aria-expanded], [data-model-picker-legacy]")) {
+          return;
+        }
 
-        if (!isModelOption) {
+        if (target.closest('button[data-favorite], button[aria-label*="favorite" i]')) {
+          return;
+        }
+
+        const option = target.closest('[role="option"]');
+        if (!option || !option.closest("[data-model-picker-content]")) {
+          return;
+        }
+
+        if (
+          option.hasAttribute("data-disabled") ||
+          option.getAttribute("aria-disabled") === "true"
+        ) {
           return;
         }
       }

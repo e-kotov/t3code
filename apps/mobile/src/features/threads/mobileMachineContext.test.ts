@@ -15,7 +15,11 @@ const machineKinds = new Map([
 const labels = new Map(environments.map(({ environmentId, label }) => [environmentId, label]));
 
 const row = (environmentId: string, key: string) =>
-  ({ type: "v2-thread", key, item: { thread: { environmentId } } }) as unknown as ThreadListV2ListItem;
+  ({
+    type: "v2-thread",
+    key,
+    item: { thread: { environmentId } },
+  }) as unknown as ThreadListV2ListItem;
 
 describe("mobile machine context", () => {
   it.each(["none", "machine"] as const)(
@@ -72,14 +76,22 @@ describe("mobile machine context", () => {
   it("keeps empty and shelf-only lists empty of machine summaries", () => {
     const empty: ThreadListV2ListItem[] = [];
     const shelf: ThreadListV2ListItem[] = [
-      { type: "v2-settled-shelf", key: "v2-settled-shelf", count: 2, expanded: false, disabled: false },
+      {
+        type: "v2-settled-shelf",
+        key: "v2-settled-shelf",
+        count: 2,
+        expanded: false,
+        disabled: false,
+      },
     ];
     expect(withMobileMachineContext(empty, environments, machineKinds, [])).toBe(empty);
     expect(withMobileMachineContext(shelf, environments, machineKinds, [])).toBe(shelf);
   });
 
   it("uses a stable fallback until a saved machine's details are available", () => {
-    expect(withMobileMachineContext([row("unavailable", "u1")], [], new Map(), [])[0]).toMatchObject({
+    expect(
+      withMobileMachineContext([row("unavailable", "u1")], [], new Map(), [])[0],
+    ).toMatchObject({
       label: "Machine",
       machineKind: "server",
       environmentId: "unavailable",
