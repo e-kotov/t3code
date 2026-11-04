@@ -102,7 +102,7 @@ const surface = (visible: boolean) => (
 
 async function renderFailingStream() {
   const container = document.createElement("div");
-  container.style.cssText = "width: 520px; height: 340px; display: flex;";
+  container.style.cssText = "width: min(520px, calc(100vw - 16px)); height: 340px; display: flex;";
   await using stack = new AsyncDisposableStack();
   // Hidden first, so the health sampler starts under the fake clock below.
   const screen = stack.use(await render(surface(false), { container }));
