@@ -168,12 +168,8 @@ export function withStatusUpdates<E, R>(
 
 /** Upstream RPC consumers can omit this optional host metadata service. */
 export const optional = Effect.serviceOption(SlurmJob).pipe(
-  Effect.map(
-    Option.getOrElse(() =>
-      SlurmJob.of({
-        current: Effect.succeed(null),
-        streamChanges: Stream.empty,
-      }),
-    ),
-  ),
+  Effect.map(Option.getOrElse(() => SlurmJob.of({
+    current: Effect.succeed(null),
+    streamChanges: Stream.empty,
+  }))),
 );

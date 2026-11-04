@@ -33,16 +33,14 @@ export interface HomeListFilterMenu {
   readonly items: Array<HomeListFilterMenuAction | HomeListFilterMenuSubmenu>;
 }
 
-export function buildHomeListFilterMenu(
-  props: {
-    readonly environments: ReadonlyArray<HomeListFilterMenuEnvironment>;
-    readonly projects: ReadonlyArray<HomeListFilterMenuProject>;
-    readonly selectedEnvironmentId: EnvironmentId | null;
-    readonly selectedProjectKey: string | null;
-    readonly onEnvironmentChange: (environmentId: EnvironmentId | null) => void;
-    readonly onProjectChange: (projectKey: string | null) => void;
-  } & Partial<ConversationListControls>,
-): HomeListFilterMenu {
+export function buildHomeListFilterMenu(props: {
+  readonly environments: ReadonlyArray<HomeListFilterMenuEnvironment>;
+  readonly projects: ReadonlyArray<HomeListFilterMenuProject>;
+  readonly selectedEnvironmentId: EnvironmentId | null;
+  readonly selectedProjectKey: string | null;
+  readonly onEnvironmentChange: (environmentId: EnvironmentId | null) => void;
+  readonly onProjectChange: (projectKey: string | null) => void;
+} & Partial<ConversationListControls>): HomeListFilterMenu {
   const items: Array<HomeListFilterMenuAction | HomeListFilterMenuSubmenu> = [];
 
   items.push({
