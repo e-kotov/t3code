@@ -19,7 +19,7 @@ export function ThreadMachineLabel(props: {
         ) : (
           <CircleDashedIcon />
         )}
-        <span className="max-w-32 shrink-0 self-baseline truncate [:is(button:enabled,a):hover>&]:underline">
+        <span className="max-w-32 shrink-0 self-baseline truncate [:is(button:enabled,a):hover_&]:underline">
           {label}
         </span>
       </span>
