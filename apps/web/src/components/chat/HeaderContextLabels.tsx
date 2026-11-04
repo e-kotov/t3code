@@ -40,34 +40,34 @@ export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedTh
   const status = connectionStatusText(presentation.connection);
 
   return (
-    <div
-      data-header-machine
-      className="flex shrink-0 items-center gap-1 border-r border-border pr-2"
-    >
-      <MachineGroupConnectionStatus environmentId={threadRef.environmentId} />
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <button
-              type="button"
-              aria-label={`Machine: ${label}. ${status}`}
-              className="inline-flex min-w-0 cursor-help items-center gap-1.5 rounded-sm text-xs text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+    <div data-header-machine className="flex shrink-0 items-center gap-2 sm:gap-3">
+      <div className="flex min-w-0 items-center gap-1">
+        <MachineGroupConnectionStatus environmentId={threadRef.environmentId} />
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                aria-label={`Machine: ${label}. ${status}`}
+                className="inline-flex min-w-0 cursor-help items-center gap-1.5 rounded-sm text-xs text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              />
+            }
+          >
+            <EnvironmentMachineIcon
+              kind={resolveEnvironmentMachineKind(presentation.serverConfig)}
+              className="size-3.5 shrink-0"
+              aria-hidden
             />
-          }
-        >
-          <EnvironmentMachineIcon
-            kind={resolveEnvironmentMachineKind(presentation.serverConfig)}
-            className="size-3.5 shrink-0"
-            aria-hidden
-          />
-          <span className="hidden max-w-24 truncate @min-[28rem]/header-context:block">
-            {label}
-          </span>
-        </TooltipTrigger>
-        <TooltipPopup>
-          {label}: {status}
-        </TooltipPopup>
-      </Tooltip>
+            <span className="hidden max-w-24 truncate @min-[28rem]/header-context:block">
+              {label}
+            </span>
+          </TooltipTrigger>
+          <TooltipPopup>
+            {label}: {status}
+          </TooltipPopup>
+        </Tooltip>
+      </div>
+      <span aria-hidden className="shrink-0 text-sm text-icon-muted">/</span>
     </div>
   );
 }
