@@ -25,7 +25,7 @@ const zulu = EnvironmentId.make("env-zulu");
 
 const view = (overrides: Partial<SidebarConversationView> = {}): SidebarConversationView => ({
   sortOrder: "updated_at",
-  grouping: "machine",
+  grouping: "both",
   machineOrder: [],
   primaryEnvironmentId: local,
   ...overrides,
@@ -254,6 +254,27 @@ describe("groupSidebarRowsByMachine", () => {
       "t4",
       "[env-alpha:1/2]",
       "t5",
+    ]);
+
+    expect(
+      layout(
+        groupSidebarRowsByMachine(mixedThreads, "active", view({ grouping: "machine" }), rowsOf),
+      ),
+    ).toEqual(["[env-local:0/2]", "t1", "t2", "t3", "t4", "[env-alpha:1/2]", "t5"]);
+
+    expect(
+      layout(
+        groupSidebarRowsByMachine(mixedThreads, "active", view({ grouping: "project" }), rowsOf),
+      ),
+    ).toEqual([
+      "[project:env-local:proj-a:2]",
+      "t1",
+      "t3",
+      "[project:env-local:proj-b:1]",
+      "t2",
+      "[project:env-alpha:proj-a:1]",
+      "t5",
+      "t4",
     ]);
   });
 });

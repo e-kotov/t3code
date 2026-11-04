@@ -79,9 +79,10 @@ const DEFAULT_SIDEBAR_THREAD_SORT_ORDER: SidebarThreadSortOrder = "updated_at";
 export const SidebarConversationSortOrder = Schema.Literals(SIDEBAR_CONVERSATION_SORT_ORDER_VALUES);
 export type SidebarConversationSortOrder = typeof SidebarConversationSortOrder.Type;
 const DEFAULT_SIDEBAR_CONVERSATION_SORT_ORDER: SidebarConversationSortOrder = "updated_at";
-export const SidebarConversationGrouping = Schema.Literals(["none", "machine"]);
+export const SidebarConversationGrouping = Schema.Literals(["none", "machine", "project", "both"]);
 export type SidebarConversationGrouping = typeof SidebarConversationGrouping.Type;
 const DEFAULT_SIDEBAR_CONVERSATION_GROUPING: SidebarConversationGrouping = "none";
+export * from "./sidebarGrouping.ts";
 
 export const SidebarProjectGroupingMode = Schema.Literals([
   "repository",

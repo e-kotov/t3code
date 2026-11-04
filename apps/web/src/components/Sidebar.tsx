@@ -62,6 +62,11 @@ import {
   type EnvironmentThreadShell,
 } from "@t3tools/client-runtime/state/models";
 import {
+  computeSidebarNonSettledCounts,
+  getProjectScopeItemNonSettledCount,
+  ProjectScopeNonSettledBadge,
+} from "./sidebar/sidebarNonSettledCounts";
+import {
   parseScopedThreadKey,
   scopeProjectRef,
   scopeThreadRef,
@@ -1163,6 +1168,11 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     projectGroups.flatMap((project) => project.memberProjectRefs),
   );
   const threads = useQuietThreadShells();
+  const nonSettledCounts = computeSidebarNonSettledCounts(
+    threads,
+    delegatedUnderParent,
+    projectGroups,
+  );
   const routeRowThreadKey =
     routeThreadRef === null
       ? null
@@ -3074,7 +3084,12 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
           <SidebarGroup className="z-[1]">
             <SidebarThreadHeader
               hasProjects={projectGroups.length > 0}
-              listControls={<SidebarThreadListControls />}
+              listControls={
+                <SidebarThreadListControls
+                  machineSummary={nonSettledCounts.machineSummary}
+                  projectSummary={nonSettledCounts.projectSummary}
+                />
+              }
               projectScope={
                 <Combobox
                   items={projectScopeItems}
@@ -3224,6 +3239,10 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                           filteredProjectScopeItems.find(
                             (candidate) => candidate.kind === item.kind,
                           )?.value === item.value;
+                        const itemNonSettledCount = getProjectScopeItemNonSettledCount(
+                          item,
+                          nonSettledCounts,
+                        );
                         return (
                           <Fragment key={item.value}>
                             {startsGroup ? (
@@ -3262,6 +3281,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                                 )}
                               </ProjectScopeRowIcon>
                               <span className="min-w-0 flex-1 truncate text-sm">{item.label}</span>
+                              <ProjectScopeNonSettledBadge count={itemNonSettledCount} />
                               {project && canPinProject(project) ? (
                                 <ProjectPinButton
                                   name={project.displayName}

@@ -9,18 +9,29 @@ import {
 
 export function ConversationThreadListFilters({
   conversationList,
+  machineSummary,
   ...props
 }: ComponentProps<typeof ThreadListFilters> & {
   readonly conversationList: ConversationListControls;
+  readonly machineSummary?: string;
 }) {
   return (
     <ThreadListFilters {...props}>
       {(["sort", "grouping"] as const).map((kind) => {
-        const actions = conversationChoiceActions(kind, conversationList, undefined);
+        const actions = conversationChoiceActions(
+          kind,
+          conversationList,
+          undefined,
+          machineSummary,
+        );
+        const label =
+          kind === "sort"
+            ? (actions.find((action) => action.state === "on")?.title ?? "Sort")
+            : (actions.find((action) => action.state === "on")?.title ?? "No grouping");
         return (
           <ListFilterMenu
             key={kind}
-            label={actions.find((action) => action.state === "on")?.title ?? kind}
+            label={label}
             accessibilityLabel={kind === "sort" ? "Sort conversations" : "Group conversations"}
             active={
               kind === "sort"

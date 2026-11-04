@@ -90,6 +90,7 @@ import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-sw
 import { useFabScroll } from "./FabScrollContext";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { ConversationThreadListFilters as ThreadListFilters } from "./ConversationThreadListFilters";
+import { computeMobileNonSettledCounts } from "./mobileNonSettledCounts";
 import { renderMachineGroupHeader } from "../threads/MachineGroupHeader";
 import { useConversationMachineOrder } from "../threads/useConversationMachineOrder";
 import type { ConversationListControls } from "./conversationListOptions";
@@ -380,6 +381,10 @@ export function HomeScreen(props: HomeScreenProps) {
         projectGroupingMode,
       }),
     [projects, selectedEnvironmentId, projectGroupingMode],
+  );
+  const nonSettledCounts = useMemo(
+    () => computeMobileNonSettledCounts(props.threads, projectScopes),
+    [props.threads, projectScopes],
   );
   const hasSearchQuery = props.searchQuery.trim().length > 0;
   const projectByKey = (() => {
@@ -744,11 +749,16 @@ export function HomeScreen(props: HomeScreenProps) {
       {Platform.OS === "ios" ? (
         <ThreadListFilters
           conversationList={props}
+          machineSummary={nonSettledCounts.machineSummary}
           gutter={sidebarSurface ? 8 : 0}
-          environments={props.environments}
+          environments={props.environments.map((env) => ({
+            ...env,
+            nonSettledCount: nonSettledCounts.byEnvironment.get(String(env.environmentId)) ?? 0,
+          }))}
           projects={pickableProjectGroups(projectScopes).map((scope) => ({
             key: scope.key,
             label: scope.title,
+            nonSettledCount: nonSettledCounts.byProjectScopeKey.get(scope.key) ?? 0,
           }))}
           selectedEnvironmentId={props.selectedEnvironmentId}
           selectedProjectKey={props.selectedProjectKey}

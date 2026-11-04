@@ -25,6 +25,8 @@ describe("machine group visibility", () => {
     expect(machineGroupThreadVisible(thread, { ...folded, searchQuery: "needle" })).toBe(true);
     expect(machineGroupThreadVisible(thread, { ...folded, searchQuery: "   " })).toBe(false);
     expect(machineGroupThreadVisible(thread, { ...folded, grouping: "none" })).toBe(true);
+    expect(machineGroupThreadVisible(thread, { ...folded, grouping: "project" })).toBe(true);
+    expect(machineGroupThreadVisible(thread, { ...folded, grouping: "both" })).toBe(false);
   });
 
   it("shares fold state within a client registry while keeping clients independent", () => {
