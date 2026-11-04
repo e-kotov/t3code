@@ -184,6 +184,9 @@ it("follows the active machine through pending, recovery and a later disconnect"
   await expect
     .element(screen.getByRole("button", { name: /^Model: Remote custom model/ }))
     .toBeVisible();
+  const machine = screen.container.querySelector("[data-header-machine]");
+  expect(machine?.lastElementChild?.textContent).toBe("/");
+  expect(machine?.className).not.toContain("border");
   if (import.meta.env.VITE_HEADER_CONTEXT_CAPTURE) {
     await screen
       .getByTestId("header-context")
