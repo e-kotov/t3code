@@ -2,11 +2,12 @@ import { resolveEnvironmentMachineKind, type EnvironmentId } from "@t3tools/cont
 import { BotIcon, CircleDashedIcon } from "lucide-react";
 
 import { useEnvironment } from "~/state/environments";
+import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import { EnvironmentMachineIcon } from "./EnvironmentMachineIcon";
 
 export function ThreadMachineLabel(props: {
   readonly environmentId: EnvironmentId;
-  readonly isSubagent?: boolean;
+  readonly shell: Pick<EnvironmentThreadShell, "lineage"> | null;
 }) {
   const environment = useEnvironment(props.environmentId);
   const label = environment?.label.trim() || "Unknown machine";
@@ -23,7 +24,7 @@ export function ThreadMachineLabel(props: {
         </span>
       </span>
       <span className="shrink-0 self-baseline"> · </span>
-      {props.isSubagent ? (
+      {props.shell?.lineage.relationshipToParent === "subagent" ? (
         <span className="inline-flex shrink-0 items-center gap-0.5 self-baseline text-muted-foreground">
           <BotIcon aria-hidden="true" />
           <span>Subagent</span>
