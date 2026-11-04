@@ -167,8 +167,12 @@ desktop only takes the viewer lease from that environment's own saved address or
 connection; environments reached only through T3 Connect get an explanation and the normal view.
 The host key must already be in `known_hosts`; T3 never accepts new or changed host keys and
 never forwards your SSH agent. While the window is open, T3's own viewers cannot take control.
-The window stays on the handoff page: it ignores BetterWright's tab switching, new and closed
-tabs, and non-web addresses. That is a guard in a window on your Mac, not a limit on the daemon;
+The window talks only to a relay in the desktop app, never to BetterWright directly. Until
+BetterWright reports the handoff page as the one it streams, the relay passes no picture and no
+input; it drops other tabs, their previews, new and closed tabs, and non-web addresses.
+BetterWright does not label pictures with their page, so a tab switch made by another viewer to a
+tab with the same address and size, or input already on its way when another viewer switches,
+can still briefly reach the other page. This guards the window on your Mac, not the daemon:
 anyone with the same SSH login can reach the viewer directly. Finish, then select **Done,
 release to agent** in T3; closing the window returns control without completing the handoff.
 The fallback cannot help when SSH is unreachable or the browser or host has stopped. The web and

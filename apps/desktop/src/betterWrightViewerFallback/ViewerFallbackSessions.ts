@@ -12,6 +12,7 @@ import type * as Scope from "effect/Scope";
 import { type SshRouteSelection, viewerWindowUrl } from "./viewerFallbackPolicy.ts";
 import { ViewerFallbackError, type ViewerForward } from "./viewerForward.ts";
 import type { ViewerLease } from "./viewerLease.ts";
+import type { ViewerRelay } from "./viewerRelay.ts";
 
 export interface ViewerWindow {
   readonly closed: Effect.Effect<void>;
@@ -32,10 +33,15 @@ export interface ViewerFallbackDeps {
     target: DesktopSshEnvironmentTarget,
     remotePort: number,
   ) => Effect.Effect<ViewerForward, ViewerFallbackError, Scope.Scope>;
+  /** Serves the viewer to the window through the exact-page gate. */
+  readonly startRelay: (input: {
+    readonly upstreamPort: number;
+    readonly token: string;
+    readonly pageId: string;
+  }) => Effect.Effect<ViewerRelay, ViewerFallbackError, Scope.Scope>;
   readonly openWindow: (
     url: string,
     localPort: number,
-    pageId: string,
   ) => Effect.Effect<ViewerWindow, ViewerFallbackError, Scope.Scope>;
   readonly publish: (state: BetterWrightViewerFallbackState) => Effect.Effect<void>;
 }
@@ -91,10 +97,14 @@ export const makeViewerFallbackSessions = Effect.fn("desktop.betterWrightFallbac
           // prompt, SSH start or window, and whatever was acquired is released with the scope.
           const view = Effect.gen(function* () {
             const forward = yield* deps.startForward(route.target, lease.viewer.port);
+            const relay = yield* deps.startRelay({
+              upstreamPort: forward.localPort,
+              token: lease.viewer.token,
+              pageId: lease.viewer.pageId,
+            });
             const window = yield* deps.openWindow(
-              viewerWindowUrl(forward.localPort, lease.viewer.token),
-              forward.localPort,
-              lease.viewer.pageId,
+              viewerWindowUrl(relay.localPort, relay.windowToken),
+              relay.localPort,
             );
             yield* update(session, { phase: "open", message: null });
             return yield* Effect.raceFirst(

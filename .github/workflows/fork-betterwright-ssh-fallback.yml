@@ -62,8 +62,8 @@ jobs:
         run: vp run check:changed origin/main
       - name: Server lease, ownership and authorization
         run: vp test run apps/server/src/preview/BetterWrightBridge.test.ts apps/server/src/preview/BetterWrightHandoff.test.ts apps/server/src/preview/BetterWrightViewerFallback.test.ts apps/server/src/preview/ServerBrowserStream.test.ts
-      - name: Desktop routing, SSH policy and lifecycle
-        run: vp test run apps/desktop/src/betterWrightViewerFallback/viewerFallbackPolicy.test.ts apps/desktop/src/betterWrightViewerFallback/ViewerFallbackSessions.test.ts
+      - name: Desktop routing, SSH policy, exact-page relay, window and lifecycle
+        run: vp test run apps/desktop/src/betterWrightViewerFallback/
       - name: Web stream health and surface states, with captures
         env:
           VITE_SSH_FALLBACK_CAPTURE: "1"

@@ -31,6 +31,7 @@ import {
 import { makeViewerFallbackSessions } from "./ViewerFallbackSessions.ts";
 import { desktopPasswordPrompt, startViewerForward, ViewerFallbackError } from "./viewerForward.ts";
 import { openViewerLease } from "./viewerLease.ts";
+import { startViewerRelay } from "./viewerRelay.ts";
 import { openViewerWindow } from "./viewerWindow.ts";
 
 const decodeCatalog = Schema.decodeUnknownEffect(Schema.fromJsonString(ConnectionCatalogDocument));
@@ -125,6 +126,7 @@ export const installViewerFallback = Effect.fn("desktop.ipc.betterWrightFallback
               Effect.provideContext(runtime),
             ),
         }),
+      startRelay: (relay) => startViewerRelay(relay).pipe(Effect.provideContext(runtime)),
       openWindow: openViewerWindow,
       publish: (state) =>
         electronWindow.sendAll(Channels.VIEWER_FALLBACK_STATE_CHANNEL, state).pipe(Effect.ignore),

@@ -1,5 +1,3 @@
-// @effect-diagnostics nodeBuiltinImport:off - Runs the viewer guard script in an isolated VM context.
-import * as NodeVM from "node:vm";
 import {
   BearerConnectionProfile,
   BearerConnectionTarget,
@@ -20,7 +18,6 @@ import {
   selectSshRoute,
   sshForwardFailureMessage,
   viewerForwardSshArgs,
-  viewerPageGuardScript,
   viewerWindowUrl,
 } from "./viewerFallbackPolicy.ts";
 
@@ -160,38 +157,6 @@ describe("SSH viewer fallback routing", () => {
       _tag: "Refused",
       message: expect.stringContaining("T3 Connect"),
     });
-  });
-
-  it("keeps the viewer window's own messages on the handoff page", () => {
-    const sent: unknown[] = [];
-    class WebSocket {
-      send(data: unknown) {
-        sent.push(data);
-      }
-    }
-    const sandbox = { WebSocket };
-    NodeVM.runInNewContext(viewerPageGuardScript('page-1"; alert(1); "'), sandbox);
-    const socket = new sandbox.WebSocket();
-    for (const message of [
-      { t: "tab", id: 'page-1"; alert(1); "' },
-      { t: "tab", id: "other-session-page" },
-      { t: "newtab", url: "https://example.com" },
-      { t: "closetab", id: 'page-1"; alert(1); "' },
-      { t: "navigate", url: "https://example.com/login" },
-      { t: "navigate", url: "file:///etc/passwd" },
-      { t: "input", kind: "insertText", text: "human" },
-    ])
-      socket.send(JSON.stringify(message));
-    socket.send(new ArrayBuffer(2));
-    expect(sent.map((data) => (typeof data === "string" ? JSON.parse(data) : "binary"))).toEqual([
-      { t: "tab", id: 'page-1"; alert(1); "' },
-      { t: "navigate", url: "https://example.com/login" },
-      { t: "input", kind: "insertText", text: "human" },
-      "binary",
-    ]);
-    expect(() => {
-      sandbox.WebSocket.prototype.send = () => undefined;
-    }).toThrow();
   });
 
   it("rejects malformed, stale and mismatched leases without echoing their token", () => {

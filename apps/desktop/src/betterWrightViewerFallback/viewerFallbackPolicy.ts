@@ -272,38 +272,3 @@ export function isViewerNavigationAllowed(raw: string, localPort: number): boole
     return false;
   }
 }
-
-/**
- * Runs in the viewer page before its own scripts. BetterWright's viewer lets any client switch,
- * open or close tabs across the whole daemon; this keeps the window's outgoing messages on the
- * handoff page and on http(s) navigation, as T3's own bridge does. It guards a window the user
- * controls, not the daemon: the SSH identity can reach the viewer directly anyway.
- */
-export function viewerPageGuardScript(pageId: string): string {
-  return `(() => {
-  const pageId = ${JSON.stringify(pageId)};
-  const proto = WebSocket.prototype;
-  const send = proto.send;
-  const allowed = (data) => {
-    if (typeof data !== "string") return true;
-    let message;
-    try {
-      message = JSON.parse(data);
-    } catch {
-      return true;
-    }
-    if (typeof message !== "object" || message === null) return true;
-    if (message.t === "newtab" || message.t === "closetab") return false;
-    if (message.t === "tab") return message.id === pageId;
-    if (message.t === "navigate") return typeof message.url === "string" && /^https?:\\/\\//.test(message.url);
-    return true;
-  };
-  Object.defineProperty(proto, "send", {
-    configurable: false,
-    writable: false,
-    value: function (data) {
-      if (allowed(data)) return send.call(this, data);
-    },
-  });
-})();`;
-}

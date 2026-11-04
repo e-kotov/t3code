@@ -85,8 +85,12 @@ const setup = (options?: {
           );
         return resource("forward", { localPort: 41000, exited: Deferred.await(forwardExited) });
       },
-      openWindow: (url, _localPort, pageId) => {
-        log.push(`window ${url} ${pageId}`);
+      startRelay: (relay) => {
+        log.push(`relay ${relay.upstreamPort} ${relay.pageId}`);
+        return resource("relay", { localPort: 42000, windowToken: "window-token-0123" });
+      },
+      openWindow: (url) => {
+        log.push(`window ${url}`);
         const open = resource("window", { closed: Deferred.await(windowClosed) });
         return options?.window === "deferred"
           ? Deferred.succeed(windowRequested, undefined).pipe(
@@ -135,7 +139,9 @@ describe("SSH viewer fallback sessions", () => {
         "open lease",
         "forward gwdg 39123",
         "open forward",
-        "window http://127.0.0.1:41000/?t=secret-viewer-token-123 page-1",
+        "relay 41000 page-1",
+        "open relay",
+        "window http://127.0.0.1:42000/?t=window-token-0123",
         "open window",
       ]);
       yield* harness.sessions.complete(sessionId);
@@ -145,7 +151,12 @@ describe("SSH viewer fallback sessions", () => {
       yield* Deferred.succeed(harness.leaseEnded, { normal: true, message: "The handoff ended." });
       const closed = yield* harness.nextPhase("closed");
       expect(closed.message).toBe("The handoff ended.");
-      expect(harness.log.slice(-3)).toEqual(["release window", "release forward", "release lease"]);
+      expect(harness.log.slice(-4)).toEqual([
+        "release window",
+        "release relay",
+        "release forward",
+        "release lease",
+      ]);
       expect(yield* harness.sessions.list).toEqual([]);
       expect(JSON.stringify(closed)).not.toContain("secret-viewer");
       const late = yield* harness.sessions.complete(sessionId).pipe(Effect.flip);
@@ -167,8 +178,9 @@ describe("SSH viewer fallback sessions", () => {
         expect(final.message).toBe(
           ending === "window" ? null : ending === "forward" ? "SSH closed." : "Dropped.",
         );
-        expect(harness.log.slice(-3)).toEqual([
+        expect(harness.log.slice(-4)).toEqual([
           "release window",
+          "release relay",
           "release forward",
           "release lease",
         ]);
@@ -211,8 +223,9 @@ describe("SSH viewer fallback sessions", () => {
       yield* quitting.sessions.open(input);
       yield* quitting.nextPhase("open");
       yield* Scope.close(quitting.scope, Exit.void);
-      expect(quitting.log.slice(-3)).toEqual([
+      expect(quitting.log.slice(-4)).toEqual([
         "release window",
+        "release relay",
         "release forward",
         "release lease",
       ]);
@@ -263,7 +276,10 @@ describe("SSH viewer fallback sessions", () => {
         "open lease",
         "forward gwdg 39123",
         "open forward",
-        "window http://127.0.0.1:41000/?t=secret-viewer-token-123 page-1",
+        "relay 41000 page-1",
+        "open relay",
+        "window http://127.0.0.1:42000/?t=window-token-0123",
+        "release relay",
         "release forward",
         "release lease",
       ]);
