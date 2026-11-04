@@ -220,14 +220,20 @@ export type SidebarListMarker =
   | "working-header"
   | "snoozed-header"
   | "settled-header"
-  | "machine-header";
+  | "machine-header"
+  | "project-header";
 
 export function sidebarMarkerId(marker: SidebarListMarker): string {
   return `${SIDEBAR_MARKER_PREFIX}${marker}`;
 }
 
 export type SidebarListItem =
-  | { readonly kind: "thread"; readonly key: string; readonly section: SidebarSection }
+  | {
+      readonly kind: "thread";
+      readonly key: string;
+      readonly section: SidebarSection;
+      readonly folderRow?: string | undefined;
+    }
   | ({ readonly kind: "marker"; readonly marker: SidebarListMarker } & SidebarMarkerFields);
 
 export function sidebarListItemId(item: SidebarListItem): string {

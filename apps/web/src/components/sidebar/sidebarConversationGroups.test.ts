@@ -1,5 +1,5 @@
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
-import { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import { EnvironmentId, ProjectId, ThreadId } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
@@ -40,11 +40,13 @@ const rowsOf = (
   section: SidebarSection,
 ): SidebarListItem[] => list.map((item) => ({ kind: "thread", key: item.id, section }));
 const layout = (items: readonly SidebarListItem[]) =>
-  items.map((item) =>
-    item.kind === "thread"
-      ? item.key
-      : `[${item.environmentId}:${item.groupPosition}/${item.groupCount}]`,
-  );
+  items.map((item) => {
+    if (item.kind === "thread") return item.key;
+    if (item.marker === "project-header") {
+      return `[project:${item.environmentId}:${item.projectKey}:${item.groupCount}]`;
+    }
+    return `[${item.environmentId}:${item.groupPosition}/${item.groupCount}]`;
+  });
 
 describe("groupSidebarRowsByMachine", () => {
   const threads = [
@@ -131,6 +133,7 @@ describe("groupSidebarRowsByMachine", () => {
     };
     expect(layout(groupSidebarRowsByMachine([root, hidden], "active", selected, rowsOf))).toEqual([
       "[env-alpha:0/1]",
+      "[project:env-alpha:project-test:1]",
       "root",
     ]);
     expect(
@@ -199,6 +202,59 @@ describe("groupSidebarRowsByMachine", () => {
       );
     expect(keys("active")[0]).toBe("sidebar-machine:active:env-local");
     expect(keys("working")[0]).toBe("sidebar-machine:working:env-local");
+  });
+
+  it("groups active threads by project under machine shelves with collapse support", () => {
+    const projA = ProjectId.make("proj-a");
+    const projB = ProjectId.make("proj-b");
+    const mixedThreads = [
+      { id: ThreadId.make("t1"), environmentId: local, projectId: projA },
+      { id: ThreadId.make("t2"), environmentId: local, projectId: projB },
+      { id: ThreadId.make("t3"), environmentId: local, projectId: projA },
+      { id: ThreadId.make("t4"), environmentId: local, projectId: undefined },
+      { id: ThreadId.make("t5"), environmentId: alpha, projectId: projA },
+    ];
+
+    expect(layout(groupSidebarRowsByMachine(mixedThreads, "active", view(), rowsOf))).toEqual([
+      "[env-local:0/2]",
+      "[project:env-local:proj-a:2]",
+      "t1",
+      "t3",
+      "[project:env-local:proj-b:1]",
+      "t2",
+      "t4",
+      "[env-alpha:1/2]",
+      "[project:env-alpha:proj-a:1]",
+      "t5",
+    ]);
+
+    const collapsedView = view({
+      collapsedProjectFolders: ["sidebar-project:env-local:proj-a"],
+      selectedThreadKey: "env-local:t3",
+    });
+    expect(
+      layout(groupSidebarRowsByMachine(mixedThreads, "active", collapsedView, rowsOf)),
+    ).toEqual([
+      "[env-local:0/2]",
+      "[project:env-local:proj-a:2]",
+      "t3",
+      "[project:env-local:proj-b:1]",
+      "t2",
+      "t4",
+      "[env-alpha:1/2]",
+      "[project:env-alpha:proj-a:1]",
+      "t5",
+    ]);
+
+    expect(layout(groupSidebarRowsByMachine(mixedThreads, "pinned", view(), rowsOf))).toEqual([
+      "[env-local:0/2]",
+      "t1",
+      "t2",
+      "t3",
+      "t4",
+      "[env-alpha:1/2]",
+      "t5",
+    ]);
   });
 });
 
@@ -337,5 +393,36 @@ describe("visibleSidebarKeys", () => {
     expect(
       visibleSidebarKeys(shelves.flat(), sectionByKey, { ...folded, grouping: "none" }),
     ).toEqual(shelves.flat().map((thread) => `${thread.environmentId}:${thread.id}`));
+  });
+
+  it("matches rendered project group order and ignores project collapse when grouping is none", () => {
+    const projA = ProjectId.make("proj-a");
+    const projB = ProjectId.make("proj-b");
+    const activeThreads = [
+      { id: ThreadId.make("a1"), environmentId: local, projectId: projA },
+      { id: ThreadId.make("b1"), environmentId: local, projectId: projB },
+      { id: ThreadId.make("a2"), environmentId: local, projectId: projA },
+    ];
+    const sectionByKey = new Map([
+      [`${local}:a1`, "active" as const],
+      [`${local}:b1`, "active" as const],
+      [`${local}:a2`, "active" as const],
+    ]);
+
+    expect(visibleSidebarKeys(activeThreads, sectionByKey, view())).toEqual([
+      `${local}:a1`,
+      `${local}:a2`,
+      `${local}:b1`,
+    ]);
+
+    const collapsedNone = view({
+      grouping: "none",
+      collapsedProjectFolders: [`sidebar-project:${local}:proj-a`],
+    });
+    expect(visibleSidebarKeys(activeThreads, sectionByKey, collapsedNone)).toEqual([
+      `${local}:a1`,
+      `${local}:b1`,
+      `${local}:a2`,
+    ]);
   });
 });

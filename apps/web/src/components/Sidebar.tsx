@@ -5,6 +5,7 @@ import {
   SortableMachineGroupHeader,
   useSidebarConversationView,
 } from "./sidebar/SidebarMachineGroupHeader";
+import { SidebarMachineProjectFolderHeader } from "./sidebar/SidebarMachineProjectFolderHeader";
 import {
   withConversationSort,
   groupSidebarRowsByMachine,
@@ -1056,6 +1057,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   const setPersistedEnvironmentScopeId = useUiStateStore(
     (store) => store.setSidebarEnvironmentScopeId,
   );
+  const setProjectExpanded = useUiStateStore((store) => store.setProjectExpanded);
   const chosenEnvironmentScope = lookupProjectScopeItems.find(
     (item) => item.kind === "machine" && item.environmentId === persistedEnvironmentScopeId,
   );
@@ -1995,10 +1997,11 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     const threadRowsOf = (
       list: readonly EnvironmentThreadShell[],
       section: SidebarSection,
+      folderRow?: string,
     ): SidebarListItem[] =>
       list.map((thread) => {
         const key = scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id));
-        return { kind: "thread", key, section };
+        return { kind: "thread", key, section, folderRow };
       });
     const rowsOf = (list: readonly EnvironmentThreadShell[], section: SidebarSection) =>
       groupSidebarRowsByMachine(list, section, conversationView, threadRowsOf);
@@ -2038,7 +2041,9 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   // Preserve the list while streamed updates leave order unchanged to retain row memoization.
   const sidebarListItemsKey = sidebarListItemsFresh
     .map((item) =>
-      item.kind === "thread" ? item.section + ":" + item.key : (item.key ?? item.marker),
+      item.kind === "thread"
+        ? item.section + ":" + item.key
+        : (item.key ?? item.marker) + (item.groupCount !== undefined ? `:${item.groupCount}` : ""),
     )
     .join("\n");
   const [sidebarListItemsState, setSidebarListItems] = useState(sidebarListItemsFresh);
@@ -3560,7 +3565,13 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                         if (item.kind === "thread") {
                           // Folders draw active rows in their own place below.
                           if (projectFolders !== null && item.section === "active") continue;
-                          items.push(renderThreadRow(threadByKey.get(item.key)!, item.section));
+                          items.push(
+                            renderThreadRow(
+                              threadByKey.get(item.key)!,
+                              item.section,
+                              item.folderRow,
+                            ),
+                          );
                           continue;
                         }
                         if (projectFolders !== null && item.marker === "active-placeholder") {
@@ -3599,6 +3610,46 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                               />,
                             );
                             break;
+                          case "project-header": {
+                            if (projectFolders !== null) break;
+                            const project =
+                              item.environmentId && item.projectId
+                                ? projectByKey.get(`${item.environmentId}:${item.projectId}`)
+                                : undefined;
+                            const displayName =
+                              item.environmentId && item.projectId
+                                ? projectDisplayNameByKey.get(
+                                    `${item.environmentId}:${item.projectId}`,
+                                  )
+                                : undefined;
+                            const folderKey = item.key ?? "";
+                            const collapsed =
+                              conversationView.collapsedProjectFolders?.includes(folderKey) ??
+                              false;
+                            items.push(
+                              <SidebarMachineProjectFolderHeader
+                                key={sidebarListItemId(item)}
+                                item={item}
+                                project={project}
+                                projectDisplayName={displayName}
+                                collapsed={collapsed}
+                                threadCount={item.groupCount ?? 0}
+                                onToggle={() => {
+                                  setProjectExpanded(folderKey, collapsed);
+                                }}
+                                onNewThread={
+                                  project
+                                    ? () => {
+                                        void handleNewThread(
+                                          scopeProjectRef(project.environmentId, project.id),
+                                        );
+                                      }
+                                    : undefined
+                                }
+                              />,
+                            );
+                            break;
+                          }
                           case "pinned-header":
                             items.push(
                               <SidebarDragBoundary

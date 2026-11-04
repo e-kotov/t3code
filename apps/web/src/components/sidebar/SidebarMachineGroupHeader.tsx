@@ -14,6 +14,7 @@ import type { SidebarListItem } from "../Sidebar.logic";
 import { moveMachineGroup, type SidebarConversationView } from "./sidebarConversationGroups";
 
 import { useMachineGroupCollapse } from "./machineGroupCollapse";
+import { useUiStateStore } from "../../uiStateStore";
 
 export function useSidebarConversationView(
   selectedThreadKey: string | null = null,
@@ -23,12 +24,17 @@ export function useSidebarConversationView(
   const machineOrder = useClientSettings((s) => s.sidebarConversationMachineOrder);
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const { collapsedMachineGroups } = useMachineGroupCollapse();
+  const projectExpandedById = useUiStateStore((s) => s.projectExpandedById);
+  const collapsedProjectFolders = Object.entries(projectExpandedById)
+    .filter(([, expanded]) => !expanded)
+    .map(([key]) => key);
   return {
     sortOrder,
     grouping,
     machineOrder,
     primaryEnvironmentId,
     collapsedMachineGroups,
+    collapsedProjectFolders,
     selectedThreadKey,
   };
 }
