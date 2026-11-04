@@ -140,8 +140,7 @@ describe("BetterWright handoff", () => {
     expect(bridge.claimExternal("ssh")).toBe(false);
     select();
     await bridge.waitUntilReady();
-    const viewer: Array<Record<string, unknown>> = [];
-    bridge.attach("phone", { canOperate: true, push: (value) => viewer.push(value) });
+    bridge.attach("phone", { canOperate: true, push: () => undefined });
     bridge.input("phone", { type: "takeControl" });
     expect(bridge.claimExternal("ssh")).toBe(false);
     bridge.input("phone", { type: "releaseControl" });
@@ -150,7 +149,7 @@ describe("BetterWright handoff", () => {
     const second = setup();
     second.select();
     await second.bridge.waitUntilReady();
-    const output: Array<Record<string, unknown>> = [];
+    const output: unknown[] = [];
     second.bridge.attach("phone", { canOperate: true, push: (value) => output.push(value) });
     expect(second.bridge.claimExternal("ssh")).toBe(true);
     expect(second.bridge.claimExternal("other-ssh")).toBe(false);

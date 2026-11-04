@@ -91,9 +91,13 @@ const makeHandler = Effect.fnUntraced(function* (
       const reader = yield* socket.reader;
       const receive = reader.pull.pipe(
         Effect.flatMap((chunks) =>
-          Effect.forEach(chunks, (chunk) => (isComplete(chunk) ? lease.complete : Effect.void), {
-            discard: true,
-          }),
+          Effect.forEach(
+            chunks,
+            (chunk) => (isComplete(chunk) ? Effect.asVoid(lease.complete) : Effect.void),
+            {
+              discard: true,
+            },
+          ),
         ),
       );
       // Closing the socket ends the scope, which returns control to T3's own viewers.
