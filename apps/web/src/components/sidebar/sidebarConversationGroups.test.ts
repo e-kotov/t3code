@@ -394,4 +394,35 @@ describe("visibleSidebarKeys", () => {
       visibleSidebarKeys(shelves.flat(), sectionByKey, { ...folded, grouping: "none" }),
     ).toEqual(shelves.flat().map((thread) => `${thread.environmentId}:${thread.id}`));
   });
+
+  it("matches rendered project group order and ignores project collapse when grouping is none", () => {
+    const projA = ProjectId.make("proj-a");
+    const projB = ProjectId.make("proj-b");
+    const activeThreads = [
+      { id: ThreadId.make("a1"), environmentId: local, projectId: projA },
+      { id: ThreadId.make("b1"), environmentId: local, projectId: projB },
+      { id: ThreadId.make("a2"), environmentId: local, projectId: projA },
+    ];
+    const sectionByKey = new Map([
+      [`${local}:a1`, "active" as const],
+      [`${local}:b1`, "active" as const],
+      [`${local}:a2`, "active" as const],
+    ]);
+
+    expect(visibleSidebarKeys(activeThreads, sectionByKey, view())).toEqual([
+      `${local}:a1`,
+      `${local}:a2`,
+      `${local}:b1`,
+    ]);
+
+    const collapsedNone = view({
+      grouping: "none",
+      collapsedProjectFolders: [`sidebar-project:${local}:proj-a`],
+    });
+    expect(visibleSidebarKeys(activeThreads, sectionByKey, collapsedNone)).toEqual([
+      `${local}:a1`,
+      `${local}:b1`,
+      `${local}:a2`,
+    ]);
+  });
 });

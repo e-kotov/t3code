@@ -56,9 +56,8 @@ export const SidebarMachineProjectFolderHeader = memo(
         {onNewThread ? (
           <span className="absolute inset-y-0 right-2 flex items-center opacity-0 focus-within:opacity-100 group-hover/project-folder:opacity-100">
             <Button
-              size="icon-xs"
+              size="icon-micro"
               variant="ghost-muted"
-              className="size-5"
               aria-label={`New thread in ${displayName}`}
               onClick={(e) => {
                 e.stopPropagation();

@@ -81,6 +81,11 @@ export function visibleSidebarKeys<
   sectionByThreadKey: ReadonlyMap<string, SidebarSection>,
   view: Omit<SidebarConversationView, "sortOrder">,
 ): string[] {
+  if (view.grouping !== "machine") {
+    return threads.map((thread) =>
+      scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+    );
+  }
   const shelves = new Map<SidebarSection, T[]>();
   for (const thread of threads) {
     const key = scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id));
@@ -91,23 +96,13 @@ export function visibleSidebarKeys<
     shelves.set(section, shelf);
   }
   return [...shelves.entries()].flatMap(([section, list]) =>
-    sidebarMachineGroups(list, view).flatMap((group) => {
-      const visible = group.filter((thread) => machineGroupThreadVisible(thread, view));
-      if (section !== "active") {
-        return visible.map((t) => scopedThreadKey(scopeThreadRef(t.environmentId, t.id)));
-      }
-      return visible
-        .filter((thread) => {
-          if (!thread.projectId) return true;
-          const pKey = String(thread.projectId);
-          const folderKey = `sidebar-project:${thread.environmentId}:${pKey}`;
-          const isCollapsed = view.collapsedProjectFolders?.includes(folderKey) ?? false;
-          if (!isCollapsed) return true;
-          const threadKey = scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id));
-          return view.selectedThreadKey === threadKey;
-        })
-        .map((t) => scopedThreadKey(scopeThreadRef(t.environmentId, t.id)));
-    }),
+    groupSidebarRowsByMachine(list, section, view, (threadsToRender) =>
+      threadsToRender.map((thread) => ({
+        kind: "thread",
+        key: scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+        section,
+      })),
+    ).flatMap((item) => (item.kind === "thread" ? [item.key] : [])),
   );
 }
 
@@ -139,7 +134,6 @@ export function groupSidebarRowsByMachine<
       return [machineHeader, ...rowsOf(visibleThreads, section)];
     }
 
-    // Active shelf: group by project under each machine
     const projectBuckets = new Map<string, T[]>();
     const looseThreads: T[] = [];
     for (const thread of visibleThreads) {

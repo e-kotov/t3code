@@ -2041,7 +2041,9 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   // Preserve the list while streamed updates leave order unchanged to retain row memoization.
   const sidebarListItemsKey = sidebarListItemsFresh
     .map((item) =>
-      item.kind === "thread" ? item.section + ":" + item.key : (item.key ?? item.marker),
+      item.kind === "thread"
+        ? item.section + ":" + item.key
+        : (item.key ?? item.marker) + (item.groupCount !== undefined ? `:${item.groupCount}` : ""),
     )
     .join("\n");
   const [sidebarListItemsState, setSidebarListItems] = useState(sidebarListItemsFresh);
@@ -3609,6 +3611,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                             );
                             break;
                           case "project-header": {
+                            if (projectFolders !== null) break;
                             const project =
                               item.environmentId && item.projectId
                                 ? projectByKey.get(`${item.environmentId}:${item.projectId}`)
