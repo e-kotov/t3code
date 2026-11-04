@@ -82,32 +82,7 @@ const DEFAULT_SIDEBAR_CONVERSATION_SORT_ORDER: SidebarConversationSortOrder = "u
 export const SidebarConversationGrouping = Schema.Literals(["none", "machine", "project", "both"]);
 export type SidebarConversationGrouping = typeof SidebarConversationGrouping.Type;
 const DEFAULT_SIDEBAR_CONVERSATION_GROUPING: SidebarConversationGrouping = "none";
-
-export function isSidebarMachineGrouping(grouping: SidebarConversationGrouping): boolean {
-  return grouping === "machine" || grouping === "both";
-}
-
-export function isSidebarProjectGrouping(grouping: SidebarConversationGrouping): boolean {
-  return grouping === "project" || grouping === "both";
-}
-
-export function toggleSidebarGroupingDimension(
-  current: SidebarConversationGrouping,
-  dimension: "machine" | "project",
-): SidebarConversationGrouping {
-  const machine =
-    dimension === "machine"
-      ? !isSidebarMachineGrouping(current)
-      : isSidebarMachineGrouping(current);
-  const project =
-    dimension === "project"
-      ? !isSidebarProjectGrouping(current)
-      : isSidebarProjectGrouping(current);
-  if (machine && project) return "both";
-  if (machine) return "machine";
-  if (project) return "project";
-  return "none";
-}
+export * from "./sidebarGrouping.ts";
 
 export const SidebarProjectGroupingMode = Schema.Literals([
   "repository",

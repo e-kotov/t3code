@@ -5,6 +5,7 @@ import {
   conversationListMenuActions,
   isConversationListCustomized,
 } from "../home/conversationListOptions";
+import { computeMobileNonSettledCounts } from "../home/mobileNonSettledCounts";
 import { useActiveNewTask } from "../../state/active-new-task";
 import { ThreadUndoNotice } from "../home/ThreadUndoNotice";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
@@ -232,42 +233,10 @@ function ThreadNavigationSidebarPane(
       }),
     [projects, options.selectedEnvironmentId, options.projectGroupingMode],
   );
-  const nonSettledCounts = useMemo(() => {
-    let totalNonSettled = 0;
-    const byEnvironment = new Map<string, number>();
-    const byProjectScopeKey = new Map<string, number>();
-
-    const projectKeyByScopedRef = new Map<string, string>();
-    for (const scope of projectScopes) {
-      for (const ref of scope.projectRefs) {
-        projectKeyByScopedRef.set(scopedProjectKey(ref.environmentId, ref.projectId), scope.key);
-      }
-    }
-
-    for (const thread of threads) {
-      if (thread.archivedAt !== null || thread.settledOverride === "settled") {
-        continue;
-      }
-      totalNonSettled += 1;
-      const envId = String(thread.environmentId);
-      byEnvironment.set(envId, (byEnvironment.get(envId) ?? 0) + 1);
-
-      if (thread.projectId) {
-        const projectKey = projectKeyByScopedRef.get(
-          scopedProjectKey(thread.environmentId, thread.projectId),
-        );
-        if (projectKey) {
-          byProjectScopeKey.set(projectKey, (byProjectScopeKey.get(projectKey) ?? 0) + 1);
-        }
-      }
-    }
-
-    return {
-      totalNonSettled,
-      byEnvironment,
-      byProjectScopeKey,
-    };
-  }, [threads, projectScopes]);
+  const nonSettledCounts = useMemo(
+    () => computeMobileNonSettledCounts(threads, projectScopes),
+    [threads, projectScopes],
+  );
 
   const environmentFilterOptions = useMemo(
     () =>
@@ -460,7 +429,7 @@ function ThreadNavigationSidebarPane(
             ],
           },
         ] satisfies MenuAction[])),
-    ...conversationListMenuActions(options),
+    ...conversationListMenuActions(options, nonSettledCounts.machineSummary),
   ] satisfies MenuAction[];
   const handleListMenuAction = ({
     nativeEvent,
@@ -754,6 +723,7 @@ function ThreadNavigationSidebarPane(
     selectedProjectKey,
     onEnvironmentChange: setSelectedEnvironmentId,
     onProjectChange: setSelectedProjectKey,
+    machineSummary: nonSettledCounts.machineSummary,
     ...conversationList,
   });
   const nativeHeaderItems = createSidebarHeaderItems({

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vite-plus/test";
+import { EnvironmentId } from "@t3tools/contracts";
 
 import {
   applyConversationListMenuEvent,
@@ -60,7 +61,11 @@ describe("conversation list options", () => {
     const options = { ...defaults, conversationGrouping: "machine" as const };
     expect(conversationChoiceActions("grouping", options, undefined)).toEqual([
       { id: "grouping:machine", title: "By machine", state: "on" },
-      { id: "grouping:project", title: "By project", state: undefined },
+    ]);
+    expect(
+      conversationChoiceActions("grouping", options, undefined, "2 machines · 5 active"),
+    ).toEqual([
+      { id: "grouping:machine", title: "By machine · 2 machines · 5 active", state: "on" },
     ]);
     expect(conversationListMenuActions(options)[0]?.subactions).toEqual([
       { id: "sort:updated_at", title: "Recent activity · Newest first", state: "on" },
@@ -71,7 +76,9 @@ describe("conversation list options", () => {
 
   it("adds filter submenus and displays non-settled counts", () => {
     const base = {
-      environments: [{ environmentId: "env-1" as any, label: "MacBook", nonSettledCount: 3 }],
+      environments: [
+        { environmentId: EnvironmentId.make("env-1"), label: "MacBook", nonSettledCount: 3 },
+      ],
       projects: [{ key: "proj-1", label: "t3code", nonSettledCount: 2 }],
       selectedEnvironmentId: null,
       selectedProjectKey: null,
@@ -88,7 +95,11 @@ describe("conversation list options", () => {
     ]);
 
     const list = controls();
-    const menu = buildHomeListFilterMenu({ ...base, ...list });
+    const menu = buildHomeListFilterMenu({
+      ...base,
+      ...list,
+      machineSummary: "1 machine · 3 active",
+    });
     expect(menu.items.map((item) => item.title)).toEqual([
       "Environment",
       "Project",
@@ -105,11 +116,11 @@ describe("conversation list options", () => {
     const grouping = menu.items[3];
     expect(grouping?.type === "submenu" && grouping.items.map((item) => item.state)).toEqual([
       "off",
-      "off",
     ]);
+    expect(grouping?.type === "submenu" && grouping.items[0]?.title).toBe(
+      "By machine · 1 machine · 3 active",
+    );
     if (grouping?.type === "submenu") grouping.items[0]?.onPress();
     expect(list.onConversationGroupingChange).toHaveBeenCalledWith("machine");
-    if (grouping?.type === "submenu") grouping.items[1]?.onPress();
-    expect(list.onConversationGroupingChange).toHaveBeenCalledWith("project");
   });
 });

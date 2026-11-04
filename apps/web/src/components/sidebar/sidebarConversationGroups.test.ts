@@ -267,12 +267,13 @@ describe("groupSidebarRowsByMachine", () => {
         groupSidebarRowsByMachine(mixedThreads, "active", view({ grouping: "project" }), rowsOf),
       ),
     ).toEqual([
-      "[project:env-local:proj-a:3]",
+      "[project:env-local:proj-a:2]",
       "t1",
       "t3",
-      "t5",
       "[project:env-local:proj-b:1]",
       "t2",
+      "[project:env-alpha:proj-a:1]",
+      "t5",
       "t4",
     ]);
   });

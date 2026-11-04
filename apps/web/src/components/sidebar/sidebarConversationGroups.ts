@@ -123,7 +123,9 @@ function groupThreadsIntoProjects<
   const looseThreads: T[] = [];
   for (const thread of visibleThreads) {
     if (thread.projectId) {
-      const pKey = String(thread.projectId);
+      const pKey = fallbackEnvId
+        ? String(thread.projectId)
+        : `${thread.environmentId}:${String(thread.projectId)}`;
       const bucket = projectBuckets.get(pKey) ?? [];
       bucket.push(thread);
       projectBuckets.set(pKey, bucket);
@@ -133,9 +135,11 @@ function groupThreadsIntoProjects<
   }
 
   const items: SidebarListItem[] = [];
-  for (const [pKey, threadsInProject] of projectBuckets.entries()) {
-    const envId = fallbackEnvId ?? threadsInProject[0]!.environmentId;
-    const folderKey = `sidebar-project:${envId}:${pKey}`;
+  for (const [, threadsInProject] of projectBuckets.entries()) {
+    const threadEnvId = threadsInProject[0]!.environmentId;
+    const rawProjectId = threadsInProject[0]!.projectId!;
+    const envId = fallbackEnvId ?? threadEnvId;
+    const folderKey = `sidebar-project:${envId}:${String(rawProjectId)}`;
     const isCollapsed = view.collapsedProjectFolders?.includes(folderKey) ?? false;
 
     items.push({
@@ -143,8 +147,8 @@ function groupThreadsIntoProjects<
       marker: "project-header",
       key: folderKey,
       environmentId: envId,
-      projectId: pKey as ProjectId,
-      projectKey: pKey,
+      projectId: rawProjectId,
+      projectKey: String(rawProjectId),
       groupCount: threadsInProject.length,
     });
 

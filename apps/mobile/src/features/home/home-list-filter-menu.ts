@@ -3,6 +3,7 @@ import {
   buildConversationListFilterSubmenus,
   type ConversationListControls,
 } from "./conversationListOptions";
+import { formatFilterOptionTitle, formatFilterOptionSubtitle } from "./mobileNonSettledCounts";
 
 export interface HomeListFilterMenuEnvironment {
   readonly environmentId: EnvironmentId;
@@ -43,6 +44,7 @@ export function buildHomeListFilterMenu(
     readonly selectedProjectKey: string | null;
     readonly onEnvironmentChange: (environmentId: EnvironmentId | null) => void;
     readonly onProjectChange: (projectKey: string | null) => void;
+    readonly machineSummary?: string;
   } & Partial<ConversationListControls>,
 ): HomeListFilterMenu {
   const items: Array<HomeListFilterMenuAction | HomeListFilterMenuSubmenu> = [];
@@ -58,22 +60,18 @@ export function buildHomeListFilterMenu(
         state: props.selectedEnvironmentId === null ? "on" : "off",
         onPress: () => props.onEnvironmentChange(null),
       },
-      ...props.environments.map((environment) => {
-        const count = environment.nonSettledCount;
-        return {
-          type: "action" as const,
-          title:
-            count !== undefined && count > 0
-              ? `${environment.label} (${count})`
-              : environment.label,
-          ...(count !== undefined && count > 0 ? { subtitle: `${count} active` } : {}),
-          state:
-            props.selectedEnvironmentId === environment.environmentId
-              ? ("on" as const)
-              : ("off" as const),
-          onPress: () => props.onEnvironmentChange(environment.environmentId),
-        };
-      }),
+      ...props.environments.map((environment) => ({
+        type: "action" as const,
+        title: formatFilterOptionTitle(environment.label, environment.nonSettledCount),
+        ...(environment.nonSettledCount !== undefined && environment.nonSettledCount > 0
+          ? { subtitle: formatFilterOptionSubtitle(environment.nonSettledCount) }
+          : {}),
+        state:
+          props.selectedEnvironmentId === environment.environmentId
+            ? ("on" as const)
+            : ("off" as const),
+        onPress: () => props.onEnvironmentChange(environment.environmentId),
+      })),
     ],
   });
 
@@ -89,16 +87,15 @@ export function buildHomeListFilterMenu(
           state: props.selectedProjectKey === null ? "on" : "off",
           onPress: () => props.onProjectChange(null),
         },
-        ...props.projects.map((project) => {
-          const count = project.nonSettledCount;
-          return {
-            type: "action" as const,
-            title: count !== undefined && count > 0 ? `${project.label} (${count})` : project.label,
-            ...(count !== undefined && count > 0 ? { subtitle: `${count} active` } : {}),
-            state: props.selectedProjectKey === project.key ? ("on" as const) : ("off" as const),
-            onPress: () => props.onProjectChange(project.key),
-          };
-        }),
+        ...props.projects.map((project) => ({
+          type: "action" as const,
+          title: formatFilterOptionTitle(project.label, project.nonSettledCount),
+          ...(project.nonSettledCount !== undefined && project.nonSettledCount > 0
+            ? { subtitle: formatFilterOptionSubtitle(project.nonSettledCount) }
+            : {}),
+          state: props.selectedProjectKey === project.key ? ("on" as const) : ("off" as const),
+          onPress: () => props.onProjectChange(project.key),
+        })),
       ],
     });
   }

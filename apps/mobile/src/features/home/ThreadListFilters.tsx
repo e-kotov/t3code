@@ -3,6 +3,7 @@ import { Pressable, ScrollView } from "react-native";
 import { SymbolView } from "../../components/ui/AppSymbol";
 import { ListFilterMenu } from "../workspace/ListFilterMenu";
 import type { HomeHeaderProps } from "./HomeHeader.types";
+import { formatFilterOptionTitle, formatFilterOptionSubtitle } from "./mobileNonSettledCounts";
 
 export function ThreadListFilters(
   props: Pick<
@@ -44,7 +45,10 @@ export function ThreadListFilters(
           },
           ...props.environments.map((environment) => ({
             id: JSON.stringify(environment.environmentId),
-            title: environment.label,
+            title: formatFilterOptionTitle(environment.label, environment.nonSettledCount),
+            ...(environment.nonSettledCount !== undefined && environment.nonSettledCount > 0
+              ? { subtitle: formatFilterOptionSubtitle(environment.nonSettledCount) }
+              : {}),
             state:
               environment.environmentId === props.selectedEnvironmentId
                 ? ("on" as const)
@@ -73,7 +77,10 @@ export function ThreadListFilters(
           },
           ...props.projects.map((project) => ({
             id: JSON.stringify(project.key),
-            title: project.label,
+            title: formatFilterOptionTitle(project.label, project.nonSettledCount),
+            ...(project.nonSettledCount !== undefined && project.nonSettledCount > 0
+              ? { subtitle: formatFilterOptionSubtitle(project.nonSettledCount) }
+              : {}),
             state: project.key === props.selectedProjectKey ? ("on" as const) : ("off" as const),
           })),
         ]}

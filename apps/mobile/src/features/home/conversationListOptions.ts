@@ -7,7 +7,6 @@ import {
 } from "@t3tools/client-runtime/state/thread-sort";
 import {
   isSidebarMachineGrouping,
-  isSidebarProjectGrouping,
   toggleSidebarGroupingDimension,
   type SidebarConversationGrouping,
   type SidebarConversationSortOrder,
@@ -71,6 +70,7 @@ export function conversationChoiceActions(
   kind: "sort" | "grouping",
   options: ConversationListOptions,
   offState: "off" | undefined,
+  machineSummary?: string,
 ): MenuAction[] {
   if (kind === "sort") {
     return SORT_CHOICES.map(([value, title]) => {
@@ -87,31 +87,30 @@ export function conversationChoiceActions(
       };
     });
   }
+  const machineTitle = machineSummary ? `By machine · ${machineSummary}` : "By machine";
   return [
     {
       id: "grouping:machine",
-      title: "By machine",
+      title: machineTitle,
       state: isSidebarMachineGrouping(options.conversationGrouping) ? ("on" as const) : offState,
-    },
-    {
-      id: "grouping:project",
-      title: "By project",
-      state: isSidebarProjectGrouping(options.conversationGrouping) ? ("on" as const) : offState,
     },
   ];
 }
 
-export function conversationListMenuActions(options: ConversationListOptions): MenuAction[] {
+export function conversationListMenuActions(
+  options: ConversationListOptions,
+  machineSummary?: string,
+): MenuAction[] {
   return [
     {
       id: "sort",
       title: "Sort conversations",
-      subactions: conversationChoiceActions("sort", options, "off"),
+      subactions: conversationChoiceActions("sort", options, "off", machineSummary),
     },
     {
       id: "grouping",
       title: "Group conversations",
-      subactions: conversationChoiceActions("grouping", options, "off"),
+      subactions: conversationChoiceActions("grouping", options, "off", machineSummary),
     },
   ];
 }
@@ -133,17 +132,13 @@ export function applyConversationListMenuEvent(
     );
     return true;
   }
-  if (event === "grouping:project") {
-    controls.onConversationGroupingChange(
-      toggleSidebarGroupingDimension(controls.conversationGrouping, "project"),
-    );
-    return true;
-  }
   return false;
 }
 
 /** Sort and grouping submenus for `buildHomeListFilterMenu`, present only with handlers. */
-export function buildConversationListFilterSubmenus(props: Partial<ConversationListControls>) {
+export function buildConversationListFilterSubmenus(
+  props: Partial<ConversationListControls> & { readonly machineSummary?: string },
+) {
   const submenus: Array<{
     readonly type: "submenu";
     readonly title: string;
@@ -173,21 +168,18 @@ export function buildConversationListFilterSubmenus(props: Partial<ConversationL
   const onGroupingChange = props.onConversationGroupingChange;
   if (onGroupingChange) {
     const current = props.conversationGrouping ?? "none";
+    const machineTitle = props.machineSummary
+      ? `By machine · ${props.machineSummary}`
+      : "By machine";
     submenus.push({
       type: "submenu",
       title: "Group conversations",
       items: [
         {
           type: "action" as const,
-          title: "By machine",
+          title: machineTitle,
           state: isSidebarMachineGrouping(current) ? ("on" as const) : ("off" as const),
           onPress: () => onGroupingChange(toggleSidebarGroupingDimension(current, "machine")),
-        },
-        {
-          type: "action" as const,
-          title: "By project",
-          state: isSidebarProjectGrouping(current) ? ("on" as const) : ("off" as const),
-          onPress: () => onGroupingChange(toggleSidebarGroupingDimension(current, "project")),
         },
       ],
     });
