@@ -42,15 +42,21 @@ function client(url: string) {
   const waiters: Array<{
     predicate: (message: Message) => boolean;
     resolve: (m: Message) => void;
+    reject: (error: Error) => void;
   }> = [];
   let opened = false;
   socket.addEventListener("open", () => {
     opened = true;
   });
+  let closeCode: number | null = null;
   const closed = new Promise<{ code: number; reason: string; opened: boolean }>((resolve) =>
-    socket.addEventListener("close", (event) =>
-      resolve({ code: event.code, reason: event.reason, opened }),
-    ),
+    socket.addEventListener("close", (event) => {
+      closeCode = event.code;
+      // A socket that closes first fails its pending waits instead of hanging the test.
+      for (const waiter of waiters.splice(0))
+        waiter.reject(new Error(`socket closed with ${event.code} before the message`));
+      resolve({ code: event.code, reason: event.reason, opened });
+    }),
   );
   socket.addEventListener("message", (event) => {
     if (typeof event.data !== "string") {
@@ -65,10 +71,11 @@ function client(url: string) {
     }
   });
   const next = (predicate: (message: Message) => boolean) =>
-    new Promise<Message>((resolve) => {
+    new Promise<Message>((resolve, reject) => {
       const found = messages.find(predicate);
       if (found) resolve(found);
-      else waiters.push({ predicate, resolve });
+      else if (closeCode !== null) reject(new Error(`socket closed with ${closeCode}`));
+      else waiters.push({ predicate, resolve, reject });
     });
   return { socket, messages, closed, next };
 }
@@ -211,8 +218,14 @@ it.live(
       const origin = HttpServer.formatAddress(
         Context.get(serverContext, HttpServer.HttpServer).address,
       ).replace(/^http/, "ws");
+      // Scoped, so a failed assertion still closes every socket and the servers can stop.
+      const connect = (url: string) =>
+        Effect.acquireRelease(
+          Effect.sync(() => client(url)),
+          (connection) => Effect.sync(() => connection.socket.close()),
+        );
       const lease = (ticket: string, tab = tabId) =>
-        client(
+        connect(
           `${origin}${BETTERWRIGHT_VIEWER_FALLBACK_SOCKET_PATH}?threadId=${threadId}&tabId=${tab}&wsTicket=${ticket}`,
         );
       const closes: Array<{ code: number; reason: string; opened: boolean }> = [];
@@ -222,26 +235,28 @@ it.live(
         return result;
       };
 
-      const denied = yield* Effect.promise(() => closedWith(lease("denied")));
+      const refused = yield* lease("denied");
+      const denied = yield* Effect.promise(() => closedWith(refused));
       expect(denied.opened).toBe(false);
-      const reader = lease("reader");
+      const reader = yield* lease("reader");
       expect(yield* Effect.promise(() => closedWith(reader))).toMatchObject({ code: 4403 });
       expect(reader.messages).toEqual([]);
-      const stale = lease("operator", "another-tab");
+      const stale = yield* lease("operator", "another-tab");
       expect(yield* Effect.promise(() => closedWith(stale))).toMatchObject({ code: 4404 });
 
-      const first = lease("operator");
+      const first = yield* lease("operator");
       const viewer = yield* Effect.promise(() => first.next((m) => m.type === "viewer"));
       expect(viewer).toEqual({
         type: "viewer",
         environmentId: "environment-gwdg",
         threadId,
         tabId,
+        pageId: "page-1",
         port: upstreamPort,
         token: TOKEN,
       });
 
-      const stream = client(
+      const stream = yield* connect(
         `${origin}/api/preview-stream/ws?threadId=${threadId}&tabId=${tabId}&wsTicket=operator`,
       );
       yield* Effect.promise(() =>
@@ -249,7 +264,7 @@ it.live(
       );
       stream.socket.send(JSON.stringify({ type: "takeControl" }));
       stream.socket.send(JSON.stringify({ type: "text", text: "must not reach the page" }));
-      const busy = lease("operator");
+      const busy = yield* lease("operator");
       expect(yield* Effect.promise(() => closedWith(busy))).toMatchObject({ code: 4409 });
 
       // A standalone viewer joining makes BetterWright stream the preferred tab.
@@ -265,13 +280,12 @@ it.live(
       );
       expect(upstreamInputs.filter((m) => m.kind === "insertText")).toEqual([]);
 
-      const second = lease("operator");
+      const second = yield* lease("operator");
       yield* Effect.promise(() => second.next((m) => m.type === "viewer"));
       second.socket.send(BETTERWRIGHT_VIEWER_FALLBACK_COMPLETE_MESSAGE);
       expect(yield* Effect.promise(() => closedWith(second))).toMatchObject({ code: 4410 });
       expect((yield* Fiber.join(request)).outcome).toBe("completed");
       expect(handoff.manages(threadId, tabId)).toBe(false);
-      stream.socket.close();
       for (const close of closes) expect(close.reason).not.toContain(TOKEN);
     }).pipe(
       Effect.provide(

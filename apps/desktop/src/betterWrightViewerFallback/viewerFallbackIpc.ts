@@ -1,4 +1,7 @@
-import { ConnectionCatalogDocument } from "@t3tools/client-runtime/platform";
+import {
+  ConnectionCatalogDocument,
+  EMPTY_CONNECTION_CATALOG_DOCUMENT,
+} from "@t3tools/client-runtime/platform";
 import {
   type BetterWrightViewerFallbackAvailability,
   BetterWrightViewerFallbackOpenInput,
@@ -16,11 +19,17 @@ import * as Schema from "effect/Schema";
 import * as DesktopConnectionCatalogStore from "../app/DesktopConnectionCatalogStore.ts";
 import * as ElectronWindow from "../electron/ElectronWindow.ts";
 import * as DesktopIpc from "../ipc/DesktopIpc.ts";
+import * as DesktopSshEnvironment from "../ssh/DesktopSshEnvironment.ts";
 import * as DesktopSshPasswordPrompts from "../ssh/DesktopSshPasswordPrompts.ts";
 import * as Channels from "./viewerFallbackChannels.ts";
-import { NO_SSH_ROUTE_REASON, selectSshRoute } from "./viewerFallbackPolicy.ts";
+import {
+  authorizeLeaseUrl,
+  leaseEndpoints,
+  selectSshRoute,
+  type SshRouteSelection,
+} from "./viewerFallbackPolicy.ts";
 import { makeViewerFallbackSessions } from "./ViewerFallbackSessions.ts";
-import { desktopPasswordPrompt, startViewerForward } from "./viewerForward.ts";
+import { desktopPasswordPrompt, startViewerForward, ViewerFallbackError } from "./viewerForward.ts";
 import { openViewerLease } from "./viewerLease.ts";
 import { openViewerWindow } from "./viewerWindow.ts";
 
@@ -47,42 +56,75 @@ export const installViewerFallback = Effect.fn("desktop.ipc.betterWrightFallback
     const electronWindow = yield* ElectronWindow.ElectronWindow;
     const catalogStore = yield* DesktopConnectionCatalogStore.DesktopConnectionCatalogStore;
     const prompts = yield* DesktopSshPasswordPrompts.DesktopSshPasswordPrompts;
+    const sshEnvironment = yield* DesktopSshEnvironment.DesktopSshEnvironment;
     const runtime = yield* Effect.context<
-      | ChildProcessSpawner.ChildProcessSpawner
-      | NetService.NetService
-      | HttpClient.HttpClient
-      | FileSystem.FileSystem
-      | Path.Path
+      NetService.NetService | HttpClient.HttpClient | FileSystem.FileSystem | Path.Path
     >();
+    // Read optionally so app wiring that never opens a viewer needs no process spawner.
+    const spawner = yield* Effect.serviceOption(ChildProcessSpawner.ChildProcessSpawner);
     const passwordPrompt = SshAuth.SshPasswordPrompt.of(desktopPasswordPrompt(prompts));
+
+    const readCatalog = catalogStore.get.pipe(
+      Effect.flatMap(
+        Option.match({
+          onNone: () => Effect.succeed(EMPTY_CONNECTION_CATALOG_DOCUMENT),
+          onSome: (raw) => decodeCatalog(raw),
+        }),
+      ),
+      Effect.option,
+    );
 
     // The SSH host always comes from this device's saved connection, never from the renderer.
     const resolveRoute = (environmentId: string) =>
-      catalogStore.get.pipe(
-        Effect.flatMap(
+      readCatalog.pipe(
+        Effect.map(
           Option.match({
-            onNone: () =>
-              Effect.succeed({ _tag: "Unavailable" as const, reason: NO_SSH_ROUTE_REASON }),
-            onSome: (raw) =>
-              decodeCatalog(raw).pipe(
-                Effect.map((document) => selectSshRoute(document, environmentId)),
-              ),
+            onNone: (): SshRouteSelection => ({
+              _tag: "Unavailable",
+              reason: "Saved connections could not be read on this device.",
+            }),
+            onSome: (document) => selectSshRoute(document, environmentId),
           }),
         ),
-        Effect.orElseSucceed(() => ({
-          _tag: "Unavailable" as const,
-          reason: "Saved connections could not be read on this device.",
-        })),
       );
 
+    // The lease endpoint is one this device vouches for; the renderer only names it.
+    const authorizeLease = Effect.fn("desktop.betterWrightFallback.authorizeLease")(function* (
+      input: BetterWrightViewerFallbackOpenInput,
+    ) {
+      const document = yield* readCatalog;
+      if (Option.isNone(document)) {
+        return yield* new ViewerFallbackError({
+          message: "Saved connections could not be read on this device.",
+        });
+      }
+      const tunnels = yield* sshEnvironment.activeEndpoints;
+      const decision = authorizeLeaseUrl(
+        input.leaseUrl,
+        input,
+        leaseEndpoints(document.value, input.environmentId, tunnels),
+      );
+      if (decision._tag === "Refused") {
+        return yield* new ViewerFallbackError({ message: decision.message });
+      }
+      return decision.url;
+    });
+
     const sessions = yield* makeViewerFallbackSessions({
+      authorizeLease,
       resolveRoute,
       openLease: (url, expected) => openViewerLease(url, expected),
       startForward: (target, remotePort) =>
-        startViewerForward(target, remotePort).pipe(
-          Effect.provideService(SshAuth.SshPasswordPrompt, passwordPrompt),
-          Effect.provideContext(runtime),
-        ),
+        Option.match(spawner, {
+          onNone: () =>
+            Effect.fail(new ViewerFallbackError({ message: "SSH is not available in this app." })),
+          onSome: (service) =>
+            startViewerForward(target, remotePort).pipe(
+              Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, service),
+              Effect.provideService(SshAuth.SshPasswordPrompt, passwordPrompt),
+              Effect.provideContext(runtime),
+            ),
+        }),
       openWindow: openViewerWindow,
       publish: (state) =>
         electronWindow.sendAll(Channels.VIEWER_FALLBACK_STATE_CHANNEL, state).pipe(Effect.ignore),

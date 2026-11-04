@@ -18,6 +18,9 @@ on:
       - "packages/contracts/src/betterWrightViewerFallback.ts"
       - "packages/contracts/src/ipc.ts"
       - "packages/ssh/src/command.ts"
+      - "packages/ssh/src/tunnel.ts"
+      - "apps/desktop/src/ssh/DesktopSshEnvironment.ts"
+      - "apps/desktop/src/app/DesktopApp.test.ts"
       - "packages/ssh/src/auth.ts"
 
 permissions:

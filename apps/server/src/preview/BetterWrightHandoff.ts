@@ -52,6 +52,7 @@ type BetterWrightViewerLeaseResult =
   | { readonly _tag: "Busy" }
   | {
       readonly _tag: "Leased";
+      readonly pageId: string;
       readonly port: number;
       readonly token: string;
       /** False unless this lease still holds control of the active handoff. */
@@ -89,7 +90,13 @@ export const make = Effect.fn("BetterWrightHandoff.make")(function* (
   let settling: Promise<void> = Promise.resolve();
   let cancelActive: () => void = () => undefined;
   let active:
-    | { threadId: string; tabId: string; bridge: BetterWrightBridge; viewerUrl: string }
+    | {
+        threadId: string;
+        tabId: string;
+        pageId: string;
+        bridge: BetterWrightBridge;
+        viewerUrl: string;
+      }
     | undefined;
   const manages = (threadId: string, tabId: string) =>
     active?.threadId === threadId && active.tabId === tabId;
@@ -183,7 +190,13 @@ export const make = Effect.fn("BetterWrightHandoff.make")(function* (
               runtime: "server",
               reveal: true,
               beforePublish: (snapshot) => {
-                active = { threadId, tabId: snapshot.tabId, bridge: current, viewerUrl };
+                active = {
+                  threadId,
+                  tabId: snapshot.tabId,
+                  pageId: input.pageId,
+                  bridge: current,
+                  viewerUrl,
+                };
               },
             }),
           );
@@ -267,13 +280,14 @@ export const make = Effect.fn("BetterWrightHandoff.make")(function* (
     readonly tabId: string;
   }): Effect.fn.Return<BetterWrightViewerLeaseResult, never, Scope.Scope> {
     if (!active || !manages(input.threadId, input.tabId)) return { _tag: "NotFound" };
-    const { bridge, viewerUrl } = active;
+    const { bridge, viewerUrl, pageId } = active;
     const id = `ssh-fallback:${NodeCrypto.randomUUID()}`;
     if (!bridge.claimExternal(id)) return { _tag: "Busy" };
     yield* Effect.addFinalizer(() => Effect.sync(() => bridge.releaseExternal(id)));
     const viewer = new URL(viewerUrl);
     return {
       _tag: "Leased",
+      pageId,
       port: Number(viewer.port),
       token: viewer.searchParams.get("t") ?? "",
       complete: Effect.sync(() => bridge.completeExternal(id)),

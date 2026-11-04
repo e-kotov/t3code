@@ -153,7 +153,7 @@ export function useSshViewerFallback(input: {
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- samples the stream reporter on a timer; frames arrive outside React
   useEffect(() => {
     if (!watching) return;
-    healthRef.current ??= initialStreamHealth(Date.now());
+    if (healthRef.current === null) healthRef.current = initialStreamHealth(Date.now());
     const check = () => {
       const health = healthRef.current;
       setUnhealthy(health !== null && streamNeedsFallback(health, Date.now()));
@@ -207,23 +207,21 @@ export function useSshViewerFallback(input: {
 
   if (!bridge) return { stream, overlay: null };
 
-  const open = async () => {
+  const open = () => {
     setOpening(true);
     setProblem(null);
-    try {
-      const leaseUrl = await readViewerFallbackLeaseUrl({ environmentId, threadId, tabId });
-      if (leaseUrl === null) {
-        setProblem(
-          "T3 could not authorize the SSH viewer over this connection. Reconnect to the environment and try again.",
-        );
-        return;
-      }
-      await bridge.open({ environmentId, threadId, tabId, leaseUrl });
-    } catch (cause) {
-      setProblem(remoteMessage(cause));
-    } finally {
-      setOpening(false);
-    }
+    void readViewerFallbackLeaseUrl({ environmentId, threadId, tabId })
+      .then((leaseUrl) => {
+        if (leaseUrl === null) {
+          setProblem(
+            "T3 could not authorize the SSH viewer over this connection. Reconnect to the environment and try again.",
+          );
+          return;
+        }
+        return bridge.open({ environmentId, threadId, tabId, leaseUrl }).then(() => undefined);
+      })
+      .catch((cause: unknown) => setProblem(remoteMessage(cause)))
+      .then(() => setOpening(false));
   };
   const run = (action: Promise<void>) =>
     void action.catch((cause: unknown) => setProblem(remoteMessage(cause)));
@@ -250,7 +248,7 @@ export function useSshViewerFallback(input: {
       view === null ? null : (
         <SshFallbackNotice
           view={view}
-          onOpen={() => void open()}
+          onOpen={open}
           onComplete={() => session && run(bridge.complete(session.sessionId))}
           onClose={() => session && run(bridge.close(session.sessionId))}
           onDismiss={() => setProblem(null)}

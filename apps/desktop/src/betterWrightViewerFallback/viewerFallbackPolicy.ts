@@ -1,3 +1,4 @@
+import { environmentEndpointUrl } from "@t3tools/client-runtime/environment";
 import type { ConnectionCatalogDocument } from "@t3tools/client-runtime/platform";
 import {
   BETTERWRIGHT_VIEWER_FALLBACK_SOCKET_PATH,
@@ -86,29 +87,115 @@ export function viewerForwardSshArgs(
   ];
 }
 
-/** Checks the renderer-supplied lease URL before the desktop dials it. Returns an error message. */
-export function leaseUrlProblem(
+/** A live desktop-owned forward to an environment's T3 server, from T3's SSH manager. */
+export interface SshTunnelEndpoint {
+  readonly target: DesktopSshEnvironmentTarget;
+  readonly httpBaseUrl: string;
+}
+
+const sameSshTarget = (a: DesktopSshEnvironmentTarget, b: DesktopSshEnvironmentTarget) =>
+  a.alias === b.alias &&
+  a.hostname === b.hostname &&
+  a.username === b.username &&
+  a.port === b.port;
+
+const isLoopbackHttp = (raw: string) => {
+  try {
+    const url = new URL(raw);
+    return url.protocol === "http:" && url.hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+};
+
+/** The lease socket the renderer derives from a prepared connection's HTTP base. */
+const leaseSocketFor = (httpBaseUrl: string) =>
+  environmentEndpointUrl(httpBaseUrl, BETTERWRIGHT_VIEWER_FALLBACK_SOCKET_PATH).replace(
+    /^http/,
+    "ws",
+  );
+
+/**
+ * Lease sockets this device itself can vouch for: the environment's saved direct addresses, and
+ * the loopback ends of T3's own live SSH forwards for its saved SSH routes. T3 Connect routes are
+ * brokered at run time and cannot be vouched for here, so they are never included.
+ */
+export function leaseEndpoints(
+  document: ConnectionCatalogDocument,
+  environmentId: string,
+  tunnels: ReadonlyArray<SshTunnelEndpoint>,
+): ReadonlyArray<string> {
+  if (document.disabledEnvironmentIds.some((id) => id === environmentId)) return [];
+  const endpoints = new Set<string>();
+  for (const route of document.targets) {
+    if (route.environmentId !== environmentId || route._tag === "RelayConnectionTarget") continue;
+    const profile = document.profiles.find(
+      (candidate) =>
+        candidate.connectionId === route.connectionId && candidate.environmentId === environmentId,
+    );
+    if (route._tag === "BearerConnectionTarget" && profile?._tag === "BearerConnectionProfile") {
+      endpoints.add(leaseSocketFor(profile.httpBaseUrl));
+    }
+    if (route._tag === "SshConnectionTarget" && profile?._tag === "SshConnectionProfile") {
+      for (const tunnel of tunnels) {
+        if (sameSshTarget(tunnel.target, profile.target) && isLoopbackHttp(tunnel.httpBaseUrl))
+          endpoints.add(leaseSocketFor(tunnel.httpBaseUrl));
+      }
+    }
+  }
+  return [...endpoints];
+}
+
+const LEASE_QUERY_KEYS = new Set(["threadId", "tabId", "wsTicket"]);
+
+export type LeaseUrlDecision =
+  | { readonly _tag: "Authorized"; readonly url: string }
+  | { readonly _tag: "Refused"; readonly message: string };
+
+/**
+ * Accepts the renderer's lease address only when its origin and whole path equal one of the
+ * device-vouched endpoints, and rebuilds it from that endpoint so nothing else is dialed. The
+ * single-use ticket in it is therefore only ever sent to the environment's own server.
+ */
+export function authorizeLeaseUrl(
   raw: string,
   expected: { readonly threadId: string; readonly tabId: string },
-): string | null {
+  endpoints: ReadonlyArray<string>,
+): LeaseUrlDecision {
+  const refused = (message: string): LeaseUrlDecision => ({ _tag: "Refused", message });
+  if (endpoints.length === 0) {
+    return refused(
+      "The SSH viewer needs this environment's saved direct address or a live T3 SSH connection. T3 Connect routes cannot be verified by the desktop.",
+    );
+  }
   let url: URL;
   try {
     url = new URL(raw);
   } catch {
-    return "The browser lease address is invalid.";
+    return refused("The browser lease address is invalid.");
   }
+  const keys = [...url.searchParams.keys()];
+  const endpoint = endpoints.find((candidate) => {
+    const allowed = new URL(candidate);
+    return allowed.origin === url.origin && allowed.pathname === url.pathname;
+  });
   if (
-    (url.protocol !== "ws:" && url.protocol !== "wss:") ||
-    !url.pathname.endsWith(BETTERWRIGHT_VIEWER_FALLBACK_SOCKET_PATH) ||
+    endpoint === undefined ||
     url.username ||
     url.password ||
     url.hash ||
+    keys.some((key) => !LEASE_QUERY_KEYS.has(key)) ||
+    new Set(keys).size !== keys.length ||
     url.searchParams.get("threadId") !== expected.threadId ||
     url.searchParams.get("tabId") !== expected.tabId
   ) {
-    return "The browser lease address is invalid.";
+    return refused(
+      "The browser lease address does not belong to this environment's saved connection, so it was not used.",
+    );
   }
-  return null;
+  const authorized = new URL(endpoint);
+  for (const [key, value] of url.searchParams) authorized.searchParams.set(key, value);
+  return { _tag: "Authorized", url: authorized.toString() };
 }
 
 const decodeLease = Schema.decodeUnknownOption(Schema.fromJsonString(BetterWrightViewerLease));
@@ -184,4 +271,39 @@ export function isViewerNavigationAllowed(raw: string, localPort: number): boole
   } catch {
     return false;
   }
+}
+
+/**
+ * Runs in the viewer page before its own scripts. BetterWright's viewer lets any client switch,
+ * open or close tabs across the whole daemon; this keeps the window's outgoing messages on the
+ * handoff page and on http(s) navigation, as T3's own bridge does. It guards a window the user
+ * controls, not the daemon: the SSH identity can reach the viewer directly anyway.
+ */
+export function viewerPageGuardScript(pageId: string): string {
+  return `(() => {
+  const pageId = ${JSON.stringify(pageId)};
+  const proto = WebSocket.prototype;
+  const send = proto.send;
+  const allowed = (data) => {
+    if (typeof data !== "string") return true;
+    let message;
+    try {
+      message = JSON.parse(data);
+    } catch {
+      return true;
+    }
+    if (typeof message !== "object" || message === null) return true;
+    if (message.t === "newtab" || message.t === "closetab") return false;
+    if (message.t === "tab") return message.id === pageId;
+    if (message.t === "navigate") return typeof message.url === "string" && /^https?:\\/\\//.test(message.url);
+    return true;
+  };
+  Object.defineProperty(proto, "send", {
+    configurable: false,
+    writable: false,
+    value: function (data) {
+      if (allowed(data)) return send.call(this, data);
+    },
+  });
+})();`;
 }

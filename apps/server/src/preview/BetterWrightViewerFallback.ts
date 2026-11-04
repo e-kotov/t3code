@@ -58,6 +58,8 @@ const makeHandler = Effect.fnUntraced(function* (
   return yield* Effect.scoped(
     Effect.gen(function* () {
       const socket = yield* request.upgrade;
+      // The reader runs the socket; without it a close frame written below is never sent.
+      const reader = yield* socket.reader;
       const writer = yield* socket.writer;
       const close = (code: number, reason: string) =>
         writer
@@ -84,11 +86,11 @@ const makeHandler = Effect.fnUntraced(function* (
         environmentId,
         threadId,
         tabId,
+        pageId: lease.pageId,
         port: lease.port,
         token: lease.token,
       };
       yield* writer.write(JSON.stringify(message));
-      const reader = yield* socket.reader;
       const receive = reader.pull.pipe(
         Effect.flatMap((chunks) =>
           Effect.forEach(

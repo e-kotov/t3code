@@ -1,3 +1,5 @@
+// @effect-diagnostics nodeBuiltinImport:off - Runs the viewer guard script in an isolated VM context.
+import * as NodeVM from "node:vm";
 import {
   BearerConnectionProfile,
   BearerConnectionTarget,
@@ -10,13 +12,15 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   acceptLease,
+  authorizeLeaseUrl,
   isViewerNavigationAllowed,
   leaseClosedMessage,
-  leaseUrlProblem,
+  leaseEndpoints,
   NO_SSH_ROUTE_REASON,
   selectSshRoute,
   sshForwardFailureMessage,
   viewerForwardSshArgs,
+  viewerPageGuardScript,
   viewerWindowUrl,
 } from "./viewerFallbackPolicy.ts";
 
@@ -106,26 +110,88 @@ describe("SSH viewer fallback routing", () => {
     expect(args.slice(-2)).toEqual(["--", "ekotov@gwdg"]);
   });
 
-  it("accepts only its own fixed lease socket for the requested tab", () => {
-    const expected = { threadId: "thread-1", tabId: "tab-1" };
-    const good =
-      "wss://gwdg.tailnet.example/api/betterwright-viewer-fallback/ws?threadId=thread-1&tabId=tab-1&wsTicket=x";
-    expect(leaseUrlProblem(good, expected)).toBeNull();
+  it("dials only a lease socket this device vouches for, never one the renderer names", () => {
+    const tunnel = { target: sshTarget, httpBaseUrl: "http://127.0.0.1:41234/" };
+    const endpoints = leaseEndpoints(catalog(), GWDG, [
+      tunnel,
+      // A live forward for a host this environment never saved must not count.
+      { target: { ...sshTarget, alias: "elsewhere" }, httpBaseUrl: "http://127.0.0.1:41999/" },
+    ]);
+    expect(endpoints).toEqual([
+      "wss://gwdg.tailnet.example/api/betterwright-viewer-fallback/ws",
+      "ws://127.0.0.1:41234/api/betterwright-viewer-fallback/ws",
+    ]);
+    expect(leaseEndpoints(catalog(), RAVEN, [tunnel])).toEqual([]);
     expect(
-      leaseUrlProblem(
-        "ws://127.0.0.1:41234/api/betterwright-viewer-fallback/ws?threadId=thread-1&tabId=tab-1",
-        expected,
-      ),
-    ).toBeNull();
-    for (const bad of [
+      leaseEndpoints({ ...catalog(), disabledEnvironmentIds: [GWDG] }, GWDG, [tunnel]),
+    ).toEqual([]);
+
+    const expected = { threadId: "thread-1", tabId: "tab-1" };
+    const path = "/api/betterwright-viewer-fallback/ws?threadId=thread-1&tabId=tab-1&wsTicket=x";
+    expect(authorizeLeaseUrl(`wss://gwdg.tailnet.example${path}`, expected, endpoints)).toEqual({
+      _tag: "Authorized",
+      url: `wss://gwdg.tailnet.example${path}`,
+    });
+    expect(authorizeLeaseUrl(`ws://127.0.0.1:41234${path}`, expected, endpoints)._tag).toBe(
+      "Authorized",
+    );
+    for (const forged of [
+      // The right path and ids on an origin this device never saved.
+      `wss://attacker.example${path}`,
+      `ws://127.0.0.1:41999${path}`,
+      `ws://127.0.0.1:1${path}`,
+      `ws://gwdg.tailnet.example${path}`,
+      `wss://gwdg.tailnet.example.attacker.example${path}`,
+      `wss://gwdg.tailnet.example/prefix${path}`,
+      `wss://gwdg.tailnet.example${path.replace("/ws?", "/ws/extra?")}`,
+      `wss://user:secret@gwdg.tailnet.example${path}`,
+      `wss://gwdg.tailnet.example${path}#fragment`,
+      `wss://gwdg.tailnet.example${path.replace("tab-1", "tab-2")}`,
+      `wss://gwdg.tailnet.example${path}&redirect=wss://attacker.example`,
+      `wss://gwdg.tailnet.example${path}&tabId=tab-1`,
       "not a url",
-      good.replace("wss:", "https:"),
-      good.replace("/api/betterwright-viewer-fallback/ws", "/api/preview-stream/ws"),
-      good.replace("wss://", "wss://user:secret@"),
-      good.replace("tabId=tab-1", "tabId=tab-2"),
-      `${good}#fragment`,
+    ]) {
+      const decision = authorizeLeaseUrl(forged, expected, endpoints);
+      expect(decision._tag, forged).toBe("Refused");
+    }
+    // A T3 Connect environment has nothing this device can vouch for.
+    const relayOnly = authorizeLeaseUrl(`wss://relay.example${path}`, expected, []);
+    expect(relayOnly).toMatchObject({
+      _tag: "Refused",
+      message: expect.stringContaining("T3 Connect"),
+    });
+  });
+
+  it("keeps the viewer window's own messages on the handoff page", () => {
+    const sent: unknown[] = [];
+    class WebSocket {
+      send(data: unknown) {
+        sent.push(data);
+      }
+    }
+    const sandbox = { WebSocket };
+    NodeVM.runInNewContext(viewerPageGuardScript('page-1"; alert(1); "'), sandbox);
+    const socket = new sandbox.WebSocket();
+    for (const message of [
+      { t: "tab", id: 'page-1"; alert(1); "' },
+      { t: "tab", id: "other-session-page" },
+      { t: "newtab", url: "https://example.com" },
+      { t: "closetab", id: 'page-1"; alert(1); "' },
+      { t: "navigate", url: "https://example.com/login" },
+      { t: "navigate", url: "file:///etc/passwd" },
+      { t: "input", kind: "insertText", text: "human" },
     ])
-      expect(leaseUrlProblem(bad, expected)).not.toBeNull();
+      socket.send(JSON.stringify(message));
+    socket.send(new ArrayBuffer(2));
+    expect(sent.map((data) => (typeof data === "string" ? JSON.parse(data) : "binary"))).toEqual([
+      { t: "tab", id: 'page-1"; alert(1); "' },
+      { t: "navigate", url: "https://example.com/login" },
+      { t: "input", kind: "insertText", text: "human" },
+      "binary",
+    ]);
+    expect(() => {
+      sandbox.WebSocket.prototype.send = () => undefined;
+    }).toThrow();
   });
 
   it("rejects malformed, stale and mismatched leases without echoing their token", () => {
@@ -135,6 +201,7 @@ describe("SSH viewer fallback routing", () => {
       environmentId: "environment-gwdg",
       threadId: "thread-1",
       tabId: "tab-1",
+      pageId: "page-1",
       port: 39123,
       token: "secret-viewer-token-123",
     };
@@ -143,6 +210,8 @@ describe("SSH viewer fallback routing", () => {
       "not json",
       new ArrayBuffer(4),
       JSON.stringify({ ...lease, port: 0 }),
+      JSON.stringify({ ...lease, port: 22 }),
+      JSON.stringify({ ...lease, pageId: "" }),
       JSON.stringify({ ...lease, port: 70_000 }),
       JSON.stringify({ ...lease, token: "short" }),
       JSON.stringify({ ...lease, token: "has spaces and ?=& marks" }),

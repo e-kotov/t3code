@@ -19,7 +19,12 @@ const input = {
 };
 const target = { alias: "gwdg", hostname: "gwdg", username: null, port: null };
 
-const setup = (options?: { readonly route?: "missing"; readonly forward?: "fails" | "hangs" }) =>
+const setup = (options?: {
+  readonly route?: "missing";
+  readonly forward?: "fails" | "hangs";
+  readonly window?: "deferred";
+  readonly authorize?: "refuses";
+}) =>
   Effect.gen(function* () {
     const log: string[] = [];
     const states = yield* Queue.unbounded<BetterWrightViewerFallbackState>();
@@ -28,6 +33,9 @@ const setup = (options?: { readonly route?: "missing"; readonly forward?: "fails
     const windowClosed = yield* Deferred.make<void>();
     const completions: string[] = [];
     const forwardCalled = yield* Deferred.make<void>();
+    const windowRequested = yield* Deferred.make<void>();
+    const windowGate = yield* Deferred.make<void>();
+    const dialed: string[] = [];
     const resource = <A>(name: string, value: A) =>
       Effect.acquireRelease(
         Effect.sync(() => {
@@ -37,19 +45,25 @@ const setup = (options?: { readonly route?: "missing"; readonly forward?: "fails
         () => Effect.sync(() => log.push(`release ${name}`)),
       );
     const deps: ViewerFallbackDeps = {
+      authorizeLease: (request) =>
+        options?.authorize === "refuses"
+          ? Effect.fail(new ViewerFallbackError({ message: "Not this environment's connection." }))
+          : Effect.succeed(`${request.leaseUrl}&vouched=1`),
       resolveRoute: () =>
         Effect.succeed<SshRouteSelection>(
           options?.route === "missing"
             ? { _tag: "Unavailable", reason: "No SSH connection saved." }
             : { _tag: "Route", target },
         ),
-      openLease: (url, expected) =>
-        resource("lease", {
+      openLease: (url, expected) => {
+        dialed.push(url);
+        return resource("lease", {
           viewer: {
             type: "viewer" as const,
             environmentId: expected.environmentId,
             threadId: expected.threadId,
             tabId: expected.tabId,
+            pageId: "page-1",
             port: 39123,
             token: "secret-viewer-token-123",
           },
@@ -58,7 +72,8 @@ const setup = (options?: { readonly route?: "missing"; readonly forward?: "fails
             completions.push(url);
             return true;
           }),
-        }),
+        });
+      },
       startForward: (forwardTarget, remotePort) => {
         log.push(`forward ${forwardTarget.alias} ${remotePort}`);
         if (options?.forward === "fails")
@@ -70,9 +85,15 @@ const setup = (options?: { readonly route?: "missing"; readonly forward?: "fails
           );
         return resource("forward", { localPort: 41000, exited: Deferred.await(forwardExited) });
       },
-      openWindow: (url) => {
-        log.push(`window ${url}`);
-        return resource("window", { closed: Deferred.await(windowClosed) });
+      openWindow: (url, _localPort, pageId) => {
+        log.push(`window ${url} ${pageId}`);
+        const open = resource("window", { closed: Deferred.await(windowClosed) });
+        return options?.window === "deferred"
+          ? Deferred.succeed(windowRequested, undefined).pipe(
+              Effect.andThen(Deferred.await(windowGate)),
+              Effect.andThen(open),
+            )
+          : open;
       },
       publish: (state) => Queue.offer(states, state).pipe(Effect.asVoid),
     };
@@ -97,6 +118,9 @@ const setup = (options?: { readonly route?: "missing"; readonly forward?: "fails
       windowClosed,
       completions,
       forwardCalled,
+      windowRequested,
+      windowGate,
+      dialed,
     };
   });
 
@@ -111,11 +135,13 @@ describe("SSH viewer fallback sessions", () => {
         "open lease",
         "forward gwdg 39123",
         "open forward",
-        "window http://127.0.0.1:41000/?t=secret-viewer-token-123",
+        "window http://127.0.0.1:41000/?t=secret-viewer-token-123 page-1",
         "open window",
       ]);
       yield* harness.sessions.complete(sessionId);
-      expect(harness.completions).toEqual([input.leaseUrl]);
+      // The lease dialed is the one the native authorizer returned, not the renderer's.
+      expect(harness.dialed).toEqual([`${input.leaseUrl}&vouched=1`]);
+      expect(harness.completions).toEqual([`${input.leaseUrl}&vouched=1`]);
       yield* Deferred.succeed(harness.leaseEnded, { normal: true, message: "The handoff ended." });
       const closed = yield* harness.nextPhase("closed");
       expect(closed.message).toBe("The handoff ended.");
@@ -193,15 +219,56 @@ describe("SSH viewer fallback sessions", () => {
     }),
   );
 
-  it.effect("refuses a lease address outside its fixed route before dialing", () =>
+  it.effect("refuses a lease the device cannot vouch for before dialing anything", () =>
     Effect.gen(function* () {
-      const harness = yield* setup();
-      const error = yield* harness.sessions
-        .open({ ...input, leaseUrl: "wss://evil.example/other?threadId=thread-1&tabId=tab-1" })
-        .pipe(Effect.flip);
-      expect(error.message).toContain("invalid");
+      const harness = yield* setup({ authorize: "refuses" });
+      const error = yield* harness.sessions.open(input).pipe(Effect.flip);
+      expect(error.message).toBe("Not this environment's connection.");
       expect(yield* harness.sessions.list).toEqual([]);
+      expect(harness.dialed).toEqual([]);
       expect(harness.log).toEqual([]);
+    }),
+  );
+
+  it.effect("stops a pending SSH start when the lease drops, and opens no viewer", () =>
+    Effect.gen(function* () {
+      const harness = yield* setup({ forward: "hangs" });
+      yield* harness.sessions.open(input);
+      yield* Deferred.await(harness.forwardCalled);
+      yield* Deferred.succeed(harness.leaseEnded, { normal: false, message: "Dropped." });
+      const final = yield* harness.nextPhase("failed");
+      expect(final.message).toBe("Dropped.");
+      expect(harness.log).toEqual([
+        "open lease",
+        "forward gwdg 39123",
+        "open forward",
+        "release forward",
+        "release lease",
+      ]);
+      expect(yield* harness.sessions.list).toEqual([]);
+    }),
+  );
+
+  it.effect("never opens a window that was still pending when the handoff ended", () =>
+    Effect.gen(function* () {
+      const harness = yield* setup({ window: "deferred" });
+      yield* harness.sessions.open(input);
+      yield* Deferred.await(harness.windowRequested);
+      yield* Deferred.succeed(harness.leaseEnded, { normal: true, message: "The handoff ended." });
+      const final = yield* harness.nextPhase("closed");
+      expect(final.message).toBe("The handoff ended.");
+      // Releasing the gate afterwards must not resurrect the window.
+      yield* Deferred.succeed(harness.windowGate, undefined);
+      expect(harness.log).toEqual([
+        "open lease",
+        "forward gwdg 39123",
+        "open forward",
+        "window http://127.0.0.1:41000/?t=secret-viewer-token-123 page-1",
+        "release forward",
+        "release lease",
+      ]);
+      expect(harness.log).not.toContain("open window");
+      expect(yield* harness.sessions.list).toEqual([]);
     }),
   );
 });

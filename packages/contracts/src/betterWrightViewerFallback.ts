@@ -19,13 +19,20 @@ export const BetterWrightViewerFallbackCloseCode = {
 
 const LeaseId = Schema.String.check(Schema.isNonEmpty(), Schema.isMaxLength(256));
 
-/** The first and only server message on a lease socket. The token is the viewer capability. */
+/**
+ * The first and only server message on a lease socket. The token is the viewer capability. The
+ * ids are a consistency check only: the desktop trusts the lease because it dialed an endpoint
+ * of the environment's own saved connection, never because of what the message claims.
+ */
 export const BetterWrightViewerLease = Schema.Struct({
   type: Schema.Literal("viewer"),
   environmentId: LeaseId,
   threadId: LeaseId,
   tabId: LeaseId,
-  port: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 65_535 })),
+  /** The BetterWright page the handoff is about; the viewer window stays on it. */
+  pageId: LeaseId,
+  // BetterWright binds an ephemeral port; privileged ports are never a viewer.
+  port: Schema.Int.check(Schema.isBetween({ minimum: 1024, maximum: 65_535 })),
   token: Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]{16,128}$/)),
 });
 export type BetterWrightViewerLease = typeof BetterWrightViewerLease.Type;

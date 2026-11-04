@@ -162,12 +162,23 @@ accepted a CAPTCHA or granted access.
 
 If the page does not arrive in T3's browser view, the desktop app offers **Open over SSH**.
 It opens the host's own BetterWright viewer in a separate window through an SSH forward from
-this Mac, using the SSH connection saved for that environment in Settings → Connections.
-Environments added only through Tailscale or T3 Connect have no such route, so the desktop app
-explains this and keeps the normal view. The host key must already be in `known_hosts`; T3 never
-accepts new or changed host keys and never forwards your SSH agent. While the window is open, T3's
-own viewers cannot take control. Stay on the requested page, then select **Done, release to agent**
-in T3; closing the window returns control without completing the handoff. That window is
-BetterWright's own viewer, so it is not limited to the handoff page the way T3's view is. The
-fallback cannot help when SSH is unreachable or the browser or host has stopped. The web and mobile
-apps keep only the normal view.
+this Mac, using the SSH connection saved for that environment in Settings → Connections. The
+desktop only takes the viewer lease from that environment's own saved address or its live T3 SSH
+connection; environments reached only through T3 Connect get an explanation and the normal view.
+The host key must already be in `known_hosts`; T3 never accepts new or changed host keys and
+never forwards your SSH agent. While the window is open, T3's own viewers cannot take control.
+The window stays on the handoff page: it ignores BetterWright's tab switching, new and closed
+tabs, and non-web addresses. That is a guard in a window on your Mac, not a limit on the daemon;
+anyone with the same SSH login can reach the viewer directly. Finish, then select **Done,
+release to agent** in T3; closing the window returns control without completing the handoff.
+The fallback cannot help when SSH is unreachable or the browser or host has stopped. The web and
+mobile apps keep only the normal view.
+
+Adding the SSH connection for a server that already runs (for example one paired over
+Tailscale) is not read-only. Saving it installs this app's T3 version under
+`~/.t3/runtime/versions/` and a launcher under `~/.t3/ssh-launch/` on the host, creates a pairing
+credential, and reuses the running server only when `~/.t3/userdata/server-runtime.json` on the
+host the SSH alias reaches names a live process with a `http://127.0.0.1` or `localhost` origin
+that answers within two seconds. Otherwise it starts a second server on the same `~/.t3` home.
+Check those conditions on the host first, and make sure the alias reaches the same machine as the
+running server rather than another login node.
