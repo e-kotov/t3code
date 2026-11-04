@@ -12,6 +12,7 @@ import { contextBridge, ipcRenderer, webFrame, webUtils } from "electron";
 import * as IpcChannels from "./ipc/channels.ts";
 import { mergeLegacyLocalStorage } from "./legacyLocalStorageMerge.ts";
 import { makeDeviceCommandsBridge } from "./deviceCommands/deviceCommandsPreload.ts";
+import { makeViewerFallbackBridge } from "./betterWrightViewerFallback/viewerFallbackPreload.ts";
 
 const SNAP_SHOT_EVENT_TYPES = new Set([
   "requested",
@@ -276,6 +277,9 @@ contextBridge.exposeInMainWorld("desktopBridge", {
   installUpdate: (expectedVersion) =>
     ipcRenderer.invoke(IpcChannels.UPDATE_INSTALL_CHANNEL, expectedVersion),
   ...(clientPlatform === "win32" ? {} : { deviceCommands: makeDeviceCommandsBridge(ipcRenderer) }),
+  ...(clientPlatform === "win32"
+    ? {}
+    : { betterWrightViewerFallback: makeViewerFallbackBridge(ipcRenderer) }),
   cliCommand: {
     getState: () => ipcRenderer.invoke(IpcChannels.CLI_COMMAND_GET_STATE_CHANNEL),
     install: () => ipcRenderer.invoke(IpcChannels.CLI_COMMAND_INSTALL_CHANNEL),

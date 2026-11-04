@@ -78,3 +78,4 @@ export * from "./slurmJob.ts";
 export * from "./deviceCommands.ts";
 
 export * from "./deviceUtilities.ts";
+export * from "./betterWrightViewerFallback.ts";

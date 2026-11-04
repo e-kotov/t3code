@@ -1132,6 +1132,7 @@ export interface DesktopBridge {
   installUpdate: (expectedVersion?: string) => Promise<DesktopUpdateActionResult>;
   onUpdateState: (listener: (state: DesktopUpdateState) => void) => () => void;
   deviceCommands?: DeviceCommandsBridge;
+  betterWrightViewerFallback?: import("./betterWrightViewerFallback.ts").BetterWrightViewerFallbackBridge;
   cliCommand: {
     getState: () => Promise<DesktopCliCommandState>;
     install: () => Promise<DesktopCliCommandState>;

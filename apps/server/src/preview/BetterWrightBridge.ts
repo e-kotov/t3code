@@ -180,6 +180,9 @@ const record = (value: unknown): Record<string, unknown> | undefined =>
   typeof value === "object" && value !== null ? (value as Record<string, unknown>) : undefined;
 const finite = (value: unknown, fallback = 0) =>
   typeof value === "number" && Number.isFinite(value) ? value : fallback;
+// A joining standalone viewer makes BetterWright stream the agent's preferred tab; a few
+// re-selections keep the handoff page, and repeated drift still ends the handoff.
+const MAX_EXTERNAL_REPOINTS = 5;
 
 export class BetterWrightBridge {
   private readonly socket: WebSocket;
@@ -201,6 +204,9 @@ export class BetterWrightBridge {
   private readonly update: (url: string, title: string) => void;
   private readonly probe: (x: number, y: number) => Promise<boolean>;
   private probeGeneration = 0;
+  private external: string | null = null;
+  private repoints = 0;
+  private repointPending = false;
 
   constructor(
     url: string,
@@ -282,12 +288,13 @@ export class BetterWrightBridge {
       );
       if (!target) return this.fail();
       if (target.streaming !== true) {
-        if (this.bound) return this.fail();
+        if (this.bound) return this.drift();
         if (this.selected) return;
         this.selected = true;
         this.send({ t: "tab", id: this.target.pageId });
         return;
       }
+      this.repointPending = false;
       this.bound = true;
       this.ready.resolve();
       this.send({ t: "vis", hidden: false });
@@ -304,9 +311,10 @@ export class BetterWrightBridge {
       this.pageId = typeof message.pageId === "string" ? message.pageId : undefined;
       if (message.pageId !== this.target.pageId) {
         this.frame = undefined;
-        if (this.bound) return this.fail();
+        if (this.bound) return this.drift();
         return;
       }
+      this.repointPending = false;
       this.width = Math.max(1, finite(message.deviceWidth, this.width));
       this.height = Math.max(1, finite(message.deviceHeight, this.height));
       if (this.bound) this.broadcast({ _tag: "viewport", width: this.width, height: this.height });
@@ -437,6 +445,41 @@ export class BetterWrightBridge {
         break;
       }
     }
+  }
+
+  private drift() {
+    if (this.external === null || this.owner !== this.external) return this.fail();
+    if (this.repointPending) return;
+    if (this.repoints >= MAX_EXTERNAL_REPOINTS) return this.fail();
+    this.repoints++;
+    this.repointPending = true;
+    this.send({ t: "tab", id: this.target.pageId });
+  }
+
+  /** Gives control to a standalone viewer outside T3; refused while anyone else controls. */
+  claimExternal(id: string): boolean {
+    if (this.ended || !this.bound || this.owner !== null) return false;
+    this.external = id;
+    this.repoints = 0;
+    this.owner = id;
+    this.generation++;
+    this.broadcastControl();
+    return true;
+  }
+
+  releaseExternal(id: string) {
+    if (this.external !== id) return;
+    this.external = null;
+    if (this.owner !== id) return;
+    this.owner = null;
+    this.generation++;
+    this.broadcastControl();
+  }
+
+  completeExternal(id: string): boolean {
+    if (this.ended || this.external !== id || this.owner !== id) return false;
+    this.finish("completed");
+    return true;
   }
 
   private releasePressedInput() {

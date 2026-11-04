@@ -47,6 +47,18 @@ export const BrowserHandoffResult = Schema.Struct({
 
 type AttachInput = Parameters<ServerBrowser["Service"]["attachViewer"]>[0];
 
+export type BetterWrightViewerLeaseResult =
+  | { readonly _tag: "NotFound" }
+  | { readonly _tag: "Busy" }
+  | {
+      readonly _tag: "Leased";
+      readonly port: number;
+      readonly token: string;
+      /** False unless this lease still holds control of the active handoff. */
+      readonly complete: Effect.Effect<boolean>;
+      readonly finished: Effect.Effect<void>;
+    };
+
 export class BetterWrightHandoff extends Context.Service<
   BetterWrightHandoff,
   {
@@ -59,6 +71,11 @@ export class BetterWrightHandoff extends Context.Service<
     readonly attachViewer: (
       input: AttachInput,
     ) => Effect.Effect<ServerBrowserViewer | undefined, never, Scope.Scope>;
+    /** Lends the standalone viewer to one SSH fallback; control returns when the scope closes. */
+    readonly leaseViewer: (input: {
+      readonly threadId: string;
+      readonly tabId: string;
+    }) => Effect.Effect<BetterWrightViewerLeaseResult, never, Scope.Scope>;
   }
 >()("t3/preview/BetterWrightHandoff") {}
 
@@ -71,7 +88,9 @@ export const make = Effect.fn("BetterWrightHandoff.make")(function* (
   let cleanupFailed = false;
   let settling: Promise<void> = Promise.resolve();
   let cancelActive: () => void = () => undefined;
-  let active: { threadId: string; tabId: string; bridge: BetterWrightBridge } | undefined;
+  let active:
+    | { threadId: string; tabId: string; bridge: BetterWrightBridge; viewerUrl: string }
+    | undefined;
   const manages = (threadId: string, tabId: string) =>
     active?.threadId === threadId && active.tabId === tabId;
 
@@ -157,13 +176,14 @@ export const make = Effect.fn("BetterWrightHandoff.make")(function* (
                 "The requested browser page could not be attached. Do not continue as if the human completed it.",
             };
           const current = bridge;
+          const viewerUrl = started.url;
           const snapshot = await runPromise(
             manager.open({
               threadId,
               runtime: "server",
               reveal: true,
               beforePublish: (snapshot) => {
-                active = { threadId, tabId: snapshot.tabId, bridge: current };
+                active = { threadId, tabId: snapshot.tabId, bridge: current, viewerUrl };
               },
             }),
           );
@@ -242,6 +262,25 @@ export const make = Effect.fn("BetterWrightHandoff.make")(function* (
     return { output, input: (message: unknown) => Effect.sync(() => bridge.input(id, message)) };
   });
 
+  const leaseViewer = Effect.fn("BetterWrightHandoff.leaseViewer")(function* (input: {
+    readonly threadId: string;
+    readonly tabId: string;
+  }): Effect.fn.Return<BetterWrightViewerLeaseResult, never, Scope.Scope> {
+    if (!active || !manages(input.threadId, input.tabId)) return { _tag: "NotFound" };
+    const { bridge, viewerUrl } = active;
+    const id = `ssh-fallback:${NodeCrypto.randomUUID()}`;
+    if (!bridge.claimExternal(id)) return { _tag: "Busy" };
+    yield* Effect.addFinalizer(() => Effect.sync(() => bridge.releaseExternal(id)));
+    const viewer = new URL(viewerUrl);
+    return {
+      _tag: "Leased",
+      port: Number(viewer.port),
+      token: viewer.searchParams.get("t") ?? "",
+      complete: Effect.sync(() => bridge.completeExternal(id)),
+      finished: Effect.promise(() => bridge.waitUntilFinished()).pipe(Effect.asVoid),
+    };
+  });
+
   yield* Effect.addFinalizer(() =>
     Effect.promise(async () => {
       cancelActive();
@@ -253,6 +292,7 @@ export const make = Effect.fn("BetterWrightHandoff.make")(function* (
     request,
     manages,
     attachViewer,
+    leaseViewer,
     closed: (threadId, tabId) => {
       if (manages(threadId, tabId)) active?.bridge.finish("cancelled");
     },

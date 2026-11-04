@@ -769,6 +769,7 @@ const layerCommandReadiness = HttpRouter.middleware(
   { global: true },
 );
 
+import * as BetterWrightViewerFallback from "./preview/BetterWrightViewerFallback.ts";
 const layerMakeRoutes = Layer.mergeAll(
   Layer.mergeAll(
     HttpApiBuilder.layer(EnvironmentHttpApi).pipe(
@@ -794,6 +795,7 @@ const layerMakeRoutes = Layer.mergeAll(
     GuestHttp.layer,
     DeviceHubProxy.layer,
     ServerBrowserStream.routeLayer,
+    BetterWrightViewerFallback.routeLayer,
     ServerHttp.layerStaticAndDevRoute,
     Ws.layer,
   ),
