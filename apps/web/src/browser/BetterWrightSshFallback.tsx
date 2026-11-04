@@ -111,7 +111,7 @@ function SshFallbackNotice(props: {
  * Desktop-only fallback for an agent browser handoff whose in-T3 stream fails. The server still
  * authorizes it and the desktop picks the SSH host; web and mobile clients render nothing.
  */
-export function useBetterWrightSshFallback(input: {
+export function useSshViewerFallback(input: {
   readonly environmentId: EnvironmentId;
   readonly threadId: string;
   readonly tabId: string;

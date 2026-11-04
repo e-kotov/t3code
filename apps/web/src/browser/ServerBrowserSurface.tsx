@@ -41,7 +41,7 @@ import { toastManager } from "~/components/ui/toast";
 import { cn } from "~/lib/utils";
 import { refreshPreviewStreamAccess, usePreviewStreamAccess } from "~/state/previewStream";
 import { observeResize } from "~/lib/observeResize";
-import { useBetterWrightSshFallback } from "./BetterWrightSshFallback";
+import { useSshViewerFallback } from "./BetterWrightSshFallback";
 
 export interface ServerBrowserHandle {
   readonly navigate: (url: string) => void;
@@ -199,10 +199,7 @@ export function ServerBrowserSurface(props: {
   const [accessDenied, setAccessDenied] = useState(false);
   const access = usePreviewStreamAccess(environmentId, { retry: visible && !accessDenied });
   const [hostSetup, setHostSetup] = useState<PreviewStreamHostSetup | null>(null);
-  const sshFallback = useBetterWrightSshFallback({
-    ...props,
-    refused: accessDenied || !!hostSetup,
-  });
+  const sshFallback = useSshViewerFallback({ ...props, refused: accessDenied || !!hostSetup });
   const pendingMoveRef = useRef<MouseInput | null>(null);
   const pendingWheelRef = useRef<WheelInput | null>(null);
   const inputFrameRef = useRef<number | null>(null);
