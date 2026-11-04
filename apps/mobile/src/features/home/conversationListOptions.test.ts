@@ -59,8 +59,8 @@ describe("conversation list options", () => {
   it("marks unchecked header choices off only where the menu asks for it", () => {
     const options = { ...defaults, conversationGrouping: "machine" as const };
     expect(conversationChoiceActions("grouping", options, undefined)).toEqual([
-      { id: "grouping:none", title: "No grouping", state: undefined },
       { id: "grouping:machine", title: "By machine", state: "on" },
+      { id: "grouping:project", title: "By project", state: undefined },
     ]);
     expect(conversationListMenuActions(options)[0]?.subactions).toEqual([
       { id: "sort:updated_at", title: "Recent activity · Newest first", state: "on" },
@@ -69,30 +69,47 @@ describe("conversation list options", () => {
     ]);
   });
 
-  it("adds filter submenus only when the caller handles them", () => {
+  it("adds filter submenus and displays non-settled counts", () => {
     const base = {
-      environments: [],
-      projects: [],
+      environments: [{ environmentId: "env-1" as any, label: "MacBook", nonSettledCount: 3 }],
+      projects: [{ key: "proj-1", label: "t3code", nonSettledCount: 2 }],
       selectedEnvironmentId: null,
       selectedProjectKey: null,
       onEnvironmentChange: () => {},
       onProjectChange: () => {},
     };
-    expect(buildHomeListFilterMenu(base).items.map((item) => item.title)).toEqual(["Environment"]);
+    const emptyBase = {
+      ...base,
+      environments: [],
+      projects: [],
+    };
+    expect(buildHomeListFilterMenu(emptyBase).items.map((item) => item.title)).toEqual([
+      "Environment",
+    ]);
 
     const list = controls();
     const menu = buildHomeListFilterMenu({ ...base, ...list });
     expect(menu.items.map((item) => item.title)).toEqual([
       "Environment",
+      "Project",
       "Sort conversations",
       "Group conversations",
     ]);
-    const grouping = menu.items[2];
+    const envSubmenu = menu.items[0];
+    const projSubmenu = menu.items[1];
+    expect(envSubmenu?.type === "submenu" && envSubmenu.items[1]?.title).toBe("MacBook (3)");
+    expect(envSubmenu?.type === "submenu" && envSubmenu.items[1]?.subtitle).toBe("3 active");
+    expect(projSubmenu?.type === "submenu" && projSubmenu.items[1]?.title).toBe("t3code (2)");
+    expect(projSubmenu?.type === "submenu" && projSubmenu.items[1]?.subtitle).toBe("2 active");
+
+    const grouping = menu.items[3];
     expect(grouping?.type === "submenu" && grouping.items.map((item) => item.state)).toEqual([
-      "on",
+      "off",
       "off",
     ]);
-    if (grouping?.type === "submenu") grouping.items[1]?.onPress();
+    if (grouping?.type === "submenu") grouping.items[0]?.onPress();
     expect(list.onConversationGroupingChange).toHaveBeenCalledWith("machine");
+    if (grouping?.type === "submenu") grouping.items[1]?.onPress();
+    expect(list.onConversationGroupingChange).toHaveBeenCalledWith("project");
   });
 });

@@ -232,10 +232,61 @@ function ThreadNavigationSidebarPane(
       }),
     [projects, options.selectedEnvironmentId, options.projectGroupingMode],
   );
-  const projectFilterOptions = pickableProjectGroups(projectScopes).map((scope) => ({
-    key: scope.key,
-    label: scope.title,
-  }));
+  const nonSettledCounts = useMemo(() => {
+    let totalNonSettled = 0;
+    const byEnvironment = new Map<string, number>();
+    const byProjectScopeKey = new Map<string, number>();
+
+    const projectKeyByScopedRef = new Map<string, string>();
+    for (const scope of projectScopes) {
+      for (const ref of scope.projectRefs) {
+        projectKeyByScopedRef.set(scopedProjectKey(ref.environmentId, ref.projectId), scope.key);
+      }
+    }
+
+    for (const thread of threads) {
+      if (thread.archivedAt !== null || thread.settledOverride === "settled") {
+        continue;
+      }
+      totalNonSettled += 1;
+      const envId = String(thread.environmentId);
+      byEnvironment.set(envId, (byEnvironment.get(envId) ?? 0) + 1);
+
+      if (thread.projectId) {
+        const projectKey = projectKeyByScopedRef.get(
+          scopedProjectKey(thread.environmentId, thread.projectId),
+        );
+        if (projectKey) {
+          byProjectScopeKey.set(projectKey, (byProjectScopeKey.get(projectKey) ?? 0) + 1);
+        }
+      }
+    }
+
+    return {
+      totalNonSettled,
+      byEnvironment,
+      byProjectScopeKey,
+    };
+  }, [threads, projectScopes]);
+
+  const environmentFilterOptions = useMemo(
+    () =>
+      environments.map((env) => ({
+        ...env,
+        nonSettledCount: nonSettledCounts.byEnvironment.get(String(env.environmentId)) ?? 0,
+      })),
+    [environments, nonSettledCounts],
+  );
+
+  const projectFilterOptions = useMemo(
+    () =>
+      pickableProjectGroups(projectScopes).map((scope) => ({
+        key: scope.key,
+        label: scope.title,
+        nonSettledCount: nonSettledCounts.byProjectScopeKey.get(scope.key) ?? 0,
+      })),
+    [projectScopes, nonSettledCounts],
+  );
   const projectTitleByProjectKey = useMemo(
     () =>
       new Map(
@@ -370,14 +421,18 @@ function ThreadNavigationSidebarPane(
           subtitle: "Show threads from every environment",
           state: options.selectedEnvironmentId === null ? "on" : "off",
         },
-        ...environments.map((environment) => ({
-          id: `environment:${environment.environmentId}`,
-          title: environment.label,
-          state:
-            options.selectedEnvironmentId === environment.environmentId
-              ? ("on" as const)
-              : ("off" as const),
-        })),
+        ...environmentFilterOptions.map((environment) => {
+          const count = environment.nonSettledCount;
+          return {
+            id: `environment:${environment.environmentId}`,
+            title: count > 0 ? `${environment.label} (${count})` : environment.label,
+            ...(count > 0 ? { subtitle: `${count} active` } : {}),
+            state:
+              options.selectedEnvironmentId === environment.environmentId
+                ? ("on" as const)
+                : ("off" as const),
+          };
+        }),
       ],
     },
     ...(projectFilterOptions.length === 0
@@ -393,11 +448,15 @@ function ThreadNavigationSidebarPane(
                 subtitle: "Show threads from every project",
                 state: selectedProjectKey === null ? "on" : "off",
               },
-              ...projectFilterOptions.map((project) => ({
-                id: `project:${project.key}`,
-                title: project.label,
-                state: selectedProjectKey === project.key ? ("on" as const) : ("off" as const),
-              })),
+              ...projectFilterOptions.map((project) => {
+                const count = project.nonSettledCount;
+                return {
+                  id: `project:${project.key}`,
+                  title: count > 0 ? `${project.label} (${count})` : project.label,
+                  ...(count > 0 ? { subtitle: `${count} active` } : {}),
+                  state: selectedProjectKey === project.key ? ("on" as const) : ("off" as const),
+                };
+              }),
             ],
           },
         ] satisfies MenuAction[])),
@@ -689,7 +748,7 @@ function ThreadNavigationSidebarPane(
     ? "line.3.horizontal.decrease.circle.fill"
     : "line.3.horizontal.decrease.circle";
   const filterMenu = buildHomeListFilterMenu({
-    environments,
+    environments: environmentFilterOptions,
     projects: projectFilterOptions,
     selectedEnvironmentId: options.selectedEnvironmentId,
     selectedProjectKey,

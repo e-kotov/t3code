@@ -17,10 +17,16 @@ export function ConversationThreadListFilters({
     <ThreadListFilters {...props}>
       {(["sort", "grouping"] as const).map((kind) => {
         const actions = conversationChoiceActions(kind, conversationList, undefined);
+        const label =
+          kind === "sort"
+            ? (actions.find((action) => action.state === "on")?.title ?? "Sort")
+            : conversationList.conversationGrouping === "both"
+              ? "Machine & project"
+              : (actions.find((action) => action.state === "on")?.title ?? "No grouping");
         return (
           <ListFilterMenu
             key={kind}
-            label={actions.find((action) => action.state === "on")?.title ?? kind}
+            label={label}
             accessibilityLabel={kind === "sort" ? "Sort conversations" : "Group conversations"}
             active={
               kind === "sort"

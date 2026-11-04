@@ -5,7 +5,13 @@ import {
   selectSidebarConversationSortOrder,
   type SidebarConversationSortCriterion,
 } from "@t3tools/client-runtime/state/thread-sort";
-import type { SidebarConversationGrouping, SidebarConversationSortOrder } from "@t3tools/contracts";
+import {
+  isSidebarMachineGrouping,
+  isSidebarProjectGrouping,
+  toggleSidebarGroupingDimension,
+  type SidebarConversationGrouping,
+  type SidebarConversationSortOrder,
+} from "@t3tools/contracts";
 
 /** Fork conversation sort and machine grouping, held with the Home list options. */
 export interface ConversationListOptions {
@@ -28,11 +34,6 @@ const SORT_CHOICES = [
   ["created_at", "Created"],
   ["cache_expiry", "Cache expiry"],
 ] as const satisfies ReadonlyArray<readonly [SidebarConversationSortCriterion, string]>;
-
-const GROUPING_CHOICES = [
-  ["none", "No grouping"],
-  ["machine", "By machine"],
-] as const satisfies ReadonlyArray<readonly [SidebarConversationGrouping, string]>;
 
 export function conversationListControls(
   options: ConversationListOptions,
@@ -71,24 +72,33 @@ export function conversationChoiceActions(
   options: ConversationListOptions,
   offState: "off" | undefined,
 ): MenuAction[] {
-  const choices: ReadonlyArray<readonly [string, string]> =
-    kind === "sort" ? SORT_CHOICES : GROUPING_CHOICES;
-  const selected = kind === "sort" ? options.conversationSortOrder : options.conversationGrouping;
-  return choices.map(([value, title]) => {
-    const isSelected =
-      kind === "sort"
-        ? getSidebarConversationSortCriterion(options.conversationSortOrder) === value
-        : selected === value;
-    const direction =
-      kind === "sort"
-        ? directionLabel(value as SidebarConversationSortCriterion, options.conversationSortOrder)
-        : undefined;
-    return {
-      id: `${kind}:${value}`,
-      title: direction ? `${title} · ${direction}` : title,
-      state: isSelected ? ("on" as const) : offState,
-    };
-  });
+  if (kind === "sort") {
+    return SORT_CHOICES.map(([value, title]) => {
+      const isSelected =
+        getSidebarConversationSortCriterion(options.conversationSortOrder) === value;
+      const direction = directionLabel(
+        value as SidebarConversationSortCriterion,
+        options.conversationSortOrder,
+      );
+      return {
+        id: `sort:${value}`,
+        title: direction ? `${title} · ${direction}` : title,
+        state: isSelected ? ("on" as const) : offState,
+      };
+    });
+  }
+  return [
+    {
+      id: "grouping:machine",
+      title: "By machine",
+      state: isSidebarMachineGrouping(options.conversationGrouping) ? ("on" as const) : offState,
+    },
+    {
+      id: "grouping:project",
+      title: "By project",
+      state: isSidebarProjectGrouping(options.conversationGrouping) ? ("on" as const) : offState,
+    },
+  ];
 }
 
 export function conversationListMenuActions(options: ConversationListOptions): MenuAction[] {
@@ -117,10 +127,16 @@ export function applyConversationListMenuEvent(
     if (choice) controls.onConversationSortOrderChange(choice[0]);
     return true;
   }
-  if (event.startsWith("grouping:")) {
-    const value = event.slice("grouping:".length);
-    const choice = GROUPING_CHOICES.find(([candidate]) => candidate === value);
-    if (choice) controls.onConversationGroupingChange(choice[0]);
+  if (event === "grouping:machine") {
+    controls.onConversationGroupingChange(
+      toggleSidebarGroupingDimension(controls.conversationGrouping, "machine"),
+    );
+    return true;
+  }
+  if (event === "grouping:project") {
+    controls.onConversationGroupingChange(
+      toggleSidebarGroupingDimension(controls.conversationGrouping, "project"),
+    );
     return true;
   }
   return false;
@@ -145,13 +161,9 @@ export function buildConversationListFilterSubmenus(props: Partial<ConversationL
       title: "Sort conversations",
       items: SORT_CHOICES.map(([value, title]) => ({
         type: "action" as const,
-        title: `${title} · ${directionLabel(
-          value,
-          props.conversationSortOrder ?? "updated_at",
-        )}`,
+        title: `${title} · ${directionLabel(value, props.conversationSortOrder ?? "updated_at")}`,
         state:
-          getSidebarConversationSortCriterion(props.conversationSortOrder ?? "updated_at") ===
-          value
+          getSidebarConversationSortCriterion(props.conversationSortOrder ?? "updated_at") === value
             ? ("on" as const)
             : ("off" as const),
         onPress: () => onSortOrderChange(value),
@@ -160,15 +172,24 @@ export function buildConversationListFilterSubmenus(props: Partial<ConversationL
   }
   const onGroupingChange = props.onConversationGroupingChange;
   if (onGroupingChange) {
+    const current = props.conversationGrouping ?? "none";
     submenus.push({
       type: "submenu",
       title: "Group conversations",
-      items: GROUPING_CHOICES.map(([value, title]) => ({
-        type: "action" as const,
-        title,
-        state: props.conversationGrouping === value ? ("on" as const) : ("off" as const),
-        onPress: () => onGroupingChange(value),
-      })),
+      items: [
+        {
+          type: "action" as const,
+          title: "By machine",
+          state: isSidebarMachineGrouping(current) ? ("on" as const) : ("off" as const),
+          onPress: () => onGroupingChange(toggleSidebarGroupingDimension(current, "machine")),
+        },
+        {
+          type: "action" as const,
+          title: "By project",
+          state: isSidebarProjectGrouping(current) ? ("on" as const) : ("off" as const),
+          onPress: () => onGroupingChange(toggleSidebarGroupingDimension(current, "project")),
+        },
+      ],
     });
   }
   return submenus;

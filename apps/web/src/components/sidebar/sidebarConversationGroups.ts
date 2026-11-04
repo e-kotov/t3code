@@ -2,9 +2,11 @@ import { scopeThreadRef, scopedThreadKey } from "@t3tools/client-runtime/environ
 import { machineGroupThreadVisible } from "@t3tools/client-runtime/state/machine-group-collapse";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import type { EnvironmentId, ProjectId } from "@t3tools/contracts";
-import type {
-  SidebarConversationGrouping,
-  SidebarConversationSortOrder,
+import {
+  isSidebarMachineGrouping,
+  isSidebarProjectGrouping,
+  type SidebarConversationGrouping,
+  type SidebarConversationSortOrder,
 } from "@t3tools/contracts/settings";
 
 import { sortSidebarConversations } from "@t3tools/client-runtime/state/thread-sort";
@@ -62,7 +64,7 @@ function sidebarMachineGroups<T extends { readonly environmentId: EnvironmentId 
   list: readonly T[],
   view: Omit<SidebarConversationView, "sortOrder">,
 ): T[][] {
-  if (view.grouping !== "machine") return [[...list]];
+  if (!isSidebarMachineGrouping(view.grouping)) return [[...list]];
   const groups = new Map<EnvironmentId, T[]>();
   for (const thread of list) {
     const group = groups.get(thread.environmentId) ?? [];
@@ -81,7 +83,7 @@ export function visibleSidebarKeys<
   sectionByThreadKey: ReadonlyMap<string, SidebarSection>,
   view: Omit<SidebarConversationView, "sortOrder">,
 ): string[] {
-  if (view.grouping !== "machine") {
+  if (!isSidebarMachineGrouping(view.grouping) && !isSidebarProjectGrouping(view.grouping)) {
     return threads.map((thread) =>
       scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
     );
@@ -106,6 +108,63 @@ export function visibleSidebarKeys<
   );
 }
 
+function groupThreadsIntoProjects<
+  T extends Pick<EnvironmentThreadShell, "environmentId" | "id"> & {
+    readonly projectId?: ProjectId | null | undefined;
+  },
+>(
+  visibleThreads: readonly T[],
+  section: SidebarSection,
+  view: Omit<SidebarConversationView, "sortOrder">,
+  rowsOf: (list: readonly T[], section: SidebarSection, folderRow?: string) => SidebarListItem[],
+  fallbackEnvId?: EnvironmentId,
+): SidebarListItem[] {
+  const projectBuckets = new Map<string, T[]>();
+  const looseThreads: T[] = [];
+  for (const thread of visibleThreads) {
+    if (thread.projectId) {
+      const pKey = String(thread.projectId);
+      const bucket = projectBuckets.get(pKey) ?? [];
+      bucket.push(thread);
+      projectBuckets.set(pKey, bucket);
+    } else {
+      looseThreads.push(thread);
+    }
+  }
+
+  const items: SidebarListItem[] = [];
+  for (const [pKey, threadsInProject] of projectBuckets.entries()) {
+    const envId = fallbackEnvId ?? threadsInProject[0]!.environmentId;
+    const folderKey = `sidebar-project:${envId}:${pKey}`;
+    const isCollapsed = view.collapsedProjectFolders?.includes(folderKey) ?? false;
+
+    items.push({
+      kind: "marker",
+      marker: "project-header",
+      key: folderKey,
+      environmentId: envId,
+      projectId: pKey as ProjectId,
+      projectKey: pKey,
+      groupCount: threadsInProject.length,
+    });
+
+    const threadsToRender = isCollapsed
+      ? threadsInProject.filter((t) => {
+          const threadKey = scopedThreadKey(scopeThreadRef(t.environmentId, t.id));
+          return view.selectedThreadKey === threadKey;
+        })
+      : threadsInProject;
+
+    items.push(...rowsOf(threadsToRender, section, folderKey));
+  }
+
+  if (looseThreads.length > 0) {
+    items.push(...rowsOf(looseThreads, section));
+  }
+
+  return items;
+}
+
 export function groupSidebarRowsByMachine<
   T extends Pick<EnvironmentThreadShell, "environmentId" | "id"> & {
     readonly projectId?: ProjectId | null | undefined;
@@ -116,7 +175,15 @@ export function groupSidebarRowsByMachine<
   view: Omit<SidebarConversationView, "sortOrder">,
   rowsOf: (list: readonly T[], section: SidebarSection, folderRow?: string) => SidebarListItem[],
 ): SidebarListItem[] {
-  if (view.grouping !== "machine") return rowsOf(list, section);
+  const isMachine = isSidebarMachineGrouping(view.grouping);
+  const isProject = isSidebarProjectGrouping(view.grouping);
+  if (!isMachine && !isProject) return rowsOf(list, section);
+
+  if (!isMachine && isProject) {
+    if (section !== "active") return rowsOf(list, section);
+    return groupThreadsIntoProjects(list, section, view, rowsOf);
+  }
+
   const groups = sidebarMachineGroups(list, view);
   return groups.flatMap((group, groupPosition): SidebarListItem[] => {
     const machineHeader: SidebarListItem = {
@@ -130,53 +197,14 @@ export function groupSidebarRowsByMachine<
 
     const visibleThreads = group.filter((thread) => machineGroupThreadVisible(thread, view));
 
-    if (section !== "active") {
+    if (section !== "active" || !isProject) {
       return [machineHeader, ...rowsOf(visibleThreads, section)];
     }
 
-    const projectBuckets = new Map<string, T[]>();
-    const looseThreads: T[] = [];
-    for (const thread of visibleThreads) {
-      if (thread.projectId) {
-        const pKey = String(thread.projectId);
-        const bucket = projectBuckets.get(pKey) ?? [];
-        bucket.push(thread);
-        projectBuckets.set(pKey, bucket);
-      } else {
-        looseThreads.push(thread);
-      }
-    }
-
-    const items: SidebarListItem[] = [machineHeader];
-    for (const [pKey, threadsInProject] of projectBuckets.entries()) {
-      const folderKey = `sidebar-project:${group[0]!.environmentId}:${pKey}`;
-      const isCollapsed = view.collapsedProjectFolders?.includes(folderKey) ?? false;
-
-      items.push({
-        kind: "marker",
-        marker: "project-header",
-        key: folderKey,
-        environmentId: group[0]!.environmentId,
-        projectId: pKey as ProjectId,
-        projectKey: pKey,
-        groupCount: threadsInProject.length,
-      });
-
-      const threadsToRender = isCollapsed
-        ? threadsInProject.filter((t) => {
-            const threadKey = scopedThreadKey(scopeThreadRef(t.environmentId, t.id));
-            return view.selectedThreadKey === threadKey;
-          })
-        : threadsInProject;
-
-      items.push(...rowsOf(threadsToRender, section, folderKey));
-    }
-
-    if (looseThreads.length > 0) {
-      items.push(...rowsOf(looseThreads, section));
-    }
-
-    return items;
+    return [
+      machineHeader,
+      ...groupThreadsIntoProjects(visibleThreads, section, view, rowsOf, group[0]!.environmentId),
+    ];
   });
 }
 

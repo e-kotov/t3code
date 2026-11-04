@@ -1,6 +1,10 @@
-import type { EnvironmentThreadShell } from "./models.ts";
-import { scopeThreadRef, scopedThreadKey } from "../environment/scoped.ts";
+import {
+  isSidebarMachineGrouping,
+  type SidebarConversationGrouping,
+} from "@t3tools/contracts/settings";
 import { Atom } from "effect/reactivity";
+import { scopeThreadRef, scopedThreadKey } from "../environment/scoped.ts";
+import type { EnvironmentThreadShell } from "./models.ts";
 
 export const collapsedMachineGroupsAtom = Atom.make<readonly string[]>([]).pipe(Atom.keepAlive);
 
@@ -20,7 +24,7 @@ export function machineGroupThreadVisible(
   },
 ): boolean {
   return (
-    options.grouping !== "machine" ||
+    !isSidebarMachineGrouping((options.grouping ?? "none") as SidebarConversationGrouping) ||
     Boolean(options.searchQuery?.trim()) ||
     !options.collapsedMachineGroups?.includes(thread.environmentId) ||
     (options.selectedThreadKey != null &&

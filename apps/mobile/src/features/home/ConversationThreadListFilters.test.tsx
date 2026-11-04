@@ -107,7 +107,10 @@ it("lets the iOS filter row change sort and grouping independently and return to
   );
   act(() => choice("sort:updated_at").click());
   expect(choice("grouping:machine").getAttribute("aria-checked")).toBe("true");
-  act(() => choice("grouping:none").click());
+  act(() => choice("grouping:machine").click());
   expect(choice("sort:updated_at").getAttribute("aria-checked")).toBe("true");
-  expect(choice("grouping:none").getAttribute("aria-checked")).toBe("true");
+  expect(choice("grouping:machine").getAttribute("aria-checked")).toBe("false");
+  expect(host.querySelector('button[aria-label="Group conversations"]')?.textContent).toBe(
+    "No grouping",
+  );
 });

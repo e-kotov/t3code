@@ -7,17 +7,13 @@ import {
   type SidebarConversationSortCriterion,
 } from "@t3tools/client-runtime/state/thread-sort";
 
-import type { SidebarConversationGrouping } from "@t3tools/contracts/settings";
-import { updateClientSettings, useClientSettings } from "../../hooks/useSettings";
 import {
-  Menu,
-  MenuGroup,
-  MenuItem,
-  MenuPopup,
-  MenuRadioGroup,
-  MenuRadioItem,
-  MenuTrigger,
-} from "../ui/menu";
+  isSidebarMachineGrouping,
+  isSidebarProjectGrouping,
+  toggleSidebarGroupingDimension,
+} from "@t3tools/contracts/settings";
+import { updateClientSettings, useClientSettings } from "../../hooks/useSettings";
+import { Menu, MenuCheckboxItem, MenuGroup, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { SidebarHeaderIconButton } from "./SidebarThreadHeader";
 
 const SORT_CHOICES = [
@@ -28,7 +24,12 @@ const SORT_CHOICES = [
   readonly [SidebarConversationSortCriterion, string, string, string]
 >;
 
-export function SidebarThreadListControls() {
+export interface SidebarThreadListControlsProps {
+  readonly machineSummary?: string;
+  readonly projectSummary?: string;
+}
+
+export function SidebarThreadListControls(props: SidebarThreadListControlsProps = {}) {
   const sortOrder = useClientSettings((s) => s.sidebarConversationSortOrder);
   const grouping = useClientSettings((s) => s.sidebarConversationGrouping);
   return (
@@ -87,17 +88,40 @@ export function SidebarThreadListControls() {
             <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
               Group conversations
             </div>
-            <MenuRadioGroup
-              value={grouping}
-              onValueChange={(value) =>
+            <MenuCheckboxItem
+              checked={isSidebarMachineGrouping(grouping)}
+              onCheckedChange={() =>
                 void updateClientSettings({
-                  sidebarConversationGrouping: value as SidebarConversationGrouping,
+                  sidebarConversationGrouping: toggleSidebarGroupingDimension(grouping, "machine"),
                 })
               }
             >
-              <MenuRadioItem value="none">No grouping</MenuRadioItem>
-              <MenuRadioItem value="machine">By machine</MenuRadioItem>
-            </MenuRadioGroup>
+              <span className="flex min-w-0 items-center justify-between gap-3 w-full">
+                <span className="min-w-0 truncate">By machine</span>
+                {props.machineSummary ? (
+                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                    {props.machineSummary}
+                  </span>
+                ) : null}
+              </span>
+            </MenuCheckboxItem>
+            <MenuCheckboxItem
+              checked={isSidebarProjectGrouping(grouping)}
+              onCheckedChange={() =>
+                void updateClientSettings({
+                  sidebarConversationGrouping: toggleSidebarGroupingDimension(grouping, "project"),
+                })
+              }
+            >
+              <span className="flex min-w-0 items-center justify-between gap-3 w-full">
+                <span className="min-w-0 truncate">By project</span>
+                {props.projectSummary ? (
+                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                    {props.projectSummary}
+                  </span>
+                ) : null}
+              </span>
+            </MenuCheckboxItem>
           </MenuGroup>
         </MenuPopup>
       </Menu>

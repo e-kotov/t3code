@@ -1,6 +1,8 @@
-import type {
-  SidebarConversationGrouping,
-  SidebarConversationSortOrder,
+import {
+  isSidebarMachineGrouping,
+  isSidebarProjectGrouping,
+  type SidebarConversationGrouping,
+  type SidebarConversationSortOrder,
 } from "@t3tools/contracts/settings";
 import type { EnvironmentThreadShell } from "./models.ts";
 import { getThreadSortTimestamp, toSortableTimestamp, type ThreadSortInput } from "./threadSort.ts";
@@ -42,6 +44,7 @@ export function sortSidebarConversations<
     readonly updatedAt: string;
     readonly cacheHud?: EnvironmentThreadShell["cacheHud"];
     readonly environmentId?: string;
+    readonly projectId?: string | null;
   },
 >(
   threads: readonly T[],
@@ -57,9 +60,13 @@ export function sortSidebarConversations<
   const activity = (thread: T) =>
     getThreadSortTimestamp(thread, "updated_at") || toSortableTimestamp(thread.updatedAt) || 0;
   return [...threads].sort((left, right) => {
-    if (grouping === "machine") {
+    if (isSidebarMachineGrouping(grouping)) {
       const groupOrder = (left.environmentId ?? "").localeCompare(right.environmentId ?? "");
       if (groupOrder !== 0) return groupOrder;
+    }
+    if (isSidebarProjectGrouping(grouping)) {
+      const projectOrder = (left.projectId ?? "").localeCompare(right.projectId ?? "");
+      if (projectOrder !== 0) return projectOrder;
     }
     if (criterion === "created_at") {
       const createdAtOrder =

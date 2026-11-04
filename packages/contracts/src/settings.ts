@@ -79,9 +79,35 @@ const DEFAULT_SIDEBAR_THREAD_SORT_ORDER: SidebarThreadSortOrder = "updated_at";
 export const SidebarConversationSortOrder = Schema.Literals(SIDEBAR_CONVERSATION_SORT_ORDER_VALUES);
 export type SidebarConversationSortOrder = typeof SidebarConversationSortOrder.Type;
 const DEFAULT_SIDEBAR_CONVERSATION_SORT_ORDER: SidebarConversationSortOrder = "updated_at";
-export const SidebarConversationGrouping = Schema.Literals(["none", "machine"]);
+export const SidebarConversationGrouping = Schema.Literals(["none", "machine", "project", "both"]);
 export type SidebarConversationGrouping = typeof SidebarConversationGrouping.Type;
 const DEFAULT_SIDEBAR_CONVERSATION_GROUPING: SidebarConversationGrouping = "none";
+
+export function isSidebarMachineGrouping(grouping: SidebarConversationGrouping): boolean {
+  return grouping === "machine" || grouping === "both";
+}
+
+export function isSidebarProjectGrouping(grouping: SidebarConversationGrouping): boolean {
+  return grouping === "project" || grouping === "both";
+}
+
+export function toggleSidebarGroupingDimension(
+  current: SidebarConversationGrouping,
+  dimension: "machine" | "project",
+): SidebarConversationGrouping {
+  const machine =
+    dimension === "machine"
+      ? !isSidebarMachineGrouping(current)
+      : isSidebarMachineGrouping(current);
+  const project =
+    dimension === "project"
+      ? !isSidebarProjectGrouping(current)
+      : isSidebarProjectGrouping(current);
+  if (machine && project) return "both";
+  if (machine) return "machine";
+  if (project) return "project";
+  return "none";
+}
 
 export const SidebarProjectGroupingMode = Schema.Literals([
   "repository",

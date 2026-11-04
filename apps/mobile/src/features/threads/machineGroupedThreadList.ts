@@ -1,5 +1,9 @@
 import { machineGroupThreadVisible } from "@t3tools/client-runtime/state/machine-group-collapse";
-import type { EnvironmentMachineKind, SidebarConversationGrouping } from "@t3tools/contracts";
+import {
+  isSidebarMachineGrouping,
+  type EnvironmentMachineKind,
+  type SidebarConversationGrouping,
+} from "@t3tools/contracts";
 
 import {
   compareMachineOrder,
@@ -99,20 +103,19 @@ export function arrangeMobileConversationList<T extends { readonly type: string 
     readonly searchQuery?: string;
   },
 ): (T | ThreadListV2MachineHeaderListItem)[] {
-  const arranged =
-    options.grouping === "machine"
-      ? groupThreadListV2ItemsByMachine(
-          items,
-          new Map(
-            options.environments.map((environment) => [
-              String(environment.environmentId),
-              environment.label,
-            ]),
-          ),
-          options.machineOrder,
-          options.machineKinds,
-        )
-      : items;
+  const arranged = isSidebarMachineGrouping(options.grouping)
+    ? groupThreadListV2ItemsByMachine(
+        items,
+        new Map(
+          options.environments.map((environment) => [
+            String(environment.environmentId),
+            environment.label,
+          ]),
+        ),
+        options.machineOrder,
+        options.machineKinds,
+      )
+    : items;
   const withContext = withMobileMachineContext(
     arranged,
     options.environments,
@@ -122,7 +125,10 @@ export function arrangeMobileConversationList<T extends { readonly type: string 
   return withContext.flatMap((item): (T | ThreadListV2MachineHeaderListItem)[] => {
     if (isMachineHeader(item)) {
       return [
-        { ...item, collapsible: options.grouping === "machine" && !options.searchQuery?.trim() },
+        {
+          ...item,
+          collapsible: isSidebarMachineGrouping(options.grouping) && !options.searchQuery?.trim(),
+        },
       ];
     }
     if (isThreadRow(item) && !machineGroupThreadVisible(item.item.thread, options)) {
