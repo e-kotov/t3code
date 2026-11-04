@@ -47,7 +47,7 @@ export const BrowserHandoffResult = Schema.Struct({
 
 type AttachInput = Parameters<ServerBrowser["Service"]["attachViewer"]>[0];
 
-export type BetterWrightViewerLeaseResult =
+type BetterWrightViewerLeaseResult =
   | { readonly _tag: "NotFound" }
   | { readonly _tag: "Busy" }
   | {

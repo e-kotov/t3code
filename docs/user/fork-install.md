@@ -159,3 +159,15 @@ this handoff. Password-protected BetterWright live viewers are unsupported;
 T3 itself authenticates viewer access. Other programs with direct BetterWright access must also leave the
 page alone while the human operates it. Release does not establish that a site
 accepted a CAPTCHA or granted access.
+
+If the page does not arrive in T3's browser view, the desktop app offers **Open over SSH**.
+It opens the host's own BetterWright viewer in a separate window through an SSH forward from
+this Mac, using the SSH connection saved for that environment in Settings → Connections.
+Environments added only through Tailscale or T3 Connect have no such route, so the desktop app
+explains this and keeps the normal view. The host key must already be in `known_hosts`; T3 never
+accepts new or changed host keys and never forwards your SSH agent. While the window is open, T3's
+own viewers cannot take control. Stay on the requested page, then select **Done, release to agent**
+in T3; closing the window returns control without completing the handoff. That window is
+BetterWright's own viewer, so it is not limited to the handoff page the way T3's view is. The
+fallback cannot help when SSH is unreachable or the browser or host has stopped. The web and mobile
+apps keep only the normal view.

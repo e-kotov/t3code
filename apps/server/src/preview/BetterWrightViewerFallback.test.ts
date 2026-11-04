@@ -18,6 +18,7 @@ import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as PubSub from "effect/PubSub";
+import * as Queue from "effect/Queue";
 import { HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http";
 import { expect } from "vite-plus/test";
 
@@ -58,8 +59,7 @@ function client(url: string) {
     }
     const message = JSON.parse(event.data) as Message;
     messages.push(message);
-    for (const waiter of [...waiters]) {
-      if (!waiter.predicate(message)) continue;
+    for (const waiter of waiters.filter((candidate) => candidate.predicate(message))) {
       waiters.splice(waiters.indexOf(waiter), 1);
       waiter.resolve(message);
     }
@@ -79,7 +79,7 @@ it.live(
     Effect.gen(function* () {
       const upstreamInputs: Message[] = [];
       const repointed = Promise.withResolvers<void>();
-      const upstreamSend = Promise.withResolvers<(message: Message) => Promise<void>>();
+      const upstreamOutbox = yield* Queue.unbounded<Message>();
       const upstreamRoutes = HttpRouter.use((router) =>
         router.add(
           "GET",
@@ -89,9 +89,6 @@ it.live(
             const socket = yield* request.upgrade;
             const writer = yield* socket.writer;
             const reader = yield* socket.reader;
-            upstreamSend.resolve((message) =>
-              Effect.runPromise(writer.write(JSON.stringify(message))),
-            );
             for (const message of [
               { t: "hello", interactive: true },
               { t: "meta", pageId: "page-1", deviceWidth: 800, deviceHeight: 600 },
@@ -102,15 +99,21 @@ it.live(
             ])
               yield* writer.write(JSON.stringify(message));
             yield* writer.write(new Uint8Array([255, 216, 255, 217]));
-            while (true) {
-              for (const chunk of yield* reader.pull) {
-                const message = JSON.parse(
-                  typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk),
-                ) as Message;
-                upstreamInputs.push(message);
-                if (message.t === "tab" && message.id === "page-1") repointed.resolve();
-              }
-            }
+            const receive = reader.pull.pipe(
+              Effect.map((chunks) => {
+                for (const chunk of chunks) {
+                  const message = JSON.parse(
+                    typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk),
+                  ) as Message;
+                  upstreamInputs.push(message);
+                  if (message.t === "tab" && message.id === "page-1") repointed.resolve();
+                }
+              }),
+            );
+            const send = Queue.take(upstreamOutbox).pipe(
+              Effect.flatMap((message) => writer.write(JSON.stringify(message))),
+            );
+            yield* Effect.raceFirst(Effect.forever(receive), Effect.forever(send));
           }).pipe(Effect.orElseSucceed(() => HttpServerResponse.empty())),
         ),
       );
@@ -250,10 +253,9 @@ it.live(
       expect(yield* Effect.promise(() => closedWith(busy))).toMatchObject({ code: 4409 });
 
       // A standalone viewer joining makes BetterWright stream the preferred tab.
-      const send = yield* Effect.promise(() => upstreamSend.promise);
-      yield* Effect.promise(() => send({ t: "meta", pageId: "preferred-page" }));
+      yield* Queue.offer(upstreamOutbox, { t: "meta", pageId: "preferred-page" });
       yield* Effect.promise(() => repointed.promise);
-      yield* Effect.promise(() => send({ t: "meta", pageId: "page-1" }));
+      yield* Queue.offer(upstreamOutbox, { t: "meta", pageId: "page-1" });
       expect(handoff.manages(threadId, tabId)).toBe(true);
 
       first.socket.close();

@@ -10,6 +10,7 @@ import { SshPasswordPromptError } from "@t3tools/ssh/errors";
 import * as Data from "effect/Data";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as Schedule from "effect/Schedule";
 import * as Stream from "effect/Stream";
 import { HttpClient, HttpClientRequest } from "effect/http";
@@ -39,15 +40,16 @@ class ForwardAttemptError extends Data.TaggedError("ForwardAttemptError")<{
 }> {}
 
 // The probe sends no token: any HTTP answer proves the remote viewer port is reachable.
-const waitUntilAnswering = (localPort: number) =>
-  Effect.gen(function* () {
-    const client = yield* HttpClient.HttpClient;
-    yield* client.execute(HttpClientRequest.get(`http://127.0.0.1:${localPort}/`)).pipe(
-      Effect.flatMap((response) => response.text),
-      Effect.timeout(Duration.seconds(2)),
-      Effect.retry(Schedule.spaced(Duration.millis(250))),
-    );
-  });
+const waitUntilAnswering = Effect.fn("desktop.betterWrightFallback.waitUntilAnswering")(function* (
+  localPort: number,
+) {
+  const client = yield* HttpClient.HttpClient;
+  yield* client.execute(HttpClientRequest.get(`http://127.0.0.1:${localPort}/`)).pipe(
+    Effect.flatMap((response) => response.text),
+    Effect.timeout(Duration.seconds(2)),
+    Effect.retry(Schedule.spaced(Duration.millis(250))),
+  );
+});
 
 const attemptForward = Effect.fn("desktop.betterWrightFallback.attemptForward")(function* (
   target: DesktopSshEnvironmentTarget,
@@ -82,7 +84,7 @@ const attemptForward = Effect.fn("desktop.betterWrightFallback.attemptForward")(
     }),
   );
   let stderrTail = "";
-  yield* child.stderr.pipe(
+  const stderrDrained = yield* child.stderr.pipe(
     Stream.decodeText(),
     Stream.runForEach((chunk) =>
       Effect.sync(() => {
@@ -93,7 +95,10 @@ const attemptForward = Effect.fn("desktop.betterWrightFallback.attemptForward")(
     Effect.forkScoped,
   );
   yield* child.stdout.pipe(Stream.runDrain, Effect.ignore, Effect.forkScoped);
-  const exitCode = yield* child.exitCode.pipe(Effect.map(Number), Effect.cached);
+  // Both are re-awaitable: an interrupted wait leaves the drain and the exit signal intact.
+  const exitCode = Effect.all([Fiber.join(stderrDrained), child.exitCode], {
+    concurrency: "unbounded",
+  });
   yield* Effect.raceFirst(
     waitUntilAnswering(localPort),
     exitCode.pipe(
@@ -117,7 +122,9 @@ const attemptForward = Effect.fn("desktop.betterWrightFallback.attemptForward")(
           }),
         ),
     }),
-    Effect.onError(() => child.kill({ killSignal: "SIGTERM" }).pipe(Effect.ignore)),
+    Effect.onError(() =>
+      child.kill({ killSignal: "SIGTERM", forceKillAfter: 2_000 }).pipe(Effect.ignore),
+    ),
   );
   return {
     localPort,

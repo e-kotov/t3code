@@ -1,0 +1,85 @@
+name: Fork BetterWright SSH fallback
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/fork-betterwright-ssh-fallback.yml"
+      - "apps/server/src/preview/BetterWright*"
+      - "apps/server/src/preview/ServerBrowserStream*"
+      - "apps/server/src/server.ts"
+      - "apps/desktop/src/betterWrightViewerFallback/**"
+      - "apps/desktop/src/preload.ts"
+      - "apps/desktop/src/ipc/DesktopIpcHandlers.ts"
+      - "apps/web/src/browser/BetterWrightSshFallback*"
+      - "apps/web/src/browser/betterWrightSshFallback*"
+      - "apps/web/src/browser/ServerBrowserSurface*"
+      - "packages/contracts/src/betterWrightViewerFallback.ts"
+      - "packages/contracts/src/ipc.ts"
+      - "packages/ssh/src/command.ts"
+      - "packages/ssh/src/auth.ts"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: betterwright-ssh-fallback-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - name: Checkout the exact head without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch --no-tags origin main "$CHECKOUT_REF"
+          git checkout --detach "$CHECKOUT_REF"
+          git fetch --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
+          echo "Checked out $(git rev-parse HEAD)"
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          node-version-file: package.json
+          run-install: false
+          cache: true
+      - run: vp install
+      - name: Install Chromium for the surface browser test
+        run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
+      - name: Check changed code
+        run: vp run check:changed origin/main
+      - name: Server lease, ownership and authorization
+        run: vp test run apps/server/src/preview/BetterWrightBridge.test.ts apps/server/src/preview/BetterWrightHandoff.test.ts apps/server/src/preview/BetterWrightViewerFallback.test.ts apps/server/src/preview/ServerBrowserStream.test.ts
+      - name: Desktop routing, SSH policy and lifecycle
+        run: vp test run apps/desktop/src/betterWrightViewerFallback/viewerFallbackPolicy.test.ts apps/desktop/src/betterWrightViewerFallback/ViewerFallbackSessions.test.ts
+      - name: Web stream health and surface states, with captures
+        env:
+          VITE_SSH_FALLBACK_CAPTURE: "1"
+        run: vp test run apps/web/src/browser/betterWrightSshFallbackHealth.test.ts apps/web/src/browser/BetterWrightSshFallback.browser.test.tsx apps/web/src/browser/ServerBrowserSurface.browser.test.tsx
+      - name: Check fork footprint
+        run: python3 scripts/fork-footprint-budget.py
+      - name: Capture formatting fixes
+        if: failure()
+        run: |
+          git diff --name-only --diff-filter=AM -z origin/main HEAD |
+            xargs -0 -r vp fmt --no-error-on-unmatched-pattern
+          git diff --binary > "$RUNNER_TEMP/ssh-fallback-format.patch"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: betterwright-ssh-fallback-evidence
+          include-hidden-files: true
+          path: |
+            .t3/ssh-fallback-evidence/
+            ${{ runner.temp }}/ssh-fallback-format.patch
+          if-no-files-found: ignore
+          retention-days: 7

@@ -113,7 +113,7 @@ export function leaseUrlProblem(
 
 const decodeLease = Schema.decodeUnknownOption(Schema.fromJsonString(BetterWrightViewerLease));
 
-export type LeaseDecision =
+type LeaseDecision =
   | { readonly _tag: "Lease"; readonly lease: BetterWrightViewerLease }
   | { readonly _tag: "Rejected"; readonly message: string };
 

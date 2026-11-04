@@ -18,7 +18,7 @@ export interface ViewerLease {
   readonly complete: Effect.Effect<boolean>;
 }
 
-export type MakeLeaseSocket = (url: string) => WebSocket;
+type MakeLeaseSocket = (url: string) => WebSocket;
 
 /**
  * Holds the server's lease for as long as the scope is open; closing it returns control of the

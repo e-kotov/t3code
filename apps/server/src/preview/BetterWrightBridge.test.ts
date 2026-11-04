@@ -136,7 +136,7 @@ describe("BetterWright handoff", () => {
   });
 
   it("lends control to one standalone viewer, re-selects the page it drifts from, and refuses while owned", async () => {
-    const { bridge, socket, select, sent } = setup();
+    const { bridge, select, sent } = setup();
     expect(bridge.claimExternal("ssh")).toBe(false);
     select();
     await bridge.waitUntilReady();

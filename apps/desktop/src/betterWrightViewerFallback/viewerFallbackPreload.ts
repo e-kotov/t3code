@@ -6,9 +6,7 @@ import type { IpcRenderer, IpcRendererEvent } from "electron";
 
 import * as Channels from "./viewerFallbackChannels.ts";
 
-export function makeViewerFallbackBridge(
-  ipcRenderer: IpcRenderer,
-): BetterWrightViewerFallbackBridge {
+function makeViewerFallbackBridge(ipcRenderer: IpcRenderer): BetterWrightViewerFallbackBridge {
   return {
     availability: (environmentId) =>
       ipcRenderer.invoke(Channels.VIEWER_FALLBACK_AVAILABILITY_CHANNEL, environmentId),
@@ -29,3 +27,10 @@ export function makeViewerFallbackBridge(
     },
   };
 }
+
+/** The SSH viewer fallback relies on an OpenSSH client the Windows build does not assume. */
+export const viewerFallbackBridge = (
+  ipcRenderer: IpcRenderer,
+  platform: string,
+): { betterWrightViewerFallback?: BetterWrightViewerFallbackBridge } =>
+  platform === "win32" ? {} : { betterWrightViewerFallback: makeViewerFallbackBridge(ipcRenderer) };
