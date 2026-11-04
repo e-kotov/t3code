@@ -1230,8 +1230,8 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                   multiline
                     ? "flex flex-col justify-center px-2.5 py-1.5"
                     : "flex h-9 items-center gap-2.5 px-2.5",
-                  // Lines titles up with the folder name, past its chevron and icon.
-                  inFolder && "ps-9",
+                  // Gentle indentation aligning with folder content without aggressive inset.
+                  inFolder && "ps-5",
                 )}
                 onClick={handleClick}
                 onDoubleClick={handleDoubleClick}
