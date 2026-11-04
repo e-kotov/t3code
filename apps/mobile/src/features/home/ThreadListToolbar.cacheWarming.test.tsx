@@ -105,7 +105,10 @@ function subscribe(listener: () => void) {
   };
 }
 
-function setup(props?: { conversationList?: ConversationListControls; onFilterSelect?: (id: string) => void }) {
+function setup(props?: {
+  conversationList?: ConversationListControls;
+  onFilterSelect?: (id: string) => void;
+}) {
   harness.update.mockReset();
   harness.lastAppBarProps = null;
   harness.settings = { cacheWarmingSessions: {} };

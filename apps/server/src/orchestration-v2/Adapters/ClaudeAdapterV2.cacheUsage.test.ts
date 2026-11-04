@@ -65,5 +65,4 @@ describe("fork Claude cache usage", () => {
       undefined,
     );
   });
-
 });

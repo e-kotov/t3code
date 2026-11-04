@@ -5204,7 +5204,11 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             if (claudeMessageInputTokens(usage) <= 0) return;
             context.compactionTokens = undefined;
           }
-          if (liveQuery !== null && tokenUsage.promptCacheTtlMs !== undefined) {
+          if (
+            liveQuery !== null &&
+            "promptCacheTtlMs" in tokenUsage &&
+            tokenUsage.promptCacheTtlMs !== undefined
+          ) {
             liveQuery.promptCacheTtlMs = tokenUsage.promptCacheTtlMs;
           }
           yield* emitProviderEvent({

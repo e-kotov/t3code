@@ -3083,7 +3083,14 @@ it.layer(
             ["gateway/kimi-3[1m]", "Kimi (mine)", true],
           ],
         );
-        assert.deepStrictEqual(added[0]?.capabilities?.optionDescriptors, []);
+        assert.deepStrictEqual(added[0]?.capabilities?.optionDescriptors, [
+          {
+            id: "artifacts",
+            label: "Claude Artifacts (experimental)",
+            description: "Publish Claude artifacts to claude.ai when your account allows it.",
+            type: "boolean",
+          },
+        ]);
         assert.deepStrictEqual(added[1]?.capabilities?.optionDescriptors, [
           {
             id: "effort",
@@ -3094,6 +3101,12 @@ it.layer(
               { id: "low", label: "Low" },
               { id: "high", label: "High" },
             ],
+          },
+          {
+            id: "artifacts",
+            label: "Claude Artifacts (experimental)",
+            description: "Publish Claude artifacts to claude.ai when your account allows it.",
+            type: "boolean",
           },
         ]);
       }).pipe(
