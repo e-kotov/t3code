@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 
 export function CloseModelPickerOnEffortEnter({
   children,
@@ -7,8 +7,47 @@ export function CloseModelPickerOnEffortEnter({
   children: ReactNode;
   onClose: () => void;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const root = ref.current;
+    if (!root) return;
+    const popup =
+      root.closest<HTMLElement>("[data-model-picker-effort]")?.parentElement ??
+      root.closest<HTMLElement>("[role=\"dialog\"], [role=\"menu\"]") ??
+      root.parentElement;
+    if (!popup) return;
+
+    const handleKeyDownCapture = (event: KeyboardEvent) => {
+      if (
+        event.key !== "Enter" ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey
+      ) {
+        return;
+      }
+
+      window.requestAnimationFrame(() => {
+        const effortColumn = popup.querySelector("[data-model-picker-effort]");
+        const hasEffortLevels =
+          effortColumn?.querySelector("[data-effort-level]:not(:disabled)") != null;
+        if (!hasEffortLevels) {
+          onClose();
+        }
+      });
+    };
+
+    popup.addEventListener("keydown", handleKeyDownCapture, { capture: true });
+    return () => {
+      popup.removeEventListener("keydown", handleKeyDownCapture, { capture: true });
+    };
+  }, [onClose]);
+
   return (
     <div
+      ref={ref}
       className="contents"
       onKeyDown={(event) => {
         const target = event.target;
