@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigation, useNavigationState } from "@react-navigation/native";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { BackHandler, Keyboard, View } from "react-native";
@@ -58,56 +58,52 @@ export function ThreadListToolbar(props: ThreadListToolbarProps) {
     return () => subscription.remove();
   }, [closeSearch, searching, listFocused, navigation, isTabActive]);
 
-  const filterActions = useMemo(() => {
-    if (!props.conversationList) return props.filterActions;
-    return [...props.filterActions, ...conversationListMenuActions(props.conversationList)];
-  }, [props.filterActions, props.conversationList]);
-
+  const filterActions = props.conversationList
+    ? [...props.filterActions, ...conversationListMenuActions(props.conversationList)]
+    : props.filterActions;
   const handleFilterSelect = (id: string) => {
-    if (props.conversationList && applyConversationListMenuEvent(id, props.conversationList)) {
-      return;
-    }
+    if (props.conversationList && applyConversationListMenuEvent(id, props.conversationList)) return;
     props.onFilterSelect(id);
   };
 
   return (
     <>
-      <AppBar
-        title="T3 Code"
-        titleContent={
-          <WorkspaceBrandTitle
-            accessibilityLabel="T3 Code, Threads"
-            onOpenEnvironments={props.onOpenEnvironments}
-          />
-        }
-        search={{
-          value: props.searchQuery,
-          onChangeText: onSearchQueryChange,
-          placeholder: "Search",
-          accessibilityLabel: "Search threads",
-          active: searching,
-          onOpen: openSearch,
-          onClose: closeSearch,
-        }}
-        menus={
-          connectionState.hasConnections
-            ? [
-                {
-                  title: "Filter threads",
-                  icon: props.filterCustomized
-                    ? "line.3.horizontal.decrease.circle.fill"
-                    : "line.3.horizontal.decrease.circle",
-                  items: appBarMenuItemsFromActions(filterActions, handleFilterSelect),
-                },
-              ]
-            : undefined
-        }
-      />
-      {props.cacheWarmingEnvironmentId ? (
-        <View className="items-end pb-1 bg-header px-2">
-          <CacheWarmingToolbarControl environmentId={props.cacheWarmingEnvironmentId} />
-        </View>
-      ) : null}
+    <AppBar
+      title="T3 Code"
+      titleContent={
+        <WorkspaceBrandTitle
+          accessibilityLabel="T3 Code, Threads"
+          onOpenEnvironments={props.onOpenEnvironments}
+        />
+      }
+      search={{
+        value: props.searchQuery,
+        onChangeText: onSearchQueryChange,
+        placeholder: "Search",
+        accessibilityLabel: "Search threads",
+        active: searching,
+        onOpen: openSearch,
+        onClose: closeSearch,
+      }}
+      menus={
+        connectionState.hasConnections
+          ? [
+              {
+                title: "Filter threads",
+                icon: props.filterCustomized
+                  ? "line.3.horizontal.decrease.circle.fill"
+                  : "line.3.horizontal.decrease.circle",
+                items: appBarMenuItemsFromActions(filterActions, handleFilterSelect),
+              },
+            ]
+          : undefined
+      }
+    />
+    {props.cacheWarmingEnvironmentId ? (
+      <View className="items-end pb-1 bg-header px-2">
+        <CacheWarmingToolbarControl environmentId={props.cacheWarmingEnvironmentId} />
+      </View>
+    ) : null}
     </>
   );
 }

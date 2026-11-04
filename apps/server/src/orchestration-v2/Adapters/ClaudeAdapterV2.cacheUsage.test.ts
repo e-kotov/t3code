@@ -16,8 +16,12 @@ describe("fork Claude cache usage", () => {
         cache_read_input_tokens: 5_000,
         output_tokens: 1_000,
       },
-      CLAUDE_TEST_MODEL_SELECTION,
+      200_000,
       "2026-08-29T00:00:00.000Z",
+      "",
+      undefined,
+      undefined,
+      CLAUDE_TEST_MODEL_SELECTION,
     );
 
     assert.deepEqual(usage, {
@@ -40,8 +44,12 @@ describe("fork Claude cache usage", () => {
     }) =>
       ClaudeAdapterV2.claudeProviderTurnTokenUsage(
         { input_tokens: 1, output_tokens: 1, cache_creation },
-        CLAUDE_TEST_MODEL_SELECTION,
+        200_000,
         "2026-08-29T00:00:00.000Z",
+        "",
+        undefined,
+        undefined,
+        CLAUDE_TEST_MODEL_SELECTION,
       ).promptCacheTtlMs;
 
     assert.strictEqual(

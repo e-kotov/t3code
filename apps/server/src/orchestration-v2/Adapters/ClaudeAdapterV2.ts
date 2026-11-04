@@ -274,24 +274,13 @@ export function claudeProviderTurnTokenUsage(
     readonly cache_creation?: ClaudeCacheCreation | null;
     readonly output_tokens: number;
   },
-  maxTokensOrModelSelection: number | null | ModelSelection,
+  maxTokens: number | null,
   updatedAt: string,
   autoCompactWindow = "",
   requestedAt?: DateTime.Utc,
   knownPromptCacheTtlMs?: number,
   modelSelection?: ModelSelection,
 ) {
-  const resolvedModelSelection =
-    typeof maxTokensOrModelSelection === "object" && maxTokensOrModelSelection !== null
-      ? maxTokensOrModelSelection
-      : modelSelection;
-  const maxTokens =
-    typeof maxTokensOrModelSelection === "object" && maxTokensOrModelSelection !== null
-      ? resolveClaudeCatalogContextWindowTokens(
-          BUNDLED_CLAUDE_MODEL_CATALOG,
-          maxTokensOrModelSelection,
-        )
-      : maxTokensOrModelSelection;
   const inputTokens = claudeMessageInputTokens(usage);
   const outputTokens = usage.output_tokens;
   const promptCacheTtlMs =
@@ -303,8 +292,8 @@ export function claudeProviderTurnTokenUsage(
       ? undefined
       : DateTime.formatIso(DateTime.add(requestedAt, { milliseconds: promptCacheTtlMs }));
   return {
-    ...(resolvedModelSelection
-      ? { cacheScopeKey: `${resolvedModelSelection.instanceId}:${resolvedModelSelection.model}` }
+    ...(modelSelection
+      ? { cacheScopeKey: `${modelSelection.instanceId}:${modelSelection.model}` }
       : {}),
     cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
     usedTokens: inputTokens + outputTokens,
