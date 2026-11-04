@@ -120,7 +120,7 @@ it.live(
             const send = Queue.take(upstreamOutbox).pipe(
               Effect.flatMap((message) => writer.write(JSON.stringify(message))),
             );
-            yield* Effect.raceFirst(Effect.forever(receive), Effect.forever(send));
+            return yield* Effect.raceFirst(Effect.forever(receive), Effect.forever(send));
           }).pipe(Effect.orElseSucceed(() => HttpServerResponse.empty())),
         ),
       );

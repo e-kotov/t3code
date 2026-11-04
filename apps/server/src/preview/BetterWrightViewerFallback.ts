@@ -4,10 +4,11 @@ import {
   BETTERWRIGHT_VIEWER_FALLBACK_PATH,
   BETTERWRIGHT_VIEWER_FALLBACK_SOCKET_PATH,
   BetterWrightViewerFallbackCloseCode,
-  type BetterWrightViewerLease,
+  BetterWrightViewerLease,
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 import * as Socket from "effect/socket/Socket";
 
@@ -17,6 +18,7 @@ import { requestUrl } from "../requestUrl.ts";
 import * as BetterWrightHandoff from "./BetterWrightHandoff.ts";
 
 const textDecoder = new TextDecoder();
+const encodeLease = Schema.encodeEffect(Schema.fromJsonString(BetterWrightViewerLease));
 const MAX_ID_LENGTH = 256;
 const validId = (value: string) => value.length > 0 && value.length <= MAX_ID_LENGTH;
 
@@ -90,7 +92,7 @@ const makeHandler = Effect.fnUntraced(function* (
         port: lease.port,
         token: lease.token,
       };
-      yield* writer.write(JSON.stringify(message));
+      yield* writer.write(yield* encodeLease(message));
       const receive = reader.pull.pipe(
         Effect.flatMap((chunks) =>
           Effect.forEach(
