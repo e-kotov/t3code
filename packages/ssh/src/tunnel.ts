@@ -141,7 +141,9 @@ export interface SshEnvironmentManagerShape {
   readonly disconnectEnvironment: (
     target: DesktopSshEnvironmentTarget,
   ) => Effect.Effect<void, SshEnvironmentEffectError, SshEnvironmentEffectContext>;
+  readonly activeEndpoints: Effect.Effect<ReadonlyArray<SshActiveEndpoint>>;
 }
+type SshActiveEndpoint = Pick<SshTunnelEntry, "target" | "httpBaseUrl">;
 
 const RemoteLaunchResult = Schema.Struct({
   remotePort: Schema.Number,
@@ -1774,7 +1776,8 @@ const makeSshEnvironmentManager = Effect.fn("ssh/tunnel.SshEnvironmentManager.ma
     );
   });
 
-  return SshEnvironmentManager.of({ ensureEnvironment, disconnectEnvironment });
+  const activeEndpoints = Effect.sync(() => [...tunnels.values()]);
+  return SshEnvironmentManager.of({ ensureEnvironment, disconnectEnvironment, activeEndpoints });
 });
 
 /**

@@ -41,6 +41,7 @@ import { toastManager } from "~/components/ui/toast";
 import { cn } from "~/lib/utils";
 import { refreshPreviewStreamAccess, usePreviewStreamAccess } from "~/state/previewStream";
 import { observeResize } from "~/lib/observeResize";
+import { useSshViewerFallback } from "./BetterWrightSshFallback";
 
 export interface ServerBrowserHandle {
   readonly navigate: (url: string) => void;
@@ -198,6 +199,7 @@ export function ServerBrowserSurface(props: {
   const [accessDenied, setAccessDenied] = useState(false);
   const access = usePreviewStreamAccess(environmentId, { retry: visible && !accessDenied });
   const [hostSetup, setHostSetup] = useState<PreviewStreamHostSetup | null>(null);
+  const sshFallback = useSshViewerFallback({ ...props, refused: accessDenied || !!hostSetup });
   const pendingMoveRef = useRef<MouseInput | null>(null);
   const pendingWheelRef = useRef<WheelInput | null>(null);
   const inputFrameRef = useRef<number | null>(null);
@@ -377,6 +379,7 @@ export function ServerBrowserSurface(props: {
       { access, threadId, tabId, maxWidth: cap.width, maxHeight: cap.height },
       {
         onFrame: (jpeg) => {
+          sshFallback.stream.frame();
           unauthorizedRef.current = 0;
           painter.paint(jpeg);
         },
@@ -422,6 +425,7 @@ export function ServerBrowserSurface(props: {
           }
         },
         onConnectedChange: (connected) => {
+          sshFallback.stream.connected(connected);
           if (connected) return;
           setFileChooser(null);
           controlRef.current = null;
@@ -431,6 +435,7 @@ export function ServerBrowserSurface(props: {
         },
         onHostSetup: setHostSetup,
         onUnauthorized: () => {
+          sshFallback.stream.unauthorized();
           const refusals = ++unauthorizedRef.current;
           if (refusals >= MAX_UNAUTHORIZED_REFUSALS) {
             inputRef.current?.blur();
@@ -463,6 +468,7 @@ export function ServerBrowserSurface(props: {
     environmentId,
     followSize,
     hostSetup,
+    sshFallback.stream,
     tabId,
     threadId,
     visible,
@@ -927,6 +933,7 @@ export function ServerBrowserSurface(props: {
           </Button>
         </div>
       ) : null}
+      {sshFallback.overlay}
     </div>
   );
 }

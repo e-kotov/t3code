@@ -159,3 +159,30 @@ this handoff. Password-protected BetterWright live viewers are unsupported;
 T3 itself authenticates viewer access. Other programs with direct BetterWright access must also leave the
 page alone while the human operates it. Release does not establish that a site
 accepted a CAPTCHA or granted access.
+
+If the page does not arrive in T3's browser view, the desktop app offers **Open over SSH**.
+It opens the host's own BetterWright viewer in a separate window through an SSH forward from
+this Mac, using the SSH connection saved for that environment in Settings → Connections. The
+desktop only takes the viewer lease from that environment's own saved address or its live T3 SSH
+connection; environments reached only through T3 Connect get an explanation and the normal view.
+The host key must already be in `known_hosts`; T3 never accepts new or changed host keys and
+never forwards your SSH agent. While the window is open, T3's own viewers cannot take control.
+The window talks only to a relay in the desktop app, never to BetterWright directly. Until
+BetterWright reports the handoff page as the one it streams, the relay passes no picture and no
+input; it drops other tabs, their previews, new and closed tabs, and non-web addresses.
+BetterWright does not label pictures with their page, so a tab switch made by another viewer to a
+tab with the same address and size, or input already on its way when another viewer switches,
+can still briefly reach the other page. This guards the window on your Mac, not the daemon:
+anyone with the same SSH login can reach the viewer directly. Finish, then select **Done,
+release to agent** in T3; closing the window returns control without completing the handoff.
+The fallback cannot help when SSH is unreachable or the browser or host has stopped. The web and
+mobile apps keep only the normal view.
+
+Adding the SSH connection for a server that already runs (for example one paired over
+Tailscale) is not read-only. Saving it installs this app's T3 version under
+`~/.t3/runtime/versions/` and a launcher under `~/.t3/ssh-launch/` on the host, creates a pairing
+credential, and reuses the running server only when `~/.t3/userdata/server-runtime.json` on the
+host the SSH alias reaches names a live process with a `http://127.0.0.1` or `localhost` origin
+that answers within two seconds. Otherwise it starts a second server on the same `~/.t3` home.
+Check those conditions on the host first, and make sure the alias reaches the same machine as the
+running server rather than another login node.

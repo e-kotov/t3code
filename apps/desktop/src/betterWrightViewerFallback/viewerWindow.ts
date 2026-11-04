@@ -1,0 +1,51 @@
+import * as Electron from "electron";
+import * as SecureRandom from "effect/crypto/SecureRandom";
+import * as Effect from "effect/Effect";
+
+import { isViewerNavigationAllowed } from "./viewerFallbackPolicy.ts";
+import type { ViewerWindow } from "./ViewerFallbackSessions.ts";
+
+/**
+ * Sandboxed, in-memory, and kept on the relay's loopback origin. Creation, cleanup registration
+ * and the load start are one synchronous step, so nothing can load it after the session ends.
+ */
+export const openViewerWindow = (url: string, localPort: number) =>
+  Effect.acquireRelease(
+    Effect.sync(() => {
+      const window = new Electron.BrowserWindow({
+        width: 1280,
+        height: 860,
+        title: "Browser handoff over SSH",
+        autoHideMenuBar: true,
+        webPreferences: {
+          partition: `betterwright-ssh-${SecureRandom.uuidV4Unsafe()}`,
+          sandbox: true,
+          contextIsolation: true,
+          nodeIntegration: false,
+          webviewTag: false,
+          spellcheck: false,
+          navigateOnDragDrop: false,
+        },
+      });
+      const { session } = window.webContents;
+      session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+      session.setPermissionCheckHandler(() => false);
+      session.on("will-download", (event) => event.preventDefault());
+      window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+      const guard = (event: Electron.Event, target: string) => {
+        if (!isViewerNavigationAllowed(target, localPort)) event.preventDefault();
+      };
+      window.webContents.on("will-navigate", guard);
+      window.webContents.on("will-redirect", guard);
+      window.webContents.on("will-attach-webview", (event) => event.preventDefault());
+      const closed = new Promise<void>((resolve) => window.once("closed", () => resolve()));
+      // A failed load leaves Chromium's error page; the session still ends the window.
+      void window.loadURL(url).catch(() => undefined);
+      return { window, session, closed };
+    }),
+    ({ window, session }) =>
+      Effect.promise(async () => {
+        if (!window.isDestroyed()) window.destroy();
+        await session.clearStorageData().catch(() => undefined);
+      }),
+  ).pipe(Effect.map(({ closed }): ViewerWindow => ({ closed: Effect.promise(() => closed) })));

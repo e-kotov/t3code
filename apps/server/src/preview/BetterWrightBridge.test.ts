@@ -135,6 +135,56 @@ describe("BetterWright handoff", () => {
     ]);
   });
 
+  it("lends control to one standalone viewer, re-selects the page it drifts from, and refuses while owned", async () => {
+    const { bridge, select, sent } = setup();
+    expect(bridge.claimExternal("ssh")).toBe(false);
+    select();
+    await bridge.waitUntilReady();
+    bridge.attach("phone", { canOperate: true, push: () => undefined });
+    bridge.input("phone", { type: "takeControl" });
+    expect(bridge.claimExternal("ssh")).toBe(false);
+    bridge.input("phone", { type: "releaseControl" });
+    expect(await bridge.waitUntilFinished()).toBe("completed");
+
+    const second = setup();
+    second.select();
+    await second.bridge.waitUntilReady();
+    const output: unknown[] = [];
+    second.bridge.attach("phone", { canOperate: true, push: (value) => output.push(value) });
+    expect(second.bridge.claimExternal("ssh")).toBe(true);
+    expect(second.bridge.claimExternal("other-ssh")).toBe(false);
+    expect(output.at(-1)).toMatchObject({ controller: "another-viewer" });
+    second.bridge.input("phone", { type: "takeControl" });
+    second.bridge.input("phone", { type: "text", text: "not the owner" });
+    expect(second.bridge.completeExternal("other-ssh")).toBe(false);
+    for (let drift = 0; drift < 5; drift++) {
+      second.socket.receive({ t: "meta", pageId: "preferred-page" });
+      second.socket.receive({ t: "meta", pageId: "preferred-page" });
+      second.socket.receive({ t: "meta", pageId: target.pageId });
+    }
+    expect(second.sent.filter((message) => message.t === "tab")).toHaveLength(5);
+    second.bridge.releaseExternal("ssh");
+    expect(output.at(-1)).toMatchObject({ controller: "agent" });
+    expect(second.bridge.completeExternal("ssh")).toBe(false);
+    expect(second.bridge.claimExternal("ssh-again")).toBe(true);
+    second.socket.receive({ t: "meta", pageId: "preferred-page" });
+    second.socket.receive({ t: "meta", pageId: target.pageId });
+    expect(second.bridge.completeExternal("ssh-again")).toBe(true);
+    expect(await second.bridge.waitUntilFinished()).toBe("completed");
+    expect(second.sent.filter((message) => message.kind === "insertText")).toEqual([]);
+    expect(sent.filter((message) => message.t === "tab")).toEqual([]);
+
+    const third = setup();
+    third.select();
+    await third.bridge.waitUntilReady();
+    expect(third.bridge.claimExternal("ssh")).toBe(true);
+    for (let drift = 0; drift < 6; drift++) {
+      third.socket.receive({ t: "meta", pageId: "preferred-page" });
+      third.socket.receive({ t: "meta", pageId: target.pageId });
+    }
+    expect(await third.bridge.waitUntilFinished()).toBe("cancelled");
+  });
+
   it.each([
     "https://127.0.0.1:18765/?t=private-test-token",
     "http://100.64.0.1:18765/?t=private-test-token",
