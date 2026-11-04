@@ -10,9 +10,12 @@ import {
   type ModelSelection,
   type ScopedThreadRef,
 } from "@t3tools/contracts";
+import { availableScratchWorkspaceRoot } from "@t3tools/client-runtime/operations/projects";
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 
+import { cn } from "../../lib/utils";
 import { useComposerDraftModelState, type ComposerThreadTarget } from "../../composerDraftStore";
+import { useScratchProject } from "../../hooks/useScratchProject";
 import { useEnvironmentSettings } from "../../hooks/useSettings";
 import { useThreadRouteTarget } from "../../hooks/useThreadRouteTarget";
 import { shouldShowInstanceBadge } from "../../providerInstances";
@@ -35,9 +38,15 @@ export interface HeaderModelContext {
 
 export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedThreadRef }) {
   const { presentation } = useEnvironmentPresentation(threadRef.environmentId);
+  const { startScratchThread } = useScratchProject();
   if (!presentation) return null;
   const label = presentation.entry.target.label;
   const status = connectionStatusText(presentation.connection);
+  // Like the project crumb, the machine crumb starts a thread: a projectless one in the
+  // machine's scratch workspace, offered only while the machine can create it.
+  const canStartThread =
+    availableScratchWorkspaceRoot(presentation.connection.phase, presentation.serverConfig) !==
+    null;
 
   return (
     <div data-header-machine className="flex shrink-0 items-center gap-2 sm:gap-3">
@@ -49,7 +58,17 @@ export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedTh
               <button
                 type="button"
                 aria-label={`Machine: ${label}. ${status}`}
-                className="inline-flex min-w-0 cursor-help items-center gap-1.5 rounded-sm text-xs text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                onClick={
+                  canStartThread
+                    ? () => void startScratchThread(threadRef.environmentId)
+                    : undefined
+                }
+                className={cn(
+                  "inline-flex min-w-0 items-center gap-1.5 rounded-sm text-xs text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                  canStartThread
+                    ? "cursor-pointer transition-colors hover:text-foreground"
+                    : "cursor-help",
+                )}
               />
             }
           >
@@ -64,10 +83,13 @@ export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedTh
           </TooltipTrigger>
           <TooltipPopup>
             {label}: {status}
+            {canStartThread ? <div>New thread on {label}</div> : null}
           </TooltipPopup>
         </Tooltip>
       </div>
-      <span aria-hidden className="shrink-0 text-sm text-icon-muted">/</span>
+      <span aria-hidden className="shrink-0 text-sm text-icon-muted">
+        /
+      </span>
     </div>
   );
 }

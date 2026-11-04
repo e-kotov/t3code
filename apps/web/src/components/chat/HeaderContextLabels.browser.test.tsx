@@ -30,6 +30,7 @@ const fixture = vi.hoisted(() => ({
   shells: new Map<string, EnvironmentThreadShell>(),
   listeners: new Set<() => void>(),
   settings: null as UnifiedSettings | null,
+  startScratchThread: vi.fn<(id: EnvironmentId) => Promise<void>>(async () => {}),
   setProviders: (_id: EnvironmentId, _providers: ReadonlyArray<ServerProvider>): void => {
     throw new Error("Provider fixture is not initialized");
   },
@@ -51,6 +52,15 @@ vi.mock(import("../../state/presentation"), async (original) => {
         () => (id ? (fixture.presentations.get(id) ?? null) : null),
       ),
     }),
+  };
+});
+vi.mock(import("../../hooks/useScratchProject"), async (original) => {
+  const actual = await original();
+  return {
+    ...actual,
+    useScratchProject: (() => ({
+      startScratchThread: fixture.startScratchThread,
+    })) as unknown as typeof actual.useScratchProject,
   };
 });
 vi.mock(import("../../state/entities"), async (original) => ({
@@ -91,11 +101,15 @@ const REMOTE = EnvironmentId.make("header-remote");
 const THREAD = ThreadId.make("header-thread");
 const INSTANCE = ProviderInstanceId.make("codex");
 
-function presentation(label: string, phase: EnvironmentConnectionPhase): EnvironmentPresentation {
+function presentation(
+  label: string,
+  phase: EnvironmentConnectionPhase,
+  scratchWorkspaceRoot?: string,
+): EnvironmentPresentation {
   return {
     entry: { target: { label } },
     connection: { phase, error: null, traceId: null },
-    serverConfig: null,
+    serverConfig: scratchWorkspaceRoot ? { scratchWorkspaceRoot } : null,
   } as EnvironmentPresentation;
 }
 
@@ -226,6 +240,24 @@ it("follows the active machine through pending, recovery and a later disconnect"
     .toBeVisible();
   await expect.element(screen.getByRole("button", { name: /^Model: GPT-6.1 Sol/ })).toBeVisible();
   await expect.element(screen.getByRole("button", { name: /GWDG/ })).not.toBeInTheDocument();
+});
+
+it("starts a projectless thread on the machine only while it offers a scratch workspace", async () => {
+  setup();
+  fixture.startScratchThread.mockClear();
+  fixture.presentations.set(REMOTE, presentation("GWDG", "connected", "/scratch"));
+  await page.viewport(1000, 260);
+  await using screen = await render(header());
+  await screen.getByRole("button", { name: "Machine: GWDG. Connected" }).click();
+  expect(fixture.startScratchThread).toHaveBeenCalledExactlyOnceWith(REMOTE);
+
+  fixture.startScratchThread.mockClear();
+  await act(() => {
+    fixture.presentations.set(REMOTE, presentation("GWDG", "offline", "/scratch"));
+    for (const listener of fixture.listeners) listener();
+  });
+  await screen.getByRole("button", { name: /^Machine: GWDG\./ }).click();
+  expect(fixture.startScratchThread).not.toHaveBeenCalled();
 });
 
 it("updates an unsent model choice and clears the previous machine's model when switching", async () => {
