@@ -1,6 +1,7 @@
 import { ProviderDriverKind } from "@t3tools/contracts";
 import { formatDuration } from "@t3tools/shared/usageLimits";
 import { useState } from "react";
+import { useClientSettings } from "../hooks/useSettings";
 import { ProviderInstanceIcon } from "../components/chat/ProviderInstanceIcon";
 import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "../components/ui/popover";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
@@ -19,6 +20,8 @@ export function CompactUsageControl({
   activeModel,
   activeDriver,
   now: explicitNow,
+  popupEnabled: explicitPopupEnabled,
+  hoverDelayMs: explicitHoverDelayMs,
   onOpenFullView,
 }: {
   accounts: Parameters<typeof compactUsage>[0];
@@ -29,9 +32,23 @@ export function CompactUsageControl({
   activeModel?: string | null | undefined;
   activeDriver?: string | null | undefined;
   now?: number;
+  popupEnabled?: boolean;
+  hoverDelayMs?: number;
   onOpenFullView: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const clientPopupEnabled = useClientSettings((s) => s.usagePopupEnabled);
+  const clientHoverDelayMs = useClientSettings((s) => s.usagePopupHoverDelayMs);
+  const popupEnabled = explicitPopupEnabled ?? clientPopupEnabled;
+  const hoverDelayMs = explicitHoverDelayMs ?? clientHoverDelayMs;
+
+  const [prevPopupEnabled, setPrevPopupEnabled] = useState(popupEnabled);
+  if (prevPopupEnabled !== popupEnabled) {
+    setPrevPopupEnabled(popupEnabled);
+    if (!popupEnabled) {
+      setOpen(false);
+    }
+  }
   const nowMinute = useNowMinute();
   const now = explicitNow ?? Date.parse(`${nowMinute}:00Z`);
   const providers = compactUsage(accounts, now, drivers, activeModel, activeDriver);
@@ -41,15 +58,17 @@ export function CompactUsageControl({
     .join(", ");
   return (
     <Popover
-      open={open}
+      open={popupEnabled ? open : false}
       onOpenChange={(nextOpen, details) => {
+        if (!popupEnabled) return;
         // Pressing the trigger opens the full usage page; only hover and focus show details.
         if (details.reason === "trigger-press") details.cancel();
         if (!details.isCanceled) setOpen(nextOpen);
       }}
     >
       <PopoverTrigger
-        openOnHover
+        openOnHover={popupEnabled}
+        delay={hoverDelayMs}
         closeDelay={150}
         render={
           <button
@@ -62,7 +81,7 @@ export function CompactUsageControl({
               onOpenFullView();
             }}
             onFocus={(event) => {
-              if (event.currentTarget.matches(":focus-visible")) setOpen(true);
+              if (popupEnabled && event.currentTarget.matches(":focus-visible")) setOpen(true);
             }}
           />
         }
@@ -116,129 +135,131 @@ export function CompactUsageControl({
           <span aria-hidden className="absolute top-1 right-0.5 size-1 rounded-full bg-warning" />
         ) : null}
       </PopoverTrigger>
-      <PopoverPopup
-        side="bottom"
-        align="end"
-        padding="compact"
-        className={cn(
-          "overflow-x-hidden max-w-[calc(100vw-2rem)]",
-          providers.length === 3 ? "w-128" : providers.length === 2 ? "w-92" : "w-64",
-        )}
-        initialFocus={false}
-        finalFocus={false}
-      >
-        <div className="flex items-baseline gap-2">
-          <PopoverTitle>Quota remaining</PopoverTitle>
-          <span className="ms-auto text-3xs text-muted-foreground">
-            All authenticated harnesses · click opens Usage
-          </span>
-        </div>
-        {authNotices.length > 0 ? (
-          <ul className="mt-1 text-3xs text-muted-foreground">
-            {[...new Set(authNotices)].map((notice) => (
-              <li key={notice}>{notice}</li>
-            ))}
-          </ul>
-        ) : null}
-        {notices.length > 0 ? (
-          <div className="mt-1 text-3xs text-warning-foreground">
-            <p>Partial report. Some account limits are unavailable.</p>
-            <ul className="max-h-16 overflow-x-hidden overflow-y-auto wrap-anywhere">
-              {[...new Set(notices)].map((notice) => (
+      {popupEnabled ? (
+        <PopoverPopup
+          side="bottom"
+          align="end"
+          padding="compact"
+          className={cn(
+            "overflow-x-hidden max-w-[calc(100vw-2rem)]",
+            providers.length === 3 ? "w-128" : providers.length === 2 ? "w-92" : "w-64",
+          )}
+          initialFocus={false}
+          finalFocus={false}
+        >
+          <div className="flex items-baseline gap-2">
+            <PopoverTitle>Quota remaining</PopoverTitle>
+            <span className="ms-auto text-3xs text-muted-foreground">
+              All authenticated harnesses · click opens Usage
+            </span>
+          </div>
+          {authNotices.length > 0 ? (
+            <ul className="mt-1 text-3xs text-muted-foreground">
+              {[...new Set(authNotices)].map((notice) => (
                 <li key={notice}>{notice}</li>
               ))}
             </ul>
+          ) : null}
+          {notices.length > 0 ? (
+            <div className="mt-1 text-3xs text-warning-foreground">
+              <p>Partial report. Some account limits are unavailable.</p>
+              <ul className="max-h-16 overflow-x-hidden overflow-y-auto wrap-anywhere">
+                {[...new Set(notices)].map((notice) => (
+                  <li key={notice}>{notice}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {disconnected.length > 0 ? (
+            <p className="mt-1 text-3xs text-warning-foreground">
+              {disconnectedNotice(disconnected)}; {disconnected.length === 1 ? "its" : "their"}{" "}
+              values may be out of date.
+            </p>
+          ) : null}
+          <div
+            className={cn(
+              "mt-2 grid max-h-[min(28rem,calc(var(--available-height)-4rem))] grid-cols-1 gap-x-4 gap-y-3 overflow-x-hidden overflow-y-auto",
+              GRID_COLUMNS[providers.length],
+            )}
+          >
+            {providers.map((provider) => (
+              <section key={provider.driver} aria-label={provider.label} className="min-w-0">
+                <div className="flex items-center gap-1.5 text-xs font-medium">
+                  <ProviderInstanceIcon
+                    driverKind={ProviderDriverKind.make(provider.driver)}
+                    displayName={provider.label}
+                    iconClassName="size-3.5"
+                    showBadge={false}
+                  />
+                  <span>{provider.label}</span>
+                  <span className="ms-auto font-mono text-3xs font-normal tabular-nums">
+                    {percent(provider.remaining)}
+                  </span>
+                </div>
+                {provider.accounts.length > 1 ? (
+                  <p className="text-3xs text-muted-foreground">
+                    {provider.accounts.length} accounts · pooled
+                  </p>
+                ) : null}
+                {provider.windows.length === 0 ? (
+                  <p className="mt-1 text-3xs text-muted-foreground">Limits unavailable</p>
+                ) : (
+                  groupUsageWindows(provider.windows).map((group) => (
+                    <div
+                      key={`${group.rows[0]?.window.kind}:${group.rows[0]?.window.id}`}
+                      className="mt-1.5"
+                    >
+                      {group.title ? (
+                        <p className="text-3xs text-muted-foreground">{group.title}</p>
+                      ) : null}
+                      {group.rows.map(({ label, window }) => {
+                        const reset = window.resets.find((reset) => reset.at > now);
+                        const remaining = Math.max(0, Math.min(100, window.remainingPercent));
+                        return (
+                          <div key={`${window.kind}:${window.id}`} className="mt-0.5">
+                            <div className="grid grid-cols-[minmax(0,1fr)_2rem_3rem] items-baseline gap-1 text-3xs">
+                              <Tooltip>
+                                <TooltipTrigger render={<span className="truncate" />}>
+                                  {label}
+                                </TooltipTrigger>
+                                <TooltipPopup>{window.label}</TooltipPopup>
+                              </Tooltip>
+                              <span
+                                className={`text-right font-mono tabular-nums ${quotaColor(window.remainingPercent)}`}
+                              >
+                                {percent(window.remainingPercent)}
+                              </span>
+                              <span className="text-right whitespace-nowrap text-muted-foreground">
+                                {reset ? `↻ ${formatDuration(reset.at - now)}` : "n/a"}
+                              </span>
+                            </div>
+                            <div className="mt-0.5 h-0.5 overflow-hidden rounded-full bg-muted">
+                              <div
+                                className="h-full rounded-full bg-muted-foreground"
+                                style={{ width: `${remaining}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))
+                )}
+                {provider.accounts.length > 0 ? (
+                  <p className="mt-1 text-3xs text-muted-foreground">
+                    Checked{" "}
+                    {new Date(
+                      Math.min(
+                        ...provider.accounts.map((account) => Date.parse(account.limits.checkedAt)),
+                      ),
+                    ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                ) : null}
+              </section>
+            ))}
           </div>
-        ) : null}
-        {disconnected.length > 0 ? (
-          <p className="mt-1 text-3xs text-warning-foreground">
-            {disconnectedNotice(disconnected)}; {disconnected.length === 1 ? "its" : "their"} values
-            may be out of date.
-          </p>
-        ) : null}
-        <div
-          className={cn(
-            "mt-2 grid max-h-[min(28rem,calc(var(--available-height)-4rem))] grid-cols-1 gap-x-4 gap-y-3 overflow-x-hidden overflow-y-auto",
-            GRID_COLUMNS[providers.length],
-          )}
-        >
-          {providers.map((provider) => (
-            <section key={provider.driver} aria-label={provider.label} className="min-w-0">
-              <div className="flex items-center gap-1.5 text-xs font-medium">
-                <ProviderInstanceIcon
-                  driverKind={ProviderDriverKind.make(provider.driver)}
-                  displayName={provider.label}
-                  iconClassName="size-3.5"
-                  showBadge={false}
-                />
-                <span>{provider.label}</span>
-                <span className="ms-auto font-mono text-3xs font-normal tabular-nums">
-                  {percent(provider.remaining)}
-                </span>
-              </div>
-              {provider.accounts.length > 1 ? (
-                <p className="text-3xs text-muted-foreground">
-                  {provider.accounts.length} accounts · pooled
-                </p>
-              ) : null}
-              {provider.windows.length === 0 ? (
-                <p className="mt-1 text-3xs text-muted-foreground">Limits unavailable</p>
-              ) : (
-                groupUsageWindows(provider.windows).map((group) => (
-                  <div
-                    key={`${group.rows[0]?.window.kind}:${group.rows[0]?.window.id}`}
-                    className="mt-1.5"
-                  >
-                    {group.title ? (
-                      <p className="text-3xs text-muted-foreground">{group.title}</p>
-                    ) : null}
-                    {group.rows.map(({ label, window }) => {
-                      const reset = window.resets.find((reset) => reset.at > now);
-                      const remaining = Math.max(0, Math.min(100, window.remainingPercent));
-                      return (
-                        <div key={`${window.kind}:${window.id}`} className="mt-0.5">
-                          <div className="grid grid-cols-[minmax(0,1fr)_2rem_3rem] items-baseline gap-1 text-3xs">
-                            <Tooltip>
-                              <TooltipTrigger render={<span className="truncate" />}>
-                                {label}
-                              </TooltipTrigger>
-                              <TooltipPopup>{window.label}</TooltipPopup>
-                            </Tooltip>
-                            <span
-                              className={`text-right font-mono tabular-nums ${quotaColor(window.remainingPercent)}`}
-                            >
-                              {percent(window.remainingPercent)}
-                            </span>
-                            <span className="text-right whitespace-nowrap text-muted-foreground">
-                              {reset ? `↻ ${formatDuration(reset.at - now)}` : "n/a"}
-                            </span>
-                          </div>
-                          <div className="mt-0.5 h-0.5 overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full rounded-full bg-muted-foreground"
-                              style={{ width: `${remaining}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))
-              )}
-              {provider.accounts.length > 0 ? (
-                <p className="mt-1 text-3xs text-muted-foreground">
-                  Checked{" "}
-                  {new Date(
-                    Math.min(
-                      ...provider.accounts.map((account) => Date.parse(account.limits.checkedAt)),
-                    ),
-                  ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </p>
-              ) : null}
-            </section>
-          ))}
-        </div>
-      </PopoverPopup>
+        </PopoverPopup>
+      ) : null}
     </Popover>
   );
 }

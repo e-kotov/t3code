@@ -1,0 +1,2 @@
+export const MIN_USAGE_POPUP_HOVER_DELAY_MS = 0;
+export const MAX_USAGE_POPUP_HOVER_DELAY_MS = 5000;
