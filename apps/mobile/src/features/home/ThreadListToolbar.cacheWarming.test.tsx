@@ -3,7 +3,7 @@ import { act, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { expect, it, vi } from "vite-plus/test";
-import { ThreadListToolbar } from "./ThreadListToolbar";
+import { ThreadListToolbar } from "./ThreadListToolbar.android";
 
 const harness = vi.hoisted(() => ({
   threads: [] as unknown[],
@@ -78,6 +78,9 @@ vi.mock("../../components/ui/AndroidScreenHeader", () => ({ AndroidHeaderIconBut
 vi.mock("../../components/ui/AndroidAnchoredMenu", () => ({ AndroidAnchoredMenu: () => null }));
 vi.mock("../../components/ui/SearchField", () => ({ SearchField: () => null }));
 vi.mock("../workspace/WorkspaceListToolbarRow", () => ({ WorkspaceListToolbarRow: () => null }));
+vi.mock("../../components/ui/AppBar", () => ({ AppBar: () => null }));
+vi.mock("../workspace/WorkspaceBrandTitle", () => ({ WorkspaceBrandTitle: () => null }));
+vi.mock("../../components/ui/menuActionItems", () => ({ appBarMenuItemsFromActions: () => [] }));
 vi.mock("./ConversationListToolbarButtons", () => ({ ConversationListToolbarButtons: () => null }));
 
 function subscribe(listener: () => void) {
@@ -121,7 +124,7 @@ function setup() {
           onSearchQueryChange={() => {}}
           filterActions={[]}
           filterCustomized={false}
-          onFilterAction={() => {}}
+          onFilterSelect={() => {}}
           onOpenEnvironments={() => {}}
           cacheWarmingEnvironmentId={environmentId}
         />,
