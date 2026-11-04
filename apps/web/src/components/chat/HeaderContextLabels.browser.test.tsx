@@ -1,6 +1,7 @@
-import type {
-  EnvironmentConnectionPhase,
-  EnvironmentPresentation,
+import {
+  BearerConnectionTarget,
+  type EnvironmentConnectionPhase,
+  type EnvironmentPresentation,
 } from "@t3tools/client-runtime/connection";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
@@ -102,12 +103,19 @@ const THREAD = ThreadId.make("header-thread");
 const INSTANCE = ProviderInstanceId.make("codex");
 
 function presentation(
+  id: EnvironmentId,
   label: string,
   phase: EnvironmentConnectionPhase,
   scratchWorkspaceRoot?: string,
 ): EnvironmentPresentation {
   return {
-    entry: { target: { label } },
+    entry: {
+      target: new BearerConnectionTarget({
+        environmentId: id,
+        label,
+        connectionId: `header-${label}`,
+      }),
+    },
     connection: { phase, error: null, traceId: null },
     serverConfig: scratchWorkspaceRoot
       ? { scratchWorkspaceRoot, environment: { platform: { machine: "server" } } }
@@ -144,7 +152,7 @@ function setup() {
     [MAC, "Mac", "GPT-6.1 Sol"],
     [REMOTE, "GWDG", "Remote custom model"],
   ] as const) {
-    fixture.presentations.set(id, presentation(label, "connected"));
+    fixture.presentations.set(id, presentation(id, label, "connected"));
     fixture.setProviders(id, [provider(modelName)]);
     fixture.shells.set(id, {
       modelSelection: { instanceId: INSTANCE, model: "shared-model" },
@@ -217,7 +225,7 @@ it("follows the active machine through pending, recovery and a later disconnect"
     "connected",
   ] as const) {
     await act(() => {
-      fixture.presentations.set(REMOTE, presentation("GWDG", phase));
+      fixture.presentations.set(REMOTE, presentation(REMOTE, "GWDG", phase));
       for (const listener of fixture.listeners) listener();
     });
     const pending = phase === "connecting" || phase === "reconnecting";
@@ -247,7 +255,7 @@ it("follows the active machine through pending, recovery and a later disconnect"
 it("starts a projectless thread on the machine only while it offers a scratch workspace", async () => {
   setup();
   fixture.startScratchThread.mockClear();
-  fixture.presentations.set(REMOTE, presentation("GWDG", "connected", "/scratch"));
+  fixture.presentations.set(REMOTE, presentation(REMOTE, "GWDG", "connected", "/scratch"));
   await page.viewport(1000, 260);
   await using screen = await render(header());
   await screen.getByRole("button", { name: "Machine: GWDG. Connected" }).click();
@@ -255,7 +263,7 @@ it("starts a projectless thread on the machine only while it offers a scratch wo
 
   fixture.startScratchThread.mockClear();
   await act(() => {
-    fixture.presentations.set(REMOTE, presentation("GWDG", "offline", "/scratch"));
+    fixture.presentations.set(REMOTE, presentation(REMOTE, "GWDG", "offline", "/scratch"));
     for (const listener of fixture.listeners) listener();
   });
   await screen.getByRole("button", { name: /^Machine: GWDG\./ }).click();

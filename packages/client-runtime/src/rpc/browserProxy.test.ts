@@ -13,6 +13,7 @@ import * as SubscriptionRef from "effect/SubscriptionRef";
 import { RpcClientError } from "effect/rpc";
 import { expect } from "vite-plus/test";
 
+import { BearerConnectionTarget } from "../connection/model.ts";
 import * as Supervisor from "../connection/supervisor.ts";
 import type { RpcSession } from "./session.ts";
 import type { WsRpcProtocolClient } from "./protocol.ts";
@@ -83,7 +84,11 @@ it.effect("checks server routes and keeps proxy failures distinct from ordinary 
       } as unknown as WsRpcProtocolClient;
       const session = yield* SubscriptionRef.make(Option.some({ client } as RpcSession));
       const supervisor = {
-        target: { environmentId: EnvironmentId.make("host"), label: "Host" },
+        target: new BearerConnectionTarget({
+          environmentId: EnvironmentId.make("host"),
+          label: "Host",
+          connectionId: "test",
+        }),
         session,
       } as Supervisor.EnvironmentSupervisor["Service"];
       const result = yield* openWithBrowserProxy({
