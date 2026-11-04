@@ -303,7 +303,7 @@ it("renders inline percentages beside bars and switches quota based on activeMod
     .toBeVisible();
   await expect.element(page.getByText("90%", { exact: true })).toBeVisible();
   await expect.element(page.getByText("80%", { exact: true })).toBeVisible();
-  unmount();
+  await unmount();
 
   // Active Argon model with Antigravity driver: switches to Argon (1%)
   await using _screen2 = await render(
@@ -319,4 +319,38 @@ it("renders inline percentages beside bars and switches quota based on activeMod
     .element(page.getByRole("button", { name: "Usage remaining: Antigravity 1%. Open full usage" }))
     .toBeVisible();
   await expect.element(page.getByText("1%", { exact: true })).toBeVisible();
+});
+
+it("does not show quota details on hover or focus when popup is disabled", async () => {
+  const openFull = vi.fn();
+  await using _screen = await render(
+    <CompactUsageControl
+      accounts={[account("codex", [{ id: "5h", kind: "session", label: "5h", usedPercent: 10 }])]}
+      popupEnabled={false}
+      hoverDelayMs={0}
+      onOpenFullView={openFull}
+    />,
+  );
+  await userEvent.hover(trigger());
+  await expect.element(details()).not.toBeInTheDocument();
+
+  await userEvent.tab();
+  await expect.element(details()).not.toBeInTheDocument();
+
+  // Clicking still opens full usage view
+  await userEvent.click(trigger());
+  expect(openFull).toHaveBeenCalledOnce();
+});
+
+it("supports custom hover delay prop", async () => {
+  await using _screen = await render(
+    <CompactUsageControl
+      accounts={[account("codex", [{ id: "5h", kind: "session", label: "5h", usedPercent: 10 }])]}
+      popupEnabled={true}
+      hoverDelayMs={0}
+      onOpenFullView={() => {}}
+    />,
+  );
+  await userEvent.hover(trigger());
+  await expect.element(details()).toBeVisible();
 });
