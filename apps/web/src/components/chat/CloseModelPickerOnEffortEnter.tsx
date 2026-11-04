@@ -22,13 +22,63 @@ export function CloseModelPickerOnEffortEnter({
     const handleKeyDownCapture = (event: KeyboardEvent) => {
       if (
         event.key !== "Enter" ||
+        event.isComposing ||
+        event.keyCode === 229 ||
         event.altKey ||
         event.ctrlKey ||
         event.metaKey ||
-        event.shiftKey ||
-        (event.target instanceof Element && event.target.closest("[data-effort-level]"))
+        event.shiftKey
       ) {
         return;
+      }
+
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      // Ignore effort level items
+      if (target.closest("[data-effort-level]")) {
+        return;
+      }
+
+      // Do NOT trigger on sidebar provider buttons (keyboard navigation ArrowLeft / Shift+Tab)
+      if (target.closest("[data-model-picker-sidebar], [data-model-picker-provider]")) {
+        return;
+      }
+
+      // Do NOT trigger on legacy-section headers or toggle rows
+      if (target.closest("[aria-expanded], [data-model-picker-legacy]")) {
+        return;
+      }
+
+      // ONLY trigger when the target is:
+      // 1) the search input (event.target instanceof HTMLInputElement or input[type="text"] inside the picker), OR
+      // 2) a model option button / item (target.closest('[role="option"]') or inside [data-model-picker-content])
+      const isSearchInput =
+        target instanceof HTMLInputElement ||
+        target.matches('input[type="text"], input[type="search"], input:not([type])');
+
+      if (isSearchInput) {
+        // When pressing Enter in search with 0 matching models, it does not close the picker
+        // (check if an active or selected model exists, or if there are options present)
+        const hasMatchingModel =
+          popup.querySelector('[role="option"]:not([aria-expanded])') != null ||
+          popup.querySelector("[data-highlighted]") != null ||
+          popup.querySelector('[aria-selected="true"]') != null;
+        if (!hasMatchingModel) {
+          return;
+        }
+      } else {
+        const isModelOption =
+          (target.closest('[role="option"]') != null ||
+            target.closest("[data-model-picker-content]") != null) &&
+          !target.closest("[data-model-picker-sidebar], [data-model-picker-provider]") &&
+          !target.closest("[aria-expanded], [data-model-picker-legacy]");
+
+        if (!isModelOption) {
+          return;
+        }
       }
 
       window.requestAnimationFrame(() => {
@@ -56,6 +106,8 @@ export function CloseModelPickerOnEffortEnter({
         const target = event.target;
         if (
           event.key !== "Enter" ||
+          event.nativeEvent.isComposing ||
+          event.keyCode === 229 ||
           event.altKey ||
           event.ctrlKey ||
           event.metaKey ||
