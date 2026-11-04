@@ -29,7 +29,10 @@ export function ThreadContextChip(props: {
             data-markdown-copy={props.copyMarkdown}
             className="no-underline"
           >
-            <ThreadMachineLabel environmentId={environmentId} />
+            <ThreadMachineLabel
+              environmentId={environmentId}
+              isSubagent={shell?.lineage.relationshipToParent === "subagent"}
+            />
             {project ? (
               <ProjectFavicon project={project} className="size-[1em] self-center" />
             ) : (

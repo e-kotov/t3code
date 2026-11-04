@@ -1,21 +1,34 @@
 import { resolveEnvironmentMachineKind, type EnvironmentId } from "@t3tools/contracts";
-import { CircleDashedIcon } from "lucide-react";
+import { BotIcon, CircleDashedIcon } from "lucide-react";
 
 import { useEnvironment } from "~/state/environments";
 import { EnvironmentMachineIcon } from "./EnvironmentMachineIcon";
 
-export function ThreadMachineLabel(props: { readonly environmentId: EnvironmentId }) {
+export function ThreadMachineLabel(props: {
+  readonly environmentId: EnvironmentId;
+  readonly isSubagent?: boolean;
+}) {
   const environment = useEnvironment(props.environmentId);
   const label = environment?.label.trim() || "Unknown machine";
   return (
     <>
-      {environment ? (
-        <EnvironmentMachineIcon kind={resolveEnvironmentMachineKind(environment.serverConfig)} />
-      ) : (
-        <CircleDashedIcon />
-      )}
-      <span className="max-w-32 shrink-0 self-baseline truncate">{label}</span>
+      <span className="inline-flex min-w-0 items-center gap-[0.2em] rounded-sm px-0.5 [:is(button:enabled,a):hover>&]:bg-foreground/10">
+        {environment ? (
+          <EnvironmentMachineIcon kind={resolveEnvironmentMachineKind(environment.serverConfig)} />
+        ) : (
+          <CircleDashedIcon />
+        )}
+        <span className="max-w-32 shrink-0 self-baseline truncate [:is(button:enabled,a):hover>&]:underline">
+          {label}
+        </span>
+      </span>
       <span className="shrink-0 self-baseline"> · </span>
+      {props.isSubagent ? (
+        <span className="inline-flex shrink-0 items-center gap-0.5 self-baseline text-muted-foreground">
+          <BotIcon aria-hidden="true" />
+          <span>Subagent</span>
+        </span>
+      ) : null}
     </>
   );
 }
