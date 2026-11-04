@@ -36,8 +36,11 @@ const VIEWER_SETTINGS = new Set(["vis", "view", "refresh"]);
 export class ViewerPageGate {
   private confirmed = false;
   private reselects = 0;
+  private readonly pageId: string;
 
-  constructor(private readonly pageId: string) {}
+  constructor(pageId: string) {
+    this.pageId = pageId;
+  }
 
   get isConfirmed() {
     return this.confirmed;

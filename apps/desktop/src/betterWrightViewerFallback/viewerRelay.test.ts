@@ -8,7 +8,13 @@ import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Queue from "effect/Queue";
-import { HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http";
+import {
+  HttpClient,
+  HttpRouter,
+  HttpServer,
+  HttpServerRequest,
+  HttpServerResponse,
+} from "effect/http";
 
 import { startViewerRelay } from "./viewerRelay.ts";
 
@@ -77,11 +83,13 @@ const fakeDaemon = Effect.gen(function* () {
                   if (message.t === "tab" && message.id === TARGET && !switched) {
                     switched = true;
                     yield* Deferred.succeed(reselected, undefined);
-                    yield* Deferred.await(allowSwitch);
-                    yield* writer.write(
-                      JSON.stringify({ t: "meta", pageId: TARGET, url: "https://login.example" }),
-                    );
-                    yield* writer.write(new Uint8Array([5, 5]));
+                    yield* Effect.gen(function* () {
+                      yield* Deferred.await(allowSwitch);
+                      yield* writer.write(
+                        JSON.stringify({ t: "meta", pageId: TARGET, url: "https://login.example" }),
+                      );
+                      yield* writer.write(new Uint8Array([5, 5]));
+                    }).pipe(Effect.forkScoped);
                   }
                 }),
                 { discard: true },
@@ -160,12 +168,13 @@ describe("exact-page viewer relay", () => {
         });
         expect(relay.windowToken).not.toContain(TOKEN);
         const base = `127.0.0.1:${relay.localPort}`;
+        const client = yield* HttpClient.HttpClient;
 
-        const refused = yield* Effect.promise(() => fetch(`http://${base}/?t=${TOKEN}`));
+        const refused = yield* client.get(`http://${base}/?t=${TOKEN}`);
         expect(refused.status).toBe(404);
-        const page = yield* Effect.promise(() => fetch(`http://${base}/?t=${relay.windowToken}`));
-        expect(yield* Effect.promise(() => page.text())).toBe("<html>betterwright viewer</html>");
-        expect(page.headers.get("cache-control")).toBe("no-store");
+        const page = yield* client.get(`http://${base}/?t=${relay.windowToken}`);
+        expect(yield* page.text).toBe("<html>betterwright viewer</html>");
+        expect(page.headers["cache-control"]).toBe("no-store");
         expect(daemon.pageRequests.every((url) => url.includes(TOKEN))).toBe(true);
         const foreignOrigin = yield* Effect.promise(
           () =>
