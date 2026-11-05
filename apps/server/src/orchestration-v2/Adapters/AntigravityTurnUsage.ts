@@ -13,6 +13,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import * as SqlClient from "effect/sql/SqlClient";
 
@@ -38,6 +39,18 @@ interface ThreadUsage {
   running: TurnEvent | undefined;
   // Repeated terminal updates for one turn must carry the same report.
   settled: { readonly turnId: string; readonly usage: TokenUsage | undefined } | undefined;
+}
+
+class AntigravityTurnUsageDecodeError extends Schema.TaggedError<AntigravityTurnUsageDecodeError>()(
+  "AntigravityTurnUsageDecodeError",
+  {
+    filename: Schema.String,
+    cause: Schema.Defect(),
+  },
+) {
+  override get message(): string {
+    return `Antigravity usage could not be decoded from ${this.filename}.`;
+  }
 }
 
 const SETTLED_STATUSES: ReadonlySet<string> = new Set([
@@ -84,9 +97,11 @@ const readLatestAntigravityGeneration = Effect.fn("readLatestAntigravityGenerati
   );
   const data = row?.data;
   if (row === undefined || !(data instanceof Uint8Array)) return undefined;
-  const candidate = yield* Effect.try(
-    () => usageCandidates(sessionId, [{ idx: 0, entry: metadata(data, false) }], [], null, 0)[0],
-  );
+  const candidate = yield* Effect.try({
+    try: () =>
+      usageCandidates(sessionId, [{ idx: 0, entry: metadata(data, false) }], [], null, 0)[0],
+    catch: (cause) => new AntigravityTurnUsageDecodeError({ filename, cause }),
+  });
   return candidate === undefined
     ? undefined
     : { rowId: row.row_id, totals: candidate.record.totals };

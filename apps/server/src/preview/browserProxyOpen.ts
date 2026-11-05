@@ -41,13 +41,14 @@ export function selectBrowserProxyTab<T extends { readonly proxyUrl: string | un
 ): T | undefined {
   if (!tab || sameRoute(tab.proxyUrl, proxyUrl)) return tab;
   if (explicit)
-    throw new BrowserControlInterrupted(
-      "Routing is fixed for this tab. Open a new tab with proxyUrl and reuseExistingTab=false.",
-    );
+    throw new BrowserControlInterrupted({
+      message:
+        "Routing is fixed for this tab. Open a new tab with proxyUrl and reuseExistingTab=false.",
+    });
   return undefined;
 }
 
 export function assertBrowserProxyTarget(proxyUrl: string | undefined, url: string) {
   const blocked = browserProxyTargetError(url, proxyUrl ?? "");
-  if (blocked) throw new BrowserControlInterrupted(blocked.message);
+  if (blocked) throw new BrowserControlInterrupted({ message: blocked.message });
 }

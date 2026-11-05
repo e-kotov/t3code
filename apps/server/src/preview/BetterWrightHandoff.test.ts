@@ -10,6 +10,7 @@ import {
   AuthSessionId,
   ThreadId,
 } from "@t3tools/contracts";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -42,37 +43,33 @@ it.live("refuses another handoff after unsuccessful startup cleanup", () => {
     });
   };
   return Effect.gen(function* () {
-    const previousView = process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND;
-    const previousRun = process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND;
     const script =
       "process.on('SIGTERM',()=>{});console.log('http://public.invalid:18765/?t=private-test-token');setInterval(()=>{},1000);";
-    process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND = JSON.stringify([
-      process.execPath,
-      "-e",
-      script,
-      "--",
-    ]);
-    process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND = JSON.stringify([process.execPath]);
+    const viewerEnv = {
+      ...(yield* HostProcess.Environment),
+      T3CODE_BETTERWRIGHT_VIEW_COMMAND: JSON.stringify([process.execPath, "-e", script, "--"]),
+      T3CODE_BETTERWRIGHT_RUN_COMMAND: JSON.stringify([process.execPath]),
+    };
     yield* Effect.addFinalizer(() =>
       Effect.promise(async () => {
         for (const orphan of orphans) {
           if (orphan.processId !== undefined) process.kill(orphan.processId, "SIGKILL");
           await orphan.closed;
         }
-        if (previousView === undefined) delete process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND;
-        else process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND = previousView;
-        if (previousRun === undefined) delete process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND;
-        else process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND = previousRun;
       }),
     );
     const handoff = yield* Handoff.BetterWrightHandoff;
     const input = { session: "research", pageId: "page-1", prompt: "Complete the CAPTCHA" };
-    const first = yield* handoff.request(ThreadId.make("failed-start"), input).pipe(Effect.flip);
+    const first = yield* handoff
+      .request(ThreadId.make("failed-start"), input)
+      .pipe(Effect.provideService(HostProcess.Environment, viewerEnv), Effect.flip);
     expect(first.message).toContain("startup cleanup failed");
     expect(orphans).toHaveLength(1);
     expect(orphans[0]?.processId).toBeGreaterThan(0);
     process.kill(orphans[0]!.processId!, 0);
-    const second = yield* handoff.request(ThreadId.make("second-start"), input).pipe(Effect.flip);
+    const second = yield* handoff
+      .request(ThreadId.make("second-start"), input)
+      .pipe(Effect.provideService(HostProcess.Environment, viewerEnv), Effect.flip);
     expect(second.message).toContain("previous browser viewer");
     expect(attempts).toBe(1);
   }).pipe(
@@ -156,28 +153,16 @@ it.live(
       const viewerUrl = `http://127.0.0.1:${upstreamPort}/?t=private-integration-token`;
       const marker = NodePath.join(directory, "stopped");
       const script = `const fs=require('node:fs');process.on('SIGTERM',()=>{fs.writeFileSync(${JSON.stringify(marker)},'stopped');process.exit(0)});console.log(${JSON.stringify(viewerUrl)});setInterval(()=>{},1000);`;
-      const previousView = process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND;
-      const previousRun = process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND;
-      process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND = JSON.stringify([
-        process.execPath,
-        "-e",
-        script,
-        "--",
-      ]);
-      process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND = JSON.stringify([
-        process.execPath,
-        "-e",
-        "console.log(JSON.stringify({ok:true,result:false}))",
-        "--",
-      ]);
-      yield* Effect.addFinalizer(() =>
-        Effect.sync(() => {
-          if (previousView === undefined) delete process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND;
-          else process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND = previousView;
-          if (previousRun === undefined) delete process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND;
-          else process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND = previousRun;
-        }),
-      );
+      const viewerEnv = {
+        ...(yield* HostProcess.Environment),
+        T3CODE_BETTERWRIGHT_VIEW_COMMAND: JSON.stringify([process.execPath, "-e", script, "--"]),
+        T3CODE_BETTERWRIGHT_RUN_COMMAND: JSON.stringify([
+          process.execPath,
+          "-e",
+          "console.log(JSON.stringify({ok:true,result:false}))",
+          "--",
+        ]),
+      };
       const handoff = yield* Handoff.BetterWrightHandoff;
       const manager = yield* Manager.PreviewManager;
       const subscription = yield* manager.subscribeEvents;
@@ -188,7 +173,7 @@ it.live(
           pageId: "page-1",
           prompt: "Complete the CAPTCHA",
         })
-        .pipe(Effect.forkScoped);
+        .pipe(Effect.provideService(HostProcess.Environment, viewerEnv), Effect.forkScoped);
       const opened = yield* PubSub.take(subscription).pipe(
         Effect.raceFirst(
           Fiber.join(request).pipe(
@@ -203,7 +188,7 @@ it.live(
       expect(handoff.manages(threadId, tabId)).toBe(true);
       const duplicate = yield* handoff
         .request(threadId, { session: "other", pageId: "page-2", prompt: "Another handoff" })
-        .pipe(Effect.flip);
+        .pipe(Effect.provideService(HostProcess.Environment, viewerEnv), Effect.flip);
       expect(duplicate.message).toContain("already active");
       const browser = ServerBrowser.ServerBrowser.of({
         clearProfile: () => Effect.void,

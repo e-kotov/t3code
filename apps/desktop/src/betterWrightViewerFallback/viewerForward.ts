@@ -7,11 +7,11 @@ import {
   sshTargetLogFields,
 } from "@t3tools/ssh/command";
 import { SshPasswordPromptError } from "@t3tools/ssh/errors";
-import * as Data from "effect/Data";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Schedule from "effect/Schedule";
+import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { HttpClient, HttpClientRequest } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
@@ -23,10 +23,13 @@ const FORWARD_READY_TIMEOUT = Duration.seconds(25);
 const STDERR_TAIL_CHARS = 8_192;
 const MAX_PASSWORD_PROMPTS = 2;
 
-export class ViewerFallbackError extends Data.TaggedError("ViewerFallbackError")<{
-  readonly message: string;
-  readonly cause?: unknown;
-}> {}
+export class ViewerFallbackError extends Schema.TaggedError<ViewerFallbackError>()(
+  "ViewerFallbackError",
+  {
+    message: Schema.String,
+    cause: Schema.optional(Schema.Defect()),
+  },
+) {}
 
 export interface ViewerForward {
   readonly localPort: number;
@@ -34,10 +37,12 @@ export interface ViewerForward {
   readonly exited: Effect.Effect<string>;
 }
 
-class ForwardAttemptError extends Data.TaggedError("ForwardAttemptError")<{
-  readonly message: string;
-  readonly stderr: string;
-}> {}
+class ForwardAttemptError extends Schema.TaggedError<ForwardAttemptError>()("ForwardAttemptError", {
+  message: Schema.String,
+  stderr: Schema.String,
+}) {}
+
+const isForwardAttemptError = Schema.is(ForwardAttemptError);
 
 // The probe sends no token: any HTTP answer proves the remote viewer port is reachable.
 const waitUntilAnswering = Effect.fn("desktop.betterWrightFallback.waitUntilAnswering")(function* (
@@ -151,7 +156,7 @@ export const startViewerForward = Effect.fn("desktop.betterWrightFallback.startF
     const result = yield* Effect.result(attemptForward(target, remotePort, auth));
     if (result._tag === "Success") return result.success;
     const failure = result.failure;
-    const stderr = failure instanceof ForwardAttemptError ? failure.stderr : "";
+    const stderr = isForwardAttemptError(failure) ? failure.stderr : "";
     const retryable =
       prompt.isAvailable &&
       prompts < MAX_PASSWORD_PROMPTS &&
@@ -159,10 +164,9 @@ export const startViewerForward = Effect.fn("desktop.betterWrightFallback.startF
       !SshAuth.isSshAgentSigningFailure(stderr);
     if (!retryable) {
       return yield* new ViewerFallbackError({
-        message:
-          failure instanceof ForwardAttemptError
-            ? failure.message
-            : `Could not start SSH to ${target.alias}.`,
+        message: isForwardAttemptError(failure)
+          ? failure.message
+          : `Could not start SSH to ${target.alias}.`,
         cause: failure,
       });
     }

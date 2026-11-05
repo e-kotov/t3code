@@ -13,6 +13,7 @@ import {
   EnvironmentId,
   ThreadId,
 } from "@t3tools/contracts";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -135,23 +136,11 @@ it.live(
       );
       const viewerUrl = `http://127.0.0.1:${upstreamPort}/?t=${TOKEN}`;
       const script = `process.on('SIGTERM',()=>process.exit(0));console.log(${JSON.stringify(viewerUrl)});setInterval(()=>{},1000);`;
-      const previousView = process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND;
-      const previousRun = process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND;
-      process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND = JSON.stringify([
-        process.execPath,
-        "-e",
-        script,
-        "--",
-      ]);
-      process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND = JSON.stringify([process.execPath]);
-      yield* Effect.addFinalizer(() =>
-        Effect.sync(() => {
-          if (previousView === undefined) delete process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND;
-          else process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND = previousView;
-          if (previousRun === undefined) delete process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND;
-          else process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND = previousRun;
-        }),
-      );
+      const viewerEnv = {
+        ...(yield* HostProcess.Environment),
+        T3CODE_BETTERWRIGHT_VIEW_COMMAND: JSON.stringify([process.execPath, "-e", script, "--"]),
+        T3CODE_BETTERWRIGHT_RUN_COMMAND: JSON.stringify([process.execPath]),
+      };
 
       const handoff = yield* Handoff.BetterWrightHandoff;
       const manager = yield* Manager.PreviewManager;
@@ -159,7 +148,7 @@ it.live(
       const threadId = ThreadId.make("fallback-thread");
       const request = yield* handoff
         .request(threadId, { session: "research", pageId: "page-1", prompt: "Solve the check" })
-        .pipe(Effect.forkScoped);
+        .pipe(Effect.provideService(HostProcess.Environment, viewerEnv), Effect.forkScoped);
       const opened = yield* PubSub.take(subscription);
       expect(opened.type).toBe("opened");
       const tabId = opened.tabId;

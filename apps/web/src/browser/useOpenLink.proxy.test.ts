@@ -7,10 +7,10 @@ import { useOpenLink } from "./useOpenLink";
 
 const mocks = vi.hoisted(() => ({ open: vi.fn(), external: vi.fn(), toast: vi.fn() }));
 
-vi.mock("./openFileInPreview", () => ({
-  openUrlInPreview: mocks.open,
-  BrowserSettingsReadError: class extends Error {},
-}));
+vi.mock("./openFileInPreview", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./openFileInPreview")>();
+  return { ...actual, openUrlInPreview: mocks.open };
+});
 vi.mock("./browserLinkTarget", () => ({
   canOpenLinksInApp: () => true,
   resolveBrowserLinkTargetPreference: async () => "app",
@@ -18,7 +18,10 @@ vi.mock("./browserLinkTarget", () => ({
 }));
 vi.mock("~/browserHistoryStore", () => ({ recordVisitForThread: vi.fn() }));
 vi.mock("~/state/preview", () => ({ previewEnvironment: { open: {} } }));
-vi.mock("~/state/session", () => ({ readEnvironmentScope: () => true }));
+vi.mock("~/state/session", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("~/state/session")>();
+  return { ...actual, readEnvironmentScope: () => true };
+});
 vi.mock("~/state/use-atom-command", () => ({ useAtomCommand: () => vi.fn() }));
 vi.mock("~/components/ui/toast", () => ({ toastManager: { add: mocks.toast } }));
 vi.mock("~/localApi", () => ({

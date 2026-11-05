@@ -14,6 +14,7 @@ export interface BetterWrightProcess {
   readonly stop: () => Promise<void>;
 }
 
+// @effect-diagnostics-next-line extendsNativeError:off - thrown across native Promise boundaries outside the Effect runtime and carries a live Promise callers await.
 export class BetterWrightCleanupError extends Error {
   readonly processId: number | undefined;
   readonly closed: Promise<void>;

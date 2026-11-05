@@ -1,6 +1,7 @@
 // @effect-diagnostics nodeBuiltinImport:off globalTimersInEffect:off - The bridge owns native process/socket callbacks.
 import * as NodeCrypto from "node:crypto";
 import { OrchestratorMcpFailure, ThreadId } from "@t3tools/contracts";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -105,6 +106,7 @@ export const make = Effect.fn("BetterWrightHandoff.make")(function* (
     threadId: ThreadId,
     input: BrowserHandoffInput,
   ) {
+    const env = yield* HostProcess.Environment;
     let cleaned: Promise<void> = Promise.resolve();
     return yield* Effect.tryPromise({
       try: async (parentSignal) => {
@@ -116,9 +118,9 @@ export const make = Effect.fn("BetterWrightHandoff.make")(function* (
           throw new Error(
             "A BetterWright handoff is already active on this environment; finish it first.",
           );
-        const command = betterWrightCommand(process.env.T3CODE_BETTERWRIGHT_VIEW_COMMAND);
+        const command = betterWrightCommand(env.T3CODE_BETTERWRIGHT_VIEW_COMMAND);
         const runCommand = betterWrightCommand(
-          process.env.T3CODE_BETTERWRIGHT_RUN_COMMAND,
+          env.T3CODE_BETTERWRIGHT_RUN_COMMAND,
           "T3CODE_BETTERWRIGHT_RUN_COMMAND",
         );
         busy = true;

@@ -64,6 +64,15 @@ export class ForkThreadQuota extends Context.Service<
   }
 >()("t3/provider/ForkThreadQuota") {}
 
+class ForkThreadQuotaInventoryError extends Schema.TaggedError<ForkThreadQuotaInventoryError>()(
+  "ForkThreadQuotaInventoryError",
+  { cause: Schema.Defect() },
+) {
+  override get message(): string {
+    return "Could not read the Codex task inventory.";
+  }
+}
+
 const make = Effect.gen(function* () {
   const projection = yield* ProjectionStore.ProjectionStoreV2;
   const providers = yield* ProviderInstanceRegistry.ProviderInstanceRegistry;
@@ -122,13 +131,15 @@ const make = Effect.gen(function* () {
       const credentials = yield* readCredentials;
       if (snapshot.auth.workspaceId && snapshot.auth.workspaceId !== credentials.tokens.account_id)
         return empty("unsupported");
-      const task = yield* Effect.try(() =>
-        readCodexTaskInventory(
-          path.join(home, "state_5.sqlite"),
-          nativeTaskId,
-          credentials.tokens.account_id,
-        ),
-      );
+      const task = yield* Effect.try({
+        try: () =>
+          readCodexTaskInventory(
+            path.join(home, "state_5.sqlite"),
+            nativeTaskId,
+            credentials.tokens.account_id,
+          ),
+        catch: (cause) => new ForkThreadQuotaInventoryError({ cause }),
+      });
       if (!task) return empty("unsupported");
       const key = encodeCacheKey([
         native.providerInstanceId,
