@@ -103,6 +103,10 @@ const serverConfig: ServerConfig = {
   keybindings: DEFAULT_RESOLVED_KEYBINDINGS,
 };
 
+let slurmJobStatus: ServerConfig["slurmJobStatus"];
+const serverConfigSnapshot = (): ServerConfig =>
+  slurmJobStatus === undefined ? serverConfig : { ...serverConfig, slurmJobStatus };
+
 const project: OrchestrationProjectShell = {
   id: PROJECT_ID,
   title: "render",
@@ -382,7 +386,7 @@ const handlers: Record<string, (input: never) => unknown> = {
       };
     }),
   [WS_METHODS.subscribeServerConfig]: () =>
-    subscribe([{ version: 1 as const, type: "snapshot" as const, config: serverConfig }]),
+    subscribe([{ version: 1 as const, type: "snapshot" as const, config: serverConfigSnapshot() }]),
 };
 
 // Unanswered calls stay pending, like a server that has not replied yet.
@@ -397,9 +401,9 @@ const client = new Proxy(handlers, {
 
 const session: EnvironmentConnectionLease["session"] = {
   client: client as unknown as WsRpcProtocolClient,
-  initialConfig: Effect.succeed(serverConfig),
+  initialConfig: Effect.succeed(serverConfigSnapshot()),
   subscribeServerConfig: () =>
-    subscribe([{ version: 1 as const, type: "snapshot" as const, config: serverConfig }]),
+    subscribe([{ version: 1 as const, type: "snapshot" as const, config: serverConfigSnapshot() }]),
   ready: Effect.void,
   probe: Effect.void,
   inboundFrames: Effect.succeed(0),
@@ -433,8 +437,12 @@ const encodedDescriptor = Schema.encodeSync(ExecutionEnvironmentDescriptor)(
 );
 
 /** Serves the environment's HTTP API and these threads until disposed. */
-export function installFakeEnvironment(fixtures: ReadonlyArray<FakeThread>): Disposable {
+export function installFakeEnvironment(
+  fixtures: ReadonlyArray<FakeThread>,
+  options?: { readonly slurmJobStatus?: ServerConfig["slurmJobStatus"] },
+): Disposable {
   threads = fixtures;
+  slurmJobStatus = options?.slurmJobStatus;
   globalThis.fetch = async (input, init) => {
     const url = new URL(input instanceof Request ? input.url : String(input), window.location.href);
     if (url.origin !== window.location.origin) return realFetch(input, init);
@@ -456,6 +464,7 @@ export function installFakeEnvironment(fixtures: ReadonlyArray<FakeThread>): Dis
     [Symbol.dispose]: () => {
       globalThis.fetch = realFetch;
       threads = [];
+      slurmJobStatus = undefined;
     },
   };
 }

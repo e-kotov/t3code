@@ -24,6 +24,7 @@ import { useEnvironmentPresentation } from "../../state/presentation";
 import { providersIgnoringCheckedAtAtom } from "../../state/server";
 import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
 import { MachineGroupConnectionStatus } from "../MachineGroupConnectionStatus";
+import { MachineGroupSlurmTime } from "../MachineGroupSlurmTime";
 import { deriveLockedProvider } from "../ChatView.logic";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { ProviderInstanceIcon } from "./ProviderInstanceIcon";
@@ -86,6 +87,10 @@ export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedTh
             {canStartThread ? <div>New thread on {label}</div> : null}
           </TooltipPopup>
         </Tooltip>
+        <MachineGroupSlurmTime
+          environmentId={threadRef.environmentId}
+          className="ml-0 hidden text-xs text-muted-foreground @min-[28rem]/header-context:block"
+        />
       </div>
       <span aria-hidden className="shrink-0 text-sm text-icon-muted">
         /

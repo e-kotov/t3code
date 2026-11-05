@@ -6,6 +6,8 @@ import type { EnvironmentId } from "@t3tools/contracts";
 import { useSyncExternalStore } from "react";
 
 import { useEnvironmentPresentation } from "../state/presentation";
+import { cn } from "../lib/utils";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 
 const subscribe = createSlurmCountdownClock(
   () => document.visibilityState === "visible",
@@ -19,7 +21,10 @@ const subscribe = createSlurmCountdownClock(
   },
 );
 
-export function MachineGroupSlurmTime(props: { environmentId: EnvironmentId }) {
+export function MachineGroupSlurmTime(props: {
+  readonly environmentId: EnvironmentId;
+  readonly className?: string;
+}) {
   const { presentation } = useEnvironmentPresentation(props.environmentId);
   const status = presentation?.serverConfig?.slurmJobStatus;
   const connected = presentation?.connection.phase === "connected";
@@ -28,11 +33,19 @@ export function MachineGroupSlurmTime(props: { environmentId: EnvironmentId }) {
   const label = useSyncExternalStore(clockSubscribe, snapshot, snapshot);
   if (!label) return null;
   return (
-    <span
-      className="ml-1 whitespace-nowrap normal-case tabular-nums"
-      title={`Slurm job ${status!.jobId}: ${label}. Scheduled walltime remaining.`}
-    >
-      {label}
-    </span>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span
+            className={cn("ml-1 whitespace-nowrap normal-case tabular-nums", props.className)}
+          />
+        }
+      >
+        {label}
+      </TooltipTrigger>
+      <TooltipPopup side="top">
+        Slurm job {status!.jobId}: {label}. Scheduled walltime remaining.
+      </TooltipPopup>
+    </Tooltip>
   );
 }
