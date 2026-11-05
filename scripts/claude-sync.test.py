@@ -41,7 +41,7 @@ class ClaudeSyncTests(unittest.TestCase):
         for directory in (self.root, self.runtime, self.bin):
             directory.mkdir()
         self.env = dict(os.environ, RUNNER_TEMP=str(self.runtime), CI="true",
-                        CLAUDE_MODEL=os.environ.get("CLAUDE_MODEL", WORKFLOW["env"]["CLAUDE_MODEL"]),
+                        CLAUDE_MODEL=os.environ.get("CLAUDE_MODEL") or WORKFLOW["env"]["CLAUDE_MODEL"].split("'")[-2],
                         PI_MODEL=WORKFLOW["env"]["PI_MODEL"],
                         PI_THINKING=WORKFLOW["env"]["PI_THINKING"],
                         PI_CODING_AGENT_DIR=str(self.runtime / "pi-home"),
@@ -86,19 +86,31 @@ print(json.dumps({"result": "Fixture repair attempted", "subtype": "success"}))
 PYTHON
 ''')
             self.executable("pi", r'''python3 - "$@" <<'PYTHON'
-import os, pathlib, sys
+import json, os, pathlib, sys
 runtime = pathlib.Path(os.environ["RUNNER_TEMP"])
 assert (runtime / "pi-installed").exists(), "Pi must install independently"
 assert os.environ.get("AI_GATEWAY_API_KEY") == "fixture-gateway-key"
 assert "--provider" in sys.argv and sys.argv[sys.argv.index("--provider") + 1] == "vercel-ai-gateway"
 assert "--model" in sys.argv and sys.argv[sys.argv.index("--model") + 1] == "meta/muse-spark-1.3-contributor"
 assert "--thinking" in sys.argv and sys.argv[sys.argv.index("--thinking") + 1] == "xhigh"
+assert "--mode" in sys.argv and sys.argv[sys.argv.index("--mode") + 1] == "json"
 (runtime / "pi-ran").touch()
+def reply(text, **extra):
+    usage = {"input": 1000, "output": 200, "cacheRead": 0, "cost": {"total": 0.02}}
+    message = {"role": "assistant", "content": [{"type": "text", "text": text}], "usage": usage,
+               "stopReason": "stop", **extra}
+    print(json.dumps({"type": "message_end", "message": message}))
+print(json.dumps({"type": "session", "version": 3}))
+if os.environ.get("PI_FAIL") == "1":
+    reply("", stopReason="error", errorMessage="Gateway unavailable")
+    sys.exit(0)  # Pi's JSON mode exits 0 after a failed model call.
 if sys.argv[sys.argv.index("--tools") + 1] == "read,grep,find,ls":
-    print('{"verdict":"changes","findings":["The mount was dropped."],"summary":"One issue."}')
+    # Only the final message is the answer; earlier messages may quote JSON while working.
+    reply('Reading the old verdict {"verdict":"approve","findings":[],"summary":"stale"} first.')
+    reply('{"verdict":"changes","findings":["The mount was dropped."],"summary":"One issue."}')
     sys.exit(0)
 pathlib.Path("pnpm-lock.yaml").write_text(pathlib.Path(os.environ["EXPECTED_LOCK"]).read_text())
-print("Fixture repair attempted")
+reply("Fixture repair attempted")
 PYTHON
 ''')
         prompt = self.root / ".github/claude/fix-upstream-sync.md"
@@ -264,6 +276,21 @@ PYTHON
         self.assertIn("agent=pi", Path(self.env["GITHUB_OUTPUT"]).read_text())
         self.assertIn("verdict=changes", Path(self.env["GITHUB_OUTPUT"]).read_text())
         self.assertEqual((self.runtime / "findings.md").read_text(), "- The mount was dropped.\n")
+        self.assertIn("meta/muse-spark-1.3-contributor, xhigh, $0.04)",
+                      Path(self.env["GITHUB_STEP_SUMMARY"]).read_text())
+
+    @unittest.skipIf(LIVE, "The live smoke exercises one bounded Claude repair only")
+    def test_claude_falls_back_when_pi_model_call_fails(self):
+        self.break_lockfile()
+        self.env["UPSTREAM_RESOLVER_ORDER"] = "pi,claude"
+        self.env["PI_FAIL"] = "1"
+        result = self.install_then_fix()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((self.runtime / "pi-ran").exists())
+        self.assertTrue((self.runtime / "claude-ran").exists())
+        output = Path(self.env["GITHUB_OUTPUT"]).read_text()
+        self.assertNotIn("agent=pi", output)
+        self.assertIn("agent=claude", output)
 
     @unittest.skipIf(LIVE, "Covered locally without a model call")
     def test_toolchain_uses_clean_main_when_candidate_manifest_is_conflicted(self):
