@@ -401,7 +401,7 @@ const client = new Proxy(handlers, {
 
 const session: EnvironmentConnectionLease["session"] = {
   client: client as unknown as WsRpcProtocolClient,
-  initialConfig: Effect.succeed(serverConfigSnapshot()),
+  initialConfig: Effect.sync(serverConfigSnapshot),
   subscribeServerConfig: () =>
     subscribe([{ version: 1 as const, type: "snapshot" as const, config: serverConfigSnapshot() }]),
   ready: Effect.void,
