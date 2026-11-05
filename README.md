@@ -1,5 +1,7 @@
 # T3 Code EK
 
+[![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/e-kotov/t3code/total?style=flat&logo=github&label=downloads)](https://github.com/e-kotov/t3code/releases)
+
 A customized fork of [T3 Code](https://github.com/pingdotgg/t3code) for cache control,
 Slurm and workflows across multiple machines.
 
