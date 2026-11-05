@@ -51,70 +51,45 @@ run_pi() {
     summary "Pi fallback is unavailable: set the VERCEL_AI_GATEWAY_API_KEY repository secret."
     return 1
   fi
-  local status=0
-  local raw_events="$RUNNER_TEMP/pi-events.jsonl"
+  local status=0 events="$RUNNER_TEMP/pi-events.jsonl"
+  # JSON mode reports per-message usage and cost; text mode prints only the final answer.
   pi --print --mode json --no-session --no-extensions --no-mcp --no-skills --no-prompt-templates \
     --no-approve --provider vercel-ai-gateway --model "$pi_model" --thinking "$pi_thinking" \
-    --tools "$tools" "$(cat "$RUNNER_TEMP/prompt.md")" > "$raw_events" || status=$?
-  if [ "$status" -eq 0 ] && [ ! -s "$raw_events" ]; then status=1; fi
-  python3 - "$raw_events" "$result" "$mode" "$pi_model" "$pi_thinking" >> "${GITHUB_STEP_SUMMARY:-/dev/stderr}" <<'PY'
+    --tools "$tools" "$(cat "$RUNNER_TEMP/prompt.md")" > "$events" || status=$?
+  # JSON mode exits 0 even when the model call fails, so the final message decides success,
+  # exactly as text mode does, and only its text is the result (review JSON is parsed from it).
+  python3 - "$events" "$result" "$mode" "$pi_model" "$pi_thinking" >> "${GITHUB_STEP_SUMMARY:-/dev/stderr}" <<'PY'
 import json, pathlib, sys
-events_file, result_file, mode, model, thinking = sys.argv[1:6]
-text_chunks = []
-total_input_tokens = 0
-total_output_tokens = 0
-total_cache_read = 0
-total_cost = 0.0
-
-# Vercel AI Gateway rates for meta/muse-spark-1.3-contributor (per token)
-input_rate = 0.0000001
-output_rate = 0.0000002
-cache_read_rate = 0.000000002
-
+events, result, mode, model, thinking = sys.argv[1:]
+messages = []
 try:
-    for line in pathlib.Path(events_file).read_text().splitlines():
-        if not line.strip():
-            continue
+    for line in pathlib.Path(events).read_text().splitlines():
         try:
             event = json.loads(line)
-        except Exception:
+        except ValueError:
             continue
-        ev_type = event.get("type")
-        if ev_type == "message_end":
-            msg = event.get("message", {})
-            if msg.get("role") == "assistant":
-                usage = msg.get("usage", {})
-                inp = usage.get("input", 0)
-                outp = usage.get("output", 0)
-                cread = usage.get("cacheRead", 0)
-                total_input_tokens += inp
-                total_output_tokens += outp
-                total_cache_read += cread
-                reported_cost = usage.get("cost", {}).get("total")
-                if reported_cost is not None and reported_cost > 0:
-                    total_cost += reported_cost
-                else:
-                    total_cost += (inp * input_rate) + (outp * output_rate) + (cread * cache_read_rate)
-                for part in msg.get("content", []):
-                    if part.get("type") == "text":
-                        text_chunks.append(part.get("text", ""))
-        elif ev_type == "text" or ev_type == "response":
-            if "text" in event:
-                text_chunks.append(event["text"])
-except Exception as e:
+        message = event.get("message") if isinstance(event, dict) and event.get("type") == "message_end" else None
+        if isinstance(message, dict) and message.get("role") == "assistant":
+            messages.append(message)
+except OSError:
     pass
-
-full_text = "\n".join(text_chunks).strip()
-try:
-    pathlib.Path(result_file).write_text(full_text)
-except Exception:
-    pass
-
-cost_label = f", ${total_cost:.3f}" if total_cost > 0 or total_input_tokens > 0 else ""
-print(f"\n### Pi {mode} ({model}, {thinking}{cost_label})\n")
-print(full_text[:3000] if full_text else "No result")
+usage = [message.get("usage") or {} for message in messages]
+tokens = sum(int(item.get("input") or 0) + int(item.get("output") or 0) + int(item.get("cacheRead") or 0) for item in usage)
+cost = sum(float((item.get("cost") or {}).get("total") or 0) for item in usage)
+spend = f", ${cost:.2f}" if cost > 0 else f", {tokens} tokens, cost unknown" if tokens else ""
+last = messages[-1] if messages else {}
+text = "\n".join(part.get("text", "") for part in last.get("content") or [] if part.get("type") == "text")
+pathlib.Path(result).write_text(text)
+print(f"\n### Pi {mode} ({model}, {thinking}{spend})\n")
+stop = last.get("stopReason")
+if not messages or stop in {"error", "aborted", "length"}:
+    print(last.get("errorMessage") or f"No usable result ({stop or 'no assistant message'})")
+    sys.exit(1)
+print(text[:3000] if text else "No result")
+sys.exit(0 if text.strip() else 1)
 PY
-  return "$status"
+  local result_status=$?
+  if [ "$status" -ne 0 ] || [ "$result_status" -ne 0 ]; then return 1; fi
 }
 
 review_is_valid() {
