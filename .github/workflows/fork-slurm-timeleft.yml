@@ -1,0 +1,74 @@
+name: Fork slurm timeleft
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/fork-slurm-timeleft.yml"
+      - "apps/web/src/components/MachineGroupSlurmTime.tsx"
+      - "apps/web/src/components/Sidebar.tsx"
+      - "apps/web/src/components/chat/HeaderContextLabels*"
+      - "apps/web/src/components/chat/HeaderMachineSlurmTime*"
+      - "apps/web/test/fakeEnvironment.ts"
+      - "packages/client-runtime/src/connection/slurmJobCountdown*"
+      - "packages/client-runtime/src/state/serverConfigProjection*"
+      - "packages/contracts/src/slurmJob*"
+      - "scripts/fork-footprint-budget.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: slurm-timeleft-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch --no-tags origin main "$CHECKOUT_REF"
+          git checkout --detach "$CHECKOUT_REF"
+      - name: Check fork footprint
+        run: |
+          git fetch --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
+          python3 scripts/fork-footprint-budget.py
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          node-version-file: package.json
+          run-install: false
+          cache: true
+      - run: vp install
+      - name: Install Chromium for browser tests
+        run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
+      - name: Check changed code
+        run: vp run check:changed origin/main
+      - name: Capture the header and filter menu without the mounts
+        run: |
+          files=(apps/web/src/components/MachineGroupSlurmTime.tsx apps/web/src/components/Sidebar.tsx apps/web/src/components/chat/HeaderContextLabels.tsx)
+          for file in "${files[@]}"; do cp "$file" "$RUNNER_TEMP/$(basename "$file")"; done
+          restore() {
+            for file in "${files[@]}"; do cp "$RUNNER_TEMP/$(basename "$file")" "$file"; done
+          }
+          trap restore EXIT
+          for file in "${files[@]}"; do git show "origin/main:$file" > "$file"; done
+          VITE_SLURM_CAPTURE=before vp test run apps/web/src/components/chat/HeaderMachineSlurmTime.app.browser.test.tsx
+      - name: Run the slurm timeleft browser test with captures
+        run: VITE_SLURM_CAPTURE=after vp test run apps/web/src/components/chat/HeaderMachineSlurmTime.app.browser.test.tsx
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: slurm-timeleft-captures
+          path: .t3/slurm-evidence/
+          retention-days: 14

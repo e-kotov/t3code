@@ -65,6 +65,7 @@ import {
   getProjectScopeItemNonSettledCount,
   ProjectScopeNonSettledBadge,
 } from "./sidebar/sidebarNonSettledCounts";
+import { MachineGroupSlurmTime } from "./MachineGroupSlurmTime";
 import {
   parseScopedThreadKey,
   scopeProjectRef,
@@ -3265,6 +3266,12 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                                 )}
                               </ProjectScopeRowIcon>
                               <span className="min-w-0 truncate text-sm">{item.label}</span>
+                              {item.kind === "machine" && item.environmentId ? (
+                                <MachineGroupSlurmTime
+                                  environmentId={item.environmentId}
+                                  className="ml-0 text-muted-foreground"
+                                />
+                              ) : null}
                               <ProjectScopeNonSettledBadge count={itemNonSettledCount} />
                               {project && showProjectEnvironments ? (
                                 <ProjectEnvironmentBadge
