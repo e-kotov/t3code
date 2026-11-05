@@ -41,9 +41,14 @@ future upstream merges clean:
    a file dropped to 0 lines, a fork mount was lost: restore it (see step 2) and do not `--write`
    it away; retiring the feature is a decision for step 5. A shrinkage warning is informational;
    check the feature is intact.
-5. Do not commit or push; the workflow commits your working tree. If something truly needs Egor's
-   product decision (removing, relocating or redesigning a fork feature), resolve everything else
-   and write `.claude-needs-decision.md` at the repository root with the decision, the options and
-   your recommendation.
+5. Do not commit or push; the workflow commits your working tree.
+   Safety and Bail-out Rule:
+   If a conflict is ambiguous, involves substantial upstream structural churn, or would require
+   speculatively redesigning a fork feature without a clean, verifiable replacement: DO NOT guess,
+   hallucinate, or force a resolution. It is always safer to halt than to corrupt the codebase.
+   Resolve whatever is unambiguous, then write `.claude-needs-decision.md` at the repository root
+   detailing the dilemma, what changed upstream, why resolving it automatically is too risky,
+   and your recommended options for Egor. The workflow will halt cleanly without pushing or
+   promoting anything to main.
 
 End with a short plain-language summary of what you changed and why.

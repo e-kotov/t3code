@@ -52,18 +52,67 @@ run_pi() {
     return 1
   fi
   local status=0
-  pi --print --no-session --no-extensions --no-mcp --no-skills --no-prompt-templates \
+  local raw_events="$RUNNER_TEMP/pi-events.jsonl"
+  pi --print --mode json --no-session --no-extensions --no-mcp --no-skills --no-prompt-templates \
     --no-approve --provider vercel-ai-gateway --model "$pi_model" --thinking "$pi_thinking" \
-    --tools "$tools" "$(cat "$RUNNER_TEMP/prompt.md")" > "$result" || status=$?
-  if [ "$status" -eq 0 ] && [ ! -s "$result" ]; then status=1; fi
-  python3 - "$result" "$mode" "$pi_model" "$pi_thinking" >> "${GITHUB_STEP_SUMMARY:-/dev/stderr}" <<'PY'
-import pathlib, sys
+    --tools "$tools" "$(cat "$RUNNER_TEMP/prompt.md")" > "$raw_events" || status=$?
+  if [ "$status" -eq 0 ] && [ ! -s "$raw_events" ]; then status=1; fi
+  python3 - "$raw_events" "$result" "$mode" "$pi_model" "$pi_thinking" >> "${GITHUB_STEP_SUMMARY:-/dev/stderr}" <<'PY'
+import json, pathlib, sys
+events_file, result_file, mode, model, thinking = sys.argv[1:6]
+text_chunks = []
+total_input_tokens = 0
+total_output_tokens = 0
+total_cache_read = 0
+total_cost = 0.0
+
+# Vercel AI Gateway rates for meta/muse-spark-1.3-contributor (per token)
+input_rate = 0.0000001
+output_rate = 0.0000002
+cache_read_rate = 0.000000002
+
 try:
-    response = pathlib.Path(sys.argv[1]).read_text()
-except OSError:
-    response = ""
-print(f"\n### Pi {sys.argv[2]} ({sys.argv[3]}, {sys.argv[4]})\n")
-print(response[:3000] if response else "No result")
+    for line in pathlib.Path(events_file).read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            event = json.loads(line)
+        except Exception:
+            continue
+        ev_type = event.get("type")
+        if ev_type == "message_end":
+            msg = event.get("message", {})
+            if msg.get("role") == "assistant":
+                usage = msg.get("usage", {})
+                inp = usage.get("input", 0)
+                outp = usage.get("output", 0)
+                cread = usage.get("cacheRead", 0)
+                total_input_tokens += inp
+                total_output_tokens += outp
+                total_cache_read += cread
+                reported_cost = usage.get("cost", {}).get("total")
+                if reported_cost is not None and reported_cost > 0:
+                    total_cost += reported_cost
+                else:
+                    total_cost += (inp * input_rate) + (outp * output_rate) + (cread * cache_read_rate)
+                for part in msg.get("content", []):
+                    if part.get("type") == "text":
+                        text_chunks.append(part.get("text", ""))
+        elif ev_type == "text" or ev_type == "response":
+            if "text" in event:
+                text_chunks.append(event["text"])
+except Exception as e:
+    pass
+
+full_text = "\n".join(text_chunks).strip()
+try:
+    pathlib.Path(result_file).write_text(full_text)
+except Exception:
+    pass
+
+cost_label = f", ${total_cost:.3f}" if total_cost > 0 or total_input_tokens > 0 else ""
+print(f"\n### Pi {mode} ({model}, {thinking}{cost_label})\n")
+print(full_text[:3000] if full_text else "No result")
 PY
   return "$status"
 }
