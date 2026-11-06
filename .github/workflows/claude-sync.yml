@@ -322,4 +322,3 @@ jobs:
             exit 1
           fi
           echo "Pushed \`$BRANCH\` and dispatched upstream-sync.yml to check and promote it." >> "$GITHUB_STEP_SUMMARY"
-
