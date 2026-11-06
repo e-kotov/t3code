@@ -27,7 +27,7 @@ vi.mock("../../connection/catalog", async () => {
   const { Atom } = await import("effect/reactivity");
   return { environmentCatalog: { catalogValueAtom: Atom.make({ entries: new Map() }) } };
 });
-vi.mock("../workspace/workspace-detail-selection", () => ({ selectWorkspaceDetail: vi.fn() }));
+vi.mock("../layout/workspace/workspace-detail-selection", () => ({ selectWorkspaceDetail: vi.fn() }));
 
 import { appAtomRegistry } from "../../state/atom-registry";
 import {

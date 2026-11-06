@@ -1,4 +1,5 @@
 import type { MenuAction } from "@react-native-menu/menu";
+import type { AppBarMenuItem } from "../../components/ui/AppBar.types";
 import {
   getSidebarConversationSortCriterion,
   isSidebarConversationSortReversed,
@@ -97,24 +98,6 @@ export function conversationChoiceActions(
   ];
 }
 
-export function conversationListMenuActions(
-  options: ConversationListOptions,
-  machineSummary?: string,
-): MenuAction[] {
-  return [
-    {
-      id: "sort",
-      title: "Sort conversations",
-      subactions: conversationChoiceActions("sort", options, "off", machineSummary),
-    },
-    {
-      id: "grouping",
-      title: "Group conversations",
-      subactions: conversationChoiceActions("grouping", options, "off", machineSummary),
-    },
-  ];
-}
-
 /** Applies a `sort:*` or `grouping:*` menu event; returns whether the event was one. */
 export function applyConversationListMenuEvent(
   event: string,
@@ -135,32 +118,22 @@ export function applyConversationListMenuEvent(
   return false;
 }
 
-/** Sort and grouping submenus for `buildHomeListFilterMenu`, present only with handlers. */
+/** Sort and grouping submenus for `buildHomeListFilterMenuItems`, present only with handlers. */
 export function buildConversationListFilterSubmenus(
   props: Partial<ConversationListControls> & { readonly machineSummary?: string },
-) {
-  const submenus: Array<{
-    readonly type: "submenu";
-    readonly title: string;
-    readonly items: Array<{
-      readonly type: "action";
-      readonly title: string;
-      readonly state: "on" | "off";
-      readonly onPress: () => void;
-    }>;
-  }> = [];
+): AppBarMenuItem[] {
+  const submenus: AppBarMenuItem[] = [];
   const onSortOrderChange = props.onConversationSortOrderChange;
   if (onSortOrderChange) {
     submenus.push({
-      type: "submenu",
+      id: "sort",
       title: "Sort conversations",
       items: SORT_CHOICES.map(([value, title]) => ({
-        type: "action" as const,
+        id: `sort:${value}`,
         title: `${title} · ${directionLabel(value, props.conversationSortOrder ?? "updated_at")}`,
-        state:
-          getSidebarConversationSortCriterion(props.conversationSortOrder ?? "updated_at") === value
-            ? ("on" as const)
-            : ("off" as const),
+        selected:
+          getSidebarConversationSortCriterion(props.conversationSortOrder ?? "updated_at") ===
+          value,
         onPress: () => onSortOrderChange(value),
       })),
     });
@@ -172,13 +145,13 @@ export function buildConversationListFilterSubmenus(
       ? `By machine · ${props.machineSummary}`
       : "By machine";
     submenus.push({
-      type: "submenu",
+      id: "grouping",
       title: "Group conversations",
       items: [
         {
-          type: "action" as const,
+          id: "grouping:machine",
           title: machineTitle,
-          state: isSidebarMachineGrouping(current) ? ("on" as const) : ("off" as const),
+          selected: isSidebarMachineGrouping(current),
           onPress: () => onGroupingChange(toggleSidebarGroupingDimension(current, "machine")),
         },
       ],

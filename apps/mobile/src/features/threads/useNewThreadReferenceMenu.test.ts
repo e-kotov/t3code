@@ -22,7 +22,7 @@ beforeEach(() => {
   state.projects = [];
   state.select.mockClear();
 });
-vi.mock("../workspace/useSelectWorkspaceDetail", () => ({
+vi.mock("../layout/workspace/useSelectWorkspaceDetail", () => ({
   useSelectWorkspaceDetail: () => state.select,
 }));
 vi.mock("../../lib/uuid", () => ({ uuidv4: () => "new-request" }));

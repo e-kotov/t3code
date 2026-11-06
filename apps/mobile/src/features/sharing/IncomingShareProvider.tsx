@@ -26,7 +26,7 @@ import { persistComposerAttachmentFile } from "../../lib/composerImages";
 import { subscribeForkIncomingShareEvents } from "./forkIncomingShareEvents";
 import { coalescedRun } from "../../lib/coalescedRun";
 import { rootNavigationRef } from "../../lib/rootNavigation";
-import { selectWorkspaceDetail } from "../workspace/workspace-detail-selection";
+import { selectWorkspaceDetail } from "../layout/workspace/workspace-detail-selection";
 import { isDraftThreadRoute } from "../threads/thread-route-state";
 import {
   makeForkIncomingShareImports as makeIncomingShareImports,

@@ -1,5 +1,5 @@
 import { UtilitiesSection } from "../device-utilities/UtilitiesSection";
-import { WorkspaceTabsContext, useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
+import { WorkspaceTabsContext, useWorkspaceTabs } from "../layout/workspace/WorkspaceTabsContext";
 import { useUtilitiesSidebarExitActions } from "./useUtilitiesSidebarActions";
 import {
   DEVICE_COMMAND_ICONS,
@@ -20,7 +20,9 @@ import {
 } from "react-native";
 
 import { AppText as Text } from "../../components/ui/AppText";
-import { AndroidScreenHeader } from "../../components/ui/AndroidScreenHeader";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { AppBar } from "../../components/ui/AppBar";
+import { SheetHeader } from "../../components/ui/SheetHeader";
 import { Button } from "../../components/ui/Button";
 import { SymbolView, type AppSymbolName } from "../../components/ui/AppSymbol";
 import { ThemedSwitch } from "../../components/ui/ThemedSwitch";
@@ -138,7 +140,8 @@ export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
   }
   return (
     <View className="flex-1 bg-screen">
-      <AndroidScreenHeader
+      <AppBar
+        embedded
         title="Utilities"
         actions={[
           ...(props.sidebar ? exitActions : []),
@@ -322,11 +325,15 @@ export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
         ) : null}
       </ScrollView>
       <Modal visible={!!output} onRequestClose={() => setOutputId(null)} animationType="slide">
-        <View className="flex-1 bg-screen">
-          <AndroidScreenHeader
-            title={output?.commandName ?? "Output"}
-            onBack={() => setOutputId(null)}
-          />
+        <SafeAreaProvider style={{ flex: 1 }}>
+          <View className="flex-1 bg-screen">
+            <SafeAreaView style={{ flex: 1 }}>
+              <SheetHeader
+                presentation="inline"
+                title={output?.commandName ?? "Output"}
+                onClose={() => setOutputId(null)}
+                accessibilityLabel="Close output"
+              />
           <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
             <Text>{resultLabel(output)}</Text>
             {output?.outputTruncated ? <Text>Showing the latest output only.</Text> : null}
@@ -355,7 +362,9 @@ export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
               />
             ) : null}
           </ScrollView>
-        </View>
+            </SafeAreaView>
+          </View>
+        </SafeAreaProvider>
       </Modal>
     </View>
   );

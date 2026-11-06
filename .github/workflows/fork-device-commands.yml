@@ -21,7 +21,7 @@ on:
       - "apps/mobile/src/features/device-commands/**"
       - "apps/mobile/modules/t3-termux-command/**"
       - "apps/mobile/modules/t3-native-controls/android/src/main/java/expo/modules/t3nativecontrols/T3WorkspaceNavigationModule.kt"
-      - "apps/mobile/src/features/workspace/**"
+      - "apps/mobile/src/features/layout/workspace/**"
       - "packages/contracts/src/deviceCommands*"
       - "packages/contracts/src/ipc.ts"
 
@@ -67,7 +67,7 @@ jobs:
       - name: Focused tests
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: |
-          vp test run packages/contracts/src/deviceUtilities.test.ts packages/contracts/src/deviceCommands.test.ts apps/mobile/src/features/device-commands/termuxCommands.logic.test.ts apps/mobile/src/features/workspace/workspace-tabs-state.test.ts
+          vp test run packages/contracts/src/deviceUtilities.test.ts packages/contracts/src/deviceCommands.test.ts apps/mobile/src/features/device-commands/termuxCommands.logic.test.ts apps/mobile/src/features/layout/workspace/workspace-tabs-state.test.ts
           (cd apps/desktop && vp test run src/deviceCommands/DeviceCommandsRunner.test.ts src/deviceCommands/deviceCommandsFile.test.ts src/deviceUtilities/DeviceUtilitiesRuntime.test.ts src/deviceUtilities/UtilityProcessRunner.test.ts)
           (cd apps/web && vp test run --project unit src/deviceCommands/deviceCommands.logic.test.ts)
       - name: Lint feature code

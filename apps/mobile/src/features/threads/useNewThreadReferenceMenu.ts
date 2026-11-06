@@ -4,7 +4,7 @@ import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { appAtomRegistry } from "../../state/atom-registry";
 import { environmentProjects } from "../../state/projects";
 import { uuidv4 } from "../../lib/uuid";
-import { useSelectWorkspaceDetail } from "../workspace/useSelectWorkspaceDetail";
+import { useSelectWorkspaceDetail } from "../layout/workspace/useSelectWorkspaceDetail";
 import { newThreadDraftRoute, newThreadReferenceRoute } from "./newThreadReference";
 
 const NEW_THREAD_IN_PROJECT = "new-thread-in-project";

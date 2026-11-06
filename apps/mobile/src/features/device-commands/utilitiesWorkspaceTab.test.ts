@@ -2,10 +2,10 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   resolveSelectedNavigationTab,
   selectedNavigationTab,
-} from "../workspace/navigation-tab-order";
+} from "../layout/workspace/navigation-tab-order";
 import { highlightUtilities, keepUtilities } from "./utilitiesWorkspaceTab";
-import { initialWorkspaceTabsState, workspaceTabsReducer } from "../workspace/workspace-tabs-state";
-import { workspaceTabNavigationState } from "../workspace/workspace-tab-navigation";
+import { initialWorkspaceTabsState, workspaceTabsReducer } from "../layout/workspace/workspace-tabs-state";
+import { workspaceTabNavigationState } from "../layout/workspace/workspace-tab-navigation";
 
 describe("Utilities workspace tab", () => {
   it("stays selected although upstream does not register it as a section", () => {
