@@ -334,34 +334,34 @@ export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
                 onClose={() => setOutputId(null)}
                 accessibilityLabel="Close output"
               />
-          <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
-            <Text>{resultLabel(output)}</Text>
-            {output?.outputTruncated ? <Text>Showing the latest output only.</Text> : null}
-            <Text selectable>
-              {output?.output ||
-                (output?.status === "running"
-                  ? "Termux returns output when the command finishes. Closing T3 does not stop it."
-                  : "No output.")}
-            </Text>
-            {output?.status === "running" ? (
-              <Button
-                label="Clear waiting status"
-                onPress={() =>
-                  Alert.alert(
-                    "Clear waiting status?",
-                    "This does not stop the Termux command. Confirm it has stopped before running it again.",
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Clear status",
-                        onPress: () => perform(() => clearTermuxWaitingStatus(output.runId)),
-                      },
-                    ],
-                  )
-                }
-              />
-            ) : null}
-          </ScrollView>
+              <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+                <Text>{resultLabel(output)}</Text>
+                {output?.outputTruncated ? <Text>Showing the latest output only.</Text> : null}
+                <Text selectable>
+                  {output?.output ||
+                    (output?.status === "running"
+                      ? "Termux returns output when the command finishes. Closing T3 does not stop it."
+                      : "No output.")}
+                </Text>
+                {output?.status === "running" ? (
+                  <Button
+                    label="Clear waiting status"
+                    onPress={() =>
+                      Alert.alert(
+                        "Clear waiting status?",
+                        "This does not stop the Termux command. Confirm it has stopped before running it again.",
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: "Clear status",
+                            onPress: () => perform(() => clearTermuxWaitingStatus(output.runId)),
+                          },
+                        ],
+                      )
+                    }
+                  />
+                ) : null}
+              </ScrollView>
             </SafeAreaView>
           </View>
         </SafeAreaProvider>

@@ -4,7 +4,10 @@ import {
   selectedNavigationTab,
 } from "../layout/workspace/navigation-tab-order";
 import { highlightUtilities, keepUtilities } from "./utilitiesWorkspaceTab";
-import { initialWorkspaceTabsState, workspaceTabsReducer } from "../layout/workspace/workspace-tabs-state";
+import {
+  initialWorkspaceTabsState,
+  workspaceTabsReducer,
+} from "../layout/workspace/workspace-tabs-state";
 import { workspaceTabNavigationState } from "../layout/workspace/workspace-tab-navigation";
 
 describe("Utilities workspace tab", () => {
