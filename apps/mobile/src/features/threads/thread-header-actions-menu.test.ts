@@ -3,7 +3,6 @@ import { makeThreadShellFixture } from "../../test-fixtures";
 import {
   buildThreadHeaderActionsMenu,
   resolveThreadHeaderPlacement,
-  threadHeaderActionsAppBarProps,
 } from "./thread-header-actions-menu";
 
 const NOW = "2026-06-01T10:00:00.000Z";
@@ -88,37 +87,5 @@ describe("buildThreadHeaderActionsMenu", () => {
     if (preset && "onPress" in preset) preset.onPress();
     expect(onSnooze).toHaveBeenCalledWith("later-today");
     expect(built.items.at(-1)).toMatchObject({ title: "Regenerating…", disabled: true });
-  });
-});
-
-describe("threadHeaderActionsAppBarProps", () => {
-  it("appends a native menu after the existing right items and hands the menu to the AppBar", () => {
-    const built = menu();
-    const props = threadHeaderActionsAppBarProps(
-      {
-        options: { unstable_headerRightItems: () => [{ identifier: "thread-right-git" }] },
-        optionsVersion: ["thread"],
-      },
-      built,
-    );
-    const items = (
-      props.options.unstable_headerRightItems as () => Array<Record<string, unknown>>
-    )();
-    expect(items.map((item) => item.identifier)).toEqual([
-      "thread-right-git",
-      "thread-right-actions",
-    ]);
-    expect(items[1]).toMatchObject({ type: "menu", menu: { title: "Thread actions" } });
-    expect(props.menus).toEqual([built]);
-  });
-
-  it("leaves the header untouched without a menu or native right items", () => {
-    const options = { contentStyle: { backgroundColor: "black" } };
-    expect(threadHeaderActionsAppBarProps({ options, optionsVersion: [] }, menu()).options).toBe(
-      options,
-    );
-    expect(
-      threadHeaderActionsAppBarProps({ options, optionsVersion: [] }, null),
-    ).not.toHaveProperty("menus");
   });
 });

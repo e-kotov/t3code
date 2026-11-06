@@ -4,7 +4,7 @@ import { forkConnectionRows } from "./forkConnectionRows";
 import {
   rememberedSettingsPage,
   workspaceSelectionsIn,
-} from "../workspace/workspace-tab-navigation";
+} from "../layout/workspace/workspace-tab-navigation";
 
 const enabled = {
   android: true,

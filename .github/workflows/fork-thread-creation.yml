@@ -34,10 +34,11 @@ jobs:
   checks:
     if: github.repository == 'e-kotov/t3code'
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 40
     env:
       NODE_OPTIONS: --max-old-space-size=6144
       ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      CHECK_CHANGED_TIMEOUT: "1800"
     steps:
       - name: Checkout without vendored gitlinks
         env:
@@ -54,6 +55,14 @@ jobs:
           run-install: false
           cache: true
       - run: vp install
+      - name: Install Chromium for web and server browser tests
+        run: |
+          node apps/web/node_modules/playwright/cli.js install chromium
+          browser=$(find "$HOME/.cache/ms-playwright" -name chrome-headless-shell -type f -print -quit)
+          test -n "$browser"
+          if ldd "$browser" | grep '=> not found'; then
+            node apps/web/node_modules/playwright/cli.js install-deps chromium
+          fi
       - name: Check formatting before regression proofs
         run: |
           base=$(git merge-base origin/main HEAD)

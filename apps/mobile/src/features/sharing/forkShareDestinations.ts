@@ -11,7 +11,7 @@ import { environmentProjects } from "../../state/projects";
 import { waitForComposerDraftsLoaded } from "../../state/use-composer-drafts";
 import { getQueuedRunEdit } from "../../state/queued-run-edit";
 import { environmentThreadShells } from "../../state/threads";
-import { selectWorkspaceDetail } from "../workspace/workspace-detail-selection";
+import { selectWorkspaceDetail } from "../layout/workspace/workspace-detail-selection";
 import { makeIncomingShareImports, type ShareImportDeps } from "../threads/incomingShareImport";
 import type { IncomingShareDestination, IncomingShareDraft } from "./incoming-share-model";
 import {

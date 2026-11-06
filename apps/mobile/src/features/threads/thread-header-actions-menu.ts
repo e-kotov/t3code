@@ -1,9 +1,6 @@
-import type { NativeStackHeaderItemMenu } from "@react-navigation/native-stack";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import { effectiveSnoozed } from "@t3tools/client-runtime/state/thread-settled";
 import type { AppBarMenu, AppBarMenuItem } from "../../components/ui/AppBar.types";
-import type { AppNativeStackNavigationOptions } from "../../native/StackHeader";
-import { withNativeGlassHeaderItem } from "../layout/native-glass-header-items";
 
 type ThreadHeaderActionsMenu = AppBarMenu;
 type ThreadHeaderPlacement = "active" | "settled" | "snoozed";
@@ -93,57 +90,5 @@ export function buildThreadHeaderActionsMenu(input: {
             },
           ]),
     ],
-  };
-}
-
-type NativeMenuItems = NativeStackHeaderItemMenu["menu"]["items"];
-
-function nativeMenuItems(items: ReadonlyArray<AppBarMenuItem>): NativeMenuItems {
-  return items.map((item) =>
-    "items" in item
-      ? { type: "submenu" as const, label: item.title ?? "", items: nativeMenuItems(item.items) }
-      : {
-          type: "action" as const,
-          label: item.title,
-          description: item.subtitle,
-          disabled: item.disabled,
-          ...(item.icon ? { icon: { type: "sfSymbol" as const, name: item.icon as never } } : {}),
-          onPress: item.onPress,
-        },
-  );
-}
-
-/** iOS thread headers render native right items, which ignore AppBar `menus`. */
-function withThreadHeaderActionsItem(
-  options: AppNativeStackNavigationOptions,
-  menu: ThreadHeaderActionsMenu | null | undefined,
-): AppNativeStackNavigationOptions {
-  const rightItems = options.unstable_headerRightItems;
-  if (!menu || typeof rightItems !== "function") return options;
-  const baseItems = rightItems as (...args: unknown[]) => ReadonlyArray<unknown>;
-  return {
-    ...options,
-    unstable_headerRightItems: (...args: unknown[]) => [
-      ...baseItems(...args),
-      withNativeGlassHeaderItem({
-        type: "menu" as const,
-        label: "",
-        accessibilityLabel: menu.title,
-        identifier: "thread-right-actions",
-        icon: { type: "sfSymbol" as const, name: menu.icon as never },
-        menu: { title: menu.title, items: nativeMenuItems(menu.items) },
-      }),
-    ],
-  };
-}
-
-export function threadHeaderActionsAppBarProps(
-  native: { readonly options: AppNativeStackNavigationOptions; readonly optionsVersion: unknown },
-  menu: ThreadHeaderActionsMenu | null | undefined,
-) {
-  return {
-    options: withThreadHeaderActionsItem(native.options, menu),
-    optionsVersion: [native.optionsVersion, menu],
-    ...(menu ? { menus: [menu] } : {}),
   };
 }

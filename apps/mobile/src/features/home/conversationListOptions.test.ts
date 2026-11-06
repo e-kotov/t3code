@@ -1,20 +1,16 @@
-import { describe, expect, it, vi } from "vite-plus/test";
 import { EnvironmentId } from "@t3tools/contracts";
-
+import { describe, expect, it, vi } from "vite-plus/test";
 import {
   applyConversationListMenuEvent,
   conversationChoiceActions,
   conversationListControls,
-  conversationListMenuActions,
+  DEFAULT_CONVERSATION_LIST_OPTIONS,
   isConversationListCustomized,
   type ConversationListOptions,
 } from "./conversationListOptions";
-import { buildHomeListFilterMenu } from "./home-list-filter-menu";
+import { buildHomeListFilterMenuItems } from "./home-list-filter-menu";
 
-const defaults: ConversationListOptions = {
-  conversationSortOrder: "updated_at",
-  conversationGrouping: "none",
-};
+const defaults: ConversationListOptions = DEFAULT_CONVERSATION_LIST_OPTIONS;
 
 function controls() {
   return {
@@ -24,8 +20,8 @@ function controls() {
   };
 }
 
-describe("conversation list options", () => {
-  it("counts only a non-default sort or grouping as customized", () => {
+describe("conversationListOptions", () => {
+  it("reports customization only for non-default sort or grouping", () => {
     const sorted = { ...defaults, conversationSortOrder: "cache_expiry" as const };
     const grouped = { ...defaults, conversationGrouping: "machine" as const };
     expect(isConversationListCustomized(defaults)).toBe(false);
@@ -67,7 +63,7 @@ describe("conversation list options", () => {
     ).toEqual([
       { id: "grouping:machine", title: "By machine · 2 machines · 5 active", state: "on" },
     ]);
-    expect(conversationListMenuActions(options)[0]?.subactions).toEqual([
+    expect(conversationChoiceActions("sort", defaults, "off")).toEqual([
       { id: "sort:updated_at", title: "Recent activity · Newest first", state: "on" },
       { id: "sort:created_at", title: "Created · Newest first", state: "off" },
       { id: "sort:cache_expiry", title: "Cache expiry · Soonest first", state: "off" },
@@ -90,37 +86,51 @@ describe("conversation list options", () => {
       environments: [],
       projects: [],
     };
-    expect(buildHomeListFilterMenu(emptyBase).items.map((item) => item.title)).toEqual([
+    expect(buildHomeListFilterMenuItems(emptyBase).map((item) => item.title)).toEqual([
       "Environment",
     ]);
 
     const list = controls();
-    const menu = buildHomeListFilterMenu({
+    const items = buildHomeListFilterMenuItems({
       ...base,
       ...list,
       machineSummary: "1 machine · 3 active",
     });
-    expect(menu.items.map((item) => item.title)).toEqual([
+    expect(items.map((item) => item.title)).toEqual([
       "Environment",
       "Project",
       "Sort conversations",
       "Group conversations",
     ]);
-    const envSubmenu = menu.items[0];
-    const projSubmenu = menu.items[1];
-    expect(envSubmenu?.type === "submenu" && envSubmenu.items[1]?.title).toBe("MacBook (3)");
-    expect(envSubmenu?.type === "submenu" && envSubmenu.items[1]?.subtitle).toBe("3 active");
-    expect(projSubmenu?.type === "submenu" && projSubmenu.items[1]?.title).toBe("t3code (2)");
-    expect(projSubmenu?.type === "submenu" && projSubmenu.items[1]?.subtitle).toBe("2 active");
+    const envSubmenu = items[0];
+    const projSubmenu = items[1];
+    expect(envSubmenu && "items" in envSubmenu && envSubmenu.items[1]?.title).toBe("MacBook (3)");
+    expect(
+      envSubmenu &&
+        "items" in envSubmenu &&
+        !("items" in envSubmenu.items[1]!) &&
+        envSubmenu.items[1]?.subtitle,
+    ).toBe("3 active");
+    expect(projSubmenu && "items" in projSubmenu && projSubmenu.items[1]?.title).toBe("t3code (2)");
+    expect(
+      projSubmenu &&
+        "items" in projSubmenu &&
+        !("items" in projSubmenu.items[1]!) &&
+        projSubmenu.items[1]?.subtitle,
+    ).toBe("2 active");
 
-    const grouping = menu.items[3];
-    expect(grouping?.type === "submenu" && grouping.items.map((item) => item.state)).toEqual([
-      "off",
-    ]);
-    expect(grouping?.type === "submenu" && grouping.items[0]?.title).toBe(
+    const grouping = items[3];
+    expect(
+      grouping &&
+        "items" in grouping &&
+        grouping.items.map((item) => (!("items" in item) ? item.selected : undefined)),
+    ).toEqual([false]);
+    expect(grouping && "items" in grouping && grouping.items[0]?.title).toBe(
       "By machine · 1 machine · 3 active",
     );
-    if (grouping?.type === "submenu") grouping.items[0]?.onPress();
+    if (grouping && "items" in grouping && grouping.items[0] && !("items" in grouping.items[0])) {
+      grouping.items[0].onPress();
+    }
     expect(list.onConversationGroupingChange).toHaveBeenCalledWith("machine");
   });
 });

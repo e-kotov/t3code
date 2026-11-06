@@ -1,7 +1,7 @@
 import type {
   resolveSelectedNavigationTab,
   selectedNavigationTab,
-} from "../workspace/navigation-tab-order";
+} from "../layout/workspace/navigation-tab-order";
 
 /**
  * The fork's Android Utilities section. It stays outside upstream's registered sections, so

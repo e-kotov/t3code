@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react";
-import { ListFilterMenu } from "../workspace/ListFilterMenu";
+import { ListFilterMenu } from "../layout/workspace/ListFilterMenu";
 import { ThreadListFilters } from "./ThreadListFilters";
 import {
   applyConversationListMenuEvent,

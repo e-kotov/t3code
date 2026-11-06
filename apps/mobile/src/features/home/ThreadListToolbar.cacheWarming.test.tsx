@@ -3,8 +3,12 @@ import { act, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { expect, it, vi } from "vite-plus/test";
-import { ThreadListToolbar } from "./ThreadListToolbar.android";
-import type { ConversationListControls } from "./conversationListOptions";
+import { WorkspaceListHeader } from "../layout/workspace/WorkspaceListHeader.android";
+import {
+  isConversationListCustomized,
+  type ConversationListControls,
+} from "./conversationListOptions";
+import { buildHomeListFilterMenuItems } from "./home-list-filter-menu";
 
 const harness = vi.hoisted(() => ({
   threads: [] as unknown[],
@@ -34,6 +38,8 @@ vi.mock("../../state/use-remote-environment-registry", () => ({
   useSavedRemoteConnection: () => ({ environmentLabel: "GWDG HPC" }),
 }));
 vi.mock("react-native", () => ({
+  BackHandler: { addEventListener: () => ({ remove: () => {} }) },
+  Keyboard: { dismiss: () => {}, isVisible: () => false },
   View: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   Pressable: ({
     children,
@@ -68,12 +74,9 @@ vi.mock("@react-navigation/native", () => ({
   useNavigation: () => ({}),
   useNavigationState: () => true,
 }));
-vi.mock("../workspace/WorkspaceTabsContext", () => ({ useWorkspaceTabs: () => null }));
+vi.mock("../layout/workspace/WorkspaceTabsContext", () => ({ useWorkspaceTabs: () => null }));
 vi.mock("../../state/workspace", () => ({
   useWorkspaceConnectionState: () => ({ hasConnections: true }),
-}));
-vi.mock("../../components/ui/useToolbarLayout", () => ({
-  useToolbarLayout: () => ({ paddingTop: 0, paddingBottom: 0 }),
 }));
 vi.mock("../keyboard/hardwareKeyboardCommands", () => ({ useHardwareKeyboardCommand: () => {} }));
 vi.mock("../../components/ui/AppBar", () => ({
@@ -82,21 +85,7 @@ vi.mock("../../components/ui/AppBar", () => ({
     return null;
   },
 }));
-vi.mock("../workspace/WorkspaceBrandTitle", () => ({ WorkspaceBrandTitle: () => null }));
-vi.mock("../../components/ui/menuActionItems", () => ({
-  appBarMenuItemsFromActions: (actions: any, onSelect: (id: string) => void) => {
-    return actions.map((action: any) => ({
-      id: action.id,
-      title: action.title,
-      subactions: action.subactions?.map((sub: any) => ({
-        id: sub.id,
-        title: sub.title,
-        select: () => onSelect(sub.id),
-      })),
-      select: () => onSelect(action.id),
-    }));
-  },
-}));
+vi.mock("../layout/workspace/WorkspaceBrandTitle", () => ({ WorkspaceBrandTitle: () => null }));
 
 function subscribe(listener: () => void) {
   harness.listeners.add(listener);
@@ -107,7 +96,7 @@ function subscribe(listener: () => void) {
 
 function setup(props?: {
   conversationList?: ConversationListControls;
-  onFilterSelect?: (id: string) => void;
+  onEnvironmentChange?: (id: EnvironmentId | null) => void;
 }) {
   harness.update.mockReset();
   harness.lastAppBarProps = null;
@@ -137,15 +126,30 @@ function setup(props?: {
     act(() => {
       for (const listener of harness.listeners) listener();
       root.render(
-        <ThreadListToolbar
-          searchQuery=""
-          onSearchQueryChange={() => {}}
-          filterActions={[]}
-          filterCustomized={false}
-          onFilterSelect={props?.onFilterSelect ?? (() => {})}
+        <WorkspaceListHeader
+          accessibilityLabel="T3 Code, Threads"
           onOpenEnvironments={() => {}}
           cacheWarmingEnvironmentId={environmentId}
-          {...(props?.conversationList ? { conversationList: props.conversationList } : {})}
+          search={{
+            value: "",
+            onChangeText: () => {},
+            placeholder: "Search",
+            accessibilityLabel: "Search threads",
+          }}
+          filter={{
+            customized: props?.conversationList
+              ? isConversationListCustomized(props.conversationList)
+              : false,
+            items: buildHomeListFilterMenuItems({
+              environments: [],
+              projects: [],
+              selectedEnvironmentId: null,
+              selectedProjectKey: null,
+              onEnvironmentChange: props?.onEnvironmentChange ?? (() => {}),
+              onProjectChange: () => {},
+              ...props?.conversationList,
+            }),
+          }}
         />,
       );
     });
@@ -186,7 +190,7 @@ it("shows the Android sidebar's warm-all switch and updates only hot conversatio
 });
 
 it("includes sort and group actions and routes sort events to conversationList controls", () => {
-  const onFilterSelect = vi.fn();
+  const onEnvironmentChange = vi.fn();
   const onConversationSortOrderChange = vi.fn();
   const onConversationGroupingChange = vi.fn();
   const conversationList: ConversationListControls = {
@@ -196,7 +200,7 @@ it("includes sort and group actions and routes sort events to conversationList c
     onConversationGroupingChange,
   };
 
-  using screen = setup({ conversationList, onFilterSelect });
+  using screen = setup({ conversationList, onEnvironmentChange });
   screen.render();
 
   expect(harness.lastAppBarProps).not.toBeNull();
@@ -212,19 +216,17 @@ it("includes sort and group actions and routes sort events to conversationList c
   expect(groupSubmenu).toBeDefined();
   expect(groupSubmenu.title).toBe("Group conversations");
 
-  // Selecting a sort choice calls onConversationSortOrderChange and not onFilterSelect
-  const createdChoice = sortSubmenu.subactions.find((sub: any) => sub.id === "sort:created_at");
+  const createdChoice = sortSubmenu.items.find((sub: any) => sub.id === "sort:created_at");
   expect(createdChoice).toBeDefined();
-  createdChoice.select();
+  createdChoice.onPress();
 
   expect(onConversationSortOrderChange).toHaveBeenCalledWith("created_at");
-  expect(onFilterSelect).not.toHaveBeenCalled();
+  expect(onEnvironmentChange).not.toHaveBeenCalled();
 
-  // Selecting a grouping choice calls onConversationGroupingChange and not onFilterSelect
-  const machineChoice = groupSubmenu.subactions.find((sub: any) => sub.id === "grouping:machine");
+  const machineChoice = groupSubmenu.items.find((sub: any) => sub.id === "grouping:machine");
   expect(machineChoice).toBeDefined();
-  machineChoice.select();
+  machineChoice.onPress();
 
   expect(onConversationGroupingChange).toHaveBeenCalledWith("machine");
-  expect(onFilterSelect).not.toHaveBeenCalled();
+  expect(onEnvironmentChange).not.toHaveBeenCalled();
 });
