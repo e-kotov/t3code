@@ -53,6 +53,9 @@ jobs:
           git sparse-checkout set --no-cone '/*' '!/.repos/'
           git fetch --no-tags --depth=1 origin "$CHECKOUT_REF"
           git checkout --detach FETCH_HEAD
+      - name: Mask credential names in logs
+        id: mask-log-names
+        run: bash .github/claude/mask-log-names.sh
       - run: python3 -m pip install PyYAML==6.0.3
       - name: Test recovery before dependency installation
         run: |
@@ -155,6 +158,12 @@ jobs:
           git rev-parse HEAD > "$RUNNER_TEMP/fix-base"
           { echo "branch=$branch"; echo "mode=$mode"; echo "merge=$merge"; } >> "$GITHUB_OUTPUT"
           summary "Resolving in \`$branch\` (mode: $mode) from $RUN_URL."
+      - name: Mask credential names in logs
+        id: mask-log-names
+        if: steps.prepare.outputs.branch != ''
+        # The failed candidate may predate this helper; use the clean main copy.
+        shell: bash
+        run: git show refs/remotes/origin/main:.github/claude/mask-log-names.sh | bash
       - name: Prepare a clean toolchain manifest
         id: bootstrap
         if: steps.prepare.outputs.branch != ''

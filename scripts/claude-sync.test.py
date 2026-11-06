@@ -305,6 +305,51 @@ PYTHON
         self.assertFalse(setup["with"]["cache"])
 
     @unittest.skipIf(LIVE, "Covered locally without a model call")
+    def test_credential_names_are_masked_before_step_headers(self):
+        names = {"ANTHROPIC_API_KEY", "AI_GATEWAY_API_KEY", "VERCEL_AI_GATEWAY_API_KEY"}
+        expected = {f"::add-mask::{name}" for name in names}
+        self.assertTrue(names.isdisjoint(WORKFLOW.get("env", {})))
+        for job_id in ("bootstrap-tests", "resolve"):
+            with self.subTest(job=job_id):
+                job = WORKFLOW["jobs"][job_id]
+                self.assertTrue(names.isdisjoint(job.get("env", {})))
+                steps = job["steps"]
+                mask = next((step for step in steps if step.get("id") == "mask-log-names"), None)
+                self.assertIsNotNone(mask, "Register names in a preceding step, before env headers")
+                mask_index = steps.index(mask)
+                for step in steps[:mask_index + 1]:
+                    for name in names:
+                        self.assertNotIn(name, json.dumps(step))
+                credential_steps = [index for index, step in enumerate(steps)
+                                    if not names.isdisjoint(step.get("env", {}))]
+                self.assertTrue(credential_steps)
+                self.assertTrue(all(index > mask_index for index in credential_steps))
+                self.assertNotIn("continue-on-error", mask)
+                if job_id == "bootstrap-tests":
+                    self.assertNotIn("if", mask)
+                    result = subprocess.run(["bash", "-e", "-o", "pipefail", "-c", mask["run"]],
+                                            cwd=ROOT, env={}, text=True, capture_output=True)
+                else:
+                    self.assertEqual(mask["if"], "steps.prepare.outputs.branch != ''")
+                    self.assertEqual(mask.get("shell"), "bash", "The git show pipeline must fail closed")
+                    helper = self.root / ".github/claude/mask-log-names.sh"
+                    shutil.copyfile(ROOT / ".github/claude/mask-log-names.sh", helper)
+                    self.command("git", "add", str(helper))
+                    self.command("git", "commit", "-qm", "clean masking helper")
+                    self.command("git", "update-ref", "refs/remotes/origin/main", "HEAD")
+                    helper.unlink()  # A handed-off candidate can predate the helper.
+                    result = self.run_step(mask)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(set(result.stdout.splitlines()), expected)
+                self.assertEqual(result.stderr, "")
+                if job_id == "resolve":
+                    self.command("git", "commit", "-qam", "missing masking helper")
+                    self.command("git", "update-ref", "refs/remotes/origin/main", "HEAD")
+                    missing = self.run_step(mask)
+                    self.assertNotEqual(missing.returncode, 0)
+                    self.assertEqual(missing.stdout, "")
+
+    @unittest.skipIf(LIVE, "Covered locally without a model call")
     def test_decision_request_is_logged_and_saved_without_rebuilding(self):
         question = "Choose upstream ACP 1.4.1 or keep the fork pin.\n"
         (self.root / ".claude-needs-decision.md").write_text(question)
