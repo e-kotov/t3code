@@ -27,7 +27,10 @@ import { useAndroidWorkspaceRoot } from "./AndroidWorkspaceTabsProvider";
 import { useNavigationTabOrder, useHiddenNavigationTabs } from "./navigation-tabs";
 import { useWorkspaceTabs } from "./WorkspaceTabsContext";
 import { highlightUtilities } from "../../device-commands/utilitiesWorkspaceTab";
-import { useUtilitiesNavigation, type UtilitiesNavigation } from "../../device-utilities/navigation";
+import {
+  useUtilitiesNavigation,
+  type UtilitiesNavigation,
+} from "../../device-utilities/navigation";
 import { FLOATING_TABS, floatingTabsMetrics } from "./floating-workspace-tabs";
 
 // Matches RAIL_WIDTH in the native rail.

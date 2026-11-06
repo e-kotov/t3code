@@ -147,7 +147,7 @@ function setup(props?: {
               selectedProjectKey: null,
               onEnvironmentChange: props?.onEnvironmentChange ?? (() => {}),
               onProjectChange: () => {},
-              ...(props?.conversationList ?? {}),
+              ...props?.conversationList,
             }),
           }}
         />,

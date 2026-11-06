@@ -4,14 +4,13 @@ import {
   applyConversationListMenuEvent,
   conversationChoiceActions,
   conversationListControls,
+  DEFAULT_CONVERSATION_LIST_OPTIONS,
   isConversationListCustomized,
+  type ConversationListOptions,
 } from "./conversationListOptions";
 import { buildHomeListFilterMenuItems } from "./home-list-filter-menu";
 
-const defaults = {
-  conversationSortOrder: "updated_at" as const,
-  conversationGrouping: "none" as const,
-};
+const defaults: ConversationListOptions = DEFAULT_CONVERSATION_LIST_OPTIONS;
 
 function controls() {
   return {
