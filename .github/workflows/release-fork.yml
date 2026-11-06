@@ -92,29 +92,26 @@ jobs:
           git fetch --no-tags --depth=1 origin "$RELEASE_REF"
           git sparse-checkout set --no-cone '/*' '!/.repos/'
           git checkout --detach FETCH_HEAD
-      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+      - uses: ./.github/actions/setup-ci-deps
         with:
-          node-version-file: package.json
-          cache: true
-          run-install: false
-      - run: vp install --filter=@t3tools/desktop... --filter=t3... --filter=@t3tools/scripts...
-      - run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config
+          install-args: --filter=@t3tools/desktop... --filter=t3... --filter=@t3tools/scripts...
       - run: node scripts/update-release-package-versions.ts "$RELEASE_VERSION"
         env:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
       - run: vp run --concurrency-limit 2 --filter @t3tools/contracts --filter @t3tools/shared --filter @t3tools/client-runtime --filter @t3tools/web --filter ./apps/server typecheck
-      - run: vp run build:desktop
+      - run: vp run build:desktop:bundle
       - name: Package native Termux ARM64 server
         env:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          python3 -m pip install PyYAML==6.0.3
+          python3 -c "import yaml" 2>/dev/null || python3 -m pip install -q PyYAML==6.0.3
           python3 scripts/build-termux-server.test.py
           python3 scripts/build-termux-server.py --bundle apps/server/dist --output release-termux --version "$RELEASE_VERSION"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: fork-termux-server
           path: release-termux/*
+          compression-level: 0
           if-no-files-found: error
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
@@ -187,6 +184,7 @@ jobs:
         with:
           name: fork-mac-signed
           path: signed-mac/*
+          compression-level: 0
           if-no-files-found: error
 
   linux_server:
@@ -205,15 +203,23 @@ jobs:
           git fetch --no-tags --depth=1 origin "$RELEASE_REF"
           git sparse-checkout set --no-cone '/*' '!/.repos/'
           git checkout --detach FETCH_HEAD
-      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+      - uses: ./.github/actions/setup-ci-deps
         with:
-          node-version-file: package.json
-          cache: true
-          run-install: false
-      - run: vp install --filter=t3... --filter=@t3tools/scripts...
+          install-args: --filter=t3... --filter=@t3tools/scripts...
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
           toolchain: stable
+      - name: Cache Rust resource monitor build
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            native/resource-monitor/target
+          key: rust-resource-monitor-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/resource-monitor/Cargo.lock', 'native/resource-monitor/Cargo.toml', 'native/resource-monitor/src/**') }}
+          restore-keys: |
+            rust-resource-monitor-v1-${{ runner.os }}-${{ runner.arch }}-
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: js-bundle
@@ -233,6 +239,7 @@ jobs:
         with:
           name: fork-linux-server
           path: release-cli/*.tar.gz
+          compression-level: 0
           if-no-files-found: error
 
   android:
@@ -260,18 +267,18 @@ jobs:
           git fetch --no-tags --depth=1 origin "$RELEASE_REF"
           git sparse-checkout set --no-cone '/*' '!/.repos/'
           git checkout --detach FETCH_HEAD
+      - name: Require the persistent fork signing key
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          [[ -n "$KEYSTORE" && -n "$STORE_PASSWORD" && -n "$KEY_PASSWORD" ]] || { echo 'Configure the Android release signing secrets.'; exit 1; }
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: apps/mobile/modules/t3-tailnet/go/go.mod
-          cache-dependency-path: apps/mobile/modules/t3-tailnet/go/go.sum
-      - name: Test and build the built-in Tailscale engine
-        run: |
-          (cd apps/mobile/modules/t3-tailnet/go && go test ./...)
-          scripts/build-tailnet-android.sh
+      - uses: ./.github/actions/build-fork-tailnet
       - name: Cache Gradle dependencies and task outputs
         uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
         with:
@@ -290,38 +297,28 @@ jobs:
             android-ccache-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}-
             android-ccache-v1-${{ runner.os }}-${{ runner.arch }}-
       - run: ccache --zero-stats
-      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+      - uses: ./.github/actions/setup-ci-deps
         with:
-          node-version-file: package.json
-          cache: true
-          run-install: false
-      - name: Require the persistent fork signing key
-        env:
-          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          [[ -n "$KEYSTORE" && -n "$STORE_PASSWORD" && -n "$KEY_PASSWORD" ]] || { echo 'Configure the Android release signing secrets.'; exit 1; }
-      - run: vp install --filter=@t3tools/mobile...
+          install-args: --filter=@t3tools/mobile...
       - name: Check standalone startup without an Expo project
         working-directory: apps/mobile
         run: vp test run fork-app-identity.test.ts src/features/observability/forkObserve.test.ts
       - run: vp run --filter @t3tools/mobile typecheck
       - run: vp exec --filter @t3tools/mobile -- expo prebuild --clean --platform android --no-install
-      - name: Require standalone startup without native Observe
+      # One Gradle run checks the release runtime classpath, runs native unit
+      # tests, and builds the release APK; a failing check stops the build.
+      - name: Verify native classpath, test modules, and build a standalone release APK
         working-directory: apps/mobile/android
-        run: |
-          ./gradlew :app:dependencies --configuration releaseRuntimeClasspath --console=plain --no-daemon --max-workers=2 > "$RUNNER_TEMP/startup-dependencies.log"
-          python3 - <<'PY'
-          import os, pathlib
-          dependencies = (pathlib.Path(os.environ['RUNNER_TEMP']) / 'startup-dependencies.log').read_text()
-          assert 'expo-observe' not in dependencies and 'expo.modules.observe' not in dependencies, 'Unconfigured native Observe is still linked'
-          PY
-      # One Gradle run configures the project once for both tasks; a failing
-      # test stops the build.
-      - name: Test native notification handling and build a standalone release APK
-        working-directory: apps/mobile/android
-        run: ./gradlew --init-script ../../../scripts/fork-sharing-tests.gradle :expo-sharing:testDebugUnitTest :t3-agent-notifications:testDebugUnitTest :t3-citation-passage:testDebugUnitTest :t3-tailnet:testDebugUnitTest assembleRelease -PreactNativeArchitectures=arm64-v8a --build-cache --no-daemon --max-workers=4
+        run: >-
+          ./gradlew --init-script ../../../scripts/fork-sharing-tests.gradle
+          -Dorg.gradle.jvmargs="-Xmx8g -XX:MaxMetaspaceSize=1024m -XX:+UseParallelGC"
+          :app:verifyNoForkObserve
+          :expo-sharing:testDebugUnitTest
+          :t3-agent-notifications:testDebugUnitTest
+          :t3-citation-passage:testDebugUnitTest
+          :t3-tailnet:testDebugUnitTest
+          assembleRelease
+          -PreactNativeArchitectures=arm64-v8a --build-cache --max-workers=4
       - name: Report native compiler cache hits
         if: always() && steps.ccache_install.outcome == 'success'
         run: ccache --show-stats | tee -a "$GITHUB_STEP_SUMMARY"
@@ -357,6 +354,7 @@ jobs:
         with:
           name: fork-android
           path: release-android/*.apk
+          compression-level: 0
           if-no-files-found: error
 
   release:
@@ -382,6 +380,7 @@ jobs:
         with:
           name: release-installers
           path: assets/*
+          compression-level: 0
           if-no-files-found: error
       - name: Publish fork release
         if: inputs.publish

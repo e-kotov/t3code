@@ -6,6 +6,9 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/fork-phone-sharing.yml"
+      - ".github/actions/build-fork-tailnet/**"
+      - "scripts/build-tailnet-android.sh"
+      - "scripts/fork-sharing-tests.gradle"
       - "apps/mobile/modules/t3-tailnet/**"
       - "apps/mobile/src/features/built-in-tailnet/**"
 
@@ -39,34 +42,19 @@ jobs:
         run: |
           git fetch --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
           python3 scripts/fork-footprint-budget.py
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: apps/mobile/modules/t3-tailnet/go/go.mod
-          cache-dependency-path: apps/mobile/modules/t3-tailnet/go/go.sum
-      - name: Test the Tailscale engine
-        working-directory: apps/mobile/modules/t3-tailnet/go
-        run: go test -mod=readonly -race ./...
-      - name: Verify dependency files
-        working-directory: apps/mobile/modules/t3-tailnet/go
+      - name: Check whether Tailscale Go sources changed
+        id: tailnet_changes
         run: |
-          go mod tidy
-          git diff --exit-code -- go.mod go.sum
-      - name: Build the Android Tailscale library
-        run: scripts/build-tailnet-android.sh
-      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
-        with:
-          node-version-file: package.json
-          run-install: false
-          cache: true
-      - run: vp install
-      - name: Install Chromium for web and server browser tests
-        run: |
-          node apps/web/node_modules/playwright/cli.js install chromium
-          browser=$(find "$HOME/.cache/ms-playwright" -name chrome-headless-shell -type f -print -quit)
-          test -n "$browser"
-          if ldd "$browser" | grep '=> not found'; then
-            node apps/web/node_modules/playwright/cli.js install-deps chromium
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || ! git diff --quiet origin/main...HEAD -- apps/mobile/modules/t3-tailnet/go scripts/build-tailnet-android.sh .github/actions/build-fork-tailnet; then
+            echo "verify_go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "verify_go=false" >> "$GITHUB_OUTPUT"
           fi
+      - uses: ./.github/actions/build-fork-tailnet
+        with:
+          verify-go: ${{ steps.tailnet_changes.outputs.verify_go }}
+      - uses: ./.github/actions/setup-ci-deps
+      - uses: ./.github/actions/setup-fork-chromium
       - name: Check changed code
         run: vp run check:changed origin/main
       - uses: actions/setup-java@v4
@@ -75,11 +63,20 @@ jobs:
           java-version: "21"
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
       - name: Generate isolated Android project
+        env:
+          T3CODE_FORK_BUILD: "1"
         working-directory: apps/mobile
         run: vp exec expo prebuild --platform android --no-install
-      - name: Compile and test sharing lifecycle
+      - name: Compile and test sharing lifecycle and fork init script
         working-directory: apps/mobile/android
-        run: ./gradlew :t3-tailnet:testDebugUnitTest --build-cache --no-daemon --max-workers=2
+        run: |
+          install -d "$RUNNER_TEMP/ccache-bin" "$RUNNER_TEMP/ccache-dir"
+          {
+            echo '#!/usr/bin/env bash'
+            echo 'exec "$@"'
+          } > "$RUNNER_TEMP/ccache-bin/ccache"
+          chmod +x "$RUNNER_TEMP/ccache-bin/ccache"
+          PATH="$RUNNER_TEMP/ccache-bin:$PATH" CCACHE_DIR="$RUNNER_TEMP/ccache-dir"             ./gradlew --init-script ../../../scripts/fork-sharing-tests.gradle :app:verifyPatchedNativeSharing :t3-tailnet:testDebugUnitTest --build-cache --max-workers=2
       - name: Capture formatting fixes
         if: failure()
         run: |

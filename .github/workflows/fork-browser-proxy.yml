@@ -51,14 +51,8 @@ jobs:
           git fetch --no-tags origin main "$CHECKOUT_REF"
           git checkout --detach "$CHECKOUT_REF"
           git fetch --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
-      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
-        with:
-          node-version-file: package.json
-          run-install: false
-          cache: true
-      - run: vp install
-      - name: Install Chromium for real proxy routing tests
-        run: node apps/web/node_modules/playwright/cli.js install --with-deps chromium
+      - uses: ./.github/actions/setup-ci-deps
+      - uses: ./.github/actions/setup-fork-chromium
       - name: Prove routing and lifecycle regressions against the reviewed revision
         if: github.event_name == 'workflow_dispatch' && inputs.regression_proofs
         run: |
