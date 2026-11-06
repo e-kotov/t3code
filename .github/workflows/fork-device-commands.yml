@@ -50,13 +50,8 @@ jobs:
           git sparse-checkout set --no-cone '/*' '!/.repos/'
           git fetch --no-tags --depth=1 origin "$CHECKOUT_REF"
           git checkout --detach FETCH_HEAD
-      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
-        with:
-          node-version-file: package.json
-          run-install: false
-          cache: true
       - id: install
-        run: vp install
+        uses: ./.github/actions/setup-ci-deps
       - name: Typecheck changed packages
         run: |
           status=0
@@ -78,6 +73,8 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
       - name: Generate isolated Android project
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         working-directory: apps/mobile
@@ -85,4 +82,4 @@ jobs:
       - name: Test Termux result handling
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         working-directory: apps/mobile/android
-        run: ./gradlew :t3-termux-command:testDebugUnitTest :t3-native-controls:compileDebugKotlin --no-daemon --max-workers=2
+        run: ./gradlew :t3-termux-command:testDebugUnitTest :t3-native-controls:compileDebugKotlin --build-cache --max-workers=2

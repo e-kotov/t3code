@@ -53,19 +53,12 @@ jobs:
           jq -r 'to_entries[] | "\(.key)=\(.value)"' "$RUNNER_TEMP/nightly-plan.json" >> "$GITHUB_OUTPUT"
           cat "$RUNNER_TEMP/nightly-plan.json" >> "$GITHUB_STEP_SUMMARY"
       - if: steps.plan.outputs.changed == 'true'
-        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
-        with:
-          node-version-file: package.json
-          cache: true
-          run-install: false
-      - if: steps.plan.outputs.changed == 'true'
-        run: vp install
+        uses: ./.github/actions/setup-ci-deps
       - name: Install Python packaging test dependency
         if: steps.plan.outputs.changed == 'true'
-        run: python3 -m pip install PyYAML==6.0.3
-      - name: Install Chromium for web and server browser tests
-        if: steps.plan.outputs.changed == 'true'
-        run: node apps/web/node_modules/playwright/cli.js install --with-deps chromium
+        run: python3 -c "import yaml" 2>/dev/null || python3 -m pip install -q PyYAML==6.0.3
+      - if: steps.plan.outputs.changed == 'true'
+        uses: ./.github/actions/setup-fork-chromium
       - name: Validate the exact nightly candidate
         if: steps.plan.outputs.changed == 'true'
         run: scripts/fork-upstream-sync.sh checks

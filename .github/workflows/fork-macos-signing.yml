@@ -71,5 +71,6 @@ jobs:
         with:
           name: mac-signing-smoke
           path: signed-mac/*
+          compression-level: 0
           if-no-files-found: error
           retention-days: 3

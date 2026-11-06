@@ -185,19 +185,23 @@ iOS is outside this Mac/Android/GWDG release workflow.
 ## Android built-in Tailscale
 
 The APK embeds a Tailscale node (`apps/mobile/modules/t3-tailnet`). Before Gradle,
-the Android job runs its Go tests and `scripts/build-tailnet-android.sh`, which
-cross-compiles `libt3tailnet.so` for arm64 with Go and the runner's NDK into the
-module's uncommitted `jniLibs`. A local build without that library still works; its
-Settings report that built-in Tailscale is not part of the build.
+`.github/actions/build-fork-tailnet` restores `libt3tailnet.so` from Actions cache
+when the Go sources, build script and runner NDK compiler fingerprint match, or runs
+Go tests and `scripts/build-tailnet-android.sh` to cross-compile `libt3tailnet.so`
+for arm64 into the module's uncommitted `jniLibs`. A local build without that library
+still works; its Settings report that built-in Tailscale is not part of the build.
 
 ## Android build caching
 
 Android uses the Gradle action to retain dependency downloads, transformed JARs
 and the local task-output build cache. `--build-cache` enables reuse of cacheable
-task outputs. A separate 3 GB ccache retains C/C++ compiler results; the installed
-React Native CMake files detect ccache automatically. Each build prints ccache
-hit/miss statistics in its job summary. Compiler contents and source inputs are
-validated by ccache, including when a fallback key restores an older entry.
+task outputs. A separate 3 GB ccache retains C/C++ compiler results across `:app`
+and every CMake native library (`scripts/fork-sharing-tests.gradle` injects CMake
+`ccache` compiler launchers across all Android CMake modules, checks the release
+runtime classpath inside the single Gradle run, and skips release vital lint so R8
+gets full CPU and an 8 GB heap). Each build prints ccache hit/miss statistics in
+its job summary. Compiler contents and source inputs are validated by ccache,
+including when a fallback key restores an older entry.
 
 The first cache-enabled run is still cold. For the most reusable cache, dispatch
 release builds from `main`: GitHub exposes default-branch caches to later tag

@@ -1,0 +1,31 @@
+name: Setup Fork Chromium
+description: Restore or install Playwright Chromium for fork web and server browser tests.
+runs:
+  using: composite
+  steps:
+    - name: Resolve Playwright version
+      id: playwright_version
+      shell: bash
+      run: echo "version=$(node -p "require('./apps/web/node_modules/playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+
+    - name: Cache Chromium
+      id: chromium_cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: ~/.cache/ms-playwright
+        key: fork-playwright-chromium-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright_version.outputs.version }}
+
+    - name: Install Chromium
+      if: steps.chromium_cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: node apps/web/node_modules/playwright/cli.js install chromium
+
+    - name: Install missing Chromium system dependencies
+      shell: bash
+      run: |
+        shell_bin=$(find "$HOME/.cache/ms-playwright" -name chrome-headless-shell -type f -print -quit)
+        chrome_bin=$(find "$HOME/.cache/ms-playwright" -name chrome -type f -print -quit)
+        test -n "$shell_bin" && test -n "$chrome_bin"
+        if ldd "$shell_bin" "$chrome_bin" | grep '=> not found' >/dev/null; then
+          node apps/web/node_modules/playwright/cli.js install-deps chromium
+        fi

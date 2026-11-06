@@ -72,13 +72,7 @@ jobs:
           SYNC_CONFLICT_BUNDLE: ${{ runner.temp }}/handoff.bundle
         run: scripts/fork-upstream-sync.sh merge
       - if: steps.merge.outputs.changed == 'true'
-        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
-        with:
-          node-version-file: package.json
-          cache: true
-          run-install: false
-      - if: steps.merge.outputs.changed == 'true'
-        run: vp install
+        uses: ./.github/actions/setup-ci-deps
       - name: Format mergiraf output and regenerate the web route tree
         if: steps.merge.outputs.changed == 'true'
         run: |
@@ -86,7 +80,7 @@ jobs:
           scripts/fork-upstream-sync.sh tidy
       - name: Install Python packaging test dependency
         if: steps.merge.outputs.changed == 'true'
-        run: python3 -m pip install PyYAML==6.0.3
+        run: python3 -c "import yaml" 2>/dev/null || python3 -m pip install -q PyYAML==6.0.3
       - name: Check formatting before browser setup
         if: steps.merge.outputs.changed == 'true'
         run: |
@@ -102,15 +96,8 @@ jobs:
             .split("\0").filter(file => /\.[cm]?[jt]sx?$/.test(file) && existsSync(file));
           if (files.length) process.exit(spawnSync("vp", ["lint", ...files], { stdio: "inherit" }).status ?? 1);
           JS
-      - name: Install Chromium for web and server browser tests
-        if: steps.merge.outputs.changed == 'true'
-        run: |
-          node apps/web/node_modules/playwright/cli.js install chromium
-          browser=$(find "$HOME/.cache/ms-playwright" -name chrome-headless-shell -type f -print -quit)
-          test -n "$browser"
-          if ldd "$browser" | grep '=> not found'; then
-            node apps/web/node_modules/playwright/cli.js install-deps chromium
-          fi
+      - if: steps.merge.outputs.changed == 'true'
+        uses: ./.github/actions/setup-fork-chromium
       - name: Check mobile feed and cache-control integration
         if: steps.merge.outputs.changed == 'true'
         working-directory: apps/mobile

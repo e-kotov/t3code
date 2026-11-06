@@ -38,14 +38,8 @@ jobs:
           git sparse-checkout set --no-cone '/*' '!/.repos/'
           git fetch --no-tags origin main "$CHECKOUT_REF"
           git checkout --detach "$CHECKOUT_REF"
-      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
-        with:
-          node-version-file: package.json
-          run-install: false
-          cache: true
-      - run: vp install
-      - name: Install Chromium
-        run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
+      - uses: ./.github/actions/setup-ci-deps
+      - uses: ./.github/actions/setup-fork-chromium
       - name: Prove model context regressions on the previous implementation
         run: |
           source=apps/web/src/components/chat/HeaderContextLabels.tsx

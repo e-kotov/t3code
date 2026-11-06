@@ -1,4 +1,96 @@
+import java.util.regex.Pattern
+
+def ccacheDir = System.getenv('CCACHE_DIR')
+def ccacheOnPath = (System.getenv('PATH') ?: '')
+  .split(Pattern.quote(File.pathSeparator))
+  .any { dir -> dir && new File(dir, 'ccache').canExecute() }
+def ccacheEnabled = ccacheDir != null && !ccacheDir.trim().isEmpty() && ccacheOnPath
+
+def configureAndroidCcache = { project, boolean disableReleaseVitalLint ->
+  def components = project.extensions.findByName('androidComponents')
+  if (components == null) return
+  components.finalizeDsl { android ->
+    if (disableReleaseVitalLint) {
+      android.lint.checkReleaseBuilds = false
+    }
+    if (ccacheEnabled && android.externalNativeBuild?.cmake?.path != null) {
+      def args = android.defaultConfig.externalNativeBuild.cmake.arguments
+      [
+        '-DANDROID_CCACHE=ccache',
+        '-DCMAKE_C_COMPILER_LAUNCHER=ccache',
+        '-DCMAKE_CXX_COMPILER_LAUNCHER=ccache',
+      ].each { String flag ->
+        String prefix = flag.substring(0, flag.indexOf('=') + 1)
+        if (!args.any { it.toString().startsWith(prefix) }) {
+          args.add(flag)
+        }
+      }
+    }
+  }
+}
+
 gradle.beforeProject { project ->
+  project.plugins.withId('com.android.library') {
+    configureAndroidCcache(project, false)
+  }
+  project.plugins.withId('com.android.application') {
+    configureAndroidCcache(project, true)
+  }
+
+  if (project.path == ':app') {
+    project.plugins.withId('com.android.application') {
+      project.tasks.register('verifyNoForkObserve') {
+        doLast {
+          def names = project.configurations.getByName('releaseRuntimeClasspath')
+            .incoming.resolutionResult.allComponents.collect { it.id.displayName }
+          def forbidden = names.findAll {
+            it.contains('expo-observe') || it.contains('expo.modules.observe')
+          }
+          if (!forbidden.isEmpty()) {
+            throw new org.gradle.api.GradleException(
+              "Unconfigured native Observe is still linked: ${forbidden}"
+            )
+          }
+        }
+      }
+      project.tasks.register('verifyPatchedNativeSharing') {
+        dependsOn('verifyNoForkObserve')
+        doLast {
+          def appAndroid = project.extensions.getByName('android')
+          if (appAndroid.lint.checkReleaseBuilds) {
+            throw new org.gradle.api.GradleException(
+              'Expected release vital lint to be disabled on :app'
+            )
+          }
+          if (ccacheEnabled) {
+            def highlights = project.rootProject.findProject(':t3tools-mobile-highlights-native')
+            if (highlights != null) {
+              def cmakeArgs = highlights.extensions.getByName('android')
+                .defaultConfig.externalNativeBuild.cmake.arguments.collect { it.toString() }
+              if (!cmakeArgs.contains('-DCMAKE_CXX_COMPILER_LAUNCHER=ccache')) {
+                throw new org.gradle.api.GradleException(
+                  "Expected ccache CMake launcher on :t3tools-mobile-highlights-native, got: ${cmakeArgs}"
+                )
+              }
+            }
+          }
+          def names = project.configurations.getByName('releaseRuntimeClasspath')
+            .incoming.resolutionResult.allComponents.collect { it.id.displayName }
+          if (!names.any { it.contains('project :expo-sharing') }) {
+            throw new org.gradle.api.GradleException(
+              'Patched expo-sharing source is absent from the Android runtime classpath'
+            )
+          }
+          if (names.any { it.contains('host.exp.exponent:expo.modules.sharing:') }) {
+            throw new org.gradle.api.GradleException(
+              'The unpatched precompiled sharing library is linked'
+            )
+          }
+        }
+      }
+    }
+  }
+
   if (project.path == ':expo-sharing') {
     project.plugins.withId('com.android.library') {
       def android = project.extensions.getByName('android')
