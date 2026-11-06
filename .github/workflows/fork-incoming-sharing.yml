@@ -27,11 +27,12 @@ jobs:
   checks:
     if: github.repository == 'e-kotov/t3code'
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 40
     env:
       T3CODE_FORK_BUILD: "1"
       NODE_OPTIONS: --max-old-space-size=6144
       ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      CHECK_CHANGED_TIMEOUT: "1800"
     steps:
       - name: Checkout without vendored gitlinks
         env:
