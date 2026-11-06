@@ -26,7 +26,7 @@ runs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: apps/mobile/modules/t3-tailnet/android/src/main/jniLibs/arm64-v8a/libt3tailnet.so
-        key: fork-tailnet-so-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ndk.outputs.hash }}-${{ hashFiles('apps/mobile/modules/t3-tailnet/go/**', 'scripts/build-tailnet-android.sh') }}
+        key: fork-tailnet-so-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ndk.outputs.hash }}-${{ hashFiles('apps/mobile/modules/t3-tailnet/go/**', 'scripts/build-tailnet-android.sh', '.github/actions/build-fork-tailnet/**') }}
 
     - name: Setup Go
       if: steps.tailnet_cache.outputs.cache-hit != 'true' || inputs.verify-go == 'true'
