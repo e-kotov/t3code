@@ -1478,9 +1478,6 @@ export const ServerSettings = Schema.Struct({
   secretProviders: Schema.Record(SecretProviderId, SecretProviderConfig).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
   ),
-  cursorKeychainUsageEnabled: Schema.Boolean.pipe(
-    Schema.withDecodingDefault(Effect.succeed(false)),
-  ),
   ...threadCachePolicySettings,
   /** Legacy master switch read only while migrating previous warming preferences. */
   cacheWarmingEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
@@ -1850,7 +1847,6 @@ export const ServerSettingsPatch = Schema.Struct({
   secretProviders: Schema.optionalKey(
     Schema.Record(SecretProviderId, Schema.NullOr(SecretProviderConfigWrite)),
   ),
-  cursorKeychainUsageEnabled: Schema.optionalKey(Schema.Boolean),
   ...threadCachePolicyPatch,
   cacheWarmingEnabled: Schema.optionalKey(Schema.Boolean),
   cacheWarmingInitialized: Schema.optionalKey(Schema.Boolean),
