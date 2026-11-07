@@ -1,0 +1,4 @@
+{
+  "disabledLabels": ["skip-greptile", "skip-review"],
+  "ignoreKeywords": "chore(sync):"
+}
