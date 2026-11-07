@@ -218,8 +218,8 @@
     "packages/shared/src/htmlRender.ts": 1,
     "packages/shared/src/serverSettings.ts": 21,
     "packages/ssh/src/tunnel.ts": 7,
-    "pnpm-lock.yaml": 5,
-    "pnpm-workspace.yaml": 1,
+    "patches/react-native-enriched-markdown@1.2.0-t3.16.patch": 378,
+    "pnpm-lock.yaml": 31,
     "scripts/build-desktop-artifact.ts": 20
   }
 }
