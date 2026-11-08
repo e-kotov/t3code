@@ -155,6 +155,7 @@
     "apps/web/src/components/chat/PanelLayoutControls.tsx": 5,
     "apps/web/src/components/chat/ThreadDetailsPanel.tsx": 9,
     "apps/web/src/components/chat/usePasteToFocusComposer.ts": 12,
+    "apps/web/src/components/files/FilePreviewPanel.tsx": 7,
     "apps/web/src/components/preview/PreviewView.tsx": 7,
     "apps/web/src/components/preview/openDiscoveredPort.ts": 1,
     "apps/web/src/components/preview/openPreviewSession.ts": 2,
