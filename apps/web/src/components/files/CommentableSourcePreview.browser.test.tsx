@@ -73,9 +73,10 @@ vi.mock(import("./projectFilesQueryState"), async (original) => ({
   confirmProjectFileQueryData: () => true,
 }));
 
-import { userEvent } from "vite-plus/test/browser";
+import { page, userEvent } from "vite-plus/test/browser";
 import { useComposerDraftStore } from "~/composerDraftStore";
 import FilePreviewPanel from "./FilePreviewPanel";
+import "../../index.css";
 
 const environmentId = EnvironmentId.make("external-comments-test");
 const threadRef = { environmentId, threadId: ThreadId.make("thread") };
@@ -131,9 +132,9 @@ function shadow(screen: Screen) {
   return screen.container.querySelector("diffs-container")?.shadowRoot;
 }
 async function selectLines(screen: Screen, start: number, end = start) {
-  await vi.waitFor(() =>
-    expect(shadow(screen)?.querySelector(`[data-column-number="${start}"]`)).toBeTruthy(),
-  );
+  await expect
+    .element(screen.getByText(contents.split("\n")[start - 1]!, { exact: true }))
+    .toBeVisible();
   const first = shadow(screen)!.querySelector<HTMLElement>(`[data-column-number="${start}"]`)!;
   const last = shadow(screen)!.querySelector<HTMLElement>(`[data-column-number="${end}"]`)!;
   const down = first.getBoundingClientRect();
@@ -166,6 +167,7 @@ async function selectLines(screen: Screen, start: number, end = start) {
 
 it("attaches external-file line comments to this thread without writing the file", async () => {
   using _settings = setup();
+  await page.viewport(1200, 900);
   await using screen = await render(preview());
   await selectLines(screen, 3, 2);
   const input = screen.getByRole("textbox", { name: "Comment on lines L2 to L3" });
@@ -206,6 +208,7 @@ it("attaches external-file line comments to this thread without writing the file
 
 it("cancels a single-line draft and keeps truncated source previews unannotated", async () => {
   using _settings = setup();
+  await page.viewport(1200, 900);
   await using screen = await render(preview());
   await selectLines(screen, 2);
   await expect.element(screen.getByRole("textbox", { name: "Comment on lines L2" })).toBeVisible();

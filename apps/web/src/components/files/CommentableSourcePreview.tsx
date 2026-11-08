@@ -1,5 +1,5 @@
-import type { SelectedLineRange } from "@pierre/diffs";
-import { File, type FileOptions, Virtualizer } from "@pierre/diffs/react";
+import type { File as FileInstance, PostRenderPhase, SelectedLineRange } from "@pierre/diffs";
+import { File, Virtualizer } from "@pierre/diffs/react";
 import type { EnvironmentId, ProjectId, ScopedThreadRef } from "@t3tools/contracts";
 import { useState, type ComponentProps } from "react";
 
@@ -30,8 +30,10 @@ interface CommentTarget {
 
 type Props = Omit<ComponentProps<typeof ReadOnlySourcePreview>, "onPostRender"> & {
   onPostRender?: <LAnnotation>(
-    ...args: Parameters<NonNullable<FileOptions<LAnnotation>["onPostRender"]>>
-  ) => unknown;
+    fileContainer: HTMLElement,
+    instance: FileInstance<LAnnotation, undefined>,
+    phase: PostRenderPhase,
+  ) => void;
   commentTarget?: CommentTarget | undefined;
 };
 const EMPTY_COMMENTS: ReadonlyArray<ReviewCommentContext> = [];
