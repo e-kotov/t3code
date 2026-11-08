@@ -1,6 +1,6 @@
 import { EnvironmentId, ThreadId, type ProjectReadFileResult } from "@t3tools/contracts";
 import { AsyncResult } from "effect/reactivity";
-import { describe, expect, it, vi } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 import { act, render, type Screen } from "../../../test/render";
 
 const state = vi.hoisted(() => ({
@@ -131,16 +131,36 @@ function shadow(screen: Screen) {
   return screen.container.querySelector("diffs-container")?.shadowRoot;
 }
 async function selectLines(screen: Screen, start: number, end = start) {
-  await vi.waitFor(() => expect(shadow(screen)?.querySelector(`[data-column-number="${start}"]`)).toBeTruthy());
+  await vi.waitFor(() =>
+    expect(shadow(screen)?.querySelector(`[data-column-number="${start}"]`)).toBeTruthy(),
+  );
   const first = shadow(screen)!.querySelector<HTMLElement>(`[data-column-number="${start}"]`)!;
   const last = shadow(screen)!.querySelector<HTMLElement>(`[data-column-number="${end}"]`)!;
   const down = first.getBoundingClientRect();
   const up = last.getBoundingClientRect();
   const options = { bubbles: true, composed: true, pointerId: 1, pointerType: "mouse", button: 0 };
   await act(() => {
-    first.dispatchEvent(new PointerEvent("pointerdown", { ...options, clientX: down.x + down.width / 2, clientY: down.y + down.height / 2 }));
-    document.dispatchEvent(new PointerEvent("pointermove", { ...options, clientX: up.x + up.width / 2, clientY: up.y + up.height / 2 }));
-    document.dispatchEvent(new PointerEvent("pointerup", { ...options, clientX: up.x + up.width / 2, clientY: up.y + up.height / 2 }));
+    first.dispatchEvent(
+      new PointerEvent("pointerdown", {
+        ...options,
+        clientX: down.x + down.width / 2,
+        clientY: down.y + down.height / 2,
+      }),
+    );
+    document.dispatchEvent(
+      new PointerEvent("pointermove", {
+        ...options,
+        clientX: up.x + up.width / 2,
+        clientY: up.y + up.height / 2,
+      }),
+    );
+    document.dispatchEvent(
+      new PointerEvent("pointerup", {
+        ...options,
+        clientX: up.x + up.width / 2,
+        clientY: up.y + up.height / 2,
+      }),
+    );
   });
 }
 
@@ -169,9 +189,18 @@ it("attaches external-file line comments to this thread without writing the file
 
   await screen.unmount();
   await using reopened = await render(preview());
-  await expect.element(reopened.getByText("Please shorten these paragraphs.", { exact: true })).toBeVisible();
+  await expect
+    .element(reopened.getByText("Please shorten these paragraphs.", { exact: true }))
+    .toBeVisible();
+  await selectLines(reopened, 1);
+  const nextDraft = reopened.getByRole("textbox", { name: "Comment on lines L1" });
+  await nextDraft.fill("Keep this unsent comment.");
   await userEvent.click(reopened.getByRole("button", { name: "Delete comment" }));
-  expect(useComposerDraftStore.getState().getComposerDraft(threadRef)?.reviewComments ?? []).toHaveLength(0);
+  await expect.element(nextDraft).toHaveValue("Keep this unsent comment.");
+  await userEvent.click(reopened.getByRole("button", { name: "Cancel", exact: true }));
+  expect(
+    useComposerDraftStore.getState().getComposerDraft(threadRef)?.reviewComments ?? [],
+  ).toHaveLength(0);
   expect(state.writeFile).not.toHaveBeenCalled();
 });
 
@@ -181,9 +210,12 @@ it("cancels a single-line draft and keeps truncated source previews unannotated"
   await selectLines(screen, 2);
   await expect.element(screen.getByRole("textbox", { name: "Comment on lines L2" })).toBeVisible();
   await userEvent.click(screen.getByRole("button", { name: "Cancel", exact: true }));
-  expect(useComposerDraftStore.getState().getComposerDraft(threadRef)?.reviewComments ?? []).toHaveLength(0);
+  expect(
+    useComposerDraftStore.getState().getComposerDraft(threadRef)?.reviewComments ?? [],
+  ).toHaveLength(0);
   await screen.rerender(preview(true));
-  await selectLines(screen, 2);
-  await expect.element(screen.getByRole("textbox", { name: /Comment on lines/ })).not.toBeInTheDocument();
+  await expect
+    .element(screen.getByRole("textbox", { name: /Comment on lines/ }))
+    .not.toBeInTheDocument();
   expect(state.writeFile).not.toHaveBeenCalled();
 });

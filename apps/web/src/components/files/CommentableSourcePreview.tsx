@@ -1,5 +1,5 @@
 import type { SelectedLineRange } from "@pierre/diffs";
-import { File, Virtualizer } from "@pierre/diffs/react";
+import { File, type FileOptions, Virtualizer } from "@pierre/diffs/react";
 import type { EnvironmentId, ProjectId, ScopedThreadRef } from "@t3tools/contracts";
 import { useState, type ComponentProps } from "react";
 
@@ -28,7 +28,10 @@ interface CommentTarget {
   composerDraftTarget: ScopedThreadRef | DraftId;
 }
 
-type Props = ComponentProps<typeof ReadOnlySourcePreview> & {
+type Props = Omit<ComponentProps<typeof ReadOnlySourcePreview>, "onPostRender"> & {
+  onPostRender?: <LAnnotation>(
+    ...args: Parameters<NonNullable<FileOptions<LAnnotation>["onPostRender"]>>
+  ) => unknown;
   commentTarget?: CommentTarget | undefined;
 };
 const EMPTY_COMMENTS: ReadonlyArray<ReviewCommentContext> = [];
@@ -53,7 +56,10 @@ function CommentableSource({ commentTarget, ...props }: Props & { commentTarget:
   const comments = useComposerDraftStore(
     (store) => store.getComposerDraft(composerDraftTarget)?.reviewComments ?? EMPTY_COMMENTS,
   );
-  const [draft, setDraft] = useState<{ id: string; startLine: number; endLine: number } | null>(null);
+  const [draft, setDraft] = useState<{ id: string; startLine: number; endLine: number } | null>(
+    null,
+  );
+  const [draftText, setDraftText] = useState("");
   const [selectedLines, setSelectedLines] = useState<SelectedLineRange | null>(null);
   const annotations: FileCommentLineAnnotation[] = [];
   const lines = props.text.split("\n");
@@ -82,11 +88,13 @@ function CommentableSource({ commentTarget, ...props }: Props & { commentTarget:
   }
   const dismiss = () => {
     setDraft(null);
+    setDraftText("");
     setSelectedLines(null);
   };
   const beginComment = (range: SelectedLineRange | null) => {
     if (!range) return;
     setSelectedLines(range);
+    setDraftText("");
     setDraft({ id: nextFileCommentId(), ...normalizeFileCommentRange(range) });
   };
   return (
@@ -96,7 +104,11 @@ function CommentableSource({ commentTarget, ...props }: Props & { commentTarget:
         config={{ overscrollSize: 600, intersectionObserverMargin: 1200 }}
       >
         <File<FileCommentAnnotationGroup>
-          file={{ name: props.name, contents: props.text, ...(props.cacheKey ? { cacheKey: props.cacheKey } : {}) }}
+          file={{
+            name: props.name,
+            contents: props.text,
+            ...(props.cacheKey ? { cacheKey: props.cacheKey } : {}),
+          }}
           options={{
             disableFileHeader: true,
             enableGutterUtility: draft === null,
@@ -123,17 +135,21 @@ function CommentableSource({ commentTarget, ...props }: Props & { commentTarget:
                   ownerKey={JSON.stringify([commentTarget, props.name, entry.id])}
                   kind={entry.kind}
                   rangeLabel={formatFileCommentRange(entry.startLine, entry.endLine)}
-                  text={entry.text}
+                  text={entry.kind === "draft" ? draftText : entry.text}
+                  onTextChange={setDraftText}
                   onCancel={dismiss}
                   onComment={(text) => {
-                    addReviewComment(composerDraftTarget, buildFileReviewComment({
-                      id: entry.id,
-                      filePath: props.name,
-                      startLine: entry.startLine,
-                      endLine: entry.endLine,
-                      text,
-                      contents: props.text,
-                    }));
+                    addReviewComment(
+                      composerDraftTarget,
+                      buildFileReviewComment({
+                        id: entry.id,
+                        filePath: props.name,
+                        startLine: entry.startLine,
+                        endLine: entry.endLine,
+                        text,
+                        contents: props.text,
+                      }),
+                    );
                     dismiss();
                   }}
                   onDelete={() => removeReviewComment(composerDraftTarget, entry.id)}

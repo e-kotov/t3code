@@ -53,13 +53,16 @@ jobs:
           assert 'Comment on lines L2 to L3' in failure, failure
           print('The previous viewer cannot open the external-file comment form.')
           PY
+          VITE_SOURCE_COMMENTS_CAPTURE=before vp test run apps/web/src/components/files/CommentableSourcePreview.app.browser.test.tsx
       - name: Check changed code
         run: |
           base=$(git merge-base origin/main HEAD)
           if [ "$base" = "$(git rev-parse HEAD)" ]; then base=HEAD^; fi
           vp run check:changed "$base"
       - name: Test source comments and existing file behavior
-        run: vp test run apps/web/src/components/files/CommentableSourcePreview.browser.test.tsx apps/web/src/components/files/FilePreviewPanel.browser.test.tsx apps/web/src/components/files/FilePreviewPanel.test.ts apps/web/src/reviewCommentContext.test.ts
+        env:
+          VITE_SOURCE_COMMENTS_CAPTURE: after
+        run: vp test run apps/web/src/components/files/CommentableSourcePreview.browser.test.tsx apps/web/src/components/files/CommentableSourcePreview.app.browser.test.tsx apps/web/src/components/files/FilePreviewPanel.browser.test.tsx apps/web/src/components/files/FilePreviewPanel.test.ts apps/web/src/reviewCommentContext.test.ts
       - name: Capture formatting fixes
         if: failure()
         run: |
@@ -70,6 +73,7 @@ jobs:
         with:
           name: source-comments-evidence
           path: |
+            .t3/source-comments-evidence/
             ${{ runner.temp }}/source-comments-before.json
             ${{ runner.temp }}/source-comments-before.log
             ${{ runner.temp }}/source-comments-format.patch

@@ -1513,7 +1513,11 @@ export default function FilePreviewPanel({
               />
             ) : file.data.truncated || isHostFile || !canWriteFiles ? (
               <SourceFilePreview
-                commentTarget={file.data.truncated || attachment ? undefined : { environmentId, projectId, composerDraftTarget }}
+                commentTarget={
+                  file.data.truncated || attachment
+                    ? undefined
+                    : { environmentId, projectId, composerDraftTarget }
+                }
                 name={relativePath}
                 text={file.data.contents}
                 cacheKey={projectFileCacheKey(cwd, relativePath, file.data.contents)}
