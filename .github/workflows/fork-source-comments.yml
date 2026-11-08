@@ -50,7 +50,7 @@ jobs:
           failed = [case for file in result['testResults'] for case in file['assertionResults'] if case['status'] == 'failed']
           assert len(failed) == 1, failed
           failure = '\n'.join(failed[0]['failureMessages'])
-          assert 'Comment on lines L2 to L3' in failure, failure
+          assert 'External source files must support line comments' in failure, failure
           print('The previous viewer cannot open the external-file comment form.')
           PY
           VITE_SOURCE_COMMENTS_CAPTURE=before vp test run apps/web/src/components/files/CommentableSourcePreview.app.browser.test.tsx

@@ -135,6 +135,10 @@ async function selectLines(screen: Screen, start: number, end = start) {
   await expect
     .element(screen.getByText(contents.split("\n")[start - 1]!, { exact: true }))
     .toBeVisible();
+  expect(
+    shadow(screen)?.querySelector("pre")?.hasAttribute("data-interactive-line-numbers"),
+    "External source files must support line comments",
+  ).toBe(true);
   const first = shadow(screen)!.querySelector<HTMLElement>(`[data-column-number="${start}"]`)!;
   const last = shadow(screen)!.querySelector<HTMLElement>(`[data-column-number="${end}"]`)!;
   const down = first.getBoundingClientRect();
