@@ -107,7 +107,7 @@ import {
   FileSurfaceFailure,
   FileSurfaceLoading,
 } from "./fileSurfaceChrome";
-import SourceFilePreview from "./ReadOnlySourcePreview";
+import SourceFilePreview from "./CommentableSourcePreview";
 import { resolveCenteredFileLineScrollTop } from "./fileLineReveal";
 import { DiffCommentAnnotation } from "../diffs/DiffCommentAnnotation";
 import { projectFileCacheKey } from "./fileContentRevision";
@@ -1513,6 +1513,7 @@ export default function FilePreviewPanel({
               />
             ) : file.data.truncated || isHostFile || !canWriteFiles ? (
               <SourceFilePreview
+                commentTarget={file.data.truncated || attachment ? undefined : { environmentId, projectId, composerDraftTarget }}
                 name={relativePath}
                 text={file.data.contents}
                 cacheKey={projectFileCacheKey(cwd, relativePath, file.data.contents)}

@@ -1,0 +1,76 @@
+name: Fork source comments
+
+on:
+  push:
+    branches: ["sync/source-comments-*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: source-comments-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.sha }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch --no-tags origin main "$CHECKOUT_REF"
+          git checkout --detach "$CHECKOUT_REF"
+      - uses: ./.github/actions/setup-ci-deps
+      - uses: ./.github/actions/setup-fork-chromium
+      - name: Prove the external-file regression on the previous viewer
+        run: |
+          source=apps/web/src/components/files/FilePreviewPanel.tsx
+          cp "$source" "$RUNNER_TEMP/FilePreviewPanel.tsx"
+          trap 'cp "$RUNNER_TEMP/FilePreviewPanel.tsx" "$source"' EXIT
+          git show "1fc9452682:$source" > "$source"
+          if vp test run apps/web/src/components/files/CommentableSourcePreview.browser.test.tsx -t 'attaches external-file' --reporter=json --outputFile="$RUNNER_TEMP/source-comments-before.json" > "$RUNNER_TEMP/source-comments-before.log" 2>&1; then
+            cat "$RUNNER_TEMP/source-comments-before.log"
+            echo 'The external-file regression must fail on the previous viewer.'
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          result = json.loads((Path(os.environ['RUNNER_TEMP']) / 'source-comments-before.json').read_text())
+          failed = [case for file in result['testResults'] for case in file['assertionResults'] if case['status'] == 'failed']
+          assert len(failed) == 1, failed
+          failure = '\n'.join(failed[0]['failureMessages'])
+          assert 'Comment on lines L2 to L3' in failure, failure
+          print('The previous viewer cannot open the external-file comment form.')
+          PY
+      - name: Check changed code
+        run: |
+          base=$(git merge-base origin/main HEAD)
+          if [ "$base" = "$(git rev-parse HEAD)" ]; then base=HEAD^; fi
+          vp run check:changed "$base"
+      - name: Test source comments and existing file behavior
+        run: vp test run apps/web/src/components/files/CommentableSourcePreview.browser.test.tsx apps/web/src/components/files/FilePreviewPanel.browser.test.tsx apps/web/src/components/files/FilePreviewPanel.test.ts apps/web/src/reviewCommentContext.test.ts
+      - name: Capture formatting fixes
+        if: failure()
+        run: |
+          git diff --name-only --diff-filter=AM -z origin/main HEAD | xargs -0 -r vp fmt --no-error-on-unmatched-pattern
+          git diff --binary > "$RUNNER_TEMP/source-comments-format.patch"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: source-comments-evidence
+          path: |
+            ${{ runner.temp }}/source-comments-before.json
+            ${{ runner.temp }}/source-comments-before.log
+            ${{ runner.temp }}/source-comments-format.patch
+          retention-days: 7
