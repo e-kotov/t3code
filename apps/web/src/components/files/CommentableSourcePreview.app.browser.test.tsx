@@ -79,7 +79,9 @@ it("opens an external review from chat and shows its comment form in the complet
     app.container
       .querySelector("diffs-container")
       ?.shadowRoot?.querySelector<HTMLElement>('[data-column-number="2"]');
-  await vi.waitFor(() => expect(line()).toBeTruthy());
+  await expect
+    .element(app.getByText("Thank you for the improvements.", { exact: true }))
+    .toBeVisible();
   await document.fonts.ready;
   if (import.meta.env.VITE_SOURCE_COMMENTS_CAPTURE === "before") {
     await app.locator.screenshot({
