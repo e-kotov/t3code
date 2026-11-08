@@ -1,6 +1,6 @@
 ---
 name: fork-development
-description: Rules for changing source in e-kotov/t3code, a fork that merges pingdotgg/t3code main every six hours. Use before adding or changing any fork feature, committing, pushing main, or resolving an upstream-sync conflict.
+description: Rules for changing source in e-kotov/t3code, a fork that merges pingdotgg/t3code main every six hours. Use before adding or changing any fork feature, committing, opening a pull request, or resolving an upstream-sync conflict.
 ---
 
 # Developing in the T3 Code fork
@@ -11,8 +11,9 @@ This checkout is Egor Kotov's fork. Upstream will not merge fork features, and
 
 ## Before changing code
 
-- Run `git pull` so you start from the latest bot merge. The checkout rebases local commits
-  and autostashes uncommitted edits.
+- Inspect the current branch and worktree, then `git fetch origin`. Start new work on a named
+  feature branch from `origin/main`; continue existing work on its own branch. Never develop
+  or commit directly on local `main`.
 - Do not discard or commit someone else's uncommitted work without asking.
 
 ## Where fork code goes
@@ -42,18 +43,28 @@ This checkout is Egor Kotov's fork. Upstream will not merge fork features, and
 - When an upstream test fails because of a fork change, fix the fork code so the upstream
   behavior holds when the fork option is not selected. Do not edit upstream tests to pass.
 
-## Committing and pushing
+## Branches and pull requests
 
-- Commit fork work to `main` in focused commits. Never force-push `main`: it would drop the
-  bot's merges. A GitHub ruleset and the `.vite-hooks/pre-push` guard both block it.
-- The pre-push guard runs `scripts/fork-upstream-sync.sh checks` (about 20 s warm) and warns
-  about untested code or edits to upstream files. Fix failures; do not bypass with
-  `FORK_SKIP_CHECKS=1` unless Egor asks. Without `node_modules` it refuses; push a
-  `sync/<name>` branch and dispatch `upstream-sync.yml` with `branch` instead, as below.
+- Submit every agent-authored change through a feature branch and a pull request targeting
+  `main` in **`e-kotov/t3code`**, including tiny fixes, documentation and manually resolved
+  upstream merges. Do not target `pingdotgg/t3code` unless Egor explicitly requests it.
+- Never push agent work directly to `main` or manually dispatch `upstream-sync.yml` to
+  promote a work branch without its PR. Passing checks does not replace the PR. Existing
+  scheduled upstream-sync automation is documented separately in the operations runbook.
+- Push the feature branch, open the fork PR and link it to the T3 thread. Merge only within
+  the user's authorized endpoint and after required checks/reviews pass. Never force-push
+  `main`, disable branch protection, or use a history rewrite to bypass this route.
+- Keep Greptile review enabled by default. For a **very minor change** (for example, a typo
+  or narrow documentation correction), or when Egor explicitly asks to skip Greptile,
+  apply the **`skip-greptile` PR label when creating the PR**. The repository's
+  `greptile.json` lists it in `disabledLabels`; a title tag or Git tag is not the control.
+  Do not skip merely because a substantial change has few lines. Skipping Greptile does
+  not skip CI or a requested independent review.
 - Egor's Mac keeps no dependencies: do not run `vp install`/`pnpm install` there (10–20 GB).
-  Commit with `VP_GIT_HOOKS=0`, since the upstream pre-commit hook needs `vp`. Never build
-  Android on the Mac (no Gradle, `expo prebuild` or `expo run:android`); APKs come from the
-  release workflow.
+  Commit on the feature branch with `VP_GIT_HOOKS=0`, since the upstream pre-commit hook
+  needs `vp`; this does not authorize a direct main push or bypass CI. Let the fork PR's
+  GitHub checks validate the change. Never build Android on the Mac (no Gradle,
+  `expo prebuild` or `expo run:android`); APKs come from the release workflow.
 
 ## Releases
 
@@ -100,9 +111,8 @@ store afterwards.
 ## Resolving a blocked upstream sync
 
 When the daily run fails with conflicts, merge locally (`git fetch upstream`, then `bash scripts/fork-merge-upstream.sh upstream/main "Merge upstream main"`) and keep both sides' intent; `rerere` is enabled, so resolutions are reused. The helper takes upstream's generated `routeTree.gen.ts` (the workflow regenerates it) and, when `mergiraf` is installed, tries it on the remaining files. What is left needs judgment: an upstream refactor of the code a fork mount touches. Check auto-merged fork mounts too: a clean merge can still drop a fork entry from a list upstream restructured.
-Do not install dependencies for this: Egor keeps no `node_modules` on the Mac. Commit with
-`VP_GIT_HOOKS=0`, push the merge to a `sync/<name>` branch and run
-`gh workflow run upstream-sync.yml -f branch=sync/<name>`; it checks the branch on GitHub and
-moves `main` to it (runbook: `docs/operations/upstream-sync.md`). A history-tidying rebase is a deliberate exception: make a backup
-branch `ek/pre-sync-<date>`, disable the `main` ruleset, push with
-`FORK_ALLOW_MAIN_REWRITE=1`, then re-enable the ruleset.
+Do not install dependencies for this: Egor keeps no `node_modules` on the Mac. Resolve the
+merge on a `sync/<name>` branch created from `origin/main`, commit with `VP_GIT_HOOKS=0`,
+push that branch and open a PR to `e-kotov/t3code` main. Follow the same review/skip-label
+rules as other agent work. Do not manually promote the branch with `upstream-sync.yml`,
+force-push main or disable its protection (runbook: `docs/operations/upstream-sync.md`).
