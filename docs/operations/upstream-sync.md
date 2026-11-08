@@ -106,25 +106,35 @@ failed `sync/claude-*` check never reached the resolver workflow.
 
 ## Resolving a blocked sync
 
-Egor's Mac keeps no `node_modules` (10–20 GB). Resolve the conflict with git alone and let the
-workflow check it: dispatched with `branch`, it starts from that branch instead of `main`,
-merges any newer upstream on top, runs the checks, fast-forwards `main` to the result and
-deletes the branch. The branch must contain fork `main`.
+Every agent-authored change goes through a feature branch and a pull request to
+`e-kotov/t3code` main, including tiny changes and manual conflict resolution. Start from
+`origin/main`; do not develop or commit on local main, push work directly to main, or
+manually use the sync workflow's branch promotion as a substitute for a PR. The scheduled
+sync and resolver jobs described above are separate automation, not the manual delivery path.
+
+Keep Greptile enabled for substantive work. For a very minor change, or when Egor explicitly
+requests it, create the PR with the `skip-greptile` label. The checked-in `greptile.json`
+uses `disabledLabels` for this; a title tag or Git tag does not replace the label. CI and any
+requested independent review still apply. Apply the label at creation, before review starts.
+
+Egor's Mac keeps no `node_modules` (10–20 GB). Resolve conflicts with git alone and let the
+PR's GitHub checks validate the result. A manual upstream merge preserves both sides' intent;
+`rerere` is enabled, and the merge helper can use mergiraf. Check cleanly merged fork mounts too.
 
 ```sh
-git fetch upstream && git fetch origin
-git switch main && git merge --ff-only origin/main
+git fetch origin main
+git fetch upstream main
+git switch -c sync/upstream-$(date +%F) origin/main
 bash scripts/fork-merge-upstream.sh upstream/main "Merge upstream main"
-# rerere replays earlier resolutions; with `brew install mergiraf` the helper also tries it.
-# Resolve what remains. Take upstream's routeTree.gen.ts; the workflow regenerates it.
-VP_GIT_HOOKS=0 git commit --no-edit   # the upstream pre-commit hook needs vp
-git push origin HEAD:refs/heads/sync/upstream-$(date +%F)
-gh workflow run upstream-sync.yml -R e-kotov/t3code -f branch=sync/upstream-$(date +%F)
+# Resolve remaining conflicts and inspect all fork mounts.
+VP_GIT_HOOKS=0 git commit --no-edit
+git push -u origin HEAD
+gh pr create --repo e-kotov/t3code --base main
 ```
 
-When the run is green, `git pull` on `main`. The same path checks any other fork commit made
-without local dependencies. `VP_GIT_HOOKS=0` skips local formatting; GitHub checks the
-committed files with the repository formatter.
+`VP_GIT_HOOKS=0` skips the dependency-based local hook; it does not waive hosted checks or
+review. Merge the PR only when the user's endpoint authorizes it and required checks and
+reviews pass. Never rewrite main or disable its protection to complete agent work.
 
 Changed syncs also run `vp run check:changed` against
 `origin/main`, including formatting, lint, knip, affected-package typechecks and adjacent
@@ -134,8 +144,7 @@ locally, review the diff and rerun.
 The runner never promotes uncommitted formatter changes.
 
 Keep fork logic in fork-owned files with small mount points in upstream files; this keeps
-future conflicts small. When the fork history needs tidying (to drop or upstream a feature),
-rebase it onto `upstream/main` with a backup branch `ek/pre-sync-<date>` and force-push once.
+future conflicts small. See `.agents/skills/fork-development/SKILL.md` for the branch and PR rules.
 
 ## Guards for fork development
 
@@ -143,7 +152,8 @@ rebase it onto `upstream/main` with a backup branch `ek/pre-sync-<date>` and for
 - `.vite-hooks/pre-push` runs `scripts/fork-upstream-sync.sh checks` before a push to `main`,
   refuses a push that would drop remote commits, and warns about untested code and edits to
   upstream-owned files. `FORK_SKIP_CHECKS=1` skips the checks. Without local dependencies it
-  refuses the push and points to the branch path above.
+  refuses the push. Its legacy direct-push advice is not an authorization to bypass the
+  feature-branch and PR rules above.
 - `scripts/fork-upstream-sync.sh footprint [REV]` lists upstream files the fork edits: the
   working tree by default, `HEAD` for committed work only. It and `checks` compare against
   `UPSTREAM_SHA` when set, otherwise against the upstream commit `HEAD` already contains, so a
