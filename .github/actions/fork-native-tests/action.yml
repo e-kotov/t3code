@@ -1,0 +1,33 @@
+name: Fork native tests
+description: Run the fork's Go engine tests and Kotlin unit tests on a checked-out tree.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: "21"
+    - uses: ./.github/actions/build-fork-tailnet
+      with:
+        verify-go: "true"
+    - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+    - uses: ./.github/actions/setup-ci-deps
+      with:
+        install-args: --filter=@t3tools/mobile...
+    - name: Generate the Android project
+      shell: bash
+      run: vp exec --filter @t3tools/mobile -- expo prebuild --clean --platform android --no-install
+    - name: Run fork Kotlin unit tests
+      shell: bash
+      working-directory: apps/mobile/android
+      run: >-
+        ./gradlew --init-script ../../../scripts/fork-sharing-tests.gradle
+        -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1024m -XX:+UseParallelGC"
+        :app:verifyPatchedNativeSharing
+        :expo-sharing:testDebugUnitTest
+        :t3-agent-notifications:testDebugUnitTest
+        :t3-citation-passage:testDebugUnitTest
+        :t3-tailnet:testDebugUnitTest
+        :t3-termux-command:testDebugUnitTest
+        :t3-native-controls:compileDebugKotlin
+        --build-cache --max-workers=4

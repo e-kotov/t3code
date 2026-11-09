@@ -1,0 +1,42 @@
+name: Fork native tests
+
+# The same Go and Kotlin tests the upstream sync runs before main moves (.github/actions/fork-native-tests).
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/fork-native-tests.yml"
+      - ".github/actions/fork-native-tests/**"
+      - ".github/actions/build-fork-tailnet/**"
+      - "apps/mobile/modules/t3-*/android/**"
+      - "apps/mobile/modules/t3-tailnet/go/**"
+      - "apps/mobile/src/features/sharing/android/**"
+      - "scripts/fork-sharing-tests.gradle"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-native-tests-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git init -q .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch -q --no-tags --depth=1 origin "$CHECKOUT_REF"
+          git checkout -q --detach FETCH_HEAD
+      - uses: ./.github/actions/fork-native-tests

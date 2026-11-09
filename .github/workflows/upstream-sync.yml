@@ -164,9 +164,36 @@ jobs:
           retention-days: 3
 
   # Fresh runner that executes no repository code: it only pushes the checked merge.
+  # The merge job has no Android or Go toolchain; fork Kotlin and Go tests run here before main moves.
+  native:
+    needs: merge
+    if: needs.merge.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: upstream-merge
+          path: ${{ runner.temp }}
+      - name: Check out the checked merge without vendored gitlinks
+        run: |
+          set -euo pipefail
+          git init -q .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch -q --no-tags origin main:refs/remotes/origin/main
+          git fetch -q "$RUNNER_TEMP/merge.bundle" main:refs/heads/merged
+          git checkout -q merged
+      - uses: ./.github/actions/fork-native-tests
+      - if: failure()
+        run: echo "Fork Kotlin or Go tests failed after merging upstream; main was not changed." >> "$GITHUB_STEP_SUMMARY"
+
   # Fresh runner that executes no repository code: it asks Egor to approve a held resolution.
   request-approval:
-    needs: merge
+    needs: [merge, native]
     if: needs.merge.outputs.approval == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -206,7 +233,7 @@ jobs:
           fi
 
   push:
-    needs: merge
+    needs: [merge, native]
     if: needs.merge.outputs.changed == 'true' && needs.merge.outputs.approval != 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
