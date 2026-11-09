@@ -60,6 +60,9 @@ class FeatureGuardTest(unittest.TestCase):
             self.assertIn("belong to no feature in scripts/fork-features.json:\n  other.test.ts",
                           guard("check", success=False))
             (root / "other.test.ts").unlink()
+            (root / "NativeTest.kt").write_text("assertTrue(native)\n")
+            self.assertIn("  NativeTest.kt", guard("check", success=False))
+            (root / "NativeTest.kt").unlink()
             manifest(["feature.test.ts", "gone.test.ts"])
             self.assertIn("mount: gone.test.ts does not exist", guard("check", success=False))
             manifest(["feature.test.ts"])

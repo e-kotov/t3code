@@ -26,7 +26,7 @@ import sys
 MANIFEST = "scripts/fork-features.json"
 README = "README.md"
 START, END = "<!-- fork-features:start -->", "<!-- fork-features:end -->"
-TEST = re.compile(r"\.test\.(?:ts|tsx|py)$")
+TEST = re.compile(r"\.test\.(?:ts|tsx|py)$|Test\.kt$|_test\.go$")
 GUARD_FILES = (MANIFEST, "scripts/fork-footprint-budget.json")
 
 

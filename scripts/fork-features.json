@@ -194,7 +194,8 @@
         "apps/web/src/deviceCommands/deviceCommands.logic.test.ts",
         "apps/web/src/components/CommandPaletteDeviceCommands.browser.test.tsx",
         "apps/mobile/src/features/device-commands/termuxCommands.logic.test.ts",
-        "scripts/forkDesktopCalendarUsage.test.ts"
+        "scripts/forkDesktopCalendarUsage.test.ts",
+        "apps/mobile/modules/t3-termux-command/android/src/test/java/expo/modules/t3termuxcommand/TermuxCommandsTest.kt"
       ]
     },
     {
@@ -205,7 +206,8 @@
         "apps/desktop/src/deviceUtilities/DeviceUtilitiesRuntime.test.ts",
         "apps/desktop/src/deviceUtilities/UtilityProcessRunner.test.ts",
         "packages/contracts/src/deviceUtilities.test.ts",
-        "apps/mobile/src/features/device-commands/utilitiesWorkspaceTab.test.ts"
+        "apps/mobile/src/features/device-commands/utilitiesWorkspaceTab.test.ts",
+        "apps/mobile/modules/t3-termux-command/android/src/test/java/expo/modules/t3termuxcommand/DeviceUtilitiesTest.kt"
       ]
     },
     {
@@ -218,7 +220,13 @@
         "packages/client-runtime/src/connection/builtInTailnet.test.ts",
         "apps/server/src/auth/ServerSecretStore.androidLink.test.ts",
         "apps/server/src/environment/ServerEnvironment.androidLink.test.ts",
-        "apps/server/src/persistence/initializeV2Database.androidLink.test.ts"
+        "apps/server/src/persistence/initializeV2Database.androidLink.test.ts",
+        "apps/mobile/modules/t3-tailnet/android/src/test/java/expo/modules/t3tailnet/PhoneShareServiceTest.kt",
+        "apps/mobile/modules/t3-tailnet/android/src/test/java/expo/modules/t3tailnet/PhoneShareSessionTest.kt",
+        "apps/mobile/modules/t3-tailnet/go/bridge_test.go",
+        "apps/mobile/modules/t3-tailnet/go/engine/engine_test.go",
+        "apps/mobile/modules/t3-tailnet/go/engine/forward_test.go",
+        "apps/mobile/modules/t3-tailnet/go/engine/phone_share_test.go"
       ]
     },
     {
@@ -231,14 +239,18 @@
         "apps/mobile/src/features/sharing/forkShareDestinations.test.ts",
         "apps/mobile/src/features/sharing/forkSharedDocuments.test.ts",
         "apps/mobile/src/features/sharing/forkSharedQueueRecovery.test.ts",
-        "apps/mobile/src/features/observability/forkObserve.test.ts"
+        "apps/mobile/src/features/observability/forkObserve.test.ts",
+        "apps/mobile/src/features/sharing/android/ForkIncomingShareParserTest.kt"
       ]
     },
     {
       "id": "android-notifications",
       "group": "Devices and Android",
       "summary": "direct agent notifications with opt-in subagent completion alerts",
-      "tests": ["apps/mobile/src/features/agent-awareness/directNotifications.test.ts"]
+      "tests": [
+        "apps/mobile/src/features/agent-awareness/directNotifications.test.ts",
+        "apps/mobile/modules/t3-agent-notifications/android/src/test/java/expo/modules/t3agentnotifications/DirectAgentEventsTest.kt"
+      ]
     },
     {
       "id": "mobile-thread-actions",
@@ -261,7 +273,11 @@
         "apps/mobile/src/lib/composerCitationChipPresentation.test.ts",
         "apps/mobile/src/native/assistantCitationEditing.test.ts",
         "apps/mobile/src/native/assistantCitationSelection.test.ts",
-        "apps/mobile/src/features/threads/AssistantCitationPassage.test.tsx"
+        "apps/mobile/src/features/threads/AssistantCitationPassage.test.tsx",
+        "apps/mobile/modules/t3-citation-passage/android/src/test/java/expo/modules/t3citationpassage/CitationPassageHighlighterTest.kt",
+        "apps/mobile/modules/t3-citation-passage/android/src/test/java/expo/modules/t3citationpassage/CitationPassageObservationTest.kt",
+        "apps/mobile/modules/t3-citation-passage/android/src/test/java/expo/modules/t3citationpassage/CitationPassageTextTest.kt",
+        "apps/mobile/modules/t3-citation-passage/android/src/test/java/expo/modules/t3citationpassage/CitationPassageViewsTest.kt"
       ]
     },
     {
