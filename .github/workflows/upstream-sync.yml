@@ -191,9 +191,10 @@ jobs:
             echo
             cat "$RUNNER_TEMP/approval.md"
             echo
-            echo "**Approve:** open [a pull request from the branch]($compare), review the diff and merge it."
-            echo "**Reject:** delete the branch; the next sync starts a new resolution."
-            echo "While the branch exists, no new automatic resolution starts."
+            echo "**Approve:** open [a pull request from the branch]($compare), review the diff and merge it,"
+            echo "then delete \`$BRANCH\` and close this issue; merging does neither."
+            echo "**Reject:** delete \`$BRANCH\` and close this issue; the next sync starts a new resolution."
+            echo "While \`$BRANCH\` exists, no new automatic resolution starts."
           } > "$RUNNER_TEMP/issue.md"
           title="Upstream sync awaiting approval: $BRANCH"
           number=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "in:title \"$title\"" --json number,title \

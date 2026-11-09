@@ -29,7 +29,9 @@ they are not tied to upstream stable releases.
    Compiler coverage test. Web browser tests run in headless Chromium on the runner.
    `scripts/fork-feature-guard.py check` also fails if a file the fork owned on `main` is
    missing after the merge, if a fork test protects no feature in `scripts/fork-features.json`,
-   or if the README feature list no longer matches that manifest.
+   or if the README feature list no longer matches that manifest. When upstream deletes an
+   upstream test the fork had changed, the fork's copy becomes fork-owned and must be registered,
+   which holds that resolution for approval.
 4. If the checks pass, the merge commit is pushed to `main`. Upstream workflows that became active are
    disabled; fork-owned workflows (the kept list and every `fork-*.yml`) stay enabled.
 
@@ -75,8 +77,9 @@ follow-up stages; it does not trigger fallback by itself.
    (`scripts/fork-features.json`, `scripts/fork-footprint-budget.json`), or shrank fork mounts
    in upstream files, is not pushed to `main`: `scripts/fork-feature-guard.py approval` lists
    why, and the run opens an issue titled "Upstream sync awaiting approval: <branch>". Egor
-   approves by opening a pull request from the branch and merging it, or rejects by deleting
-   the branch. Replaying the syncs since 27 October, 8 of 11 resolutions would have waited.
+   approves by opening a pull request from the branch and merging it, then deleting the branch
+   (this repository does not delete merged branches, and a remaining `sync/claude-*` branch blocks
+   new resolutions); he rejects by deleting the branch. Replaying the syncs since 27 October, 8 of 11 resolutions would have waited.
    If they fail after the follow-up is used, or the resolver writes
    `.claude-needs-decision.md`, the run fails (GitHub emails it) and the branch stays for Egor.
    Decision requests also appear in
