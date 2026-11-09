@@ -37,20 +37,23 @@ jobs:
           git checkout --detach "$CHECKOUT_REF"
       - uses: ./.github/actions/setup-ci-deps
       - uses: ./.github/actions/setup-fork-chromium
-      - name: Prove the machine-name regression on main
+      - name: Prove the machine-name regression on the pre-fix implementation
+        env:
+          PRE_FIX: bc11d50474b318cbe05af35a4689642efe70d796
         run: |
           dir=apps/web/src/components
+          git fetch --no-tags origin "$PRE_FIX"
           cp "$dir/ThreadContextChip.tsx" "$dir/ThreadMachineLabel.tsx" "$RUNNER_TEMP/"
           trap 'cp "$RUNNER_TEMP/ThreadContextChip.tsx" "$RUNNER_TEMP/ThreadMachineLabel.tsx" "$dir/"' EXIT
-          git show "origin/main:$dir/ThreadContextChip.tsx" > "$dir/ThreadContextChip.tsx"
-          git show "origin/main:$dir/ThreadMachineLabel.tsx" > "$dir/ThreadMachineLabel.tsx"
+          git show "$PRE_FIX:$dir/ThreadContextChip.tsx" > "$dir/ThreadContextChip.tsx"
+          git show "$PRE_FIX:$dir/ThreadMachineLabel.tsx" > "$dir/ThreadMachineLabel.tsx"
           if vp test run "$dir/ThreadMachineLabel.browser.test.tsx" > "$RUNNER_TEMP/before.log" 2>&1; then
             cat "$RUNNER_TEMP/before.log"
-            echo 'The machine-name test must fail on main, whose link name omits the machine.'
+            echo 'The machine-name test must fail on the pre-fix implementation, whose link name omits the machine.'
             exit 1
           fi
           grep -q 'Thread, Routing, on Raven' "$RUNNER_TEMP/before.log" || { cat "$RUNNER_TEMP/before.log"; exit 1; }
-          echo 'The test rejects main because the link name omits the machine.'
+          echo 'The test rejects the pre-fix implementation because its link name omits the machine.'
       - name: Check changed code
         run: vp run check:changed origin/main
       - name: Test thread link names, including upstream's unknown-machine case
