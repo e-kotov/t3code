@@ -34,6 +34,12 @@ export function ThreadMachineLabel(props: {
   );
 }
 
+// An unknown machine keeps upstream's exact link name, which upstream tests assert.
+export function useThreadLinkName(environmentId: EnvironmentId, title: string) {
+  const label = useEnvironment(environmentId)?.label.trim();
+  return label ? { "aria-label": `Thread, ${title}, on ${label}` } : {};
+}
+
 export function ThreadMachineDetails(props: { readonly environmentId: EnvironmentId }) {
   const environment = useEnvironment(props.environmentId);
   const label = environment?.label.trim();
