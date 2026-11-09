@@ -18,6 +18,13 @@ future upstream merges clean:
   file (new or existing) and mount it, rather than spreading fork lines through upstream code.
 - Reuse upstream APIs through small adapters; do not copy upstream's private internals into fork
   files. Do not edit upstream tests to pass; fix the fork code so upstream behavior holds.
+- Fork tests specify fork features; a test file is fork-owned when upstream lacks it
+  (`git cat-file -e "$(git rev-list --merges -1 HEAD)^2:<path>"` fails). When an upstream change or
+  test contradicts behavior a fork test asserts, keep the fork behavior: leave upstream's line
+  intact and override it from fork-owned code where the fork feature applies, so upstream's tests
+  still hold elsewhere. Adapt fork-test fixtures and mocks to upstream API changes, but never
+  weaken, delete or rewrite their assertions to accept upstream's behavior; if both cannot hold,
+  follow the bail-out rule in step 5.
 
 1. Fix exactly what "This run" describes. In conflicted files remove every marker and keep both
    sides' intent: "ours" is fork code, "theirs" is upstream's change. When upstream removed or
