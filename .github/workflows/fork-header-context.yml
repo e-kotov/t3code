@@ -46,13 +46,17 @@ jobs:
           cp "$source" "$RUNNER_TEMP/HeaderContextLabels.tsx"
           trap 'cp "$RUNNER_TEMP/HeaderContextLabels.tsx" "$source"' EXIT
           git show "9a2749b89d810fbaf0805cff8fbb2388f178988a:$source" > "$source"
-          if vp test run apps/web/src/components/chat/HeaderContextLabels.browser.test.tsx -t 'updates an unsent|uses the composer' --reporter=json --outputFile="$RUNNER_TEMP/header-context-before.json" > "$RUNNER_TEMP/header-context-before.log" 2>&1; then
-            cat "$RUNNER_TEMP/header-context-before.log"
-            echo 'Both model context regressions must fail on the previous implementation.'
-            exit 1
-          fi
-          python3 - <<'PY'
-          import json, os
+          # Under load an element assertion can time out as a poll instead of naming its locator;
+          # that does not prove which assertion failed, so such a run is repeated once.
+          for attempt in 1 2; do
+            if vp test run apps/web/src/components/chat/HeaderContextLabels.browser.test.tsx -t 'updates an unsent|uses the composer' --reporter=json --outputFile="$RUNNER_TEMP/header-context-before.json" > "$RUNNER_TEMP/header-context-before.log" 2>&1; then
+              cat "$RUNNER_TEMP/header-context-before.log"
+              echo 'Both model context regressions must fail on the previous implementation.'
+              exit 1
+            fi
+            status=0
+            python3 - <<'PY' || status=$?
+          import json, os, sys
           from pathlib import Path
           result = json.loads((Path(os.environ['RUNNER_TEMP']) / 'header-context-before.json').read_text())
           cases = [case for file in result['testResults'] for case in file['assertionResults'] if case['status'] == 'failed']
@@ -60,12 +64,15 @@ jobs:
           for name, expected in [('updates an unsent', 'Remote custom model'), ('uses the composer', 'Available fallback')]:
               case = next(case for case in cases if name in case['fullName'])
               failure = '\n'.join(case['failureMessages'])
-              # Under load an element assertion can time out as a poll instead of naming its locator.
-              missing = 'Cannot find element' in failure and expected in failure
-              timed_out = "expect.poll() function didn't resolve in time" in failure and 'HeaderContextLabels.browser.test.tsx' in failure
-              assert missing or timed_out, failure
+              if "expect.poll() function didn't resolve in time" in failure and 'Cannot find element' not in failure:
+                  print(f'{name}: timed out without naming the missing element.')
+                  sys.exit(3)
+              assert 'Cannot find element' in failure and expected in failure, failure
           print('Both regression assertions reject the previous model context implementation.')
           PY
+            [ "$status" -eq 3 ] && [ "$attempt" -eq 1 ] && continue
+            exit "$status"
+          done
       - name: Capture previous header
         run: |
           source=apps/web/src/components/chat/ChatHeader.tsx

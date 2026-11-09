@@ -16,6 +16,9 @@ runs:
         install-args: --filter=@t3tools/mobile...
     - name: Generate the Android project
       shell: bash
+      # Fork builds exclude the unconfigured expo-observe library that verifyNoForkObserve rejects.
+      env:
+        T3CODE_FORK_BUILD: "1"
       run: vp exec --filter @t3tools/mobile -- expo prebuild --clean --platform android --no-install
     - name: Run fork Kotlin unit tests
       shell: bash

@@ -11,6 +11,7 @@ on:
       - "apps/mobile/modules/t3-*/android/**"
       - "apps/mobile/modules/t3-tailnet/go/**"
       - "apps/mobile/src/features/sharing/android/**"
+      - "patches/expo-sharing@*.patch"
       - "scripts/fork-sharing-tests.gradle"
   workflow_dispatch:
 
