@@ -27,8 +27,11 @@ they are not tied to upstream stable releases.
    runs every test file the fork added or changed relative to upstream, plus the upstream tests
    beside upstream files the fork mounts into (listed in the script) and the mobile React
    Compiler coverage test. Web browser tests run in headless Chromium on the runner.
+   `scripts/fork-feature-guard.py check` also fails if a file the fork owned on `main` is
+   missing after the merge, if a fork test protects no feature in `scripts/fork-features.json`,
+   or if the README feature list no longer matches that manifest.
 4. If the checks pass, the merge commit is pushed to `main`. Upstream workflows that became active are
-   disabled; only fork-owned workflows stay enabled.
+   disabled; fork-owned workflows (the kept list and every `fork-*.yml`) stay enabled.
 
 ## Conflicts and failed checks: Claude Code and Pi
 
@@ -68,7 +71,13 @@ follow-up stages; it does not trigger fallback by itself.
 5. The workflow rebuilds one merge commit with the original parents (fork `main`, upstream), pushes
    it as `sync/claude-<UTC time>` from a job that runs no repository code, and dispatches this
    workflow with `promote_only`. The usual checks decide promotion; the branch is deleted after
-   it. If they fail after the follow-up is used, or the resolver writes
+   it. A resolution that passes but changed fork-owned tests or guard files
+   (`scripts/fork-features.json`, `scripts/fork-footprint-budget.json`), or shrank fork mounts
+   in upstream files, is not pushed to `main`: `scripts/fork-feature-guard.py approval` lists
+   why, and the run opens an issue titled "Upstream sync awaiting approval: <branch>". Egor
+   approves by opening a pull request from the branch and merging it, or rejects by deleting
+   the branch. Replaying the syncs since 27 October, 8 of 11 resolutions would have waited.
+   If they fail after the follow-up is used, or the resolver writes
    `.claude-needs-decision.md`, the run fails (GitHub emails it) and the branch stays for Egor.
    Decision requests also appear in
    the job log and the downloadable `claude-decision` artifact, so `gh run view --log-failed` or
@@ -159,6 +168,11 @@ future conflicts small. See `.agents/skills/fork-development/SKILL.md` for the b
   `UPSTREAM_SHA` when set, otherwise against the upstream commit `HEAD` already contains, so a
   freshly fetched `upstream/main` does not count unmerged upstream changes as fork edits.
 - Agent rules: `.agents/skills/fork-development/SKILL.md`, linked from `AGENTS.md`.
+- `scripts/fork-features.json` lists each fork feature with its guide and the tests that protect
+  it. Every fork-owned test must belong to a feature, and the README feature list between the
+  `fork-features` markers is generated from it with
+  `python3 scripts/fork-feature-guard.py readme --write`. `.github/workflows/fork-feature-guard.yml`
+  checks both on every pull request.
 
 ## Upstream edit budget
 

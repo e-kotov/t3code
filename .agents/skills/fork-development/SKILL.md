@@ -40,6 +40,9 @@ This checkout is Egor Kotov's fork. Upstream will not merge fork features, and
 - Add or extend a test file for every behavior you add or change. The daily sync runs every
   test file the fork adds or changes, so tests are what protect a feature from later upstream
   changes; a clean merge without tests can still break it silently.
+- Register every fork test under its feature in `scripts/fork-features.json`, adding the feature
+  if it is new, then run `python3 scripts/fork-feature-guard.py readme --write`; the README
+  feature list is generated from the manifest. CI fails on an unregistered test or a stale list.
 - When an upstream test fails because of a fork change, fix the fork code so the upstream
   behavior holds when the fork option is not selected. Do not edit upstream tests to pass.
 

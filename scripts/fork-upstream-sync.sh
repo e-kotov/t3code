@@ -101,10 +101,13 @@ case "$cmd" in
     python3 scripts/fork-sync-excerpt.test.py
     python3 scripts/claude-sync.test.py
     python3 scripts/fork-footprint-budget.test.py
+    python3 scripts/fork-feature-guard.test.py
     python3 scripts/fork-failed-tests.test.py
     python3 scripts/fork-nightly-release.test.py
     python3 scripts/build-termux-server.test.py
     UPSTREAM_SHA="$upstream" python3 scripts/fork-footprint-budget.py
+    # Every file fork main owned must survive the merge, and every fork test must protect a listed feature.
+    python3 scripts/fork-feature-guard.py check --before refs/remotes/origin/main --rev HEAD
     RUNNER_TEMP=${RUNNER_TEMP:-$(mktemp -d)}
     # Git hooks put a relative node_modules/.bin on PATH, which breaks after cd into a package.
     PATH="$(git rev-parse --show-toplevel)/node_modules/.bin:$PATH"

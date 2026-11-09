@@ -47,7 +47,12 @@ future upstream merges clean:
    fork-owned files, and only for a few unavoidable mount lines run it with `--write`. If it reports
    a file dropped to 0 lines, a fork mount was lost: restore it (see step 2) and do not `--write`
    it away; retiring the feature is a decision for step 5. A shrinkage warning is informational;
-   check the feature is intact.
+   check the feature is intact. Run
+   `python3 scripts/fork-feature-guard.py check --before refs/remotes/origin/main`: a missing
+   fork-owned file means a fork feature was dropped, so restore it; a fork test outside
+   `scripts/fork-features.json` must be registered there. A resolution that changes fork-owned
+   tests or guard files, or shrinks fork mounts, is held for Egor's approval, so do that only when
+   the merge requires it.
 5. Do not commit or push; the workflow commits your working tree.
    Safety and Bail-out Rule:
    If a conflict is ambiguous, involves substantial upstream structural churn, or would require

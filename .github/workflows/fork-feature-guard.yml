@@ -1,0 +1,36 @@
+name: Fork feature guard
+
+# Every fork test must protect a feature in scripts/fork-features.json, and README's feature
+# list is generated from it. Needs only Git and Python, so it runs on every pull request.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-feature-guard-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git init -q .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch -q --no-tags origin main "$CHECKOUT_REF"
+          git checkout -q --detach "$CHECKOUT_REF"
+          git fetch -q --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
+      - name: Test the guard
+        run: python3 scripts/fork-feature-guard.test.py
+      - name: Check the feature manifest and README
+        run: python3 scripts/fork-feature-guard.py check
