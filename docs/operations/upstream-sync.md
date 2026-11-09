@@ -81,9 +81,11 @@ follow-up stages; it does not trigger fallback by itself.
    (`scripts/fork-features.json`, `scripts/fork-footprint-budget.json`), or shrank fork mounts
    in upstream files, is not pushed to `main`: `scripts/fork-feature-guard.py approval` lists
    why, and the run opens an issue titled "Upstream sync awaiting approval: <branch>". Egor
-   approves by opening a pull request from the branch and merging it, then deleting the branch
-   (this repository does not delete merged branches, and a remaining `sync/claude-*` branch blocks
-   new resolutions); he rejects by deleting the branch. Replaying the syncs since 27 October, 8 of 11 resolutions would have waited.
+   approves by opening the prefilled pull request the issue links (it carries `Closes #<issue>`) and
+   merging it;
+   merging closes the issue, and the repository deletes merged branches. He rejects by deleting
+   the branch and closing the issue.
+   Replaying the syncs since 27 October, 8 of 11 resolutions would have waited.
    If they fail after the follow-up is used, or the resolver writes
    `.claude-needs-decision.md`, the run fails (GitHub emails it) and the branch stays for Egor.
    Decision requests also appear in
