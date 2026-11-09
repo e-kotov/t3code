@@ -1,0 +1,66 @@
+name: Fork thread machine label
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/fork-thread-machine-label.yml"
+      - "apps/web/src/components/ThreadMachineLabel*"
+      - "apps/web/src/components/ThreadContextChip.tsx"
+      - "apps/web/src/components/chat/MarkdownThreadLink*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: thread-machine-label-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch --no-tags origin main "$CHECKOUT_REF"
+          git checkout --detach "$CHECKOUT_REF"
+      - uses: ./.github/actions/setup-ci-deps
+      - uses: ./.github/actions/setup-fork-chromium
+      - name: Prove the machine-name regression on the pre-fix implementation
+        env:
+          PRE_FIX: bc11d50474b318cbe05af35a4689642efe70d796
+        run: |
+          dir=apps/web/src/components
+          git fetch --no-tags origin "$PRE_FIX"
+          cp "$dir/ThreadContextChip.tsx" "$dir/ThreadMachineLabel.tsx" "$RUNNER_TEMP/"
+          trap 'cp "$RUNNER_TEMP/ThreadContextChip.tsx" "$RUNNER_TEMP/ThreadMachineLabel.tsx" "$dir/"' EXIT
+          git show "$PRE_FIX:$dir/ThreadContextChip.tsx" > "$dir/ThreadContextChip.tsx"
+          git show "$PRE_FIX:$dir/ThreadMachineLabel.tsx" > "$dir/ThreadMachineLabel.tsx"
+          if vp test run "$dir/ThreadMachineLabel.browser.test.tsx" > "$RUNNER_TEMP/before.log" 2>&1; then
+            cat "$RUNNER_TEMP/before.log"
+            echo 'The machine-name test must fail on the pre-fix implementation, whose link name omits the machine.'
+            exit 1
+          fi
+          grep -q 'Thread, Routing, on Raven' "$RUNNER_TEMP/before.log" || { cat "$RUNNER_TEMP/before.log"; exit 1; }
+          echo 'The test rejects the pre-fix implementation because its link name omits the machine.'
+      - name: Check changed code
+        run: vp run check:changed origin/main
+      - name: Test thread link names, including upstream's unknown-machine case
+        run: |
+          vp test run apps/web/src/components/ThreadMachineLabel.browser.test.tsx \
+            apps/web/src/components/chat/MarkdownThreadLink.browser.test.tsx
+      - name: Check fork footprint
+        run: |
+          git fetch --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
+          python3 scripts/fork-footprint-budget.py

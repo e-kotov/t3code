@@ -7,7 +7,7 @@ import { useProject, useThreadShell } from "~/state/entities";
 import { orchestrationEnvironment } from "~/state/orchestration";
 import { useEnvironmentQuery } from "~/state/query";
 import { ContextChip, ContextChipLabel } from "./ContextChip";
-import { ThreadMachineDetails, ThreadMachineLabel } from "./ThreadMachineLabel";
+import { ThreadMachineDetails, ThreadMachineLabel, useThreadLinkName } from "./ThreadMachineLabel";
 import { ProjectFavicon } from "./ProjectFavicon";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 
@@ -40,6 +40,7 @@ export function ThreadContextChip(props: {
             {...(props.unreadable ? { state: "invalid" as const } : {})}
             render={<Link to="/$environmentId/$threadId" params={{ environmentId, threadId }} />}
             aria-label={`Thread, ${title}`}
+            {...useThreadLinkName(environmentId, title)}
             data-markdown-copy={props.copyMarkdown}
             className="no-underline"
           >
