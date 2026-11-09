@@ -11,6 +11,10 @@ Judge only the fix:
 - Does it resolve every listed conflict or failure, keeping both the fork feature and upstream's
   change? Did it restore code upstream deleted, or drop or disable a fork feature?
 - Did it break a fork mount that merged cleanly, or change anything beyond what was needed?
+- Did it weaken, delete or rewrite assertions in a fork test (a file absent from upstream, listed by
+  `git diff --name-only --diff-filter=A "$m^2" HEAD`), so a fork behavior is no longer checked? That
+  drops a fork feature: request changes. Adapting fixtures or mocks to an upstream API change, with
+  the same asserted behavior, is fine.
 - Will the next upstream merge conflict again? Flag fork edits inside upstream-owned code beyond
   small mount lines, or upstream code rewritten where upstream's version plus a mount would do.
 - Is anything likely to fail typecheck, lint or tests, or behave wrongly at runtime?
