@@ -17,7 +17,7 @@ summary() { echo "$1" >> "${GITHUB_STEP_SUMMARY:-/dev/stderr}"; }
 out() { echo "$1" >> "${GITHUB_OUTPUT:-/dev/null}"; }
 
 # Fixers edit files and run the checks of what they touch; nothing reaches the network or git remotes.
-fix_tools='Read,Edit,Write,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git status:*),Bash(git rev-list:*),Bash(git grep:*),Bash(cd:*),Bash(vp:*),Bash(python3 scripts/fork-footprint-budget.py:*)'
+fix_tools='Read,Edit,Write,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git status:*),Bash(git rev-list:*),Bash(git grep:*),Bash(cd:*),Bash(vp:*),Bash(python3 scripts/fork-footprint-budget.py:*),Bash(python3 scripts/fork-feature-guard.py:*)'
 review_tools='Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git rev-list:*),Bash(git grep:*)'
 verdict_schema='{"type":"object","properties":{"verdict":{"type":"string","enum":["approve","changes"]},"findings":{"type":"array","items":{"type":"string"}},"summary":{"type":"string"}},"required":["verdict","findings","summary"]}'
 

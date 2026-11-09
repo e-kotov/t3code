@@ -11,16 +11,9 @@ def git(*args):
     return subprocess.check_output(["git", *args], text=True).strip()
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--write", action="store_true", help="record a reviewed baseline")
-    parser.add_argument("--rev", default="HEAD")
-    args = parser.parse_args()
-    root = Path(git("rev-parse", "--show-toplevel"))
-    os.chdir(root)
-    baseline = root / "scripts/fork-footprint-budget.json"
-    base = os.environ.get("UPSTREAM_SHA") or git("merge-base", args.rev, "refs/remotes/upstream/main")
-    rows = git("diff", "--numstat", "--diff-filter=MD", "--no-renames", base, args.rev)
+def measure(base, rev):
+    """Changed lines per upstream-owned file in rev, relative to the upstream commit base."""
+    rows = git("diff", "--numstat", "--diff-filter=MD", "--no-renames", base, rev)
     counts = {}
     for row in rows.splitlines():
         added, removed, path = row.split("\t", 2)
@@ -30,6 +23,19 @@ def main():
             continue
         # A binary modification still consumes a slot and cannot disappear from the guard.
         counts[path] = int(added) + int(removed) if added != "-" else 1
+    return counts
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--write", action="store_true", help="record a reviewed baseline")
+    parser.add_argument("--rev", default="HEAD")
+    args = parser.parse_args()
+    root = Path(git("rev-parse", "--show-toplevel"))
+    os.chdir(root)
+    baseline = root / "scripts/fork-footprint-budget.json"
+    base = os.environ.get("UPSTREAM_SHA") or git("merge-base", args.rev, "refs/remotes/upstream/main")
+    counts = measure(base, args.rev)
     if args.write:
         baseline.write_text(json.dumps({"files": dict(sorted(counts.items()))}, indent=2) + "\n")
         print(f"Recorded {sum(counts.values())} changed lines in {len(counts)} upstream files")

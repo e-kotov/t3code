@@ -141,6 +141,8 @@ jobs:
           fi
           git checkout -q work
           merge=$(git rev-list --merges -1 HEAD)
+          # The footprint and feature guards measure fork edits against the merged upstream commit.
+          git update-ref refs/remotes/upstream/main "$merge^2"
           unresolved=$(git log -1 --format=%B "$merge" | sed -n 's/^Unresolved: //p')
           {
             echo

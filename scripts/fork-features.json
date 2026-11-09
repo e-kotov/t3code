@@ -1,0 +1,381 @@
+{
+  "features": [
+    {
+      "id": "cache-warming",
+      "group": "Cache and context",
+      "summary": "per-thread cache warming and idle compaction policies, shared across clients",
+      "docs": "docs/user/cache-warming.md",
+      "tests": [
+        "apps/server/src/orchestration-v2/CacheWarmingService.test.ts",
+        "apps/server/src/orchestration-v2/CacheWarmingDispatch.integration.test.ts",
+        "apps/server/src/orchestration-v2/ThreadCachePolicyService.test.ts",
+        "apps/server/src/orchestration-v2/ThreadCachePolicyDispatch.test.ts",
+        "apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.idleCachePolicy.test.ts",
+        "packages/shared/src/threadCachePolicy.test.ts",
+        "packages/shared/src/cacheWarmingSettings.test.ts",
+        "apps/web/src/components/ThreadCachePolicyControl.browser.test.tsx",
+        "apps/web/src/components/threadCachePolicyContextMenu.test.ts",
+        "apps/mobile/src/features/threads/cacheWarmingTarget.test.ts",
+        "apps/mobile/src/features/home/ThreadListToolbar.cacheWarming.test.tsx"
+      ]
+    },
+    {
+      "id": "cache-hud",
+      "group": "Cache and context",
+      "summary": "Claude/Codex context and cache HUDs with cache-expiry sorting",
+      "tests": [
+        "apps/server/src/orchestration-v2/ProjectionCacheHud.test.ts",
+        "apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.cacheUsage.test.ts",
+        "apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.cacheTtl.test.ts",
+        "packages/shared/src/cacheHud.test.ts",
+        "apps/mobile/src/features/threads/CacheHud.test.tsx"
+      ]
+    },
+    {
+      "id": "mobile-context",
+      "group": "Cache and context",
+      "summary": "context usage and a compact action on mobile",
+      "tests": ["apps/mobile/src/features/threads/MobileContextControl.test.tsx"]
+    },
+    {
+      "id": "usage-quotas",
+      "group": "Usage and quotas",
+      "summary": "provider quota readouts in the chat header with 5-hour and weekly bars, model-aware switching and a compact popup",
+      "tests": [
+        "apps/web/src/usageCompact/CompactUsageControl.browser.test.tsx",
+        "apps/web/src/usageCompact/HeaderUsageControl.browser.test.tsx",
+        "apps/web/src/usageCompact/usageCompact.test.ts",
+        "apps/web/src/usageCompact/usageCompactReport.test.ts",
+        "apps/web/src/components/settings/UsagePopupSettings.browser.test.tsx",
+        "apps/server/src/provider/CodexProvider.usageLimits.test.ts"
+      ]
+    },
+    {
+      "id": "thread-quota",
+      "group": "Usage and quotas",
+      "summary": "official Codex task quota consumption on each thread",
+      "tests": [
+        "apps/server/src/provider/ForkThreadQuota.test.ts",
+        "apps/server/src/provider/forkThreadQuotaHttp.test.ts",
+        "packages/client-runtime/src/state/forkThreadQuota.test.ts",
+        "apps/web/src/components/chat/ForkThreadQuota.browser.test.tsx",
+        "apps/web/src/components/chat/forkThreadQuotaText.test.ts"
+      ]
+    },
+    {
+      "id": "slurm",
+      "group": "Machines and HPC",
+      "summary": "Slurm job status and time left in the header and filter menu",
+      "tests": [
+        "apps/server/src/environment/SlurmJob.test.ts",
+        "apps/server/src/environment/SlurmJobStream.test.ts",
+        "packages/client-runtime/src/connection/slurmJobCountdown.test.ts",
+        "packages/client-runtime/src/state/slurmJobProjection.test.ts",
+        "packages/client-runtime/src/rpc/slurmSessionSubscription.test.ts",
+        "packages/contracts/src/slurmJob.test.ts",
+        "apps/web/src/components/chat/HeaderMachineSlurmTime.app.browser.test.tsx"
+      ]
+    },
+    {
+      "id": "machine-groups",
+      "group": "Machines and HPC",
+      "summary": "sidebar machine shelves with folding, machine filters, project grouping and open-thread counts",
+      "tests": [
+        "packages/client-runtime/src/state/machineGroupCollapse.test.ts",
+        "packages/client-runtime/src/connection/machineGroupStatus.test.ts",
+        "packages/contracts/src/sidebarGrouping.test.ts",
+        "apps/web/src/components/sidebar/sidebarConversationGroups.test.ts"
+      ]
+    },
+    {
+      "id": "conversation-sort",
+      "group": "Machines and HPC",
+      "summary": "conversation sorting and grouping on web and mobile, reversed by selecting a sort again",
+      "tests": [
+        "packages/client-runtime/src/state/conversationSort.test.ts",
+        "apps/mobile/src/features/threads/conversationListOrder.test.ts",
+        "apps/mobile/src/features/home/conversationListOptions.test.ts",
+        "apps/mobile/src/features/home/ConversationThreadListFilters.test.tsx",
+        "apps/mobile/src/features/threads/useConversationThreadListV2.test.tsx"
+      ]
+    },
+    {
+      "id": "header-context",
+      "group": "Machines and HPC",
+      "summary": "the active machine and model in the thread header",
+      "tests": [
+        "apps/web/src/components/chat/HeaderContextLabels.browser.test.tsx",
+        "apps/web/src/components/chat/HeaderContextLabels.app.browser.test.tsx",
+        "apps/mobile/src/features/threads/mobileMachineContext.test.ts"
+      ]
+    },
+    {
+      "id": "machine-identity",
+      "group": "Machines and HPC",
+      "summary": "machine names on thread links with subagent markers, and server label overrides",
+      "tests": [
+        "apps/web/src/components/ThreadMachineLabel.browser.test.tsx",
+        "apps/server/src/environment/ServerEnvironmentLabel.override.test.ts",
+        "packages/client-runtime/src/connection/serverLabel.test.ts"
+      ]
+    },
+    {
+      "id": "browser-proxy",
+      "group": "Browser",
+      "summary": "togglable browser proxy defaults and per-request routes",
+      "tests": [
+        "apps/server/src/preview/BrowserProxyManager.test.ts",
+        "apps/server/src/preview/BrowserProxyContexts.test.ts",
+        "apps/server/src/preview/BrowserProxySettings.test.ts",
+        "apps/server/src/preview/browserProxyOpen.test.ts",
+        "packages/contracts/src/browserProxy.test.ts",
+        "packages/client-runtime/src/rpc/browserProxy.test.ts",
+        "apps/web/src/browser/browserProxyRestore.test.ts",
+        "apps/web/src/browser/useOpenLink.proxy.test.ts",
+        "apps/web/src/components/ChatMarkdown.proxy.browser.test.tsx",
+        "apps/web/src/components/preview/PreviewView.proxy.browser.test.tsx"
+      ]
+    },
+    {
+      "id": "betterwright",
+      "group": "Browser",
+      "summary": "BetterWright pages handed to T3 clients, with an SSH viewer when the desktop stream fails",
+      "tests": [
+        "apps/server/src/preview/BetterWrightBridge.test.ts",
+        "apps/server/src/preview/BetterWrightHandoff.test.ts",
+        "apps/server/src/preview/BetterWrightProbe.test.ts",
+        "apps/server/src/preview/BetterWrightViewerFallback.test.ts",
+        "apps/desktop/src/betterWrightViewerFallback/ViewerFallbackSessions.test.ts",
+        "apps/desktop/src/betterWrightViewerFallback/viewerFallbackPolicy.test.ts",
+        "apps/desktop/src/betterWrightViewerFallback/viewerPageGate.test.ts",
+        "apps/desktop/src/betterWrightViewerFallback/viewerRelay.test.ts",
+        "apps/desktop/src/betterWrightViewerFallback/viewerWindow.test.ts",
+        "apps/web/src/browser/BetterWrightSshFallback.browser.test.tsx",
+        "apps/web/src/browser/betterWrightSshFallbackHealth.test.ts"
+      ]
+    },
+    {
+      "id": "claude-artifacts",
+      "group": "Providers and automations",
+      "summary": "Claude Artifacts for selected delegates",
+      "tests": ["apps/server/src/provider/claudeArtifacts.test.ts"]
+    },
+    {
+      "id": "antigravity",
+      "group": "Providers and automations",
+      "summary": "Antigravity over ACP with a custom client name, token and cache context, quotas and a browser preflight",
+      "tests": [
+        "apps/server/src/provider/forkAntigravityRuntime.test.ts",
+        "apps/server/src/provider/forkAntigravityQuota.test.ts",
+        "apps/server/src/provider/forkAntigravityBrowserPreflight.test.ts",
+        "apps/server/src/orchestration-v2/Adapters/AntigravityTurnUsage.test.ts"
+      ]
+    },
+    {
+      "id": "automations",
+      "group": "Providers and automations",
+      "summary": "agent-created scheduled tasks that start a new thread per run in the chosen destination",
+      "tests": [
+        "apps/server/src/mcp/automationDestination.test.ts",
+        "packages/contracts/src/automationDestinationSettings.test.ts",
+        "apps/server/src/telemetry/automationDestinationDimension.test.ts",
+        "apps/server/src/scheduledTasks/scheduledTaskCreationReplay.test.ts"
+      ]
+    },
+    {
+      "id": "device-commands",
+      "group": "Devices and Android",
+      "summary": "custom device commands in the command palette, on desktop and through Termux",
+      "docs": "docs/user/device-commands.md",
+      "tests": [
+        "apps/desktop/src/deviceCommands/DeviceCommandsRunner.test.ts",
+        "apps/desktop/src/deviceCommands/deviceCommandsFile.test.ts",
+        "packages/contracts/src/deviceCommands.test.ts",
+        "apps/web/src/deviceCommands/deviceCommands.logic.test.ts",
+        "apps/web/src/components/CommandPaletteDeviceCommands.browser.test.tsx",
+        "apps/mobile/src/features/device-commands/termuxCommands.logic.test.ts",
+        "scripts/forkDesktopCalendarUsage.test.ts",
+        "apps/mobile/modules/t3-termux-command/android/src/test/java/expo/modules/t3termuxcommand/TermuxCommandsTest.kt"
+      ]
+    },
+    {
+      "id": "device-utilities",
+      "group": "Devices and Android",
+      "summary": "service health checks and utility processes",
+      "tests": [
+        "apps/desktop/src/deviceUtilities/DeviceUtilitiesRuntime.test.ts",
+        "apps/desktop/src/deviceUtilities/UtilityProcessRunner.test.ts",
+        "packages/contracts/src/deviceUtilities.test.ts",
+        "apps/mobile/src/features/device-commands/utilitiesWorkspaceTab.test.ts",
+        "apps/mobile/modules/t3-termux-command/android/src/test/java/expo/modules/t3termuxcommand/DeviceUtilitiesTest.kt"
+      ]
+    },
+    {
+      "id": "phone-server",
+      "group": "Devices and Android",
+      "summary": "the phone's server shared over the built-in tailnet and linked to Android",
+      "tests": [
+        "apps/mobile/src/features/built-in-tailnet/builtInTailnet.test.ts",
+        "apps/mobile/src/features/built-in-tailnet/forkConnectionRows.test.ts",
+        "packages/client-runtime/src/connection/builtInTailnet.test.ts",
+        "apps/server/src/auth/ServerSecretStore.androidLink.test.ts",
+        "apps/server/src/environment/ServerEnvironment.androidLink.test.ts",
+        "apps/server/src/persistence/initializeV2Database.androidLink.test.ts",
+        "apps/mobile/modules/t3-tailnet/android/src/test/java/expo/modules/t3tailnet/PhoneShareServiceTest.kt",
+        "apps/mobile/modules/t3-tailnet/android/src/test/java/expo/modules/t3tailnet/PhoneShareSessionTest.kt",
+        "apps/mobile/modules/t3-tailnet/go/bridge_test.go",
+        "apps/mobile/modules/t3-tailnet/go/engine/engine_test.go",
+        "apps/mobile/modules/t3-tailnet/go/engine/forward_test.go",
+        "apps/mobile/modules/t3-tailnet/go/engine/phone_share_test.go"
+      ]
+    },
+    {
+      "id": "android-sharing",
+      "group": "Devices and Android",
+      "summary": "Android shares into a new or an existing conversation",
+      "tests": [
+        "apps/mobile/src/features/sharing/forkIncomingShareEvents.test.ts",
+        "apps/mobile/src/features/sharing/forkShareDestinationController.test.ts",
+        "apps/mobile/src/features/sharing/forkShareDestinations.test.ts",
+        "apps/mobile/src/features/sharing/forkSharedDocuments.test.ts",
+        "apps/mobile/src/features/sharing/forkSharedQueueRecovery.test.ts",
+        "apps/mobile/src/features/observability/forkObserve.test.ts",
+        "apps/mobile/src/features/sharing/android/ForkIncomingShareParserTest.kt"
+      ]
+    },
+    {
+      "id": "android-notifications",
+      "group": "Devices and Android",
+      "summary": "direct agent notifications with opt-in subagent completion alerts",
+      "tests": [
+        "apps/mobile/src/features/agent-awareness/directNotifications.test.ts",
+        "apps/mobile/modules/t3-agent-notifications/android/src/test/java/expo/modules/t3agentnotifications/DirectAgentEventsTest.kt"
+      ]
+    },
+    {
+      "id": "mobile-thread-actions",
+      "group": "Devices and Android",
+      "summary": "settle, snooze and retitle from an open thread on mobile",
+      "tests": ["apps/mobile/src/features/threads/thread-header-actions-menu.test.ts"]
+    },
+    {
+      "id": "citations",
+      "group": "Everyday tools",
+      "summary": "assistant citations with quoting, in-place comments and passage reveal on Android",
+      "tests": [
+        "apps/mobile/src/lib/assistantCitationDraft.test.ts",
+        "apps/mobile/src/lib/assistantCitationEdit.test.ts",
+        "apps/mobile/src/lib/assistantCitationEditorToken.test.ts",
+        "apps/mobile/src/lib/assistantCitationMessage.test.ts",
+        "apps/mobile/src/lib/assistantCitationNavigation.test.ts",
+        "apps/mobile/src/lib/assistantCitationPassage.test.ts",
+        "apps/mobile/src/lib/assistantCitationTokens.test.ts",
+        "apps/mobile/src/lib/composerCitationChipPresentation.test.ts",
+        "apps/mobile/src/native/assistantCitationEditing.test.ts",
+        "apps/mobile/src/native/assistantCitationSelection.test.ts",
+        "apps/mobile/src/features/threads/AssistantCitationPassage.test.tsx",
+        "apps/mobile/modules/t3-citation-passage/android/src/test/java/expo/modules/t3citationpassage/CitationPassageHighlighterTest.kt",
+        "apps/mobile/modules/t3-citation-passage/android/src/test/java/expo/modules/t3citationpassage/CitationPassageObservationTest.kt",
+        "apps/mobile/modules/t3-citation-passage/android/src/test/java/expo/modules/t3citationpassage/CitationPassageTextTest.kt",
+        "apps/mobile/modules/t3-citation-passage/android/src/test/java/expo/modules/t3citationpassage/CitationPassageViewsTest.kt"
+      ]
+    },
+    {
+      "id": "source-comments",
+      "group": "Everyday tools",
+      "summary": "comments on source files, including files outside the project",
+      "tests": [
+        "apps/web/src/components/files/CommentableSourcePreview.browser.test.tsx",
+        "apps/web/src/components/files/CommentableSourcePreview.app.browser.test.tsx"
+      ]
+    },
+    {
+      "id": "custom-editors",
+      "group": "Everyday tools",
+      "summary": "custom editors and open-in options",
+      "docs": "docs/user/editors.md",
+      "tests": [
+        "apps/desktop/src/electron/forkEditors.test.ts",
+        "apps/desktop/src/ipc/methods/customEditors.test.ts",
+        "apps/server/src/process/customEditorLaunch.test.ts",
+        "apps/server/src/process/forkEditors.test.ts",
+        "packages/contracts/src/customEditors.test.ts",
+        "packages/contracts/src/forkEditors.test.ts",
+        "apps/web/src/forkEditorLabels.test.ts",
+        "apps/web/src/forkEditorPreferences.test.ts",
+        "apps/web/src/forkLocalEditorActions.browser.test.ts",
+        "apps/web/src/useConfiguredEditors.test.ts",
+        "apps/web/src/components/settings/EditorSettings.browser.test.tsx",
+        "apps/web/src/components/settings/customEditorDraft.test.ts",
+        "apps/web/src/components/chat/forkOpenInOptions.browser.test.tsx"
+      ]
+    },
+    {
+      "id": "snoozes",
+      "group": "Everyday tools",
+      "summary": "recent custom snooze dates in context and bulk menus",
+      "tests": [
+        "packages/shared/src/recentCustomSnoozes.test.ts",
+        "apps/web/src/components/recentCustomSnoozes.browser.test.tsx",
+        "apps/mobile/src/features/threads/recentCustomSnoozes.test.ts"
+      ]
+    },
+    {
+      "id": "thread-from-reference",
+      "group": "Everyday tools",
+      "summary": "a new thread started with the selected conversation attached",
+      "tests": [
+        "apps/web/src/components/threadReferenceContextMenu.test.ts",
+        "apps/mobile/src/features/threads/newThreadReference.test.ts",
+        "apps/mobile/src/features/threads/seedThreadReferenceDraft.test.ts",
+        "apps/mobile/src/features/threads/ReferencedNewTaskDraftScreen.test.tsx",
+        "apps/mobile/src/features/threads/useNewThreadReferenceMenu.test.ts"
+      ]
+    },
+    {
+      "id": "composer",
+      "group": "Everyday tools",
+      "summary": "paste as plain text, and Enter on an effort closes the model picker",
+      "tests": [
+        "apps/web/src/components/chat/forkPasteAsText.test.ts",
+        "apps/web/src/components/chat/forkPasteAsText.browser.test.tsx",
+        "apps/web/src/components/chat/forkPasteAsText.editor.browser.test.tsx",
+        "apps/web/src/components/chat/CloseModelPickerOnEffortEnter.browser.test.tsx"
+      ]
+    },
+    {
+      "id": "fork-releases",
+      "group": "Releases",
+      "summary": "fork builds and updates for macOS, Android and Termux, with fork telemetry and update policies",
+      "docs": "docs/user/fork-install.md",
+      "tests": [
+        "apps/server/src/cli/forkUpdate.test.ts",
+        "apps/server/src/policy/forkManagedUpdates.test.ts",
+        "apps/server/src/telemetry/ForkTelemetryPolicy.test.ts",
+        "apps/server/src/publishWithoutReplace.test.ts",
+        "packages/shared/src/forkCliRelease.test.ts",
+        "packages/ssh/src/forkRemoteInstall.test.ts",
+        "apps/mobile/fork-app-identity.test.ts",
+        "scripts/forkDesktopUpdatePolicy.test.ts",
+        "scripts/build-termux-server.test.py",
+        "scripts/fork-macos-sign.test.py",
+        "scripts/fork-nightly-release.test.py"
+      ]
+    },
+    {
+      "id": "upstream-sync",
+      "group": "Maintenance",
+      "summary": "upstream sync, conflict resolution and fork guards",
+      "docs": "docs/operations/upstream-sync.md",
+      "readme": false,
+      "tests": [
+        "scripts/claude-sync.test.py",
+        "scripts/fork-failed-tests.test.py",
+        "scripts/fork-footprint-budget.test.py",
+        "scripts/fork-merge-upstream.test.py",
+        "scripts/fork-sync-excerpt.test.py",
+        "scripts/fork-feature-guard.test.py"
+      ]
+    }
+  ]
+}
