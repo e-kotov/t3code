@@ -50,7 +50,8 @@ it("keeps a thread's destination and copied reference while its machine is renam
         />
       </RegistryContext>,
     );
-    const link = screen.getByRole("link", { name: "Raven · Routing" });
+    const link = screen.getByRole("link", { name: "Thread, Routing" });
+    expect(link.element().textContent).toContain("Raven · Routing");
     await expect.element(link).toHaveAttribute("href", `/${environmentId}/${threadId}`);
     await expect.element(link).toHaveAttribute("data-markdown-copy", copyMarkdown);
     await expect
@@ -64,16 +65,26 @@ it("keeps a thread's destination and copied reference while its machine is renam
         settings: { environmentIcon: "laptop" },
       },
     });
-    const renamed = screen.getByRole("link", { name: "Raven HPC · Routing" });
+    const renamed = screen.getByRole("link", { name: "Thread, Routing" });
     await expect.element(renamed).toBeVisible();
+    await vi.waitFor(() =>
+      expect(screen.getByRole("link", { name: "Thread, Routing" }).element().textContent).toContain(
+        "Raven HPC · Routing",
+      ),
+    );
     await expect
       .element(renamed.element().querySelector<SVGSVGElement>(".lucide-laptop"))
       .toBeVisible();
 
     const longName = "Raven research workstation with a machine name wider than the inline label";
     registry.set(environment, { label: longName, serverConfig: null });
-    const longLink = screen.getByRole("link", { name: `${longName} · Routing` });
+    const longLink = screen.getByRole("link", { name: "Thread, Routing" });
     await expect.element(longLink).toBeVisible();
+    await vi.waitFor(() =>
+      expect(screen.getByRole("link", { name: "Thread, Routing" }).element().textContent).toContain(
+        `${longName} · Routing`,
+      ),
+    );
     await userEvent.hover(longLink);
     const tooltip = () => document.querySelector<HTMLDivElement>('[data-slot="tooltip-popup"]');
     await vi.waitFor(() => expect(tooltip()?.textContent).toContain(longName));
@@ -82,8 +93,13 @@ it("keeps a thread's destination and copied reference while its machine is renam
     await vi.waitFor(() => expect(tooltip()).toBeNull());
 
     registry.set(environment, null);
-    const unknown = screen.getByRole("link", { name: "Unknown machine · Routing" });
+    const unknown = screen.getByRole("link", { name: "Thread, Routing" });
     await expect.element(unknown).toHaveAttribute("href", `/${environmentId}/${threadId}`);
+    await vi.waitFor(() =>
+      expect(screen.getByRole("link", { name: "Thread, Routing" }).element().textContent).toContain(
+        "Unknown machine · Routing",
+      ),
+    );
     await vi.waitFor(() => expect(unknown.element().textContent).not.toContain(environmentId));
     await expect.element(unknown).toHaveAttribute("data-markdown-copy", copyMarkdown);
     await expect

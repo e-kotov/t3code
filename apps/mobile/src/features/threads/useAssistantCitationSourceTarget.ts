@@ -47,7 +47,6 @@ export function useAssistantCitationSourceTarget(input: {
   readonly listRef: RefObject<LegendListRef | null>;
   readonly listKey: string;
   readonly topInset: number;
-  readonly onManualNavigation: () => void;
   readonly onExpandTurn: (runId: RunId) => void;
 }) {
   const synchronization = useContext(AssistantCitationSynchronization);
@@ -101,7 +100,6 @@ export function useAssistantCitationSourceTarget(input: {
         scrolling: false,
       };
       setSource(null);
-      input.onManualNavigation();
     }
     const current = progress.current;
     if (current.scrolling) return;
@@ -227,7 +225,9 @@ export function useAssistantCitationSourceTarget(input: {
     historyCompletion,
     loadedKey,
   ]);
+  const navigating = request !== null && focused;
   return {
+    navigating,
     rowId: source?.scope === scope ? source.rowId : null,
     passage: source?.scope === scope ? source.passage : null,
     onPassageLocated: (location: AssistantCitationPassageLocation) => {

@@ -1,6 +1,6 @@
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import { expect, it } from "@effect/vitest";
-import { ScheduledTaskUpsertInput, ThreadId } from "@t3tools/contracts";
+import { ProjectId, ScheduledTaskUpsertInput, ThreadId } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
@@ -54,7 +54,14 @@ it.effect("a retried agent create returns the task it created", () =>
             ManagedPolicy.layerTest(),
             Scheduler.layer,
             Layer.mock(ThreadLaunchService.ThreadLaunchService)({}),
-            Layer.mock(ThreadManagementService.ThreadManagementService)({}),
+            Layer.mock(ThreadManagementService.ThreadManagementService)({
+              getThreadShell: () =>
+                Effect.succeed({
+                  projectId: ProjectId.make("project:normal"),
+                  archivedAt: null,
+                  deletedAt: null,
+                } as never),
+            }),
             Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
               namedProjectsRoot: "/projects",
               isScratchProject: () => Effect.succeed(false),

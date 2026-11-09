@@ -24,7 +24,7 @@ export function ThreadMachineLabel(props: {
         </span>
       </span>
       <span className="shrink-0 self-baseline"> · </span>
-      {props.shell?.lineage.relationshipToParent === "subagent" ? (
+      {props.shell?.lineage?.relationshipToParent === "subagent" ? (
         <span className="inline-flex shrink-0 items-center gap-0.5 self-baseline text-muted-foreground">
           <BotIcon aria-hidden="true" />
           <span>Subagent</span>

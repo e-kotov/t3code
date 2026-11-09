@@ -81,6 +81,7 @@ import {
   getCliCommandState,
   installCliCommand,
   uninstallCliCommand,
+  addCliCommandToPath,
 } from "./methods/cliCommand.ts";
 
 import * as DeviceCommandsIpc from "../deviceCommands/deviceCommandsIpc.ts";
@@ -167,6 +168,7 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
   yield* ipc.handle(getCliCommandState);
   yield* ipc.handle(installCliCommand);
   yield* ipc.handle(uninstallCliCommand);
+  yield* ipc.handle(addCliCommandToPath);
   yield* DeviceCommandsIpc.installDeviceCommands();
   yield* installViewerFallback();
   for (const previewMethod of PreviewIpc.methods) {
