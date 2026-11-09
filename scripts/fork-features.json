@@ -35,9 +35,7 @@
       "id": "mobile-context",
       "group": "Cache and context",
       "summary": "context usage and a compact action on mobile",
-      "tests": [
-        "apps/mobile/src/features/threads/MobileContextControl.test.tsx"
-      ]
+      "tests": ["apps/mobile/src/features/threads/MobileContextControl.test.tsx"]
     },
     {
       "id": "usage-quotas",
@@ -160,9 +158,7 @@
       "id": "claude-artifacts",
       "group": "Providers and automations",
       "summary": "Claude Artifacts for selected delegates",
-      "tests": [
-        "apps/server/src/provider/claudeArtifacts.test.ts"
-      ]
+      "tests": ["apps/server/src/provider/claudeArtifacts.test.ts"]
     },
     {
       "id": "antigravity",
@@ -242,17 +238,13 @@
       "id": "android-notifications",
       "group": "Devices and Android",
       "summary": "direct agent notifications with opt-in subagent completion alerts",
-      "tests": [
-        "apps/mobile/src/features/agent-awareness/directNotifications.test.ts"
-      ]
+      "tests": ["apps/mobile/src/features/agent-awareness/directNotifications.test.ts"]
     },
     {
       "id": "mobile-thread-actions",
       "group": "Devices and Android",
       "summary": "settle, snooze and retitle from an open thread on mobile",
-      "tests": [
-        "apps/mobile/src/features/threads/thread-header-actions-menu.test.ts"
-      ]
+      "tests": ["apps/mobile/src/features/threads/thread-header-actions-menu.test.ts"]
     },
     {
       "id": "citations",
