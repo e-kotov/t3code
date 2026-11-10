@@ -8,7 +8,7 @@
     "apps/desktop/src/ipc/channels.ts": 1,
     "apps/desktop/src/preload.ts": 5,
     "apps/desktop/src/ssh/DesktopSshEnvironment.ts": 2,
-    "apps/desktop/src/window/DesktopApplicationMenu.test.ts": 152,
+    "apps/desktop/src/window/DesktopApplicationMenu.test.ts": 154,
     "apps/desktop/src/window/DesktopApplicationMenu.ts": 11,
     "apps/desktop/src/window/DesktopWindow.test.ts": 2,
     "apps/mobile/app.config.ts": 25,
