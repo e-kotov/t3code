@@ -113,7 +113,10 @@ export function useAssistantCitationSourceTarget(input: {
       foldRunId: (entryId) => {
         const retained = input.feed.filter(
           (entry) =>
-            entry.type !== "run-fold" && entry.type !== "work-toggle" && entry.type !== "thinking",
+            entry.type !== "run-fold" &&
+            entry.type !== "work-toggle" &&
+            entry.type !== "thinking" &&
+            entry.type !== "viewed-images",
         );
         const sourceFeed = retained.map((entry, index) =>
           settleSupersededReasoning(entry, index === retained.length - 1),
