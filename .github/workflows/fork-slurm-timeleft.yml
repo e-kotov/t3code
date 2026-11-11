@@ -49,15 +49,25 @@ jobs:
       - uses: ./.github/actions/setup-fork-chromium
       - name: Check changed code
         run: vp run check:changed origin/main
-      - name: Capture the header and filter menu without the mounts
+      - name: Capture the header and filter menu without the countdown
         run: |
-          files=(apps/web/src/components/MachineGroupSlurmTime.tsx apps/web/src/components/Sidebar.tsx apps/web/src/components/chat/HeaderContextLabels.tsx)
-          for file in "${files[@]}"; do cp "$file" "$RUNNER_TEMP/$(basename "$file")"; done
+          file=apps/web/src/components/MachineGroupSlurmTime.tsx
+          cp "$file" "$RUNNER_TEMP/MachineGroupSlurmTime.tsx"
           restore() {
-            for file in "${files[@]}"; do cp "$RUNNER_TEMP/$(basename "$file")" "$file"; done
+            cp "$RUNNER_TEMP/MachineGroupSlurmTime.tsx" "$file"
           }
           trap restore EXIT
-          for file in "${files[@]}"; do git show "origin/main:$file" > "$file"; done
+          # Hide only the countdown; older UI files can import hooks upstream removed.
+          cat > "$file" <<'TSX'
+          import type { EnvironmentId } from "@t3tools/contracts";
+
+          export function MachineGroupSlurmTime(_props: {
+            readonly environmentId: EnvironmentId;
+            readonly className?: string;
+          }) {
+            return null;
+          }
+          TSX
           VITE_SLURM_CAPTURE=before vp test run apps/web/src/components/chat/HeaderMachineSlurmTime.app.browser.test.tsx
       - name: Run the slurm timeleft browser test with captures
         run: VITE_SLURM_CAPTURE=after vp test run apps/web/src/components/chat/HeaderMachineSlurmTime.app.browser.test.tsx

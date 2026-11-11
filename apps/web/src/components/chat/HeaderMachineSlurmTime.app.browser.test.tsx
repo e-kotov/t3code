@@ -59,6 +59,7 @@ it("shows the machine's slurm countdown in the header and the filter menu", asyn
   await expect.element(page.getByTestId("composer-editor")).toBeVisible();
   const capture = import.meta.env.VITE_SLURM_CAPTURE as string | undefined;
   if (capture === "before") {
+    expect(app.container.querySelector("[data-header-machine]")?.textContent).not.toContain("1h30m");
     await app.locator.screenshot({
       path: "../../../../../.t3/slurm-evidence/before-header.png",
     });
@@ -66,9 +67,11 @@ it("shows the machine's slurm countdown in the header and the filter menu", asyn
       app.getByRole("combobox", { name: /^Filter threads by project or machine/ }),
     );
     await expect.element(page.getByRole("option", { name: /Render scenarios/ })).toBeVisible();
-    await page
-      .getByRole("option", { name: /Render scenarios/ })
-      .screenshot({ path: "../../../../../.t3/slurm-evidence/before-filter.png" });
+    const machineOption = page.getByRole("option", { name: /Render scenarios/ });
+    expect(machineOption.element().textContent).not.toContain("1h30m");
+    await machineOption.screenshot({
+      path: "../../../../../.t3/slurm-evidence/before-filter.png",
+    });
     return;
   }
   await vi.waitFor(() => {
