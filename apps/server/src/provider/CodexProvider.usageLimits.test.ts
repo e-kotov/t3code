@@ -126,6 +126,7 @@ it.layer(NodeServices.layer)("CodexProvider usageLimits", (it) => {
               account: { type: "chatgpt", email: "test@example.com", planType: "pro" },
               requiresOpenaiAuth: true,
             },
+            nativeUsage: true,
             rateLimits: { failure: "Codex did not answer the usage request." },
           }),
         ),

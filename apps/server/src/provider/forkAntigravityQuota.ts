@@ -23,6 +23,8 @@ export function antigravityQuotaUserAgent(
 
 export function antigravityQuotaFamily(bucketId: string, groupName: string | undefined) {
   if (bucketId.startsWith("gemini-argon-")) return groupName?.trim() || "Gemini 4 Argon";
+  // Carbon is metered apart from the default Gemini buckets too (upstream #33991).
+  if (bucketId.startsWith("gemini-carbon-")) return groupName?.trim() || "Gemini Carbon";
   return bucketId.startsWith("gemini-")
     ? "Gemini"
     : bucketId.startsWith("3p-")
@@ -31,14 +33,19 @@ export function antigravityQuotaFamily(bucketId: string, groupName: string | und
 }
 
 /** A decoded empty summary is different from every endpoint failing. One policy per probe. */
-export function antigravityQuotaSummaryPolicy(summaryOnly: boolean | undefined) {
+export function antigravityQuotaSummaryPolicy<A, E, R>(
+  input: { readonly summaryOnly?: boolean | undefined },
+  parseSummary: (response: unknown, requestedAt: number) => Effect.Effect<A, E, R>,
+) {
   let received = false;
+  const decoded = Effect.sync(() => {
+    received = true;
+  });
   return {
-    decoded: Effect.sync(() => {
-      received = true;
-    }),
+    parse: (response: unknown, requestedAt: number) =>
+      parseSummary(response, requestedAt).pipe(Effect.tap(() => decoded)),
     unavailable: () => {
-      const empty = summaryOnly && received;
+      const empty = input.summaryOnly && received;
       return {
         reason: empty ? ("unsupported" as const) : ("probeFailed" as const),
         message: empty
