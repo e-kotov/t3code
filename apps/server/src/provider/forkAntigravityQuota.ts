@@ -23,7 +23,7 @@ export function antigravityQuotaUserAgent(
 
 export function antigravityQuotaFamily(bucketId: string, groupName: string | undefined) {
   if (bucketId.startsWith("gemini-argon-")) return groupName?.trim() || "Gemini 4 Argon";
-  // Carbon is metered apart from the default Gemini buckets too (upstream #33991).
+  // Carbon is metered apart from the default Gemini buckets too.
   if (bucketId.startsWith("gemini-carbon-")) return groupName?.trim() || "Gemini Carbon";
   return bucketId.startsWith("gemini-")
     ? "Gemini"
