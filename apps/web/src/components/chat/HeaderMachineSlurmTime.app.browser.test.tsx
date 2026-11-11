@@ -59,7 +59,9 @@ it("shows the machine's slurm countdown in the header and the filter menu", asyn
   await expect.element(page.getByTestId("composer-editor")).toBeVisible();
   const capture = import.meta.env.VITE_SLURM_CAPTURE as string | undefined;
   if (capture === "before") {
-    expect(app.container.querySelector("[data-header-machine]")?.textContent).not.toContain("1h30m");
+    expect(app.container.querySelector("[data-header-machine]")?.textContent).not.toContain(
+      "1h30m",
+    );
     await app.locator.screenshot({
       path: "../../../../../.t3/slurm-evidence/before-header.png",
     });
