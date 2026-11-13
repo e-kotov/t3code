@@ -63,9 +63,10 @@ export const makeRenewal = Effect.gen(function* () {
     `;
     const secretName = rows[0]?.secret_name;
     if (secretName === undefined) return;
-    // Expired, unfenced or unreachable links end here, and the token only goes
-    // to an address that still answers as this peer.
-    const resolved = yield* links.resolve(environmentId);
+    // A crash can leave a renewed token beside the old local expiry. Only
+    // renewal bypasses that metadata check: the peer still rejects an expired
+    // or revoked token, and its identity and fences are checked as usual.
+    const resolved = yield* links.resolveForRenewal(environmentId);
     const stored = yield* secrets.get(secretName);
     // A link made again since the row was read has a token of its own, left alone.
     if (Option.isNone(stored) || new TextDecoder().decode(stored.value) !== resolved.token) return;
@@ -96,8 +97,7 @@ export const makeRenewal = Effect.gen(function* () {
       });
       return;
     }
-    const answeredAt = yield* DateTime.now;
-    const expiresAt = DateTime.formatIso(DateTime.add(answeredAt, { seconds: outcome.expiresIn }));
+    const expiresAt = DateTime.formatIso(DateTime.makeUnsafe(outcome.expiresAt));
     if (outcome.status === "unchanged") {
       // Levels the row with its token, as after a stop between the two writes below.
       yield* sql`

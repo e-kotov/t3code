@@ -107,6 +107,10 @@ export class PeerLinks extends Context.Service<
     readonly resolve: (
       environmentId: EnvironmentId,
     ) => Effect.Effect<ResolvedPeerLink, PeerLinkError>;
+    /** Fork: a renewal may repair stale local expiry metadata; the peer still validates its token. */
+    readonly resolveForRenewal: (
+      environmentId: EnvironmentId,
+    ) => Effect.Effect<ResolvedPeerLink, PeerLinkError>;
     /** Records the outcome of a call, so listing shows whether the peer answered last time. */
     readonly recordOutcome: (
       environmentId: EnvironmentId,
@@ -633,64 +637,65 @@ const make = Effect.gen(function* () {
     },
   );
 
-  const resolve: PeerLinks["Service"]["resolve"] = Effect.fn("PeerLinks.resolve")(
-    function* (environmentId) {
-      const row = yield* readRow(environmentId);
-      if (Option.isNone(row)) {
-        return yield* new PeerLinkError({
-          reason: "unknown_link",
-          message: `This environment is not linked to ${environmentId}. t3_environment_links lists the linked ones.`,
-        });
-      }
-      const link = yield* toLink(row.value);
-      if (DateTime.isLessThanOrEqualTo(link.expiresAt, yield* DateTime.now)) {
-        return yield* new PeerLinkError({
-          reason: "expired",
-          message: `The link to ${link.label} expired. Link it again with a new pairing code from ${link.label}.`,
-        });
-      }
-      const stored = yield* secrets.get(row.value.secret_name).pipe(Effect.catch(failStorage));
-      if (Option.isNone(stored)) {
-        return yield* new PeerLinkError({
-          reason: "unknown_link",
-          message: `The link to ${link.label} lost its credential. Link it again.`,
-        });
-      }
-      // The token goes only to an address that still answers as this peer,
-      // so one that now answers as another machine never receives it.
-      let fenced = true;
-      let label = link.label;
-      const url = yield* Effect.findFirst(link.urls, (candidate) =>
-        answersAs(candidate, environmentId).pipe(
-          Effect.map((found) => {
-            if (Option.isNone(found)) return false;
-            fenced = linkLimitsHold(found.value);
-            label = found.value.label;
-            return true;
-          }),
-        ),
-      );
-      if (Option.isNone(url)) {
-        return yield* new PeerLinkError({
-          reason: "unreachable",
-          message: `${link.label} did not answer at ${link.urls.join(", ")}.`,
-        });
-      }
-      // A link made before the peer had to fence linked work, or a peer moved
-      // back to such a version, would carry work past those limits.
-      if (!fenced) {
-        return yield* new PeerLinkError({
-          reason: "incompatible",
-          message: `${link.label} runs a T3 Code version that cannot keep a linked agent's limits. Update it, then link again.`,
-        });
-      }
-      return {
-        link: yield* withLabel(link, label),
-        url: url.value,
-        token: new TextDecoder().decode(stored.value),
-      };
-    },
-  );
+  const resolve = Effect.fn("PeerLinks.resolve")(function* (
+    environmentId: EnvironmentId,
+    forRenewal = false,
+  ) {
+    const row = yield* readRow(environmentId);
+    if (Option.isNone(row)) {
+      return yield* new PeerLinkError({
+        reason: "unknown_link",
+        message: `This environment is not linked to ${environmentId}. t3_environment_links lists the linked ones.`,
+      });
+    }
+    const link = yield* toLink(row.value);
+    if (!forRenewal && DateTime.isLessThanOrEqualTo(link.expiresAt, yield* DateTime.now)) {
+      return yield* new PeerLinkError({
+        reason: "expired",
+        message: `The link to ${link.label} expired. Link it again with a new pairing code from ${link.label}.`,
+      });
+    }
+    const stored = yield* secrets.get(row.value.secret_name).pipe(Effect.catch(failStorage));
+    if (Option.isNone(stored)) {
+      return yield* new PeerLinkError({
+        reason: "unknown_link",
+        message: `The link to ${link.label} lost its credential. Link it again.`,
+      });
+    }
+    // The token goes only to an address that still answers as this peer,
+    // so one that now answers as another machine never receives it.
+    let fenced = true;
+    let label = link.label;
+    const url = yield* Effect.findFirst(link.urls, (candidate) =>
+      answersAs(candidate, environmentId).pipe(
+        Effect.map((found) => {
+          if (Option.isNone(found)) return false;
+          fenced = linkLimitsHold(found.value);
+          label = found.value.label;
+          return true;
+        }),
+      ),
+    );
+    if (Option.isNone(url)) {
+      return yield* new PeerLinkError({
+        reason: "unreachable",
+        message: `${link.label} did not answer at ${link.urls.join(", ")}.`,
+      });
+    }
+    // A link made before the peer had to fence linked work, or a peer moved
+    // back to such a version, would carry work past those limits.
+    if (!fenced) {
+      return yield* new PeerLinkError({
+        reason: "incompatible",
+        message: `${link.label} runs a T3 Code version that cannot keep a linked agent's limits. Update it, then link again.`,
+      });
+    }
+    return {
+      link: yield* withLabel(link, label),
+      url: url.value,
+      token: new TextDecoder().decode(stored.value),
+    };
+  });
 
   const recordOutcome: PeerLinks["Service"]["recordOutcome"] = (environmentId, outcome) =>
     DateTime.now.pipe(
@@ -717,6 +722,7 @@ const make = Effect.gen(function* () {
     get,
     unlink,
     resolve,
+    resolveForRenewal: (environmentId) => resolve(environmentId, true),
     recordOutcome,
   });
 });

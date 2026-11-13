@@ -273,6 +273,46 @@ it.effect("keeps a saved agent link renewed on the same session, with its limits
   ).pipe(Effect.provide(NodeHttpServer.layerTest)),
 );
 
+it.effect("repairs expiry metadata after a crash window, without reviving an expired token", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const b = yield* servePeerWithRenewal();
+      const secrets = yield* buildSecrets;
+      const a = yield* makeA(secrets);
+      const renewal = yield* renewalFor(a, secrets);
+      yield* linkTo(a.links, b);
+      const before = yield* storedLink(a.sql);
+      const originalToken = yield* tokenIn(secrets, before!.secret_name);
+      yield* TestClock.adjust(Duration.days(2));
+      // The token is durably replaced, but the following metadata write fails.
+      yield* a.sql`CREATE TRIGGER reject_renewal_metadata BEFORE UPDATE OF expires_at
+        ON peer_environment_links BEGIN SELECT RAISE(ABORT, 'simulated interrupted save'); END`;
+      expect((yield* renewal.renewLink(box.environmentId).pipe(Effect.result))._tag).toBe(
+        "Failure",
+      );
+      expect(yield* tokenIn(secrets, before!.secret_name)).not.toEqual(originalToken);
+      expect(yield* storedLink(a.sql)).toEqual(before);
+      yield* a.sql`DROP TRIGGER reject_renewal_metadata`;
+
+      // Restarting after the old deadline must still recover the valid saved token.
+      yield* TestClock.adjust(Duration.days(29));
+      expect((yield* a.links.resolve(box.environmentId).pipe(Effect.result))._tag).toBe("Failure");
+      yield* renewal.renewLink(box.environmentId);
+      expect(DateTime.makeUnsafe((yield* storedLink(a.sql))!.expires_at).epochMilliseconds).toBe(
+        day(61),
+      );
+      yield* a.links.resolve(box.environmentId);
+
+      // A genuinely expired credential is refused by the host and cannot recover.
+      const renewed = yield* storedLink(a.sql);
+      yield* TestClock.adjust(Duration.days(31));
+      yield* renewal.renewLink(box.environmentId);
+      expect(yield* storedLink(a.sql)).toEqual(renewed);
+      expect((yield* a.links.resolve(box.environmentId).pipe(Effect.result))._tag).toBe("Failure");
+    }),
+  ).pipe(Effect.provide(NodeHttpServer.layerTest)),
+);
+
 it.effect("a link forgotten or made again during renewal keeps no stale token", () =>
   Effect.scoped(
     Effect.gen(function* () {

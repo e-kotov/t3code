@@ -1,0 +1,58 @@
+name: Fork session renewal
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/server/src/auth/**"
+      - "apps/server/src/peer/**"
+      - "apps/server/src/server.ts"
+      - "packages/client-runtime/src/connection/**"
+      - "packages/contracts/src/forkSessionRenewal.ts"
+      - "apps/web/src/connection/**"
+      - "apps/mobile/src/connection/**"
+      - ".github/workflows/fork-session-renewal.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-session-renewal-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  renewal:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      T3CODE_FORK_BUILD: "1"
+      NODE_OPTIONS: --max-old-space-size=6144
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git init -q .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch -q --no-tags origin main "$CHECKOUT_REF"
+          git checkout -q --detach "$CHECKOUT_REF"
+          git fetch -q --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
+      - uses: ./.github/actions/setup-ci-deps
+      - name: Test renewal, expiry, revocation, storage races and peer-link recovery
+        run: |
+          vp test run \
+            apps/server/src/auth/ForkSessionRenewal.test.ts \
+            apps/server/src/auth/forkSessionRenewal.tripwire.test.ts \
+            apps/server/src/peer/ForkPeerLinkRenewal.test.ts \
+            apps/server/src/auth/SessionStore.test.ts \
+            apps/server/src/peer/PeerLinks.test.ts \
+            packages/client-runtime/src/connection/forkDirectSessionRenewal.test.ts \
+            packages/client-runtime/src/connection/driver.test.ts \
+            apps/web/src/connection/forkFreshCatalogStore.test.ts \
+            apps/web/src/connection/storage.test.ts \
+            apps/mobile/src/connection/forkFreshCatalogStore.test.ts \
+            apps/mobile/src/connection/storage.test.ts
