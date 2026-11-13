@@ -4,6 +4,7 @@ import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
@@ -74,6 +75,7 @@ export const renewsOverProtectedTransport = (
 };
 
 type Tick = "again" | "stop";
+type RenewalTick = Tick | "retry";
 
 /** The bearer a live lease's HTTP requests present, advanced as renewal proves a newer one. */
 export type RenewedBearer = SubscriptionRef.SubscriptionRef<string>;
@@ -126,7 +128,7 @@ export const make = Effect.fn("ForkDirectSessionRenewal.make")(function* (
   );
   const swap = yield* Effect.serviceOption(ForkCredentialSwap);
   const renewalFetch = yield* Effect.serviceOption(ForkRenewalFetch);
-  const inFlight = new Set<string>();
+  const inFlight = new Map<string, { readonly semaphore: Semaphore.Semaphore; users: number }>();
   // The client reads `Fetch` per request, so this replaces the platform's for the request only.
   const viaRenewalFetch = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     Option.isSome(renewalFetch)
@@ -197,7 +199,7 @@ export const make = Effect.fn("ForkDirectSessionRenewal.make")(function* (
             : "Kept a newer pairing over a renewed one; the renewed token is discarded.",
           { environmentId: prepared.environmentId, expiresIn: answer.value.expiresIn },
         );
-        return "again" satisfies Tick;
+        return (swapped ? "again" : "retry") satisfies RenewalTick;
       }
       case "unchanged":
         // Still valid here, though perhaps renewed or paired again since this lease began.
@@ -230,13 +232,29 @@ export const make = Effect.fn("ForkDirectSessionRenewal.make")(function* (
       return Effect.succeed("stop");
     }
     return Effect.suspend(() => {
-      // One request per stored token at a time, across this runtime's leases.
-      if (inFlight.has(credentialId)) return Effect.succeed<Tick>("again");
-      inFlight.add(credentialId);
-      return renewOnce(credentials.value, swap.value, credentialId, route, prepared, bearer).pipe(
-        Effect.orElseSucceed((): Tick => "again"),
-        Effect.ensuring(Effect.sync(() => inFlight.delete(credentialId))),
-      );
+      // A replacement lease waits and then reads fresh rather than skipping its first check.
+      const entry = inFlight.get(credentialId) ?? { semaphore: Semaphore.makeUnsafe(1), users: 0 };
+      inFlight.set(credentialId, entry);
+      entry.users++;
+      const check = renewOnce(credentials.value, swap.value, credentialId, route, prepared, bearer);
+      return entry.semaphore
+        .withPermit(
+          check.pipe(
+            // A lost swap means another context has a newer token. Ask the host to prove
+            // that token now; one retry bounds the work if other contexts keep changing it.
+            Effect.flatMap((tick) => (tick === "retry" ? check : Effect.succeed(tick))),
+            Effect.map((tick): Tick => (tick === "stop" ? "stop" : "again")),
+            Effect.orElseSucceed((): Tick => "again"),
+          ),
+        )
+        .pipe(
+          Effect.ensuring(
+            Effect.sync(() => {
+              entry.users--;
+              if (entry.users === 0) inFlight.delete(credentialId);
+            }),
+          ),
+        );
     });
   };
 

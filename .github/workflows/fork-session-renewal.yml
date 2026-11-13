@@ -42,6 +42,27 @@ jobs:
           git checkout -q --detach "$CHECKOUT_REF"
           git fetch -q --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
       - uses: ./.github/actions/setup-ci-deps
+      - name: Prove overlapping-lease regressions reject the previous renewal code
+        run: |
+          source=packages/client-runtime/src/connection/forkDirectSessionRenewal.ts
+          cp "$source" "$RUNNER_TEMP/renewal-source.ts"
+          trap 'cp "$RUNNER_TEMP/renewal-source.ts" "$source"' EXIT
+          git show "556e3866785ca5ce57a3bf06e43a16490dff514b:$source" > "$source"
+          if vp test run packages/client-runtime/src/connection/forkDirectSessionRenewal.test.ts \
+            -t 'queues a replacement lease|keeps a token paired again while a renewal was in flight' \
+            --reporter=json --outputFile="$RUNNER_TEMP/renewal-overlap-regression.json"; then
+            echo 'The overlapping-lease regressions must fail on the previous renewal code.'
+            exit 1
+          fi
+          python3 - <<'PYTHON'
+          import json, os, pathlib
+          result = json.loads((pathlib.Path(os.environ['RUNNER_TEMP']) / 'renewal-overlap-regression.json').read_text())
+          failed = [test for suite in result['testResults'] for test in suite.get('assertionResults', []) if test['status'] == 'failed']
+          assert result['numFailedTests'] == 2 and len(failed) == 2 and result['numPassedTests'] == 0, result
+          for test in failed:
+              assert 'AssertionError' in '\n'.join(test['failureMessages']), test
+          print('Both overlapping-lease regressions reject the previous renewal code.')
+          PYTHON
       - name: Typecheck renewal packages directly
         run: |
           renewal_check_failed=0
