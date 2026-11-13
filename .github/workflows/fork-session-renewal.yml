@@ -72,6 +72,7 @@ jobs:
             packages/client-runtime/src/connection/forkDirectSessionRenewal.test.ts \
             packages/client-runtime/src/connection/driver.test.ts \
             packages/client-runtime/src/connection/supervisor.test.ts \
+            packages/client-runtime/src/connection/builtInTailnet.test.ts \
             apps/web/src/connection/forkFreshCatalogStore.test.ts \
             apps/web/src/connection/storage.test.ts \
             apps/mobile/src/connection/forkFreshCatalogStore.test.ts \

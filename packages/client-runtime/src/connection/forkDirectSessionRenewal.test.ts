@@ -601,9 +601,9 @@ describe("a connected lease's HTTP credential", () => {
           Stream.runHead,
         );
 
-        // Settings stored a newer credential for the live connection, as a desktop backend's does.
+        // Another writer replaced the connection, even with the same token at another origin.
         const replaced = Option.some(
-          preparedFor(paired, "https://host.example/", { _tag: "Bearer", token: "replaced" }),
+          preparedFor(paired, "https://other.example/", { _tag: "Bearer", token: "new" }),
         );
         yield* SubscriptionRef.set(connected, replaced);
         yield* SubscriptionRef.set(bearer, "renewed-later");
