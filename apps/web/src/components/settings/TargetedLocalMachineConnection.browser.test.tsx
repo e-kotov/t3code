@@ -7,6 +7,7 @@ import { DEFAULT_CLIENT_SETTINGS, EnvironmentId } from "@t3tools/contracts";
 import type * as Context from "effect/Context";
 import * as Option from "effect/Option";
 import { expect, it, vi } from "vite-plus/test";
+import { page } from "vite-plus/test/browser";
 import { AppRoot } from "~/AppRoot";
 import "~/components/ChatView";
 import { __setClientSettingsForTests } from "~/hooks/useSettings";
@@ -89,14 +90,14 @@ it.each(["primary", "desktop-local"] as const)(
       }),
     );
     await router.load();
-    await using screen = await render(<AppRoot router={router} />, {
+    await using _screen = await render(<AppRoot router={router} />, {
       // AppRoot owns the production router and its settings search middleware.
       router: false,
     });
     expect(router.state.location.pathname).toBe("/settings/connections");
     expect(router.state.location.search.machine).toBe("local-machine");
-    await expect.element(screen.getByText("Local machine", { exact: true })).toBeVisible();
-    const target = screen.container.querySelector("#machine-connection-local-machine");
+    await expect.element(page.getByText("Local machine", { exact: true })).toBeVisible();
+    const target = document.getElementById("machine-connection-local-machine");
     await vi.waitFor(() => expect(document.activeElement).toBe(target));
     expect(target?.textContent).toContain("Local machine");
     expect(target?.textContent).toContain("Connection refused");
