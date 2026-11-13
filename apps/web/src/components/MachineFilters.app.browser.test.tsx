@@ -174,6 +174,7 @@ it("toggles machine filters with Shift-click and Shift+Enter without closing the
   expect(gwdg.element().querySelector(".motion-safe\\:animate-status-ping")).not.toBeNull();
   await userEvent.click(gwdg, { modifiers: ["Shift"] });
   await userEvent.click(hub, { modifiers: ["Shift"] });
+  await expect.element(page.getByTestId("sidebar-filter-active")).toBeVisible();
   await expect.element(gwdg).toHaveAttribute("aria-selected", "true");
   await expect.element(hub).toHaveAttribute("aria-selected", "true");
   expect(useUiStateStore.getState().sidebarEnvironmentScopeId).toEqual([GWDG, HUB]);
@@ -188,6 +189,7 @@ it("toggles machine filters with Shift-click and Shift+Enter without closing the
   expect(useUiStateStore.getState().sidebarEnvironmentScopeId).toBe(HUB);
   await search.fill("");
   await userEvent.click(page.getByRole("option", { name: /All machines/ }));
+  await expect.element(page.getByTestId("sidebar-filter-active")).not.toBeInTheDocument();
   expect(useUiStateStore.getState().sidebarEnvironmentScopeId).toBeNull();
   await expect.element(page.getByRole("listbox")).not.toBeInTheDocument();
 });

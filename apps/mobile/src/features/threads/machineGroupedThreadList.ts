@@ -1,3 +1,4 @@
+import { hasWorkingDivider, placeWorkingMainDivider } from "./workingSidebarList";
 import {
   machineGroupThreadVisible,
   type MachineGroupSection,
@@ -51,7 +52,8 @@ export function groupThreadListV2ItemsByMachine<T extends { readonly type: strin
   let cursor = 0;
   while (cursor < items.length) {
     const item = items[cursor]!;
-    if (item.type === "v2-working-shelf") shelf = "working";
+    if (isThreadRow(item) && "workingMain" in item && item.workingMain === true) shelf = "active";
+    else if (item.type === "v2-working-shelf") shelf = "working";
     else if (item.type === "v2-snoozed-shelf") shelf = "snoozed";
     else if (item.type === "v2-settled-shelf") shelf = "settled";
     if (!isThreadRow(item)) {
@@ -61,8 +63,13 @@ export function groupThreadListV2ItemsByMachine<T extends { readonly type: strin
     }
     const segment: (T & ThreadListV2ThreadListItem)[] = [];
     let row = items[cursor];
-    // Pinned and active rows can be adjacent without an upstream shelf header.
-    while (row !== undefined && isThreadRow(row) && row.item.pinned === item.item.pinned) {
+    // Pinned and main rows can follow another section without an upstream shelf header.
+    while (
+      row !== undefined &&
+      isThreadRow(row) &&
+      row.item.pinned === item.item.pinned &&
+      (segment.length === 0 || !hasWorkingDivider(row))
+    ) {
       segment.push(row);
       cursor += 1;
       row = items[cursor];
@@ -131,22 +138,24 @@ export function arrangeMobileConversationList<T extends { readonly type: string 
     options.machineOrder,
   );
   let section: MachineGroupSection = "active";
-  return withContext.flatMap((item): (T | ThreadListV2MachineHeaderListItem)[] => {
-    if (isMachineHeader(item)) {
-      section = item.section ?? "active";
-      return [
-        {
-          ...item,
-          collapsible: isSidebarMachineGrouping(options.grouping) && !options.searchQuery?.trim(),
-        },
-      ];
-    }
-    if (
-      isThreadRow(item) &&
-      !machineGroupThreadVisible(item.item.thread, { ...options, section })
-    ) {
-      return [];
-    }
-    return [item];
-  });
+  return placeWorkingMainDivider(
+    withContext.flatMap((item): (T | ThreadListV2MachineHeaderListItem)[] => {
+      if (isMachineHeader(item)) {
+        section = item.section ?? "active";
+        return [
+          {
+            ...item,
+            collapsible: isSidebarMachineGrouping(options.grouping) && !options.searchQuery?.trim(),
+          },
+        ];
+      }
+      if (
+        isThreadRow(item) &&
+        !machineGroupThreadVisible(item.item.thread, { ...options, section })
+      ) {
+        return [];
+      }
+      return [item];
+    }),
+  );
 }

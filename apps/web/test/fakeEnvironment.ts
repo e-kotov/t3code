@@ -219,6 +219,7 @@ function run(
 }
 
 export interface FakeThread {
+  readonly status?: OrchestrationV2ThreadShell["status"];
   /** Makes this a side chat of that thread. */
   readonly sideChatOf?: ThreadId;
   /** Makes this an older settled thread the shell leaves out; only its family read returns it. */
@@ -286,7 +287,7 @@ function shellOf(thread: FakeThread): OrchestrationV2ThreadShell {
     latestRunId: latest?.id ?? null,
     activeRunId: null,
     // Idle reads as waiting on the user, which shows a per-second duration in the sidebar.
-    status: latest ? "completed" : "idle",
+    status: thread.status ?? (latest ? "completed" : "idle"),
     pendingRuntimeRequest: null,
     latestVisibleMessage: null,
     latestUserMessageAt: AT,

@@ -17,6 +17,8 @@ function controls() {
     ...defaults,
     onConversationSortOrderChange: vi.fn(),
     onConversationGroupingChange: vi.fn(),
+    onWorkingOnlyChange: vi.fn(),
+    onWorkingFirstChange: vi.fn(),
   };
 }
 
@@ -27,6 +29,8 @@ describe("conversationListOptions", () => {
     expect(isConversationListCustomized(defaults)).toBe(false);
     expect(isConversationListCustomized(sorted)).toBe(true);
     expect(isConversationListCustomized(grouped)).toBe(true);
+    expect(isConversationListCustomized({ ...defaults, workingOnly: true })).toBe(true);
+    expect(isConversationListCustomized({ ...defaults, workingFirst: true })).toBe(true);
   });
 
   it("updates only its own option through the shared options updater", () => {
@@ -36,9 +40,13 @@ describe("conversationListOptions", () => {
     });
     list.onConversationSortOrderChange("created_at");
     list.onConversationGroupingChange("machine");
+    list.onWorkingOnlyChange(true);
+    list.onWorkingFirstChange(true);
     expect(state).toEqual({
       conversationSortOrder: "created_at",
       conversationGrouping: "machine",
+      workingOnly: true,
+      workingFirst: true,
       selectedProjectKey: "project",
     });
   });
@@ -49,6 +57,8 @@ describe("conversationListOptions", () => {
     expect(applyConversationListMenuEvent("grouping:machine", list)).toBe(true);
     expect(applyConversationListMenuEvent("sort:bogus", list)).toBe(true);
     expect(applyConversationListMenuEvent("environment:all", list)).toBe(false);
+    expect(applyConversationListMenuEvent("working:first", list)).toBe(true);
+    expect(list.onWorkingFirstChange).toHaveBeenCalledWith(true);
     expect(list.onConversationSortOrderChange.mock.calls).toEqual([["cache_expiry"]]);
     expect(list.onConversationGroupingChange.mock.calls).toEqual([["machine"]]);
   });
@@ -67,6 +77,7 @@ describe("conversationListOptions", () => {
       { id: "sort:updated_at", title: "Recent activity · Newest first", state: "on" },
       { id: "sort:created_at", title: "Created · Newest first", state: "off" },
       { id: "sort:cache_expiry", title: "Cache expiry · Soonest first", state: "off" },
+      { id: "working:first", title: "Working above main list", state: "off" },
     ]);
   });
 
@@ -99,6 +110,7 @@ describe("conversationListOptions", () => {
     expect(items.map((item) => item.title)).toEqual([
       "Environment",
       "Project",
+      "Working only",
       "Sort conversations",
       "Group conversations",
     ]);
@@ -119,7 +131,15 @@ describe("conversationListOptions", () => {
         projSubmenu.items[1]?.subtitle,
     ).toBe("2 active");
 
-    const grouping = items[3];
+    const working = items[2];
+    if (working && !("items" in working)) working.onPress();
+    expect(list.onWorkingOnlyChange).toHaveBeenCalledWith(true);
+    const sort = items[3];
+    const workingFirst =
+      sort && "items" in sort ? sort.items.find((item) => item.id === "working:first") : undefined;
+    if (workingFirst && !("items" in workingFirst)) workingFirst.onPress();
+    expect(list.onWorkingFirstChange).toHaveBeenCalledWith(true);
+    const grouping = items[4];
     expect(
       grouping &&
         "items" in grouping &&

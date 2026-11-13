@@ -139,12 +139,14 @@ export function SidebarThreadHeader({
 export function SidebarHeaderIconButton({
   label,
   tooltip = label,
+  active = false,
   className,
   children,
   ...rest
 }: {
   label: string;
   tooltip?: ReactNode;
+  active?: boolean;
   className?: string | undefined;
   children?: ReactNode;
 } & Omit<
@@ -158,6 +160,7 @@ export function SidebarHeaderIconButton({
           <SidebarMenuButton
             size="icon"
             type="button"
+            isActive={active}
             aria-label={label}
             {...rest}
             className={cn("relative size-7 shrink-0", className)}
