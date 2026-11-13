@@ -1,3 +1,4 @@
+import { currentMenuParent } from "./liveMenuActionPath";
 import type { MenuAction, MenuComponentProps } from "@react-native-menu/menu";
 import type { ReactNode } from "react";
 import { use, useRef, useState } from "react";
@@ -86,7 +87,7 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
     return true;
   });
 
-  const parent = path[path.length - 1] ?? null;
+  const parent = currentMenuParent(props.actions, path);
   const levelActions = (parent?.subactions ?? props.actions).filter(
     (action) => !(action.attributes?.hidden ?? false),
   );

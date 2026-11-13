@@ -1,3 +1,5 @@
+import { MachineFilterMenuStatus } from "../../features/home/MachineFilterMenuStatus.android";
+import { machineFilterEnvironmentId } from "../../features/home/machineFilterPresentation";
 import { NativeThemeHost } from "./NativeThemeHost.android";
 import {
   Box,
@@ -20,12 +22,14 @@ import { isAppSymbolName, SymbolView, type AppSymbolName } from "./AppSymbol.and
 // The Compose glyph host consumes touches; run the action here and keep accessibility on the row.
 function MenuIcon(props: {
   readonly name: AppSymbolName;
+  readonly environmentId?: string;
   readonly color?: MenuAction["imageColor"];
   readonly onPress: () => void;
   readonly destructive?: boolean;
   readonly disabled?: boolean;
 }) {
   const { iconSize } = useAndroidControlSizing();
+  if (props.environmentId) return <MachineFilterMenuStatus environmentId={props.environmentId} size={iconSize} onPress={props.onPress} disabled={props.disabled} />;
   return (
     <RNHostView matchContents modifiers={[size(iconSize, iconSize)]}>
       <Pressable
@@ -99,6 +103,7 @@ export function MenuPopupItems(
             <DropdownMenuItem.LeadingIcon>
               <MenuIcon
                 name={action.image}
+                environmentId={machineFilterEnvironmentId(action)}
                 color={action.imageColor}
                 onPress={() => props.onPress(action)}
                 destructive={action.attributes?.destructive}

@@ -53,6 +53,7 @@ import { useThreadJumpShortcuts } from "../keyboard/threadKeyboardShortcuts";
 import { requestThreadMessageJump } from "./threadMessageJump";
 import { useThreadListSearchMatches } from "./useThreadListSearchMatches";
 import { useHomeListOptions } from "../home/home-list-options";
+import { useMachineFilterEnvironments } from "../home/useMachineFilterEnvironments";
 import { buildHomeListFilterMenuItems } from "../home/home-list-filter-menu";
 import { buildHomeProjectScopes } from "../home/homeThreadList";
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "../home/thread-swipe-actions";
@@ -155,12 +156,13 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
   const { confirmDeletePendingTask } = usePendingTaskListActions((params) =>
     selectDetail({ name: "Thread", params }),
   );
-  const environments = Object.values(savedConnectionsById)
+  const listedEnvironments = Object.values(savedConnectionsById)
     .map((connection) => ({
       environmentId: connection.environmentId,
       label: connection.environmentLabel,
     }))
     .sort((left, right) => left.label.localeCompare(right.label));
+  const environments = useMachineFilterEnvironments(listedEnvironments);
   const { machineOrder, moveMachine } = useConversationMachineOrder(environments);
   const availableEnvironmentIds = new Set(
     environments.map((environment) => environment.environmentId),

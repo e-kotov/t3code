@@ -7,6 +7,7 @@ import type {
   HomeListFilterMenuEnvironment,
   HomeListFilterMenuProject,
 } from "./home-list-filter-menu";
+import { machineFilterActionId, nativeMachineFilterOptionPresentation } from "./machineFilterPresentation";
 import { formatFilterOptionTitle, formatFilterOptionSubtitle } from "./mobileNonSettledCounts";
 
 export function ThreadListFilters(props: {
@@ -44,11 +45,8 @@ export function ThreadListFilters(props: {
             state: props.selectedEnvironmentId === null ? "on" : "off",
           },
           ...props.environments.map((environment) => ({
-            id: JSON.stringify(environment.environmentId),
-            title: formatFilterOptionTitle(environment.label, environment.nonSettledCount),
-            ...(environment.nonSettledCount !== undefined && environment.nonSettledCount > 0
-              ? { subtitle: formatFilterOptionSubtitle(environment.nonSettledCount) }
-              : {}),
+            id: machineFilterActionId(environment.environmentId),
+            ...nativeMachineFilterOptionPresentation(environment),
             state:
               environment.environmentId === props.selectedEnvironmentId
                 ? ("on" as const)
@@ -59,7 +57,7 @@ export function ThreadListFilters(props: {
           if (id === "all") props.onEnvironmentChange(null);
           else {
             const environment = props.environments.find(
-              (candidate) => JSON.stringify(candidate.environmentId) === id,
+              (candidate) => machineFilterActionId(candidate.environmentId) === id,
             );
             if (environment) props.onEnvironmentChange(environment.environmentId);
           }
