@@ -27,6 +27,7 @@ import {
 import * as RemoteEnvironmentAuthorization from "../authorization/service.ts";
 import * as RpcSession from "../rpc/session.ts";
 import { fetchRemoteEnvironmentDescriptor } from "../environment/descriptor.ts";
+import * as ForkDirectSessionRenewal from "./forkDirectSessionRenewal.ts";
 
 export type ConnectionDriverProgress =
   | {
@@ -146,6 +147,7 @@ export const make = Effect.gen(function* () {
   const sessions = yield* RpcSession.RpcSessionFactory;
   const remote = yield* RemoteEnvironmentAuthorization.RemoteEnvironmentAuthorization;
   const httpClient = yield* HttpClient.HttpClient;
+  const directRenewal = yield* ForkDirectSessionRenewal.make(httpClient);
 
   // The descriptor is public, so this sends no credential to whatever
   // answers at a saved LAN address on a different network.
@@ -226,6 +228,7 @@ export const make = Effect.gen(function* () {
               Effect.forkScoped,
             );
         }
+        yield* directRenewal.keepRenewed(route, prepared).pipe(Effect.forkScoped);
         return { prepared, session } satisfies EnvironmentConnectionLease;
       }),
     );
