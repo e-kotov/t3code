@@ -42,7 +42,7 @@ jobs:
           git checkout -q --detach "$CHECKOUT_REF"
           git fetch -q --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
       - uses: ./.github/actions/setup-ci-deps
-      - name: Test renewal, expiry, revocation, storage races and peer-link recovery
+      - name: Test renewal, expiry, revocation, storage races, mobile transport and peer-link recovery
         run: |
           vp test run \
             apps/server/src/auth/ForkSessionRenewal.test.ts \
@@ -55,4 +55,5 @@ jobs:
             apps/web/src/connection/forkFreshCatalogStore.test.ts \
             apps/web/src/connection/storage.test.ts \
             apps/mobile/src/connection/forkFreshCatalogStore.test.ts \
+            apps/mobile/src/connection/forkRenewalServices.test.ts \
             apps/mobile/src/connection/storage.test.ts

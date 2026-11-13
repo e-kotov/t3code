@@ -40,6 +40,7 @@ function targetPersistenceError(
 }
 
 import { ForkCredentialCatalog } from "@t3tools/client-runtime/connection";
+import { renewalServices } from "./forkRenewalServices";
 export const layer = Layer.effectContext(
   Effect.gen(function* () {
     const catalog = yield* ForkCredentialCatalog.makeFreshCatalogStore(CatalogStore.make());
@@ -164,10 +165,7 @@ export const layer = Layer.effectContext(
       Context.add(Persistence.ConnectionRegistrationStore, registrationStore),
       Context.add(ProfileStore.ConnectionProfileStore, profileStore),
       Context.add(CredentialStore.ConnectionCredentialStore, credentialStore),
-      Context.add(
-        ForkCredentialCatalog.ForkCredentialSwap,
-        ForkCredentialCatalog.makeCredentialSwap(catalog),
-      ),
+      renewalServices(catalog),
       Context.add(TokenStore.RemoteDpopAccessTokenStore, remoteTokenStore),
     );
   }),

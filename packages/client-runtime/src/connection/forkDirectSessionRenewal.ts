@@ -1,4 +1,5 @@
 import { FORK_SESSION_RENEWAL_PATH, ForkSessionRenewalResponse } from "@t3tools/contracts";
+import * as Context from "effect/Context";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -21,6 +22,15 @@ const REQUEST_TIMEOUT = Duration.seconds(15);
 const DESCRIPTOR_TIMEOUT_MS = 10_000;
 
 const decodeAnswer = Schema.decodeUnknownEffect(ForkSessionRenewalResponse);
+
+/**
+ * Fork: a `fetch` that fails on any redirect, from a platform whose own fetch
+ * follows redirects whatever `redirect` says (React Native's). Renewal sends
+ * its request through it when one is provided.
+ */
+export class ForkRenewalFetch extends Context.Service<ForkRenewalFetch, typeof globalThis.fetch>()(
+  "@t3tools/client-runtime/connection/forkDirectSessionRenewal/ForkRenewalFetch",
+) {}
 
 /**
  * The stored credential a direct pairing's lease presented: a paired address's
@@ -75,7 +85,13 @@ export const make = Effect.fn("ForkDirectSessionRenewal.make")(function* (
     ConnectionCredentialStore.ConnectionCredentialStore,
   );
   const swap = yield* Effect.serviceOption(ForkCredentialSwap);
+  const renewalFetch = yield* Effect.serviceOption(ForkRenewalFetch);
   const inFlight = new Set<string>();
+  // The client reads `Fetch` per request, so this replaces the platform's for the request only.
+  const viaRenewalFetch = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    Option.isSome(renewalFetch)
+      ? Effect.provideService(effect, FetchHttpClient.Fetch, renewalFetch.value)
+      : effect;
 
   const renewOnce = Effect.fnUntraced(function* (
     store: ConnectionCredentialStore.ConnectionCredentialStore["Service"],
@@ -109,6 +125,7 @@ export const make = Effect.fn("ForkDirectSessionRenewal.make")(function* (
           redirect: "error",
           cache: "no-store",
         }),
+        viaRenewalFetch,
         Effect.timeout(REQUEST_TIMEOUT),
         Effect.option,
       );
@@ -166,7 +183,7 @@ export const make = Effect.fn("ForkDirectSessionRenewal.make")(function* (
       if (inFlight.has(credentialId)) return Effect.succeed<Tick>("again");
       inFlight.add(credentialId);
       return renewOnce(credentials.value, swap.value, credentialId, route, prepared).pipe(
-        Effect.catch(() => Effect.succeed<Tick>("again")),
+        Effect.orElseSucceed((): Tick => "again"),
         Effect.ensuring(Effect.sync(() => inFlight.delete(credentialId))),
       );
     });

@@ -33,8 +33,13 @@ export const makeFreshCatalogStore = Effect.fn("ForkCredentialCatalog.makeFreshC
     const open = Effect.provideContext(openStore, context);
     const local = yield* Semaphore.make(1);
     const cache = yield* Ref.make(Option.none<ConnectionCatalogDocument>());
-    const exclusive = <A>(effect: Effect.Effect<A, E>) =>
-      local.withPermits(1)(exclusion === undefined ? effect : exclusion(effect));
+    // Waiting stays interruptible, but a section once entered runs to its end: the
+    // platforms' native reads and writes ignore cancellation, so releasing early
+    // would let a later pairing or removal be overwritten by a write still under way.
+    const exclusive = <A>(effect: Effect.Effect<A, E>) => {
+      const section = Effect.uninterruptible(effect);
+      return local.withPermits(1)(exclusion === undefined ? section : exclusion(section));
+    };
     const remember = (document: ConnectionCatalogDocument) => Ref.set(cache, Option.some(document));
 
     const readFresh = exclusive(
@@ -72,27 +77,25 @@ export class ForkCredentialSwap extends Context.Service<
 
 export const makeCredentialSwap = <E extends ConnectionAttemptError>(catalog: CatalogStore<E>) =>
   ForkCredentialSwap.of({
-    swap: (credentialId, expected, next) =>
-      Effect.suspend(() => {
-        let swapped = false;
-        return catalog
-          .update((document) => ({
-            ...document,
-            credentials: document.credentials.map((entry) => {
-              if (
-                entry.connectionId !== credentialId ||
-                entry.credential._tag !== "BearerConnectionCredential" ||
-                entry.credential.token !== expected
-              ) {
-                return entry;
-              }
-              swapped = true;
-              return {
-                connectionId: credentialId,
-                credential: new BearerConnectionCredential({ token: next }),
-              };
-            }),
-          }))
-          .pipe(Effect.map(() => swapped));
-      }),
+    swap: Effect.fn("ForkCredentialSwap.swap")(function* (credentialId, expected, next) {
+      let swapped = false;
+      yield* catalog.update((document) => ({
+        ...document,
+        credentials: document.credentials.map((entry) => {
+          if (
+            entry.connectionId !== credentialId ||
+            entry.credential._tag !== "BearerConnectionCredential" ||
+            entry.credential.token !== expected
+          ) {
+            return entry;
+          }
+          swapped = true;
+          return {
+            connectionId: credentialId,
+            credential: new BearerConnectionCredential({ token: next }),
+          };
+        }),
+      }));
+      return swapped;
+    }),
   });

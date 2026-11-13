@@ -41,6 +41,51 @@ const sharedStorage = (initial: ConnectionCatalogDocument) => {
   return { backend, tokens };
 };
 
+/**
+ * Storage holding a corrupt catalog, whose first write behaves like the desktop
+ * bridge's: it ignores cancellation and lands only when let go.
+ */
+const corruptWithNativeWrite = () => {
+  let raw = "{not a catalog";
+  let land: () => void = () => undefined;
+  let started: () => void = () => undefined;
+  const writeStarted = new Promise<void>((resolve) => {
+    started = () => resolve();
+  });
+  let first = true;
+  const backend: CatalogBackend = {
+    read: Effect.sync(() => raw),
+    write: (next) => {
+      if (!first) {
+        return Effect.sync(() => {
+          raw = next;
+        });
+      }
+      first = false;
+      return Effect.promise(
+        () =>
+          new Promise<void>((resolve) => {
+            land = () => {
+              raw = next;
+              resolve();
+            };
+            started();
+          }),
+      );
+    },
+  };
+  return {
+    backend,
+    tokens: () =>
+      decode(raw).credentials.map(({ connectionId, credential }) => [
+        connectionId,
+        credential.token,
+      ]),
+    started: Effect.promise(() => writeStarted),
+    land: Effect.sync(() => land()),
+  };
+};
+
 const openTab = (backend: CatalogBackend) =>
   ForkCredentialCatalog.makeFreshCatalogStore(makeCatalogStore(backend));
 
@@ -84,6 +129,29 @@ describe("ForkCredentialCatalog on web storage", () => {
       expect(yield* swap.swap("paired-1", "first", "renewed")).toBe(false);
       expect(storage.tokens()).toEqual([["paired-1", "paired-again"]]);
     }),
+  );
+
+  it.effect(
+    "a read stopped while it repairs a corrupt catalog holds it until the repair lands",
+    () =>
+      Effect.gen(function* () {
+        const storage = corruptWithNativeWrite();
+        const tab = yield* openTab(storage.backend);
+        // The repair rewrites the catalog: the read is a write here.
+        const reading = yield* tab.readFresh.pipe(Effect.forkChild);
+        yield* storage.started;
+        const stopping = yield* Fiber.interrupt(reading).pipe(
+          Effect.forkChild({ startImmediately: true }),
+        );
+        const pairing = yield* tab
+          .update(() => withToken("paired-again"))
+          .pipe(Effect.forkChild({ startImmediately: true }));
+        expect(pairing.pollUnsafe()).toBeUndefined();
+        yield* storage.land;
+        yield* Fiber.join(pairing);
+        yield* Fiber.join(stopping);
+        expect(storage.tokens()).toEqual([["paired-1", "paired-again"]]);
+      }),
   );
 });
 

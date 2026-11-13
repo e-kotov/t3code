@@ -4,6 +4,7 @@ export * from "./diagnosis.ts";
 export * as Connectivity from "./connectivity.ts";
 export * as CredentialStore from "./credentialStore.ts";
 export * as ForkCredentialCatalog from "./forkCredentialCatalog.ts";
+export * as ForkDirectSessionRenewal from "./forkDirectSessionRenewal.ts";
 export { type ConnectionDriverProgress, type EnvironmentConnectionLease } from "./driver.ts";
 export * from "./errors.ts";
 export * from "./pullRequestRoutingPermissions.ts";
