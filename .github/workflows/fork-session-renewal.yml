@@ -47,17 +47,20 @@ jobs:
           renewal_check_failed=0
           for renewal_package in packages/contracts packages/client-runtime apps/server apps/web apps/mobile; do
             echo "::group::Typecheck $renewal_package"
-            if (cd "$renewal_package" && vp exec effect-tsgo tsrs --noEmit); then
+            if (cd "$renewal_package" && vp exec effect-tsgo tsrs --noEmit --pretty false); then
               echo "$renewal_package passed"
             else
               renewal_check_status=$?
               echo "::error::$renewal_package typecheck exited $renewal_check_status"
               renewal_check_failed=1
+              # The checker can exit non-zero without printing an error; this lists them.
+              (cd "$renewal_package" && vp exec effect-tsgo diagnostics --project "$PWD/tsconfig.json" \
+                --format text --severity error,warning) || true
             fi
             echo "::endgroup::"
           done
           exit "$renewal_check_failed"
-      - name: Test renewal, expiry, revocation, storage races, mobile transport and peer-link recovery
+      - name: Test renewal, expiry, revocation, storage races, live HTTP credential, mobile transport and peer-link recovery
         run: |
           vp test run \
             apps/server/src/auth/ForkSessionRenewal.test.ts \
@@ -65,8 +68,10 @@ jobs:
             apps/server/src/peer/ForkPeerLinkRenewal.test.ts \
             apps/server/src/auth/SessionStore.test.ts \
             apps/server/src/peer/PeerLinks.test.ts \
+            packages/client-runtime/src/connection/forkCredentialCatalog.test.ts \
             packages/client-runtime/src/connection/forkDirectSessionRenewal.test.ts \
             packages/client-runtime/src/connection/driver.test.ts \
+            packages/client-runtime/src/connection/supervisor.test.ts \
             apps/web/src/connection/forkFreshCatalogStore.test.ts \
             apps/web/src/connection/storage.test.ts \
             apps/mobile/src/connection/forkFreshCatalogStore.test.ts \
