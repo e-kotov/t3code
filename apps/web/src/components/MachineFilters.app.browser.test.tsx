@@ -221,10 +221,7 @@ it.skipIf(import.meta.env.VITE_MACHINE_FILTER_CAPTURE === "before")(
       .fill("New project");
     await page.getByRole("option", { name: "New project", exact: true }).click();
     await expect.element(page.getByPlaceholder("Project name")).toBeVisible();
-    const hub = page.getByRole("option", { name: /hub/ });
-    expect(hub.element().querySelector(".lucide-check")).not.toBeNull();
-    await expect
-      .element(page.getByRole("option", { name: /GWDG/ }))
-      .toHaveAttribute("aria-disabled", "true");
+    await expect.element(page.getByText("Goes in /workspace on hub", { exact: true })).toBeVisible();
+    await expect.element(page.getByRole("option", { name: /GWDG/ })).not.toBeInTheDocument();
   },
 );

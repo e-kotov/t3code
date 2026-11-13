@@ -59,7 +59,6 @@ import {
   ArrowLeftIcon,
   BugIcon,
   ChartNoAxesColumnIcon,
-  CheckIcon,
   ChevronRightIcon,
   CornerLeftUpIcon,
   FileSearchIcon,
