@@ -41,6 +41,7 @@ import { useSelectWorkspaceDetail } from "../layout/workspace/useSelectWorkspace
 import { WorkspaceListEmptyDetail } from "../layout/workspace/WorkspaceListEmptyDetail";
 import { WorkspaceListHeader } from "../layout/workspace/WorkspaceListHeader";
 import { isConversationListCustomized } from "./conversationListOptions";
+import { useMachineFilterEnvironments } from "./useMachineFilterEnvironments";
 import { buildHomeListFilterMenuItems } from "./home-list-filter-menu";
 import { computeMobileNonSettledCounts } from "./mobileNonSettledCounts";
 
@@ -114,7 +115,7 @@ export function HomeRouteScreen() {
       (environment) => [environment.environmentId, environment.connectionState] as const,
     ),
   );
-  const environments = Arr.sort(
+  const listedEnvironments = Arr.sort(
     Object.values(savedConnectionsById).map((connection) => ({
       environmentId: connection.environmentId,
       label: connection.environmentLabel,
@@ -122,6 +123,7 @@ export function HomeRouteScreen() {
     })),
     Order.mapInput(Order.String, (environment: { readonly label: string }) => environment.label),
   );
+  const environments = useMachineFilterEnvironments(listedEnvironments);
   const availableEnvironmentIds = useMemo(
     () => new Set(environments.map((environment) => environment.environmentId)),
     [environments],

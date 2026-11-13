@@ -133,11 +133,9 @@ import {
   PairingClientsList,
 } from "./AuthorizedClientsSettings";
 import { ITEM_ROW_CLASSNAME } from "./itemRows";
-import {
-  CloudLinkRow,
-  CloudRemoteEnvironmentRows,
-  SavedBackendListRow,
-} from "./SavedEnvironmentRows";
+import { CloudLinkRow, CloudRemoteEnvironmentRows } from "./SavedEnvironmentRows";
+import { TargetedLocalMachineConnection } from "./TargetedLocalMachineConnection";
+import { TargetedMachineConnectionRow as SavedBackendListRow } from "./TargetedMachineConnectionRow";
 import { AddEnvironmentDialog } from "./AddEnvironmentDialog";
 
 const DEFAULT_TAILSCALE_SERVE_PORT = 443;
@@ -1590,6 +1588,7 @@ function ConnectionsSettingsContent({
 
   return (
     <SettingsPageContainer>
+      <TargetedLocalMachineConnection />
       {desktopBridge ? (
         <SettingsSection id="this-app" title="This app">
           <LocalEnvironmentSetting />
