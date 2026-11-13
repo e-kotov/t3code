@@ -59,7 +59,6 @@ import {
   ArrowLeftIcon,
   BugIcon,
   ChartNoAxesColumnIcon,
-  CheckIcon,
   ChevronRightIcon,
   CornerLeftUpIcon,
   FileSearchIcon,
@@ -253,6 +252,7 @@ import {
   scrollCommandPaletteRowIntoView,
 } from "./CommandPaletteResults";
 import { EnvironmentMachineIcon } from "./EnvironmentMachineIcon";
+import { MachinePickerIndicators } from "./MachinePickerIndicators";
 import { Checkbox } from "./ui/checkbox";
 import { ProjectFilePicker } from "./files/ProjectFilePicker";
 import { openLinkPullRequestDialog } from "./pullRequest/LinkPullRequestDialog";
@@ -580,23 +580,21 @@ function OpenCommandPaletteDialog(props: {
   };
 
   const addProjectEnvironmentOptions = (() => {
-    const options = environments
-      .filter((environment) => canCreateProjectInEnvironment(environment.connection.phase))
-      .map((environment): AddProjectEnvironmentOption => {
-        const isPrimary = environment.entry.target._tag === "PrimaryConnectionTarget";
-        return {
-          environmentId: environment.environmentId,
-          label: resolveEnvironmentOptionLabel({
-            isPrimary,
-            environmentId: environment.environmentId,
-            runtimeLabel: environment.label,
-          }),
+    const options = environments.map((environment): AddProjectEnvironmentOption => {
+      const isPrimary = environment.entry.target._tag === "PrimaryConnectionTarget";
+      return {
+        environmentId: environment.environmentId,
+        label: resolveEnvironmentOptionLabel({
           isPrimary,
-          machine: resolveEnvironmentMachineKind(environment.serverConfig),
-          isConnected: canCreateProjectInEnvironment(environment.connection.phase),
-          status: connectionStatusText(environment.connection),
-        };
-      });
+          environmentId: environment.environmentId,
+          runtimeLabel: environment.label,
+        }),
+        isPrimary,
+        machine: resolveEnvironmentMachineKind(environment.serverConfig),
+        isConnected: canCreateProjectInEnvironment(environment.connection.phase),
+        status: connectionStatusText(environment.connection),
+      };
+    });
 
     options.sort((left, right) => {
       if (left.isPrimary !== right.isPrimary) {
@@ -1181,6 +1179,7 @@ function OpenCommandPaletteDialog(props: {
     value,
     searchTerms: [option.label, option.environmentId, option.isPrimary ? "this device" : ""],
     title: option.label,
+    titleTrailingContent: <MachinePickerIndicators environmentId={option.environmentId} />,
     description: option.isConnected
       ? option.isPrimary
         ? "This device"
@@ -1201,7 +1200,7 @@ function OpenCommandPaletteDialog(props: {
     ),
   );
   const newProjectEnvironmentOptions = addProjectEnvironmentOptions.filter(
-    (option) => option.isConnected && newProjectsRootFor(option.environmentId) !== null,
+    (option) => !option.isConnected || newProjectsRootFor(option.environmentId) !== null,
   );
 
   const addProjectEnvironmentGroups = [
@@ -1217,7 +1216,7 @@ function OpenCommandPaletteDialog(props: {
     void navigate({ to: "/settings/connections" });
   };
   const addProjectEntry = resolveAddProjectEntry(
-    addProjectEnvironmentOptions,
+    defaultAddProjectEnvironmentId === null ? [] : addProjectEnvironmentOptions,
     defaultAddProjectEnvironmentId,
   );
 
@@ -1244,6 +1243,7 @@ function OpenCommandPaletteDialog(props: {
     switch (addProjectEntry.kind) {
       case "connect-environment":
         return [
+          ...(addProjectEnvironmentItems.length > 0 ? addProjectEnvironmentGroups : []),
           {
             value: ADD_PROJECT_ENTRY_GROUP,
             label: "",
@@ -1278,8 +1278,9 @@ function OpenCommandPaletteDialog(props: {
   };
 
   const openNewProjectFlow = () => {
-    const firstOption = newProjectEnvironmentOptions[0];
+    const firstOption = newProjectEnvironmentOptions.find((option) => option.isConnected);
     if (firstOption) startNewProject(firstOption.environmentId, null);
+    else openConnectionSettings();
   };
 
   const actionItems: Array<CommandPaletteActionItem | CommandPaletteSubmenuItem> = [
@@ -2361,7 +2362,7 @@ function OpenCommandPaletteDialog(props: {
             ...(option.environmentId === newProjectFlow.environmentId
               ? {
                   titleTrailingContent: (
-                    <CheckIcon className="ms-auto size-4 shrink-0 text-muted-foreground/70" />
+                    <MachinePickerIndicators environmentId={option.environmentId} selected />
                   ),
                 }
               : {}),
