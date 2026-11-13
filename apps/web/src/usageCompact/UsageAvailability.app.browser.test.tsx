@@ -100,7 +100,9 @@ it("shows read-only resets in the popup and all pace states after opening Usage"
   const capture = import.meta.env.VITE_USAGE_AVAILABILITY_CAPTURE;
   if (capture) {
     await document.fonts.ready;
-    await popup.screenshot({ path: `/tmp/agents/t3-usage-availability/${capture}-popup.png` });
+    await popup.screenshot({
+      path: `../../../../.t3/usage-availability-evidence/${capture}-popup.png`,
+    });
   }
   if (capture !== "before") {
     const resets = popup.getByText("3 resets available", { exact: true });
@@ -122,7 +124,7 @@ it("shows read-only resets in the popup and all pace states after opening Usage"
   await expect.element(page.getByRole("button", { name: "Limits", exact: true })).toBeVisible();
   if (capture) {
     await app.locator.screenshot({
-      path: `/tmp/agents/t3-usage-availability/${capture}-usage.png`,
+      path: `../../../../.t3/usage-availability-evidence/${capture}-usage.png`,
     });
   }
 });

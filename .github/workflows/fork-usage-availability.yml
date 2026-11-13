@@ -39,7 +39,7 @@ jobs:
       - uses: ./.github/actions/setup-fork-chromium
       - name: Capture the previous usage displays
         run: |
-          mkdir -p /tmp/agents/t3-usage-availability
+          mkdir -p .t3/usage-availability-evidence
           compact=apps/web/src/usageCompact/CompactUsageControl.tsx
           pooled=apps/web/src/components/usage/UsageLimitsPooled.tsx
           cp "$compact" "$RUNNER_TEMP/CompactUsageControl.tsx"
@@ -60,5 +60,6 @@ jobs:
         if: always()
         with:
           name: usage-availability-before-after
-          path: /tmp/agents/t3-usage-availability/*.png
+          path: .t3/usage-availability-evidence/*.png
+          include-hidden-files: true
           retention-days: 14
