@@ -8,6 +8,8 @@ on:
       - "apps/web/src/components/Sidebar.tsx"
       - "apps/web/src/components/settings/SettingsPanels.tsx"
       - "apps/web/src/components/settings/SettleNavigationSetting.tsx"
+      - "apps/web/src/components/settings/settleNavigationSearch*"
+      - "apps/web/src/components/settings/settingsSearch.ts"
       - "apps/web/src/components/sidebar/settleNavigation*"
       - "apps/web/src/components/sidebar/useSettleNavigation.ts"
       - "apps/web/src/settleAndAdvance.ts"
@@ -52,7 +54,7 @@ jobs:
       - name: Check changed code
         run: vp run check:changed origin/main
       - name: Run settle navigation tests
-        run: vp test run packages/contracts/src/settleNavigationSettings.test.ts apps/web/src/components/sidebar/settleNavigation.logic.test.ts apps/web/src/settleAndAdvance.test.ts
+        run: vp test run packages/contracts/src/settleNavigationSettings.test.ts apps/web/src/components/settings/settleNavigationSearch.test.ts apps/web/src/components/sidebar/settleNavigation.logic.test.ts apps/web/src/settleAndAdvance.test.ts
       - name: Settle the open thread in each mode with captures
         run: VITE_SETTLE_CAPTURE=1 vp test run apps/web/src/components/sidebar/settleNavigation.app.browser.test.tsx
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

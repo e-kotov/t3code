@@ -327,7 +327,8 @@
       "tests": [
         "packages/contracts/src/settleNavigationSettings.test.ts",
         "apps/web/src/components/sidebar/settleNavigation.logic.test.ts",
-        "apps/web/src/components/sidebar/settleNavigation.app.browser.test.tsx"
+        "apps/web/src/components/sidebar/settleNavigation.app.browser.test.tsx",
+        "apps/web/src/components/settings/settleNavigationSearch.test.ts"
       ]
     },
     {
