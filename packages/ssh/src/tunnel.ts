@@ -2009,7 +2009,12 @@ const makeSshEnvironmentManager = Effect.fn("ssh/tunnel.SshEnvironmentManager.ma
   });
 
   const activeEndpoints = Effect.sync(() => [...tunnels.values()]);
-  return SshEnvironmentManager.of({ ensureEnvironment, disconnectEnvironment, activeEndpoints, closeAllTunnels });
+  return SshEnvironmentManager.of({
+    ensureEnvironment,
+    disconnectEnvironment,
+    activeEndpoints,
+    closeAllTunnels,
+  });
 });
 
 /**

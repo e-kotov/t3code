@@ -67,7 +67,13 @@ it("preserves the project root when opening files in a configured built-in edito
     EditorPreferences,
   );
   expect(
-    await openSavedConfiguredEditor(environmentId, ["vscode"], "/project/file.ts:8", invoke, "/project"),
+    await openSavedConfiguredEditor(
+      environmentId,
+      ["vscode"],
+      "/project/file.ts:8",
+      invoke,
+      "/project",
+    ),
   ).toMatchObject({ _tag: "Success", value: "vscode" });
   expect(invoke).toHaveBeenCalledExactlyOnceWith({
     environmentId,

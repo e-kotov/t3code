@@ -49,7 +49,7 @@
     "apps/mobile/src/features/layout/workspace/workspace-tabs-state.ts": 4,
     "apps/mobile/src/features/observability/observe.ts": 5,
     "apps/mobile/src/features/settings/SettingsNotificationsRouteScreen.tsx": 3,
-    "apps/mobile/src/features/settings/SettingsRouteScreen.tsx": 5,
+    "apps/mobile/src/features/settings/SettingsRouteScreen.tsx": 9,
     "apps/mobile/src/features/settings/SettingsScheduledTasksRouteScreen.tsx": 5,
     "apps/mobile/src/features/settings/components/settings-page-targets.ts": 3,
     "apps/mobile/src/features/sharing/IncomingShareProvider.tsx": 12,
@@ -95,7 +95,7 @@
     "apps/server/src/mcp/McpHttpServer.ts": 4,
     "apps/server/src/mcp/OrchestratorMcpService.test.ts": 9,
     "apps/server/src/mcp/OrchestratorMcpService.ts": 23,
-    "apps/server/src/mcp/toolkits/preview/handlers.test.ts": 13,
+    "apps/server/src/mcp/toolkits/preview/handlers.test.ts": 19,
     "apps/server/src/mcp/toolkits/preview/handlers.ts": 8,
     "apps/server/src/mcp/toolkits/preview/tools.ts": 2,
     "apps/server/src/orchestration-v2/Adapters/AntigravityAdapterV2.ts": 4,
@@ -216,7 +216,7 @@
     "packages/shared/src/editor.ts": 2,
     "packages/shared/src/htmlRender.ts": 1,
     "packages/shared/src/serverSettings.ts": 21,
-    "packages/ssh/src/tunnel.ts": 7,
+    "packages/ssh/src/tunnel.ts": 12,
     "pnpm-lock.yaml": 25,
     "scripts/build-desktop-artifact.ts": 14
   }

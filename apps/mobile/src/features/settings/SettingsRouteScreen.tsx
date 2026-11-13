@@ -197,11 +197,7 @@ function SettingsList(props: { readonly connections: readonly SettingsListRow[] 
   const indexSections = useSettingsIndexSections();
   const connections = useForkConnectionRows(props.connections);
   const sections = filterSettingsSections(
-    [
-      { rows: overflowRows },
-      { title: gt("Connections"), rows: connections },
-      ...indexSections,
-    ],
+    [{ rows: overflowRows }, { title: gt("Connections"), rows: connections }, ...indexSections],
     query,
   );
 

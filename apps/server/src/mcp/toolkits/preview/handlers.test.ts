@@ -28,7 +28,10 @@ import { liveThreadsLayer } from "../../McpToolAccess.testkit.ts";
 import * as PreviewAutomationBroker from "../../PreviewAutomationBroker.ts";
 import { claimPreviewRecording, layerStandard } from "./handlers.ts";
 import { PreviewStandardToolkit } from "./tools.ts";
-import { assertBrowserProxyTarget, resolveBrowserProxyOpen } from "../../../preview/browserProxyOpen.ts";
+import {
+  assertBrowserProxyTarget,
+  resolveBrowserProxyOpen,
+} from "../../../preview/browserProxyOpen.ts";
 
 const decodePreviewOpenInput = Schema.decodeUnknownSync(PreviewAutomationOpenInput);
 
@@ -81,7 +84,10 @@ it.effect("preview_open navigates the opened tab to a dev server in one tool cal
       .pipe(Stream.unwrap, Stream.runCollect);
     expect(results.at(-1)?.result).toEqual(status);
     expect(requests.map(({ operation, input }) => ({ operation, input }))).toEqual([
-      { operation: "open", input: { open: false, show: false, reuseExistingTab: false, proxyUrl: "" } },
+      {
+        operation: "open",
+        input: { open: false, show: false, reuseExistingTab: false, proxyUrl: "" },
+      },
       { operation: "navigate", input: { target } },
     ]);
     const openedRoute = resolveBrowserProxyOpen(
