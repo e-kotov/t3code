@@ -43,6 +43,8 @@ const layerProvidedClientConnection = layerSnapshotLoader.pipe(
         usageLimitsCommand: true,
         slurmJobStatus: true,
         providerCatalogsOnDemand: true,
+        providerCatalogDigests: true,
+        providerStatusDeltas: true,
       },
       builtInTailnet,
     ),

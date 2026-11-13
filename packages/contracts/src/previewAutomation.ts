@@ -73,14 +73,26 @@ export type PreviewAutomationProfile = typeof PreviewAutomationProfile.Type;
 
 import { browserProxyTabFields, BrowserProxyUrl } from "./browserProxy.ts";
 
+const VISIBLE_DESCRIPTION =
+  "True while a client shows this tab: a streamed live view, or the desktop app's own browser panel.";
+
+/** Why the tab shows the browser's error page instead of the page it tried to load. */
+export const PreviewAutomationLoadError = Schema.Struct({
+  url: Schema.String,
+  code: Schema.Int,
+  description: Schema.String,
+});
+export type PreviewAutomationLoadError = typeof PreviewAutomationLoadError.Type;
+
 export const PreviewAutomationStatus = Schema.Struct({
   ...browserProxyTabFields,
   available: Schema.Boolean,
-  visible: Schema.Boolean,
+  visible: Schema.Boolean.annotate({ description: VISIBLE_DESCRIPTION }),
   tabId: Schema.NullOr(PreviewTabId),
   url: Schema.NullOr(Schema.String),
   title: Schema.NullOr(Schema.String),
   loading: Schema.Boolean,
+  loadError: Schema.optional(PreviewAutomationLoadError),
   control: Schema.optional(
     Schema.Struct({
       owner: PreviewAutomationTabOwner,
@@ -122,7 +134,7 @@ export const PreviewAutomationStatus = Schema.Struct({
         openerTabId: Schema.optional(PreviewTabId),
         owner: Schema.optional(PreviewAutomationTabOwner),
         ownedByCaller: Schema.optional(Schema.Boolean),
-        visible: Schema.optional(Schema.Boolean),
+        visible: Schema.optional(Schema.Boolean.annotate({ description: VISIBLE_DESCRIPTION })),
         profileId: Schema.optional(BrowserProfileId),
         ...browserProxyTabFields,
       }),
@@ -258,7 +270,9 @@ export type PreviewAutomationResizeInput = typeof PreviewAutomationResizeInput.T
 export const PreviewAutomationResizeResult = Schema.Struct({
   tabId: PreviewTabId,
   setting: PreviewViewportSetting,
-  viewport: PreviewRenderedViewportSize,
+  viewport: Schema.optional(PreviewRenderedViewportSize).annotate({
+    description: "Viewport size after the resize. Omitted when it could not be measured.",
+  }),
 });
 export type PreviewAutomationResizeResult = typeof PreviewAutomationResizeResult.Type;
 
@@ -543,6 +557,7 @@ export const PreviewAutomationSnapshot = Schema.Struct({
   url: Schema.String,
   title: Schema.String,
   loading: Schema.Boolean,
+  loadError: Schema.optional(PreviewAutomationLoadError),
   visibleText: Schema.String,
   interactiveElements: Schema.Array(PreviewAutomationElement),
   accessibilityTree: Schema.Unknown,
@@ -789,6 +804,7 @@ export class PreviewAutomationTimeoutError extends Schema.TaggedError<PreviewAut
 
 export const PreviewAutomationControlReason = Schema.Literals([
   "agentMismatch",
+  "unclaimedTab",
   "humanControl",
   "tabRequired",
   "closed",
@@ -809,6 +825,8 @@ export class PreviewAutomationControlInterruptedError extends Schema.TaggedError
   override get message(): string {
     if (this.reason === "agentMismatch")
       return "This browser tab belongs to another agent session or a human. Open your own tab.";
+    if (this.reason === "unclaimedTab")
+      return "This tab has no agent owner. Ask the user to close it in the browser panel.";
     if (this.reason === "humanControl")
       return "A human controls this browser tab. Wait until they release control.";
     if (this.reason === "tabRequired")

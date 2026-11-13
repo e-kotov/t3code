@@ -33,13 +33,14 @@ it("uses saved custom commands for file actions and does not borrow another envi
     EditorPreferences,
   );
   expect(
-    await openSavedConfiguredEditor(environmentId, [], "/project/file.ts:8", invoke),
+    await openSavedConfiguredEditor(environmentId, [], "/project/file.ts:8", invoke, "/project"),
   ).toMatchObject({ _tag: "Success", value: custom.id });
   expect(invoke).toHaveBeenCalledWith({
     environmentId,
     input: {
       editor: "custom",
       cwd: "/project/file.ts:8",
+      projectRoot: "/project",
       customEditor: { name: custom.name, command: custom.command, args: custom.args },
     },
   });
@@ -57,4 +58,19 @@ it("does not fall back to a hidden editor", async () => {
     (await openSavedConfiguredEditor(environmentId, ["vscode"], "/project", invoke))?._tag,
   ).toBe("Failure");
   expect(invoke).not.toHaveBeenCalled();
+});
+
+it("preserves the project root when opening files in a configured built-in editor", async () => {
+  setLocalStorageItem(
+    editorPreferencesKey(environmentId, false),
+    { ...EMPTY_EDITOR_PREFERENCES, preferred: "vscode" },
+    EditorPreferences,
+  );
+  expect(
+    await openSavedConfiguredEditor(environmentId, ["vscode"], "/project/file.ts:8", invoke, "/project"),
+  ).toMatchObject({ _tag: "Success", value: "vscode" });
+  expect(invoke).toHaveBeenCalledExactlyOnceWith({
+    environmentId,
+    input: { editor: "vscode", cwd: "/project/file.ts:8", projectRoot: "/project" },
+  });
 });
