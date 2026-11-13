@@ -20,6 +20,16 @@ Judge only the fix:
 - Is anything likely to fail typecheck, lint or tests, or behave wrongly at runtime?
 - If it lowered `scripts/fork-footprint-budget.json` via `--write`, is each reduction an
   intentional extraction or feature retirement rather than a lost fork integration?
+- If upstream adds direct-session renewal, sliding expiry or device-key binding alongside a
+  fork equivalent, inspect the additions in `git diff "$m^1...$m^2"` and the resulting code
+  yourself; the fixer's closing summary is not included in your context. Request changes if
+  both mechanisms remain active for the same sessions, or the fix chooses which to retain,
+  remove or disable without `.claude-needs-decision.md` or recorded approval from Egor.
+  Compare revocation, signed expiry, scopes, races, offline recovery, transport restrictions
+  and compatibility using the code and tests. This exception takes precedence over preserving
+  fork-test behavior: an authentication-assumption test must not be made to pass by overriding
+  upstream or weakening its assertion. A changed assumption requires the decision file even
+  if every other check passes.
 
 Request changes only for real defects, each with file, line and the concrete fix. Approve when the
 fix is correct even if you would have written it differently.
