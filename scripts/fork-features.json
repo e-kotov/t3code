@@ -376,6 +376,15 @@
         "scripts/fork-sync-excerpt.test.py",
         "scripts/fork-feature-guard.test.py"
       ]
+    },
+    {
+      "id": "trusted-device-sessions",
+      "group": "Machines and HPC",
+      "summary": "trusted device pairings stay authorized until revoked while temporary credentials expire",
+      "docs": "docs/user/remote-access.md",
+      "tests": [
+        "apps/server/src/auth/TrustedDeviceSessions.test.ts"
+      ]
     }
   ]
 }
