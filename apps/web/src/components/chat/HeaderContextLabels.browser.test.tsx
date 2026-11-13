@@ -402,6 +402,7 @@ it.each(["connecting", "reconnecting", "offline", "error", "unsupported", "avail
     await vi.waitFor(() => {
       expect(screen.router?.state.location.pathname).toBe("/settings/connections");
       expect(screen.router?.state.location.search).toEqual({ machine: REMOTE });
+      expect(screen.router?.state.location.hash).toBe(`machine-connection-${REMOTE}`);
     });
     expect(fixture.startScratchThread).not.toHaveBeenCalled();
   },

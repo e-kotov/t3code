@@ -1278,8 +1278,9 @@ function OpenCommandPaletteDialog(props: {
   };
 
   const openNewProjectFlow = () => {
-    const firstOption = newProjectEnvironmentOptions[0];
+    const firstOption = newProjectEnvironmentOptions.find((option) => option.isConnected);
     if (firstOption) startNewProject(firstOption.environmentId, null);
+    else openConnectionSettings();
   };
 
   const actionItems: Array<CommandPaletteActionItem | CommandPaletteSubmenuItem> = [

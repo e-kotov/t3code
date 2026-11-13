@@ -25,6 +25,7 @@ import { useEnvironmentPresentation } from "../../state/presentation";
 import { providersIgnoringCheckedAtAtom } from "../../state/server";
 import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
 import { MachineGroupConnectionStatus } from "../MachineGroupConnectionStatus";
+import { machineConnectionSettingsTargetId } from "../settings/machineConnectionSettingsTarget";
 import { MachineGroupSlurmTime } from "../MachineGroupSlurmTime";
 import { deriveLockedProvider } from "../ChatView.logic";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -71,6 +72,7 @@ export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedTh
                           void navigate({
                             to: "/settings/connections",
                             search: { machine: threadRef.environmentId },
+                            hash: machineConnectionSettingsTargetId(threadRef.environmentId),
                           })
                       : undefined
                 }

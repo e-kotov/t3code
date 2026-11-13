@@ -86,7 +86,8 @@
         "packages/contracts/src/sidebarGrouping.test.ts",
         "apps/web/src/components/sidebar/sidebarConversationGroups.test.ts",
         "apps/web/src/components/sidebar/sidebarMachineScope.test.ts",
-        "apps/web/src/components/MachineFilters.app.browser.test.tsx"
+        "apps/web/src/components/MachineFilters.app.browser.test.tsx",
+        "apps/web/src/components/settings/TargetedMachineConnectionRow.browser.test.tsx"
       ]
     },
     {

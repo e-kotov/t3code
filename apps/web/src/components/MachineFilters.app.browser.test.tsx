@@ -7,6 +7,7 @@ import {
 import { EnvironmentId } from "@t3tools/contracts";
 import { DEFAULT_CLIENT_SETTINGS } from "@t3tools/contracts/settings";
 import type * as Context from "effect/Context";
+import * as Option from "effect/Option";
 import { expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
 import { AppRoot } from "~/AppRoot";
@@ -20,10 +21,14 @@ import {
   threadWithHistory,
   type FakeDriver,
 } from "../../test/fakeEnvironment";
-import { render } from "../../test/render";
+import { act, render } from "../../test/render";
+import { openCommandPalette } from "../commandPaletteBus";
 import "../index.css";
 
-const machines = vi.hoisted(() => ({ presentations: [] as EnvironmentPresentation[] }));
+const machines = vi.hoisted(() => ({
+  primaryOffline: false,
+  presentations: [] as EnvironmentPresentation[],
+}));
 vi.mock("../../../../packages/client-runtime/src/connection/driver.ts", async (importOriginal) => {
   const [actual, { fakeDriver }, Layer] = await Promise.all([
     importOriginal<{ readonly ConnectionDriver: Context.Key<unknown, FakeDriver> }>(),
@@ -52,7 +57,11 @@ vi.mock(import("~/state/environments"), async (original) => {
       return {
         ...state,
         environments: [
-          ...state.environments,
+          ...state.environments.map((environment) =>
+            machines.primaryOffline
+              ? { ...environment, connection: { ...environment.connection, phase: "offline" as const } }
+              : environment,
+          ),
           ...machines.presentations.map((p) => ({
             ...p,
             environmentId: p.entry.target.environmentId,
@@ -89,7 +98,11 @@ function machine(
   phase: EnvironmentConnectionPhase,
 ): EnvironmentPresentation {
   return {
-    entry: { target: new BearerConnectionTarget({ environmentId: id, label, connectionId: id }) },
+    entry: {
+      target: new BearerConnectionTarget({ environmentId: id, label, connectionId: id }),
+      enabled: true,
+      profile: Option.none(),
+    },
     connection: { phase, error: null, traceId: null },
     serverConfig: {
       newProjectsRoot: "/workspace",
@@ -109,6 +122,7 @@ function machine(
 async function mount() {
   const stack = new AsyncDisposableStack();
   try {
+    machines.primaryOffline = false;
     const thread = threadWithHistory("machine-filters", 1);
     stack.use(installFakeEnvironment([thread]));
     machines.presentations = [
@@ -194,3 +208,23 @@ it("shows reconnecting machines and Slurm time remaining when adding a project",
       .getByRole("dialog")
       .screenshot({ path: "../../../../.t3/machine-filter-evidence/after-project-picker.png" });
 });
+
+it.skipIf(import.meta.env.VITE_MACHINE_FILTER_CAPTURE === "before")(
+  "starts a new project on a connected machine when the primary is offline",
+  async () => {
+    await using _screen = await mount();
+    machines.primaryOffline = true;
+    await act(() => openCommandPalette());
+    await page
+      .getByRole("dialog", { name: "Command palette" })
+      .getByRole("combobox")
+      .fill("New project");
+    await page.getByRole("option", { name: "New project", exact: true }).click();
+    await expect.element(page.getByPlaceholder("Project name")).toBeVisible();
+    const hub = page.getByRole("option", { name: /hub/ });
+    expect(hub.element().querySelector(".lucide-check")).not.toBeNull();
+    await expect
+      .element(page.getByRole("option", { name: /GWDG/ }))
+      .toHaveAttribute("aria-disabled", "true");
+  },
+);

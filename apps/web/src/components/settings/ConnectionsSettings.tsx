@@ -136,8 +136,8 @@ import { ITEM_ROW_CLASSNAME } from "./itemRows";
 import {
   CloudLinkRow,
   CloudRemoteEnvironmentRows,
-  SavedBackendListRow,
 } from "./SavedEnvironmentRows";
+import { TargetedMachineConnectionRow as SavedBackendListRow } from "./TargetedMachineConnectionRow";
 import { AddEnvironmentDialog } from "./AddEnvironmentDialog";
 
 const DEFAULT_TAILSCALE_SERVE_PORT = 443;
