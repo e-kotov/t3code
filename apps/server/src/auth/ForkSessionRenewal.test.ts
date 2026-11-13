@@ -57,6 +57,34 @@ const settings = (env: Record<string, string>) =>
     ),
   });
 
+const readableSettings: ReadonlyArray<{
+  readonly name: string;
+  readonly env: Record<string, string>;
+  readonly window: number;
+  readonly maxAge: Option.Option<number>;
+}> = [
+  { name: "the defaults", env: {}, window: 30, maxAge: Option.some(365) },
+  { name: "0 days as no cap", env: { MAX_AGE_DAYS: "0" }, window: 30, maxAge: Option.none() },
+  {
+    name: "a one-day window and a short cap",
+    env: { WINDOW_DAYS: "1", MAX_AGE_DAYS: "45" },
+    window: 1,
+    maxAge: Option.some(45),
+  },
+];
+
+const unreadableSettings: ReadonlyArray<Record<string, string>> = [
+  { MAX_AGE_DAYS: "-1" },
+  { MAX_AGE_DAYS: "-0.5" },
+  { MAX_AGE_DAYS: "Infinity" },
+  { MAX_AGE_DAYS: "NaN" },
+  { WINDOW_DAYS: "0" },
+  { WINDOW_DAYS: "0.5" },
+  { WINDOW_DAYS: "-30" },
+  { WINDOW_DAYS: "Infinity" },
+  { WINDOW_DAYS: "1e9" },
+];
+
 const claimsOf = (token: string) =>
   JSON.parse(base64UrlDecodeUtf8(token.split(".")[0]!)) as Record<string, unknown>;
 
@@ -202,40 +230,25 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("ForkSessionRenew
     }).pipe(Effect.provide(Layer.merge(layerSessionStore, TestClock.layer()))),
   );
 
-  it.effect.each([
-    { name: "the defaults", env: {}, window: 30, maxAge: Option.some(365) },
-    { name: "0 days as no cap", env: { MAX_AGE_DAYS: "0" }, window: 30, maxAge: Option.none() },
-    {
-      name: "a one-day window and a short cap",
-      env: { WINDOW_DAYS: "1", MAX_AGE_DAYS: "45" },
-      window: 1,
-      maxAge: Option.some(45),
-    },
-  ])("reads $name from the host's settings", ({ env, window, maxAge }) =>
-    Effect.gen(function* () {
-      const read = yield* ForkSessionRenewal.policyConfig.parse(settings(env));
-      expect(read.enabled).toBe(true);
-      expect(Duration.toMillis(read.window)).toBe(day(window));
-      expect(Option.map(read.maxAge, Duration.toMillis)).toEqual(Option.map(maxAge, day));
-    }),
+  it.effect.each(readableSettings)(
+    "reads $name from the host's settings",
+    ({ env, window, maxAge }) =>
+      Effect.gen(function* () {
+        const read = yield* ForkSessionRenewal.policyConfig.parse(settings(env));
+        expect(read.enabled).toBe(true);
+        expect(Duration.toMillis(read.window)).toBe(day(window));
+        expect(Option.map(read.maxAge, Duration.toMillis)).toEqual(Option.map(maxAge, day));
+      }),
   );
 
-  it.effect.each([
-    { MAX_AGE_DAYS: "-1" },
-    { MAX_AGE_DAYS: "-0.5" },
-    { MAX_AGE_DAYS: "Infinity" },
-    { MAX_AGE_DAYS: "NaN" },
-    { WINDOW_DAYS: "0" },
-    { WINDOW_DAYS: "0.5" },
-    { WINDOW_DAYS: "-30" },
-    { WINDOW_DAYS: "Infinity" },
-    { WINDOW_DAYS: "1e9" },
-  ])("rejects %o instead of lifting the cap or shortening the window", (env) =>
-    Effect.gen(function* () {
-      expect((yield* Effect.flip(ForkSessionRenewal.policyConfig.parse(settings(env))))._tag).toBe(
-        "ConfigError",
-      );
-    }),
+  it.effect.each(unreadableSettings)(
+    "rejects %o instead of lifting the cap or shortening the window",
+    (env) =>
+      Effect.gen(function* () {
+        expect(
+          (yield* Effect.flip(ForkSessionRenewal.policyConfig.parse(settings(env))))._tag,
+        ).toBe("ConfigError");
+      }),
   );
 
   it.effect.each([
