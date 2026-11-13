@@ -28,6 +28,11 @@ future upstream merges clean:
 
 For direct-connection authentication, an upstream implementation of session renewal, sliding
 expiry or device-key binding requires a fresh comparison with any implemented fork equivalent.
+This paragraph takes precedence over the rule to keep fork-test behavior: do not override
+upstream or rewrite an authentication-assumption test just to make it pass; stop with
+`.claude-needs-decision.md` when the assumed upstream behavior has changed.
+During step 2, inspect upstream additions even if "This run" names a conflict elsewhere:
+`m=$(git rev-list --merges -1 HEAD); git diff "$m^1...$m^2" -- apps/server/src/auth packages/client-runtime/src/authorization packages/client-runtime/src/connection packages/contracts/src/auth.ts`.
 Inspect the actual code and tests on both sides; a proposal or draft PR is not a shipped feature.
 Compare revocation, signed expiry, scopes, concurrent renewal and stale credentials, offline
 recovery, transport restrictions, client/server compatibility and migrations. Do not blindly keep

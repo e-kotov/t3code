@@ -113,6 +113,10 @@ offline recovery, transport restrictions and client/server migration all matter;
 or green checks do not establish equivalence. A policy change or retirement of fork behavior
 uses `.claude-needs-decision.md` and waits for Egor rather than silently preserving both paths
 or automatically favoring either implementation.
+This review takes precedence over preserving fork-test behavior. A failing test that explicitly
+records an upstream authentication assumption must lead to that comparison and a decision,
+rather than overriding upstream to restore the old behavior. The reviewer checks the upstream
+diff and resulting code directly; the fixer's closing summary is not passed to it.
 
 These instructions apply when the resolver runs. A clean merge with passing checks skips agent
 review, so the eventual fork renewal feature must also account for upstream overlap on that
