@@ -77,6 +77,7 @@ vi.mock(import("~/browser/ServerBrowserSurface"), async () => {
         navigate: state.navigate,
         history: vi.fn(),
         reload: vi.fn(),
+        stopLoading: vi.fn(),
         viewport: vi.fn(),
         canvas: () => null,
       }));
