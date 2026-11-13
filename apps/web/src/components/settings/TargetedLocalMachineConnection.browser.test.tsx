@@ -1,4 +1,11 @@
 import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider,
+} from "@tanstack/react-router";
+import {
   BearerConnectionTarget,
   PrimaryConnectionTarget,
 } from "@t3tools/client-runtime/connection";
@@ -8,6 +15,7 @@ import { expect, it, vi } from "vite-plus/test";
 import type { EnvironmentPresentation } from "../../state/environments";
 import { render } from "../../../test/render";
 import { SettingsPageContainer } from "./settingsLayout";
+import { validateSettingsRouteSearch } from "./settingsScopeNavigation";
 import { TargetedLocalMachineConnection } from "./TargetedLocalMachineConnection";
 import "../../index.css";
 
@@ -19,6 +27,14 @@ vi.mock(import("../../state/environments"), async (original) => {
     useEnvironments: () => ({ ...actual.useEnvironments(), environments: fixture.environments }),
   };
 });
+
+function ConnectionSettingsPage() {
+  return (
+    <SettingsPageContainer>
+      <TargetedLocalMachineConnection />
+    </SettingsPageContainer>
+  );
+}
 
 it.each(["primary", "desktop-local"] as const)(
   "reveals an unavailable %s machine's connection status",
@@ -51,16 +67,32 @@ it.each(["primary", "desktop-local"] as const)(
         serverConfig: null,
       },
     ];
-    await using screen = await render(
-      <SettingsPageContainer>
-        <TargetedLocalMachineConnection />
-      </SettingsPageContainer>,
-      { router: "/settings/connections?machine=local-machine#machine-connection-local-machine" },
-    );
+    const root = createRootRoute();
+    const connections = createRoute({
+      getParentRoute: () => root,
+      path: "/settings/connections",
+      validateSearch: validateSettingsRouteSearch,
+      component: ConnectionSettingsPage,
+    });
+    const router = createRouter({
+      routeTree: root.addChildren([connections]),
+      history: createMemoryHistory({
+        initialEntries: [
+          "/settings/connections?machine=local-machine#machine-connection-local-machine",
+        ],
+      }),
+      disableGlobalCatchBoundary: true,
+    });
+    await router.load();
+    await using screen = await render(<RouterProvider router={router} />, {
+      // This flow needs the production settings query validation.
+      router: false,
+    });
+    await expect.element(screen.getByText("Local machine", { exact: true })).toBeVisible();
     const target = screen.container.querySelector("#machine-connection-local-machine");
     await vi.waitFor(() => expect(document.activeElement).toBe(target));
     expect(target?.textContent).toContain("Local machine");
     expect(target?.textContent).toContain("Connection refused");
-    expect(screen.router?.state.location.hash).toBe("");
+    expect(router.state.location.hash).toBe("");
   },
 );
