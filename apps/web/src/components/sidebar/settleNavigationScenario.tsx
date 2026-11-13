@@ -1,6 +1,5 @@
 import { createMemoryHistory } from "@tanstack/react-router";
 import { type ClientSettings, DEFAULT_CLIENT_SETTINGS } from "@t3tools/contracts/settings";
-import type * as Context from "effect/Context";
 import { expect, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
 import { AppRoot } from "~/AppRoot";
@@ -16,40 +15,9 @@ import {
   installFakeEnvironment,
   PROJECT_ID,
   threadWithHistory,
-  type FakeDriver,
 } from "../../../test/fakeEnvironment";
 import { render } from "../../../test/render";
 import "../../index.css";
-
-vi.mock(
-  "../../../../../packages/client-runtime/src/connection/driver.ts",
-  async (importOriginal) => {
-    const [actual, { fakeDriver }, Layer] = await Promise.all([
-      importOriginal<{ readonly ConnectionDriver: Context.Key<unknown, FakeDriver> }>(),
-      import("../../../test/fakeEnvironment"),
-      import("effect/Layer"),
-    ]);
-    return { ...actual, layer: Layer.succeed(actual.ConnectionDriver, fakeDriver) };
-  },
-);
-vi.mock(import("~/rpc/requestLatencyState"), async (original) => ({
-  ...(await original()),
-  trackRpcRequestSent: () => {},
-}));
-// The fake environment never answers file reads; a project without t3.json reads as null.
-vi.mock(import("~/lib/t3ProjectFileDefaults"), async (original) => ({
-  ...(await original()),
-  readT3ProjectFile: async () => null,
-}));
-vi.mock(import("~/state/server"), async (original) => {
-  const actual = await original();
-  const { Atom } = await import("effect/reactivity");
-  const { compileResolvedKeybindingsConfig } = await import("@t3tools/shared/keybindings");
-  const keybindings = compileResolvedKeybindingsConfig([
-    { key: "mod+shift+s", command: "thread.settle", when: "!terminalFocus" },
-  ]);
-  return { ...actual, primaryServerKeybindingsAtom: Atom.make(keybindings) };
-});
 
 const ELEMENT_WAIT = { timeout: 5_000 };
 
