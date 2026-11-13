@@ -1742,7 +1742,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       isLiteralPendingAnswer,
     );
     if (options?.citationComment) {
-      composerEditorRef.current?.requestCitationComment({
+      if (!composerEditorRef.current) return false;
+      composerEditorRef.current.requestCitationComment({
         previousValue: currentText,
         value: next.text,
         citationStart: options.citationComment.start,
@@ -2551,6 +2552,12 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       (pendingUserInputs.length > 0 && !activePendingProgress?.activeQuestion) ||
       projectSelectionRequired ||
       (options?.citationCommentAnchor && !composerEditorRef.current)
+    ) {
+      return false;
+    }
+    if (
+      options?.citationCommentAnchor?.commentInput &&
+      !composerEditorRef.current?.canInsertCitation()
     ) {
       return false;
     }

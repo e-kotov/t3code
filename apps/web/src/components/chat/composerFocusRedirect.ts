@@ -1,3 +1,12 @@
+import {
+  citeSelectionInput,
+  handlePendingCitationKey,
+  hasBlockingCitationLayer,
+} from "./forkCitationInputRouting";
+import { isInSideChatPane } from "~/lib/sideChatPane";
+
+import { readPastedComposerContext } from "../composerInlineTokenPaste";
+
 import { surfaceShortcutKey } from "~/lib/surfaceShortcutKey";
 
 export const TYPE_TO_FOCUS_EDITABLE_SELECTOR = [
@@ -73,29 +82,40 @@ function isKeyClaimedInPath(event: KeyboardEvent): boolean {
 
 export function shouldRedirectInputToComposer(event: Event): boolean {
   if (event.defaultPrevented) return false;
+  const selection = window.getSelection();
+  if (
+    isInSideChatPane(event.target) ||
+    isInSideChatPane(selection?.anchorNode?.parentElement ?? null)
+  )
+    return false;
   // Never persist or send secret-request typing through the composer.
   if (eventPathContainsSelector(event, SECRET_REQUEST_SELECTOR)) return false;
   if (eventPathContainsSelector(event, TYPE_TO_FOCUS_EDITABLE_SELECTOR)) return false;
   if (eventPathContainsSelector(event, TYPE_TO_FOCUS_INTERACTIVE_SELECTOR)) return false;
-  if (document.querySelector(TYPE_TO_FOCUS_FLOATING_LAYER_SELECTOR)) return false;
   if (document.querySelector('[data-chat-column-maximized-away="true"]')) return false;
+  if (hasBlockingCitationLayer(document.querySelectorAll(TYPE_TO_FOCUS_FLOATING_LAYER_SELECTOR)))
+    return false;
   return true;
 }
 
 export function shouldTypeToFocusComposer(event: KeyboardEvent): boolean {
-  if (event.isComposing) return false;
+  if (event.isComposing || event.keyCode === 229) return false;
   if (event.metaKey || event.ctrlKey || event.altKey) return false;
-  if (event.key.length !== 1) return false;
   if (!shouldRedirectInputToComposer(event)) return false;
+  if (handlePendingCitationKey(event)) return false;
+  if (event.key.length !== 1) return false;
   if (isSurfaceLauncherKey(event)) return false;
   if (isKeyClaimedInPath(event)) return false;
+  if (citeSelectionInput(event, event.key)) return false;
 
   return true;
 }
 
 export function pasteTextToFocusComposer(event: ClipboardEvent): string | null {
   if (!event.clipboardData || event.clipboardData.files.length > 0) return null;
-  if (!shouldRedirectInputToComposer(event)) return null;
+  const hasContext = (readPastedComposerContext(event.clipboardData)?.records.length ?? 0) > 0;
   const text = event.clipboardData.getData("text/plain");
+  if (!shouldRedirectInputToComposer(event)) return null;
+  if (!hasContext && text.length > 0 && citeSelectionInput(event, text)) return null;
   return text.length > 0 ? text : null;
 }
