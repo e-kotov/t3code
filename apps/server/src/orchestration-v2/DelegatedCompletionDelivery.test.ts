@@ -19,6 +19,7 @@ import {
   ProviderInstanceId,
   ProviderSessionId,
   ProviderThreadId,
+  ProviderTurnId,
   RunId,
   RuntimeRequestId,
   ThreadId,
@@ -45,6 +46,8 @@ import * as ServerSettings from "../serverSettings.ts";
 import * as VcsDriverRegistry from "../vcs/VcsDriverRegistry.ts";
 import * as VcsProcess from "../vcs/VcsProcess.ts";
 import * as WorkspacePaths from "../workspace/WorkspacePaths.ts";
+import { ClaudeProviderCapabilitiesV2 } from "./Adapters/ClaudeAdapterV2.ts";
+import { backgroundCacheCommandAllowed } from "./ThreadCachePolicyDispatch.ts";
 import { CodexProviderCapabilitiesV2 } from "./Adapters/CodexAdapterV2.ts";
 import * as EventSink from "./EventSink.ts";
 import * as Orchestrator from "./Orchestrator.ts";
@@ -106,12 +109,30 @@ const providerInstance = {
   textGeneration: {} as ProviderInstance["textGeneration"],
 } satisfies ProviderInstance;
 
+const claudeInstanceId = ProviderInstanceId.make("claudeAgent");
+const claudeDriver = ProviderDriverKind.make("claudeAgent");
+const claudeModelSelection = { instanceId: claudeInstanceId, model: "claude-opus-5-5" };
+const claudeInstance: ProviderInstance = {
+  ...providerInstance,
+  instanceId: claudeInstanceId,
+  driverKind: claudeDriver,
+  continuationIdentity: { driverKind: claudeDriver, continuationKey: "claude:test" },
+  orchestrationAdapter: {
+    ...orchestrationAdapter,
+    instanceId: claudeInstanceId,
+    driver: claudeDriver,
+    getCapabilities: () => Effect.succeed(ClaudeProviderCapabilitiesV2),
+  },
+};
+
 const layerTestProviderInstanceRegistry = Layer.succeed(
   ProviderInstanceRegistry.ProviderInstanceRegistry,
   {
     getInstance: (instanceId) =>
-      Effect.succeed(instanceId === providerInstance.instanceId ? providerInstance : undefined),
-    listInstances: Effect.succeed([providerInstance]),
+      Effect.succeed(
+        [providerInstance, claudeInstance].find((instance) => instance.instanceId === instanceId),
+      ),
+    listInstances: Effect.succeed([providerInstance, claudeInstance]),
     listUnavailable: Effect.succeed([]),
     streamChanges: Stream.empty,
     subscribeChanges: Effect.never,
@@ -157,7 +178,7 @@ const layerTest = Layer.mergeAll(
   Layer.provide(SqlitePersistence.layerMemory),
   Layer.provide(layerCheckpointStoreTest),
   Layer.provide(layerServerConfig),
-  Layer.provide(ServerSettings.layerTest()),
+  Layer.provideMerge(ServerSettings.layerTest()),
   Layer.provide(layerTestProviderInstanceRegistry),
   Layer.provide(layerPlatformTest),
 );
@@ -784,6 +805,101 @@ it.layer(layerTest)("delegated completion delivery repairs", (it) => {
         ...(delivery === "none" ? {} : { deliveryTaskIds: [taskId] }),
         now,
       });
+      // The fork rechecks the service's eligibility at dispatch. Supply a real eligible
+      // Claude cache window; the delegation state remains the variable under test.
+      const settingsService = yield* ServerSettings.ServerSettingsService;
+      const settings = yield* settingsService.updateSettings({
+        threadCachePolicies: { [threadId]: "compact" },
+      });
+      const seeded = yield* orchestrator.getThreadProjection(threadId);
+      const providerThread = seeded.providerThreads[0]!;
+      const run = seeded.runs[0]!;
+      const sink = yield* EventSink.EventSinkV2;
+      yield* sink.write({
+        events: [
+          {
+            id: EventId.make(`event:eligible-thread:${threadId}`),
+            type: "thread.metadata-updated",
+            threadId,
+            occurredAt: now,
+            payload: {
+              ...seeded.thread,
+              providerInstanceId: claudeInstanceId,
+              modelSelection: claudeModelSelection,
+              activeProviderThreadId: providerThread.id,
+            },
+          },
+          {
+            id: EventId.make(`event:eligible-provider:${threadId}`),
+            type: "provider-thread.updated",
+            threadId,
+            occurredAt: now,
+            payload: {
+              ...providerThread,
+              driver: claudeDriver,
+              providerInstanceId: claudeInstanceId,
+              nativeThreadRef: null,
+              status: "idle",
+            },
+          },
+          {
+            id: EventId.make(`event:eligible-run:${threadId}`),
+            type: "run.updated",
+            threadId,
+            runId,
+            occurredAt: now,
+            payload: {
+              ...run,
+              providerInstanceId: claudeInstanceId,
+              modelSelection: claudeModelSelection,
+            },
+          },
+          {
+            id: EventId.make(`event:eligible-message:${threadId}`),
+            type: "message.updated",
+            threadId,
+            runId,
+            occurredAt: now,
+            payload: {
+              id: run.userMessageId,
+              threadId,
+              runId,
+              nodeId: run.rootNodeId!,
+              role: "user",
+              text: "Inspect this code",
+              attachments: [],
+              streaming: false,
+              createdBy: "user",
+              creationSource: "web",
+              createdAt: now,
+              updatedAt: now,
+            },
+          },
+          {
+            id: EventId.make(`event:eligible-usage:${threadId}`),
+            type: "provider-turn.updated",
+            threadId,
+            runId,
+            occurredAt: now,
+            payload: {
+              id: ProviderTurnId.make(`provider-turn:eligible:${threadId}`),
+              providerThreadId: providerThread.id,
+              nodeId: run.rootNodeId!,
+              runAttemptId: null,
+              nativeTurnRef: null,
+              ordinal: 1,
+              status: "completed",
+              startedAt: now,
+              completedAt: now,
+              tokenUsage: {
+                usedTokens: 250_000,
+                promptCacheExpiresAt: DateTime.formatIso(DateTime.add(now, { minutes: 1 })),
+                updatedAt: DateTime.formatIso(now),
+              },
+            },
+          },
+        ],
+      });
       if (delivery === "sent") {
         yield* orchestrator.dispatch({
           type: "message.dispatch",
@@ -800,8 +916,8 @@ it.layer(layerTest)("delegated completion delivery repairs", (it) => {
       }
 
       const compactionId = MessageId.make(`idle-compact:${threadId}:${runId}`);
-      yield* orchestrator.dispatch({
-        type: "message.dispatch",
+      const command = {
+        type: "message.dispatch" as const,
         commandId: CommandId.make(`server:idle-compact:${threadId}:${runId}`),
         threadId,
         messageId: compactionId,
@@ -811,7 +927,21 @@ it.layer(layerTest)("delegated completion delivery repairs", (it) => {
         creationSource: "server",
         idleCompaction: "beforeCacheExpires",
         dispatchMode: { type: "start_immediately" },
-      });
+      } as const;
+
+      const eligible = yield* orchestrator.getThreadProjection(threadId);
+      assert.equal(
+        backgroundCacheCommandAllowed(settings, eligible, command, DateTime.toEpochMillis(now)),
+        delivery !== "sent",
+      );
+      if (delivery === "sent") {
+        // The delivered result has started a new turn: the serialized fork guard rejects
+        // the stale window before upstream's busy no-op. Neither may create a compaction.
+        const rejected = yield* Effect.flip(orchestrator.dispatch(command));
+        assert.propertyVal(rejected.cause, "_tag", "ThreadCachePolicyChanged");
+      } else {
+        yield* orchestrator.dispatch(command);
+      }
 
       const projection = yield* orchestrator.getThreadProjection(threadId);
       assert.equal(

@@ -101,6 +101,7 @@
     "apps/server/src/orchestration-v2/Adapters/AntigravityAdapterV2.ts": 4,
     "apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts": 53,
     "apps/server/src/orchestration-v2/Adapters/CodexAdapterV2.ts": 5,
+    "apps/server/src/orchestration-v2/DelegatedCompletionDelivery.test.ts": 142,
     "apps/server/src/orchestration-v2/IdleCompactionService.ts": 9,
     "apps/server/src/orchestration-v2/Orchestrator.ts": 29,
     "apps/server/src/orchestration-v2/ProjectionStore.ts": 10,
@@ -216,6 +217,7 @@
     "packages/shared/src/editor.ts": 2,
     "packages/shared/src/htmlRender.ts": 1,
     "packages/shared/src/serverSettings.ts": 21,
+    "packages/ssh/src/tunnel.test.ts": 8,
     "packages/ssh/src/tunnel.ts": 12,
     "pnpm-lock.yaml": 25,
     "scripts/build-desktop-artifact.ts": 14
