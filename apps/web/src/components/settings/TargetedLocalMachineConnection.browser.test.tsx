@@ -1,23 +1,37 @@
-import {
-  createMemoryHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-  RouterProvider,
-} from "@tanstack/react-router";
+import { createMemoryHistory } from "@tanstack/react-router";
 import {
   BearerConnectionTarget,
   PrimaryConnectionTarget,
 } from "@t3tools/client-runtime/connection";
-import { EnvironmentId } from "@t3tools/contracts";
+import { DEFAULT_CLIENT_SETTINGS, EnvironmentId } from "@t3tools/contracts";
+import type * as Context from "effect/Context";
 import * as Option from "effect/Option";
 import { expect, it, vi } from "vite-plus/test";
+import { AppRoot } from "~/AppRoot";
+import "~/components/ChatView";
+import { __setClientSettingsForTests } from "~/hooks/useSettings";
+import { getRouter } from "~/router";
 import type { EnvironmentPresentation } from "../../state/environments";
+import {
+  installFakeEnvironment,
+  threadWithHistory,
+  type FakeDriver,
+} from "../../../test/fakeEnvironment";
 import { render } from "../../../test/render";
-import { SettingsPageContainer } from "./settingsLayout";
-import { validateSettingsRouteSearch } from "./settingsScopeNavigation";
-import { TargetedLocalMachineConnection } from "./TargetedLocalMachineConnection";
 import "../../index.css";
+
+vi.mock("../../../../../packages/client-runtime/src/connection/driver.ts", async (importOriginal) => {
+  const [actual, { fakeDriver }, Layer] = await Promise.all([
+    importOriginal<{ readonly ConnectionDriver: Context.Key<unknown, FakeDriver> }>(),
+    import("../../../test/fakeEnvironment"),
+    import("effect/Layer"),
+  ]);
+  return { ...actual, layer: Layer.succeed(actual.ConnectionDriver, fakeDriver) };
+});
+vi.mock(import("~/rpc/requestLatencyState"), async (original) => ({
+  ...(await original()),
+  trackRpcRequestSent: () => {},
+}));
 
 const fixture = vi.hoisted(() => ({ environments: [] as EnvironmentPresentation[] }));
 vi.mock(import("../../state/environments"), async (original) => {
@@ -27,14 +41,6 @@ vi.mock(import("../../state/environments"), async (original) => {
     useEnvironments: () => ({ ...actual.useEnvironments(), environments: fixture.environments }),
   };
 });
-
-function ConnectionSettingsPage() {
-  return (
-    <SettingsPageContainer>
-      <TargetedLocalMachineConnection />
-    </SettingsPageContainer>
-  );
-}
 
 it.each(["primary", "desktop-local"] as const)(
   "reveals an unavailable %s machine's connection status",
@@ -67,27 +73,25 @@ it.each(["primary", "desktop-local"] as const)(
         serverConfig: null,
       },
     ];
-    const root = createRootRoute();
-    const connections = createRoute({
-      getParentRoute: () => root,
-      path: "/settings/connections",
-      validateSearch: validateSettingsRouteSearch,
-      component: ConnectionSettingsPage,
+    using _environment = installFakeEnvironment([threadWithHistory("local-settings", 1)]);
+    __setClientSettingsForTests({
+      ...DEFAULT_CLIENT_SETTINGS,
+      onboardingCompletedAt: "2026-01-01T00:00:00.000Z",
     });
-    const router = createRouter({
-      routeTree: root.addChildren([connections]),
-      history: createMemoryHistory({
+    const router = getRouter(
+      createMemoryHistory({
         initialEntries: [
           "/settings/connections?machine=local-machine#machine-connection-local-machine",
         ],
       }),
-      disableGlobalCatchBoundary: true,
-    });
+    );
     await router.load();
-    await using screen = await render(<RouterProvider router={router} />, {
-      // This flow needs the production settings query validation.
+    await using screen = await render(<AppRoot router={router} />, {
+      // AppRoot owns the production router and its settings search middleware.
       router: false,
     });
+    expect(router.state.location.pathname).toBe("/settings/connections");
+    expect(router.state.location.search.machine).toBe("local-machine");
     await expect.element(screen.getByText("Local machine", { exact: true })).toBeVisible();
     const target = screen.container.querySelector("#machine-connection-local-machine");
     await vi.waitFor(() => expect(document.activeElement).toBe(target));

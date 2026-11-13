@@ -29,7 +29,15 @@ function MenuIcon(props: {
   readonly disabled?: boolean;
 }) {
   const { iconSize } = useAndroidControlSizing();
-  if (props.environmentId) return <MachineFilterMenuStatus environmentId={props.environmentId} size={iconSize} onPress={props.onPress} disabled={props.disabled} />;
+  if (props.environmentId)
+    return (
+      <MachineFilterMenuStatus
+        environmentId={props.environmentId}
+        size={iconSize}
+        onPress={props.onPress}
+        disabled={props.disabled}
+      />
+    );
   return (
     <RNHostView matchContents modifiers={[size(iconSize, iconSize)]}>
       <Pressable

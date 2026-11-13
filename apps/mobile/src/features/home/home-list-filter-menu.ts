@@ -5,7 +5,10 @@ import {
 } from "./conversationListOptions";
 import { formatFilterOptionTitle, formatFilterOptionSubtitle } from "./mobileNonSettledCounts";
 
-import { machineFilterOptionPresentation, type MachineFilterDetails } from "./machineFilterPresentation";
+import {
+  machineFilterOptionPresentation,
+  type MachineFilterDetails,
+} from "./machineFilterPresentation";
 import type { AppBarMenuItem } from "../../components/ui/AppBar.types";
 
 export interface HomeListFilterMenuEnvironment extends MachineFilterDetails {

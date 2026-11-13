@@ -7,7 +7,10 @@ import type {
   HomeListFilterMenuEnvironment,
   HomeListFilterMenuProject,
 } from "./home-list-filter-menu";
-import { machineFilterActionId, nativeMachineFilterOptionPresentation } from "./machineFilterPresentation";
+import {
+  machineFilterActionId,
+  nativeMachineFilterOptionPresentation,
+} from "./machineFilterPresentation";
 import { formatFilterOptionTitle, formatFilterOptionSubtitle } from "./mobileNonSettledCounts";
 
 export function ThreadListFilters(props: {

@@ -1,4 +1,9 @@
-import type { EnvironmentConnectionPhase } from "@t3tools/client-runtime/connection";
+import {
+  slurmJobCountdownLabel,
+  type EnvironmentConnectionPhase,
+  type EnvironmentPresentation,
+} from "@t3tools/client-runtime/connection";
+import type { EnvironmentId } from "@t3tools/contracts";
 import type { ColorValue } from "react-native";
 import { formatFilterOptionSubtitle, formatFilterOptionTitle } from "./mobileNonSettledCounts";
 
@@ -21,7 +26,9 @@ export function machineFilterOptionPresentation(
     title: [
       formatFilterOptionTitle(environment.label, environment.nonSettledCount),
       environment.slurmTimeRemaining,
-    ].filter(Boolean).join(" · "),
+    ]
+      .filter(Boolean)
+      .join(" · "),
     ...(subtitle ? { subtitle } : {}),
     ...(status ? { icon: "circle.fill", iconColor: status.color } : {}),
   };
@@ -34,7 +41,10 @@ export function nativeMachineFilterOptionPresentation(
   return { ...presentation, ...(icon ? { image: icon, imageColor: iconColor } : {}) };
 }
 
-export function machineFilterEnvironmentId(action: { readonly id?: string; readonly image?: string }) {
+export function machineFilterEnvironmentId(action: {
+  readonly id?: string;
+  readonly image?: string;
+}) {
   if (action.image !== "circle.fill" || !action.id) return undefined;
   for (const prefix of ["environment:", "machine-filter:"]) {
     if (action.id.startsWith(prefix)) {
@@ -47,4 +57,30 @@ export function machineFilterEnvironmentId(action: { readonly id?: string; reado
 
 export function machineFilterActionId(environmentId: string) {
   return `machine-filter:${environmentId}`;
+}
+
+export function machineFilterCountdownSnapshot(
+  environments: readonly { readonly environmentId: EnvironmentId }[],
+  presentations: ReadonlyMap<EnvironmentId, EnvironmentPresentation>,
+) {
+  return environments
+    .map((environment) => {
+      const presentation = presentations.get(environment.environmentId);
+      return (
+        slurmJobCountdownLabel(
+          presentation?.serverConfig?.slurmJobStatus,
+          presentation?.connection.phase === "connected",
+        ) ?? ""
+      );
+    })
+    .join("\n");
+}
+
+export function hasMachineFilterCountdown(
+  environments: readonly { readonly environmentId: EnvironmentId }[],
+  presentations: ReadonlyMap<EnvironmentId, EnvironmentPresentation>,
+) {
+  return environments.some((environment) =>
+    Boolean(presentations.get(environment.environmentId)?.serverConfig?.slurmJobStatus),
+  );
 }

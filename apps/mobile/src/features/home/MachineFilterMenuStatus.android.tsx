@@ -17,7 +17,12 @@ export function MachineFilterMenuStatus(props: {
         importantForAccessibility="no-hide-descendants"
         disabled={props.disabled}
         onPress={props.onPress}
-        style={{ width: props.size, height: props.size, alignItems: "center", justifyContent: "center" }}
+        style={{
+          width: props.size,
+          height: props.size,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
       >
         <MachineGroupConnectionStatus environmentId={props.environmentId} />
       </Pressable>
