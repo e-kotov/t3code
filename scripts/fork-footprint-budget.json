@@ -173,6 +173,7 @@
     "apps/web/src/components/sidebar/SidebarThreadHeader.tsx": 8,
     "apps/web/src/components/sidebar/SidebarThreadRow.tsx": 22,
     "apps/web/src/components/threadActionMenu.logic.ts": 2,
+    "apps/web/src/components/usage/UsageLimitsPooled.tsx": 2,
     "apps/web/src/connection/runtime.ts": 1,
     "apps/web/src/editorPreferences.ts": 25,
     "apps/web/src/hooks/useThreadActionMenu.test.ts": 7,

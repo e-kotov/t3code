@@ -8,6 +8,7 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip"
 import { useNowMinute } from "../hooks/useNowMinute";
 import { cn } from "../lib/utils";
 import { compactUsage, groupUsageWindows } from "./usageCompact";
+import { ResetAvailability } from "./ResetAvailability";
 
 const GRID_COLUMNS = ["", "sm:grid-cols-1", "sm:grid-cols-2", "sm:grid-cols-3"] as const;
 
@@ -201,6 +202,7 @@ export function CompactUsageControl({
                     {provider.accounts.length} accounts · pooled
                   </p>
                 ) : null}
+                <ResetAvailability accounts={provider.accounts} />
                 {provider.windows.length === 0 ? (
                   <p className="mt-1 text-3xs text-muted-foreground">Limits unavailable</p>
                 ) : (
