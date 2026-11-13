@@ -321,6 +321,16 @@
       ]
     },
     {
+      "id": "settle-navigation",
+      "group": "Everyday tools",
+      "summary": "settling the open thread stays on it by default, or opens a new chat or the next thread",
+      "tests": [
+        "packages/contracts/src/settleNavigationSettings.test.ts",
+        "apps/web/src/components/sidebar/settleNavigation.logic.test.ts",
+        "apps/web/src/components/sidebar/settleNavigation.app.browser.test.tsx"
+      ]
+    },
+    {
       "id": "thread-from-reference",
       "group": "Everyday tools",
       "summary": "a new thread started with the selected conversation attached",

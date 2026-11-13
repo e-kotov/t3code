@@ -26,6 +26,7 @@ import {
 } from "./baseSchemas.ts";
 import { threadCachePolicySettings, threadCachePolicyPatch } from "./threadCachePolicy.ts";
 import { usagePopupSettings, usagePopupPatch } from "./usagePopupSettings.ts";
+import { settleNavigationPatch, settleNavigationSettings } from "./settleNavigationSettings.ts";
 import { UsageLimitSourceId } from "./usageLimitSourceId.ts";
 import { UsageModelFilter } from "./usage.ts";
 import { SecretProviderId, SecretProviderSlug } from "./secretReference.ts";
@@ -617,6 +618,7 @@ export const ClientSettingsSchema = Schema.Struct({
   // KaTeX out of the render path entirely.
   mathRenderingEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   ...usagePopupSettings,
+  ...settleNavigationSettings,
 });
 export type ClientSettings = typeof ClientSettingsSchema.Type;
 
@@ -2146,5 +2148,6 @@ export const ClientSettingsPatch = Schema.Struct({
   wordWrap: Schema.optionalKey(Schema.Boolean),
   mathRenderingEnabled: Schema.optionalKey(Schema.Boolean),
   ...usagePopupPatch,
+  ...settleNavigationPatch,
 });
 export type ClientSettingsPatch = typeof ClientSettingsPatch.Type;
