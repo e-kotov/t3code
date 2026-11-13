@@ -107,12 +107,9 @@ export const makeRenewal = Effect.gen(function* () {
       `;
       return;
     }
-    // `unlink` and linking again wait for this write transaction, so the token is written
-    // only while its row still names it. A crash before COMMIT leaves the new token beside
-    // the old expiry, which `resolveForRenewal` repairs. Written in place (temp file and
-    // rename), so a `resolve` that read the row first still finds a working token.
-    // Keep COMMIT inside the mask too: a pending interruption after the body
-    // would otherwise roll back the expiry while leaving the new token saved.
+    // Serialize persistence with unlink/relink, including COMMIT: cancellation must
+    // not roll back metadata after saving the token. After a full crash, a newer
+    // token beside the old expiry can still recover through `resolveForRenewal`.
     const saved = yield* sql
       .withTransaction(
         Effect.uninterruptible(

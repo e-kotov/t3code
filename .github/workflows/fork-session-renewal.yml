@@ -42,6 +42,21 @@ jobs:
           git checkout -q --detach "$CHECKOUT_REF"
           git fetch -q --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
       - uses: ./.github/actions/setup-ci-deps
+      - name: Typecheck renewal packages directly
+        run: |
+          renewal_check_failed=0
+          for renewal_package in packages/contracts packages/client-runtime apps/server apps/web apps/mobile; do
+            echo "::group::Typecheck $renewal_package"
+            if (cd "$renewal_package" && vp exec effect-tsgo tsrs --noEmit); then
+              echo "$renewal_package passed"
+            else
+              renewal_check_status=$?
+              echo "::error::$renewal_package typecheck exited $renewal_check_status"
+              renewal_check_failed=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "$renewal_check_failed"
       - name: Test renewal, expiry, revocation, storage races, mobile transport and peer-link recovery
         run: |
           vp test run \
