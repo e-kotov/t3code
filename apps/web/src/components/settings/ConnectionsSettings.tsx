@@ -133,10 +133,7 @@ import {
   PairingClientsList,
 } from "./AuthorizedClientsSettings";
 import { ITEM_ROW_CLASSNAME } from "./itemRows";
-import {
-  CloudLinkRow,
-  CloudRemoteEnvironmentRows,
-} from "./SavedEnvironmentRows";
+import { CloudLinkRow, CloudRemoteEnvironmentRows } from "./SavedEnvironmentRows";
 import { TargetedMachineConnectionRow as SavedBackendListRow } from "./TargetedMachineConnectionRow";
 import { AddEnvironmentDialog } from "./AddEnvironmentDialog";
 

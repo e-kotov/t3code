@@ -59,7 +59,10 @@ vi.mock(import("~/state/environments"), async (original) => {
         environments: [
           ...state.environments.map((environment) =>
             machines.primaryOffline
-              ? { ...environment, connection: { ...environment.connection, phase: "offline" as const } }
+              ? {
+                  ...environment,
+                  connection: { ...environment.connection, phase: "offline" as const },
+                }
               : environment,
           ),
           ...machines.presentations.map((p) => ({
@@ -223,7 +226,9 @@ it.skipIf(import.meta.env.VITE_MACHINE_FILTER_CAPTURE === "before")(
       .fill("New project");
     await page.getByRole("option", { name: "New project", exact: true }).click();
     await expect.element(page.getByPlaceholder("Project name")).toBeVisible();
-    await expect.element(page.getByText("Goes in /workspace on hub", { exact: true })).toBeVisible();
+    await expect
+      .element(page.getByText("Goes in /workspace on hub", { exact: true }))
+      .toBeVisible();
     await expect.element(page.getByRole("option", { name: /GWDG/ })).not.toBeInTheDocument();
   },
 );

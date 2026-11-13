@@ -1,3 +1,5 @@
+import { BearerConnectionTarget } from "@t3tools/client-runtime/connection";
+import * as Option from "effect/Option";
 import { EnvironmentId } from "@t3tools/contracts";
 import type { EnvironmentPresentation } from "../../state/environments";
 import { expect, it, vi } from "vite-plus/test";
@@ -20,7 +22,23 @@ it("reveals and focuses the machine named by a connection-settings link", async 
       {[gwdg, hub].map((environmentId) => (
         <TargetedMachineConnectionRow
           key={environmentId}
-          environment={{ environmentId, label: environmentId } as EnvironmentPresentation}
+          environment={{
+            environmentId,
+            label: environmentId,
+            displayUrl: null,
+            relayManaged: false,
+            entry: {
+              target: new BearerConnectionTarget({
+                environmentId,
+                label: environmentId,
+                connectionId: environmentId,
+              }),
+              enabled: true,
+              profile: Option.none(),
+            },
+            connection: { phase: "reconnecting", error: null, traceId: null },
+            serverConfig: null,
+          }}
           removingEnvironmentId={null}
           onSetEnabled={() => {}}
           onRemove={() => {}}
