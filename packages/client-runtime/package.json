@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./state/working-sidebar-view": {
+      "types": "./src/state/workingSidebarView.ts",
+      "default": "./src/state/workingSidebarView.ts"
+    },
     "./state/machine-group-collapse": {
       "types": "./src/state/machineGroupCollapse.ts",
       "default": "./src/state/machineGroupCollapse.ts"

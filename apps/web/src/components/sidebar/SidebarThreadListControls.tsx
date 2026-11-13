@@ -1,3 +1,4 @@
+import { WorkingFirstMenuItem } from "./WorkingSidebarControls";
 import { ArrowDownWideNarrowIcon, CheckIcon, Layers2Icon } from "lucide-react";
 
 import {
@@ -73,6 +74,7 @@ export function SidebarThreadListControls(props: SidebarThreadListControlsProps 
               );
             })}
           </MenuGroup>
+          <WorkingFirstMenuItem />
         </MenuPopup>
       </Menu>
       <Menu>

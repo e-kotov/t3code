@@ -97,6 +97,10 @@ it("lets the iOS filter row change sort and grouping independently and return to
   };
   act(() => choice("sort:cache_expiry").click());
   act(() => choice("grouping:machine").click());
+  act(() => choice("working:only").click());
+  act(() => choice("working:first").click());
+  expect(choice("working:only").getAttribute("aria-checked")).toBe("true");
+  expect(choice("working:first").getAttribute("aria-checked")).toBe("true");
   expect(choice("sort:cache_expiry").getAttribute("aria-checked")).toBe("true");
   expect(choice("grouping:machine").getAttribute("aria-checked")).toBe("true");
   expect(host.querySelector('button[aria-label="Sort conversations"]')?.textContent).toBe(
@@ -110,6 +114,11 @@ it("lets the iOS filter row change sort and grouping independently and return to
   act(() => choice("grouping:machine").click());
   expect(choice("sort:updated_at").getAttribute("aria-checked")).toBe("true");
   expect(choice("grouping:machine").getAttribute("aria-checked")).toBe("false");
+  expect(choice("working:only").getAttribute("aria-checked")).toBe("true");
+  act(() => choice("working:only").click());
+  act(() => choice("working:first").click());
+  expect(choice("working:only").getAttribute("aria-checked")).toBe("false");
+  expect(choice("working:first").getAttribute("aria-checked")).toBe("false");
   expect(host.querySelector('button[aria-label="Group conversations"]')?.textContent).toBe(
     "No grouping",
   );

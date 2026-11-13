@@ -1,3 +1,4 @@
+import { hasWorkingDivider, placeWorkingMainDivider } from "./workingSidebarList";
 import { machineGroupThreadVisible } from "@t3tools/client-runtime/state/machine-group-collapse";
 import {
   isSidebarMachineGrouping,
@@ -55,8 +56,13 @@ export function groupThreadListV2ItemsByMachine<T extends { readonly type: strin
     }
     const segment: (T & ThreadListV2ThreadListItem)[] = [];
     let row = items[cursor];
-    // Pinned and active rows can be adjacent without an upstream shelf header.
-    while (row !== undefined && isThreadRow(row) && row.item.pinned === item.item.pinned) {
+    // Pinned and main rows can follow another section without an upstream shelf header.
+    while (
+      row !== undefined &&
+      isThreadRow(row) &&
+      row.item.pinned === item.item.pinned &&
+      (segment.length === 0 || !hasWorkingDivider(row))
+    ) {
       segment.push(row);
       cursor += 1;
       row = items[cursor];
@@ -122,18 +128,20 @@ export function arrangeMobileConversationList<T extends { readonly type: string 
     options.machineKinds,
     options.machineOrder,
   );
-  return withContext.flatMap((item): (T | ThreadListV2MachineHeaderListItem)[] => {
-    if (isMachineHeader(item)) {
-      return [
-        {
-          ...item,
-          collapsible: isSidebarMachineGrouping(options.grouping) && !options.searchQuery?.trim(),
-        },
-      ];
-    }
-    if (isThreadRow(item) && !machineGroupThreadVisible(item.item.thread, options)) {
-      return [];
-    }
-    return [item];
-  });
+  return placeWorkingMainDivider(
+    withContext.flatMap((item): (T | ThreadListV2MachineHeaderListItem)[] => {
+      if (isMachineHeader(item)) {
+        return [
+          {
+            ...item,
+            collapsible: isSidebarMachineGrouping(options.grouping) && !options.searchQuery?.trim(),
+          },
+        ];
+      }
+      if (isThreadRow(item) && !machineGroupThreadVisible(item.item.thread, options)) {
+        return [];
+      }
+      return [item];
+    }),
+  );
 }

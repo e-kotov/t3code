@@ -11,6 +11,8 @@ export interface ConversationShelfSortInput {
   /** User-selected sort for the visible Working and Active shelves. */
   readonly conversationSortOrder?: SidebarConversationSortOrder;
   readonly conversationGrouping?: SidebarConversationGrouping;
+  readonly workingOnly?: boolean;
+  readonly workingFirst?: boolean;
 }
 
 export interface ThreadListV2MachineHeaderListItem {

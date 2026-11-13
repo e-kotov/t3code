@@ -196,6 +196,10 @@ it("includes sort and group actions and routes sort events to conversationList c
   const conversationList: ConversationListControls = {
     conversationSortOrder: "updated_at",
     conversationGrouping: "none",
+    workingOnly: false,
+    workingFirst: false,
+    onWorkingOnlyChange: vi.fn(),
+    onWorkingFirstChange: vi.fn(),
     onConversationSortOrderChange,
     onConversationGroupingChange,
   };

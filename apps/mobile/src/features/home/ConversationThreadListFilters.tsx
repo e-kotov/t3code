@@ -16,7 +16,11 @@ export function ConversationThreadListFilters({
   readonly machineSummary?: string;
 }) {
   return (
-    <ThreadListFilters {...props}>
+    <ThreadListFilters
+      {...props}
+      workingOnly={conversationList.workingOnly}
+      onWorkingOnlyChange={conversationList.onWorkingOnlyChange}
+    >
       {(["sort", "grouping"] as const).map((kind) => {
         const actions = conversationChoiceActions(
           kind,
@@ -35,7 +39,8 @@ export function ConversationThreadListFilters({
             accessibilityLabel={kind === "sort" ? "Sort conversations" : "Group conversations"}
             active={
               kind === "sort"
-                ? conversationList.conversationSortOrder !== "updated_at"
+                ? conversationList.conversationSortOrder !== "updated_at" ||
+                  conversationList.workingFirst
                 : conversationList.conversationGrouping !== "none"
             }
             actions={actions}

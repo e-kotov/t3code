@@ -110,6 +110,7 @@ export interface Preferences {
   readonly connectOnboardingOptOutAccounts?: ReadonlyArray<string>;
   readonly collapsedProjectGroups?: readonly string[];
   readonly conversationMachineOrder?: readonly string[];
+  readonly workingSidebarFirst?: boolean;
   readonly dismissedDatabaseStorageNotices?: readonly string[];
   /** Hardware-keyboard Return behavior in the composer. */
   readonly composerEnterBehavior?: ComposerEnterBehavior;
@@ -199,6 +200,7 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     connectOnboardingOptOutAccounts?: ReadonlyArray<string>;
     collapsedProjectGroups?: readonly string[];
     conversationMachineOrder?: readonly string[];
+    workingSidebarFirst?: boolean;
     dismissedDatabaseStorageNotices?: readonly string[];
     composerEnterBehavior?: ComposerEnterBehavior;
     followUpBehavior?: FollowUpBehavior;
@@ -296,6 +298,8 @@ function sanitizePreferences(parsed: Preferences): Preferences {
       (key): key is string => typeof key === "string",
     );
   }
+  if (typeof parsed.workingSidebarFirst === "boolean")
+    preferences.workingSidebarFirst = parsed.workingSidebarFirst;
   if (Array.isArray(parsed.conversationMachineOrder)) {
     preferences.conversationMachineOrder = parsed.conversationMachineOrder.filter(
       (id): id is string => typeof id === "string",

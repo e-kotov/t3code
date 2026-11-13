@@ -1,3 +1,4 @@
+import { filterWorkingThreads } from "@t3tools/client-runtime/state/working-sidebar-view";
 import type { OlderSettledScope } from "@t3tools/client-runtime/state/threads";
 import type { EnvironmentId } from "@t3tools/contracts";
 import { useMemo, useSyncExternalStore } from "react";
@@ -60,6 +61,7 @@ export function useThreadListV2(input: {
   readonly now: string;
   readonly pendingOrder: LayoutInput["pendingOrder"];
   readonly shelfPreferencesLoaded: boolean;
+  readonly workingOnly?: boolean;
   readonly workingShelfEnabled: boolean;
   readonly workingShelfExpanded: boolean;
   readonly snoozedShelfExpanded: boolean;
@@ -128,7 +130,7 @@ export function useThreadListV2(input: {
   );
   const olderSettledShelf = useOlderSettledShelf({
     scopes,
-    expanded: input.settledShelfExpanded,
+    expanded: !input.workingOnly && input.settledShelfExpanded,
     // A search lists only matches, so the shelf would page forever; loaded pages stay.
     visibleCount: input.searchQuery.trim().length === 0 ? input.settledLimit : 0,
   });
@@ -139,7 +141,9 @@ export function useThreadListV2(input: {
         conversationSortOrder: input.conversationSortOrder,
         conversationGrouping: input.conversationGrouping,
         pendingOrder: input.pendingOrder,
-        threads: threads.filter((thread) => thread.archivedAt === null),
+        threads: filterWorkingThreads(threads, input.workingOnly === true).filter(
+          (thread) => thread.archivedAt === null,
+        ),
         environmentId: input.environmentId,
         projectRefs: input.projectRefs,
         searchQuery: input.searchQuery,
@@ -157,19 +161,22 @@ export function useThreadListV2(input: {
         settledShelfExpanded: input.settledShelfExpanded,
         selectedThreadKey: input.selectedThreadKey,
         isListedSettled: isListed,
-        unloadedSettledCount: unloadedCount(
-          threads.filter(
-            (thread) =>
-              thread.archivedAt === null &&
-              scopes.some(
-                (scope) =>
-                  scope.environmentId === thread.environmentId &&
-                  (scope.projectIds === null || scope.projectIds.includes(thread.projectId)),
+        unloadedSettledCount: input.workingOnly
+          ? 0
+          : unloadedCount(
+              threads.filter(
+                (thread) =>
+                  thread.archivedAt === null &&
+                  scopes.some(
+                    (scope) =>
+                      scope.environmentId === thread.environmentId &&
+                      (scope.projectIds === null || scope.projectIds.includes(thread.projectId)),
+                  ),
               ),
-          ),
-        ),
+            ),
       }),
     [
+      input.workingOnly,
       input.conversationSortOrder,
       input.conversationGrouping,
       input.pendingOrder,
