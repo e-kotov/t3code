@@ -1,0 +1,64 @@
+name: Fork usage availability
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/fork-usage-availability.yml"
+      - "apps/web/src/usageCompact/**"
+      - "apps/web/src/components/usage/UsageLimitsPooled.tsx"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: usage-availability-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      CHECK_CHANGED_TIMEOUT: "1800"
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch --no-tags origin main "$CHECKOUT_REF"
+          git checkout --detach "$CHECKOUT_REF"
+      - uses: ./.github/actions/setup-ci-deps
+      - uses: ./.github/actions/setup-fork-chromium
+      - name: Capture the previous usage displays
+        run: |
+          mkdir -p /tmp/agents/t3-usage-availability
+          compact=apps/web/src/usageCompact/CompactUsageControl.tsx
+          pooled=apps/web/src/components/usage/UsageLimitsPooled.tsx
+          cp "$compact" "$RUNNER_TEMP/CompactUsageControl.tsx"
+          cp "$pooled" "$RUNNER_TEMP/UsageLimitsPooled.tsx"
+          trap 'cp "$RUNNER_TEMP/CompactUsageControl.tsx" "$compact"; cp "$RUNNER_TEMP/UsageLimitsPooled.tsx" "$pooled"' EXIT
+          git show "origin/main:$compact" > "$compact"
+          git show "origin/main:$pooled" > "$pooled"
+          VITE_USAGE_AVAILABILITY_CAPTURE=before vp test run apps/web/src/usageCompact/UsageAvailability.app.browser.test.tsx
+      - name: Check changed code
+        run: vp run check:changed origin/main
+      - name: Verify usage in the complete client and capture results
+        run: VITE_USAGE_AVAILABILITY_CAPTURE=after vp test run apps/web/src/usageCompact/UsageAvailability.app.browser.test.tsx
+      - name: Check fork footprint
+        run: |
+          git fetch --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
+          python3 scripts/fork-footprint-budget.py
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: usage-availability-before-after
+          path: /tmp/agents/t3-usage-availability/*.png
+          retention-days: 14

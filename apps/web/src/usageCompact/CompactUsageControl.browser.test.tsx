@@ -222,6 +222,49 @@ it("keeps an authenticated harness without readable limits as unknown", async ()
   await expect.element(page.getByRole("region", { name: "Antigravity" })).not.toBeInTheDocument();
 });
 
+it("pools known reset balances once per provider and distinguishes zero from unknown", async () => {
+  const withCredits = (key: string, count: number) => {
+    const base = account(
+      "codex",
+      [{ id: "week", kind: "weekly", label: "Weekly", usedPercent: 20 }],
+      key,
+    );
+    return { ...base, limits: { ...base.limits, resetCredits: { availableCount: count } } };
+  };
+  const zero = account("claudeAgent", [
+    { id: "week", kind: "weekly", label: "Weekly", usedPercent: 10 },
+  ]);
+  await using _screen = await render(
+    <CompactUsageControl
+      accounts={[
+        withCredits("first", 1),
+        withCredits("second", 2),
+        { ...zero, limits: { ...zero.limits, resetCredits: { availableCount: 0 } } },
+        account("antigravity", [{ id: "week", kind: "weekly", label: "Weekly", usedPercent: 0 }]),
+      ]}
+      drivers={new Set(["codex", "claudeAgent", "antigravity"])}
+      onOpenFullView={() => {}}
+    />,
+  );
+  await userEvent.hover(trigger());
+  const popup = page.getByRole("dialog");
+  await expect
+    .element(
+      popup.getByRole("region", { name: "Codex" }).getByText("3 resets available", { exact: true }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      popup
+        .getByRole("region", { name: "Claude" })
+        .getByText("0 resets available", { exact: true }),
+    )
+    .toBeVisible();
+  expect(popup.getByRole("region", { name: "Antigravity" }).element().textContent).not.toContain(
+    "resets available",
+  );
+});
+
 it("marks readable quotas partial when a connected source fails", async () => {
   const report = compactUsageReport(
     new Map([

@@ -42,6 +42,7 @@
       "group": "Usage and quotas",
       "summary": "provider quota readouts in the chat header with 5-hour and weekly bars, model-aware switching and a compact popup",
       "tests": [
+        "apps/web/src/usageCompact/UsageAvailability.app.browser.test.tsx",
         "apps/web/src/usageCompact/CompactUsageControl.browser.test.tsx",
         "apps/web/src/usageCompact/HeaderUsageControl.browser.test.tsx",
         "apps/web/src/usageCompact/usageCompact.test.ts",
