@@ -74,9 +74,6 @@ jobs:
               renewal_check_status=$?
               echo "::error::$renewal_package typecheck exited $renewal_check_status"
               renewal_check_failed=1
-              # The checker can exit non-zero without printing an error; this lists them.
-              (cd "$renewal_package" && vp exec effect-tsgo diagnostics --project "$PWD/tsconfig.json" \
-                --format text --severity error,warning) || true
             fi
             echo "::endgroup::"
           done

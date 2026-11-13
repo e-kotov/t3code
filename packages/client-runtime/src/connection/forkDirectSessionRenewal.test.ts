@@ -560,7 +560,7 @@ describe("a connected lease's HTTP credential", () => {
       expect(yield* Queue.take(host.swaps)).toBe(true);
 
       yield* Ref.set(host.respond, asItself(renewedTo("newer")));
-      // Well past the first token's own expiry in a short window, still on the same socket.
+      // The next check updates the HTTP credential while the original socket stays connected.
       yield* TestClock.adjust(Duration.hours(6));
       expect(yield* Fiber.join(presented)).toEqual(["old", "new", "newer"]);
       expect(yield* renewalsSent(host)).toEqual(["old", "new"]);

@@ -242,7 +242,10 @@ export const make = Effect.fn("ForkDirectSessionRenewal.make")(function* (
           check.pipe(
             // A lost swap means another context has a newer token. Ask the host to prove
             // that token now; one retry bounds the work if other contexts keep changing it.
-            Effect.flatMap((tick) => (tick === "retry" ? check : Effect.succeed(tick))),
+            Effect.filterOrElse(
+              (tick): tick is Tick => tick !== "retry",
+              () => check,
+            ),
             Effect.map((tick): Tick => (tick === "stop" ? "stop" : "again")),
             Effect.orElseSucceed((): Tick => "again"),
           ),
