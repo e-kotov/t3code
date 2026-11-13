@@ -44,12 +44,7 @@ export function SidebarFilterButton({
   const active = workingSidebarFilterActive(workingOnly, machineScoped, projectScoped);
   const description = `${label}${workingOnly ? " · Working only" : ""}`;
   return (
-    <SidebarHeaderIconButton
-      {...props}
-      label={description}
-      active={active}
-      className={className}
-    >
+    <SidebarHeaderIconButton {...props} label={description} active={active} className={className}>
       {children}
       {active ? (
         <span
