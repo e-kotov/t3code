@@ -111,23 +111,27 @@ export const makeRenewal = Effect.gen(function* () {
     // only while its row still names it. A crash before COMMIT leaves the new token beside
     // the old expiry, which `resolveForRenewal` repairs. Written in place (temp file and
     // rename), so a `resolve` that read the row first still finds a working token.
-    const saved = yield* sql.withTransaction(
-      Effect.uninterruptible(
-        Effect.gen(function* () {
-          const named = yield* sql`
+    // Keep COMMIT inside the mask too: a pending interruption after the body
+    // would otherwise roll back the expiry while leaving the new token saved.
+    const saved = yield* sql
+      .withTransaction(
+        Effect.uninterruptible(
+          Effect.gen(function* () {
+            const named = yield* sql`
             SELECT 1 FROM peer_environment_links
             WHERE environment_id = ${environmentId} AND secret_name = ${secretName} AND fenced = 1
           `;
-          if (named.length === 0) return false;
-          yield* secrets.set(secretName, new TextEncoder().encode(outcome.token));
-          yield* sql`
+            if (named.length === 0) return false;
+            yield* secrets.set(secretName, new TextEncoder().encode(outcome.token));
+            yield* sql`
             UPDATE peer_environment_links SET expires_at = ${expiresAt}
             WHERE environment_id = ${environmentId} AND secret_name = ${secretName} AND fenced = 1
           `;
-          return true;
-        }),
-      ),
-    );
+            return true;
+          }),
+        ),
+      )
+      .pipe(Effect.uninterruptible);
     if (saved) yield* Effect.logInfo("Renewed a link to another environment.", { environmentId });
   });
 
