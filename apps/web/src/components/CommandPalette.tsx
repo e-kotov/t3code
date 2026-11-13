@@ -253,6 +253,7 @@ import {
   scrollCommandPaletteRowIntoView,
 } from "./CommandPaletteResults";
 import { EnvironmentMachineIcon } from "./EnvironmentMachineIcon";
+import { MachinePickerIndicators } from "./MachinePickerIndicators";
 import { Checkbox } from "./ui/checkbox";
 import { ProjectFilePicker } from "./files/ProjectFilePicker";
 import { openLinkPullRequestDialog } from "./pullRequest/LinkPullRequestDialog";
@@ -580,9 +581,7 @@ function OpenCommandPaletteDialog(props: {
   };
 
   const addProjectEnvironmentOptions = (() => {
-    const options = environments
-      .filter((environment) => canCreateProjectInEnvironment(environment.connection.phase))
-      .map((environment): AddProjectEnvironmentOption => {
+    const options = environments.map((environment): AddProjectEnvironmentOption => {
         const isPrimary = environment.entry.target._tag === "PrimaryConnectionTarget";
         return {
           environmentId: environment.environmentId,
@@ -1181,6 +1180,7 @@ function OpenCommandPaletteDialog(props: {
     value,
     searchTerms: [option.label, option.environmentId, option.isPrimary ? "this device" : ""],
     title: option.label,
+    titleTrailingContent: <MachinePickerIndicators environmentId={option.environmentId} />,
     description: option.isConnected
       ? option.isPrimary
         ? "This device"
@@ -1201,7 +1201,7 @@ function OpenCommandPaletteDialog(props: {
     ),
   );
   const newProjectEnvironmentOptions = addProjectEnvironmentOptions.filter(
-    (option) => option.isConnected && newProjectsRootFor(option.environmentId) !== null,
+    (option) => !option.isConnected || newProjectsRootFor(option.environmentId) !== null,
   );
 
   const addProjectEnvironmentGroups = [
@@ -2361,7 +2361,7 @@ function OpenCommandPaletteDialog(props: {
             ...(option.environmentId === newProjectFlow.environmentId
               ? {
                   titleTrailingContent: (
-                    <CheckIcon className="ms-auto size-4 shrink-0 text-muted-foreground/70" />
+                    <MachinePickerIndicators environmentId={option.environmentId} selected />
                   ),
                 }
               : {}),

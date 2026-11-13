@@ -390,3 +390,16 @@ it("uses the composer's available provider fallback and project default before a
     .element(screen.getByRole("button", { name: /^Model: Available fallback/ }))
     .toBeVisible();
 });
+
+it.each(["connecting", "reconnecting", "offline", "error", "unsupported", "available"] as const)("opens machine connection settings from the header while %s", async (phase) => {
+  setup();
+  fixture.startScratchThread.mockClear();
+  fixture.presentations.set(REMOTE, presentation(REMOTE, "GWDG", phase, "/scratch"));
+  await using screen = await render(header());
+  await screen.getByRole("button", { name: /^Machine: GWDG\./ }).click();
+  await vi.waitFor(() => {
+    expect(screen.router?.state.location.pathname).toBe("/settings/connections");
+    expect(screen.router?.state.location.search).toEqual({ machine: REMOTE });
+  });
+  expect(fixture.startScratchThread).not.toHaveBeenCalled();
+});

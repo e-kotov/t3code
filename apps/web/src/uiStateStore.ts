@@ -2,6 +2,7 @@ import { Debouncer } from "@tanstack/react-pacer";
 import { PullRequestMergeMethod } from "@t3tools/contracts";
 import * as Schema from "effect/Schema";
 import { create } from "zustand";
+import { normalizeSidebarMachineScope, type SidebarMachineScope } from "./components/sidebar/sidebarMachineScope";
 import { normalizeProjectPathForComparison } from "@t3tools/client-runtime/state/projects";
 
 export const PERSISTED_STATE_KEY = "t3code:ui-state:v1";
@@ -29,7 +30,7 @@ export interface PersistedUiState {
   defaultAdvertisedEndpointKey?: string | null;
   sidebarProjectScopeKey?: string | null;
   sidebarProjectScopeKeys?: string[];
-  sidebarEnvironmentScopeId?: string | null;
+  sidebarEnvironmentScopeId?: SidebarMachineScope;
   threadChangedFilesExpansionVersion?: number;
   threadChangedFilesExpandedById?: Record<string, Record<string, boolean>>;
   pullRequestMergeMethod?: string;
@@ -39,7 +40,7 @@ export interface UiProjectState {
   projectExpandedById: Record<string, boolean>;
   projectOrder: string[];
   sidebarProjectScopeKeys: string[];
-  sidebarEnvironmentScopeId: string | null;
+  sidebarEnvironmentScopeId: SidebarMachineScope;
 }
 
 export interface UiThreadState {
@@ -156,7 +157,7 @@ export function parsePersistedState(parsed: PersistedUiState): UiState {
     sidebarProjectScopeKeys: sanitizeStringArray(
       parsed.sidebarProjectScopeKeys ?? [parsed.sidebarProjectScopeKey],
     ),
-    sidebarEnvironmentScopeId: sanitizeOptionalKey(parsed.sidebarEnvironmentScopeId),
+    sidebarEnvironmentScopeId: normalizeSidebarMachineScope(parsed.sidebarEnvironmentScopeId),
     pullRequestMergeMethod: isPullRequestMergeMethod(parsed.pullRequestMergeMethod)
       ? parsed.pullRequestMergeMethod
       : initialState.pullRequestMergeMethod,
@@ -433,7 +434,7 @@ interface UiStateStore extends UiState {
   setThreadChangedFilesExpanded: (threadId: string, turnId: string, expanded: boolean) => void;
   setDefaultAdvertisedEndpointKey: (key: string | null) => void;
   setSidebarProjectScopeKeys: (projectKeys: readonly string[]) => void;
-  setSidebarEnvironmentScopeId: (environmentId: string | null) => void;
+  setSidebarEnvironmentScopeId: (environmentId: SidebarMachineScope) => void;
   setPullRequestMergeMethod: (method: PullRequestMergeMethod) => void;
   setProjectExpanded: (projectIds: string | readonly string[], expanded: boolean) => void;
   reorderProjects: (
@@ -456,7 +457,7 @@ export const useUiStateStore = create<UiStateStore>((set) => ({
   setSidebarProjectScopeKeys: (projectKeys) =>
     set((state) => setSidebarProjectScopeKeys(state, projectKeys)),
   setSidebarEnvironmentScopeId: (environmentId) =>
-    set({ sidebarEnvironmentScopeId: environmentId }),
+    set({ sidebarEnvironmentScopeId: normalizeSidebarMachineScope(environmentId) }),
   setPullRequestMergeMethod: (method) => set((state) => setPullRequestMergeMethod(state, method)),
   setProjectExpanded: (projectIds, expanded) =>
     set((state) => setProjectExpanded(state, projectIds, expanded)),
