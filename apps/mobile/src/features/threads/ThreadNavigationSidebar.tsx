@@ -1,3 +1,8 @@
+import {
+  WorkingSidebarRow as ThreadListV2Row,
+  WorkingSidebarHeader as ThreadListV2WorkingShelfHeader,
+} from "./WorkingSidebarRows";
+import { hasWorkingDivider } from "./workingSidebarList";
 import { isConversationListCustomized } from "../home/conversationListOptions";
 import { computeMobileNonSettledCounts } from "../home/mobileNonSettledCounts";
 import { CacheWarmingEnvironmentControl } from "./CacheWarmingControls";
@@ -63,11 +68,9 @@ import { WorkspaceListHeader } from "../layout/workspace/WorkspaceListHeader";
 import { WorkspaceSidebarColumn } from "../layout/workspace/WorkspaceSidebarColumn";
 import {
   ThreadListV2PendingRow,
-  ThreadListV2Row,
   ThreadListV2SettledShelfHeader,
   ThreadListV2ShowMoreRow,
   ThreadListV2SnoozedShelfHeader,
-  ThreadListV2WorkingShelfHeader,
 } from "./thread-list-v2-items";
 import { useThreadRowProviderInstanceResolver } from "./thread-provider-instance";
 import type { ThreadPrPresentation } from "../../state/thread-pr-presentation";
@@ -449,6 +452,7 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
         const scopeKey = scopedProjectKey(thread.environmentId, thread.projectId);
         return (
           <ThreadListV2Row
+            workingDivider={hasWorkingDivider(item)}
             onNewThreadOnBranch={props.onNewThreadOnBranch}
             thread={thread}
             variant={item.item.variant}

@@ -1,0 +1,74 @@
+name: Fork Working sidebar
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/fork-working-sidebar.yml"
+      - "apps/web/src/components/Sidebar.tsx"
+      - "apps/web/src/components/sidebar/*Working*"
+      - "apps/web/src/components/sidebar/*working*"
+      - "apps/web/src/components/sidebar/SidebarListMarkers.tsx"
+      - "apps/web/src/components/sidebar/SidebarThreadListControls.tsx"
+      - "apps/mobile/src/features/home/*"
+      - "apps/mobile/src/features/threads/*Working*"
+      - "apps/mobile/src/features/threads/*working*"
+      - "apps/mobile/src/features/threads/*ConversationThreadListV2*"
+      - "packages/client-runtime/src/state/workingSidebarView*"
+      - "packages/client-runtime/package.json"
+      - "scripts/fork-footprint-budget.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: working-sidebar-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      CHECK_CHANGED_TIMEOUT: "1800"
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch --no-tags origin main "$CHECKOUT_REF"
+          git checkout --detach "$CHECKOUT_REF"
+      - name: Check fork footprint
+        run: |
+          git fetch --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
+          python3 scripts/fork-footprint-budget.py
+      - uses: ./.github/actions/setup-ci-deps
+      - uses: ./.github/actions/setup-fork-chromium
+      - name: Check changed code
+        run: vp run check:changed origin/main
+      - name: Capture Working filtering and section ordering
+        run: VITE_WORKING_CAPTURE=1 vp test run apps/web/src/components/sidebar/workingSidebar.app.browser.test.tsx
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: working-sidebar-captures
+          path: .t3/working-sidebar-evidence/
+          retention-days: 14
+      - name: Capture formatting fixes
+        if: failure()
+        run: |
+          git diff --name-only --diff-filter=AM -z origin/main HEAD |
+            xargs -0 -r vp fmt --no-error-on-unmatched-pattern
+          git diff --binary > "$RUNNER_TEMP/working-sidebar-format.patch"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: failure()
+        with:
+          name: working-sidebar-format-fixes
+          path: ${{ runner.temp }}/working-sidebar-format.patch
+          retention-days: 3

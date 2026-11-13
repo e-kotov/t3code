@@ -389,6 +389,21 @@
         "scripts/fork-sync-excerpt.test.py",
         "scripts/fork-feature-guard.test.py"
       ]
+    },
+    {
+      "id": "working-sidebar",
+      "group": "Machines and HPC",
+      "summary": "Working-only filters with an active filter indicator, visible section dividers and optional Working-first order",
+      "tests": [
+        "packages/client-runtime/src/state/workingSidebarView.test.ts",
+        "apps/web/src/components/sidebar/workingSidebarOrder.test.ts",
+        "apps/web/src/components/sidebar/workingSidebar.app.browser.test.tsx",
+        "apps/mobile/src/features/home/conversationListOptions.test.ts",
+        "apps/mobile/src/features/home/home-list-options.test.tsx",
+        "apps/mobile/src/features/home/ConversationThreadListFilters.test.tsx",
+        "apps/mobile/src/features/threads/conversationListOrder.test.ts",
+        "apps/mobile/src/features/threads/useConversationThreadListV2.test.tsx"
+      ]
     }
   ]
 }

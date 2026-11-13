@@ -79,6 +79,14 @@ export function buildHomeListFilterMenuItems(
       ],
     });
   }
+  if (props.onWorkingOnlyChange) {
+    items.push({
+      id: "working:only",
+      title: "Working only",
+      selected: props.workingOnly ?? false,
+      onPress: () => props.onWorkingOnlyChange?.(!props.workingOnly),
+    });
+  }
   items.push(...buildConversationListFilterSubmenus(props));
 
   return items;

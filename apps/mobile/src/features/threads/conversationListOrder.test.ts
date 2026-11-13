@@ -3,6 +3,7 @@ import { EnvironmentId, ProviderInstanceId, ThreadId } from "@t3tools/contracts"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { makeThreadShellFixture } from "../../test-fixtures";
+import { arrangeWorkingSidebarList, hasWorkingDivider } from "./workingSidebarList";
 import { compareMachineOrder, moveMachineInOrder } from "./conversationListOrder";
 import {
   arrangeMobileConversationList,
@@ -416,4 +417,85 @@ describe("machine header list equality", () => {
     expect(threadListV2ListItemsAreEqual({ ...header, label: "Renamed" }, header)).toBe(false);
     expect(threadListV2ListItemsAreEqual(row("machine-a", header.key), header)).toBe(false);
   });
+});
+
+
+it("moves the Working section after pending and pinned rows before applying machine order", () => {
+  const threadRow = (machine: string, key: string, pinned = false) =>
+    ({
+      ...row(machine, key),
+      type: "v2-thread" as const,
+      item: { thread: { environmentId: machine, id: key }, pinned },
+    }) as unknown as ThreadListV2ListItem;
+  const pending = {
+    type: "v2-pending",
+    key: "pending",
+    pendingTask: { environmentId: "machine-a" },
+  } as unknown as ThreadListV2ListItem;
+  const working = {
+    type: "v2-working-shelf",
+    key: "v2-working-shelf",
+    count: 2,
+    expanded: true,
+    disabled: false,
+  } as const;
+  const settled = {
+    type: "v2-settled-shelf",
+    key: "v2-settled-shelf",
+    count: 1,
+    expanded: false,
+    disabled: false,
+  } as const;
+  const input = [
+    pending,
+    threadRow("machine-a", "pin-a", true),
+    threadRow("machine-b", "pin-b", true),
+    threadRow("machine-b", "main-b"),
+    threadRow("machine-a", "main-a"),
+    working,
+    threadRow("machine-a", "working-a"),
+    threadRow("machine-b", "working-b"),
+    settled,
+  ];
+  expect(arrangeWorkingSidebarList(input, false)).toBe(input);
+  const reordered = arrangeWorkingSidebarList(input, true);
+  expect(reordered.map(keyOf)).toEqual([
+    "pending",
+    "pin-a",
+    "pin-b",
+    "v2-working-shelf",
+    "working-a",
+    "working-b",
+    "main-b:after-working",
+    "main-a",
+    "v2-settled-shelf",
+  ]);
+  const dividerRow = reordered.find((item) => item.key === "main-b:after-working");
+  expect(dividerRow?.type === "v2-thread" && hasWorkingDivider(dividerRow)).toBe(true);
+  const grouped = arrangeMobileConversationList(reordered, {
+    grouping: "machine",
+    environments: [
+      { environmentId: "machine-a", label: "A" },
+      { environmentId: "machine-b", label: "B" },
+    ],
+    machineKinds: new Map(),
+    machineOrder: ["machine-b", "machine-a"],
+  });
+  expect(grouped.map(keyOf)).toEqual([
+    "pending",
+    "[machine-b]",
+    "pin-b",
+    "[machine-a]",
+    "pin-a",
+    "v2-working-shelf",
+    "[machine-b]",
+    "working-b",
+    "[machine-a]",
+    "working-a",
+    "[machine-b]",
+    "main-b:after-working",
+    "[machine-a]",
+    "main-a",
+    "v2-settled-shelf",
+  ]);
 });
