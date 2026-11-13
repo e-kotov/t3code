@@ -271,11 +271,15 @@ describe("ForkDirectSessionRenewal", () => {
       const host = yield* setup({ "paired-1": "old" }, renewedTo("renewed"));
       yield* Ref.set(host.respond, (request) =>
         Ref.update(host.tokens, (map) => new Map(map).set("paired-1", "paired-again")).pipe(
+          Effect.andThen(Ref.set(host.respond, notDue)),
           Effect.andThen(renewedTo("renewed")(request)),
         ),
       );
-      yield* host.renewal.renewNow(paired, prepared);
+      const bearer = yield* SubscriptionRef.make("old");
+      yield* host.renewal.renewNow(paired, prepared, bearer);
       expect((yield* Ref.get(host.tokens)).get("paired-1")).toBe("paired-again");
+      expect(yield* SubscriptionRef.get(bearer)).toBe("paired-again");
+      expect(yield* host.sent).toEqual(["old", "paired-again"]);
     }),
   );
 
@@ -378,7 +382,7 @@ describe("ForkDirectSessionRenewal", () => {
     }),
   );
 
-  it.effect("sends one request at a time for a stored token", () =>
+  it.effect("queues a replacement lease and immediately presents the fresh stored token", () =>
     Effect.gen(function* () {
       const gate = yield* Deferred.make<void>();
       const host = yield* setup({ "paired-1": "old" }, (request) =>
@@ -386,11 +390,19 @@ describe("ForkDirectSessionRenewal", () => {
       );
       const first = yield* host.renewal.renewNow(paired, prepared).pipe(Effect.forkChild);
       yield* Queue.take(host.requests);
-      expect(yield* host.renewal.renewNow(paired, prepared)).toBe("again");
+      const bearer = yield* SubscriptionRef.make("old");
+      const replacement = yield* host.renewal
+        .renewNow(paired, prepared, bearer)
+        .pipe(Effect.forkChild);
+      yield* TestClock.adjust(0);
+      expect(yield* Queue.size(host.requests)).toBe(0);
+      yield* Ref.set(host.respond, notDue);
       yield* Deferred.succeed(gate, undefined);
       yield* Fiber.join(first);
-      expect(yield* host.sent).toEqual([]);
+      yield* Fiber.join(replacement);
+      expect(yield* host.sent).toEqual(["new"]);
       expect((yield* Ref.get(host.tokens)).get("paired-1")).toBe("new");
+      expect(yield* SubscriptionRef.get(bearer)).toBe("new");
     }),
   );
 });
@@ -564,6 +576,7 @@ describe("a connected lease's HTTP credential", () => {
       // Another window pairs again while this renewal is in flight, so its token is discarded.
       yield* Ref.set(host.respond, (request) =>
         Ref.update(host.tokens, (map) => new Map(map).set("paired-1", "paired-again")).pipe(
+          Effect.andThen(Ref.set(host.respond, notDue)),
           Effect.andThen(renewedTo("discarded")(request)),
         ),
       );
@@ -573,9 +586,7 @@ describe("a connected lease's HTTP credential", () => {
       yield* connection.connected;
       expect(yield* Queue.take(host.swaps)).toBe(false);
 
-      // This host still accepts the newer token; the live connection moves to it.
-      yield* Ref.set(host.respond, notDue);
-      yield* TestClock.adjust(Duration.hours(6));
+      // The old token could expire before the next six-hour check: use the accepted one now.
       expect(yield* Fiber.join(presented)).toEqual(["old", "paired-again"]);
       expect(yield* host.sent).toEqual(["old", "paired-again"]);
       expect((yield* Ref.get(host.tokens)).get("paired-1")).toBe("paired-again");
