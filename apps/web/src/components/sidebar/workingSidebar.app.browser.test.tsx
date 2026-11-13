@@ -108,5 +108,11 @@ it("filters Working through the existing menu, preserves project scope, and move
         .compareDocumentPosition(row(idle.title).element()) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).not.toBe(0),
   );
+  await userEvent.keyboard("{Escape}");
+  await vi.waitFor(() =>
+    expect(row(working.title).element().getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      row(idle.title).element().getBoundingClientRect().top,
+    ),
+  );
   await capture("working-first");
 });
