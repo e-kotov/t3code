@@ -15,6 +15,7 @@ import { TYPOGRAPHY_ADVANCED_STORAGE_KEY } from "../../appearanceFonts";
 import { writeLocalStorageValue } from "../../hooks/useLocalStorage";
 import { commandLabel } from "./KeybindingsSettings.logic";
 import type { ResolvedSettingsScope } from "./settingsScope";
+import { SETTLE_NAVIGATION_SEARCH_ITEMS } from "./settleNavigationSearch";
 
 export type SettingsPath =
   | "/settings/projects"
@@ -231,6 +232,7 @@ const SOURCE_CONTROL_HOST_TERMS = sourceControlClients.definitions
   .join(" ");
 
 export const SETTINGS_SEARCH_ITEMS = [
+  ...SETTLE_NAVIGATION_SEARCH_ITEMS,
   {
     id: "device-commands",
     title: "Device commands",
