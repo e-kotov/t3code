@@ -21,7 +21,7 @@ import { causeErrorTag } from "@t3tools/shared/observability";
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import * as PeerLinks from "./PeerLinks.ts";
 
-/** Each link is asked this often; its peer renews at most once a day. */
+/** Each link is asked this often; its peer decides when a renewal is due. */
 const SWEEP_INTERVAL = Duration.hours(6);
 const FIRST_SWEEP_DELAY = Duration.minutes(1);
 /** Using a link asks again no sooner than this. */
@@ -107,17 +107,28 @@ export const makeRenewal = Effect.gen(function* () {
       `;
       return;
     }
-    // Overwritten in place (temp file and rename), so a `resolve` that read the
-    // row before this still finds a working token under the same name.
-    yield* secrets.set(secretName, new TextEncoder().encode(outcome.token));
-    const updated = yield* sql<{ readonly environment_id: string }>`
-      UPDATE peer_environment_links SET expires_at = ${expiresAt}
-      WHERE environment_id = ${environmentId} AND secret_name = ${secretName} AND fenced = 1
-      RETURNING environment_id
-    `;
-    // Forgotten or linked again meanwhile: nothing comes back, and no token stays behind.
-    if (updated.length === 0) yield* secrets.remove(secretName).pipe(Effect.ignore);
-    else yield* Effect.logInfo("Renewed a link to another environment.", { environmentId });
+    // `unlink` and linking again wait for this write transaction, so the token is written
+    // only while its row still names it. A crash before COMMIT leaves the new token beside
+    // the old expiry, which `resolveForRenewal` repairs. Written in place (temp file and
+    // rename), so a `resolve` that read the row first still finds a working token.
+    const saved = yield* sql.withTransaction(
+      Effect.uninterruptible(
+        Effect.gen(function* () {
+          const named = yield* sql`
+            SELECT 1 FROM peer_environment_links
+            WHERE environment_id = ${environmentId} AND secret_name = ${secretName} AND fenced = 1
+          `;
+          if (named.length === 0) return false;
+          yield* secrets.set(secretName, new TextEncoder().encode(outcome.token));
+          yield* sql`
+            UPDATE peer_environment_links SET expires_at = ${expiresAt}
+            WHERE environment_id = ${environmentId} AND secret_name = ${secretName} AND fenced = 1
+          `;
+          return true;
+        }),
+      ),
+    );
+    if (saved) yield* Effect.logInfo("Renewed a link to another environment.", { environmentId });
   });
 
   /** Single-flight per link; failures are logged and never reach the caller. */

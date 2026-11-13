@@ -103,6 +103,28 @@ const makeA = (
     })),
   );
 
+/**
+ * The renewal's own secret store: each write signals once the token is on disk and,
+ * while a gate is set, holds there, where a stop could once strand the token.
+ */
+const pauseAfterWrite = (secrets: ServerSecretStore.ServerSecretStore["Service"]) =>
+  Effect.gen(function* () {
+    const written = yield* Queue.unbounded<void>();
+    const gate = yield* Ref.make(Option.none<Deferred.Deferred<void>>());
+    const store = ServerSecretStore.ServerSecretStore.of({
+      ...secrets,
+      set: (name, value) =>
+        secrets
+          .set(name, value)
+          .pipe(
+            Effect.andThen(Queue.offer(written, undefined)),
+            Effect.andThen(Ref.get(gate)),
+            Effect.flatMap(Option.match({ onNone: () => Effect.void, onSome: Deferred.await })),
+          ),
+    });
+    return { store, written, gate };
+  });
+
 const renewalFor = (
   a: Effect.Success<ReturnType<typeof makeA>>,
   secrets: ServerSecretStore.ServerSecretStore["Service"],
@@ -201,6 +223,21 @@ it.effect("answers as a host without renewal when turned off or refused by polic
       );
       expect(
         (yield* post(off.url, { authorization: `Bearer ${offPairing.access_token}` })).status,
+      ).toBe(404);
+      // A cap it cannot read turns renewal off rather than lifting the cap.
+      const unreadable = yield* servePeerWithRenewal({
+        env: { T3CODE_SESSION_RENEWAL_MAX_AGE_DAYS: "-1" },
+      });
+      const unreadablePairing = yield* unreadable.auth.exchangeBootstrapCredentialForAccessToken(
+        (yield* unreadable.auth.issuePairingCredential()).credential,
+        undefined,
+        { deviceType: "mobile" },
+      );
+      yield* TestClock.adjust(Duration.days(2));
+      expect(
+        (yield* post(unreadable.url, {
+          authorization: `Bearer ${unreadablePairing.access_token}`,
+        })).status,
       ).toBe(404);
     }),
   ).pipe(Effect.provide(NodeHttpServer.layerTest)),
@@ -350,6 +387,93 @@ it.effect("a link forgotten or made again during renewal keeps no stale token", 
       expect(yield* storedLink(a.sql)).toEqual(third);
       expect(yield* tokenIn(secrets, third!.secret_name)).toEqual(thirdToken);
       expect(yield* tokenIn(secrets, second!.secret_name)).toEqual(Option.none());
+    }),
+  ).pipe(Effect.provide(NodeHttpServer.layerTest)),
+);
+
+it.effect.each(["forgotten", "made again"] as const)(
+  "a renewal stopped as its answer arrives keeps no token for a link %s meanwhile",
+  (change) =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const b = yield* servePeerWithRenewal();
+        const secrets = yield* buildSecrets;
+        const a = yield* makeA(secrets);
+        const paused = yield* pauseAfterWrite(secrets);
+        yield* Ref.set(paused.gate, Option.some(yield* Deferred.make<void>()));
+        const renewal = yield* renewalFor(a, paused.store);
+        yield* linkTo(a.links, b);
+        const first = yield* storedLink(a.sql);
+        yield* TestClock.adjust(Duration.days(2));
+
+        const answer = yield* Deferred.make<void>();
+        yield* Ref.set(b.gate, Option.some(answer));
+        const renewing = yield* renewal.renewLink(box.environmentId).pipe(Effect.forkScoped);
+        yield* Queue.take(b.requests);
+        if (change === "forgotten") expect(yield* a.links.unlink(box.environmentId)).toBe(true);
+        else yield* linkTo(a.links, b);
+        const current = yield* storedLink(a.sql);
+        const currentToken =
+          current === undefined ? Option.none() : yield* tokenIn(secrets, current.secret_name);
+        yield* Deferred.succeed(answer, undefined);
+        // Stopped right after it would write the old link's token, or once it has finished.
+        yield* Effect.raceFirst(Queue.take(paused.written), Fiber.await(renewing));
+        yield* Fiber.interrupt(renewing).pipe(Effect.forkChild({ startImmediately: true }));
+
+        expect(yield* tokenIn(secrets, first!.secret_name)).toEqual(Option.none());
+        expect(yield* storedLink(a.sql)).toEqual(current);
+        if (current !== undefined) {
+          expect(current.secret_name).not.toBe(first!.secret_name);
+          expect(yield* tokenIn(secrets, current.secret_name)).toEqual(currentToken);
+        }
+      }),
+    ).pipe(Effect.provide(NodeHttpServer.layerTest)),
+);
+
+it.effect("a renewal stopped after writing its token still saves it with the link's expiry", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const b = yield* servePeerWithRenewal();
+      const secrets = yield* buildSecrets;
+      const a = yield* makeA(secrets);
+      const paused = yield* pauseAfterWrite(secrets);
+      const renewal = yield* renewalFor(a, paused.store);
+      yield* linkTo(a.links, b);
+      const before = yield* storedLink(a.sql);
+      const tokenBefore = yield* tokenIn(secrets, before!.secret_name);
+      const stopAfterWrite = Effect.gen(function* () {
+        const release = yield* Deferred.make<void>();
+        yield* Ref.set(paused.gate, Option.some(release));
+        const renewing = yield* renewal.renewLink(box.environmentId).pipe(Effect.forkScoped);
+        yield* Queue.take(paused.written);
+        const stopping = yield* Fiber.interrupt(renewing).pipe(
+          Effect.forkChild({ startImmediately: true }),
+        );
+        return { release, stopping };
+      });
+
+      yield* TestClock.adjust(Duration.days(2));
+      const first = yield* stopAfterWrite;
+      yield* Deferred.succeed(first.release, undefined);
+      yield* Fiber.join(first.stopping);
+      const renewed = yield* storedLink(a.sql);
+      expect(renewed?.secret_name).toBe(before!.secret_name);
+      expect(DateTime.makeUnsafe(renewed!.expires_at).epochMilliseconds).toBe(day(32));
+      expect(yield* tokenIn(secrets, before!.secret_name)).not.toEqual(tokenBefore);
+      yield* a.links.resolve(box.environmentId);
+
+      // Linking again while a stopped renewal finishes its write: the new link wins.
+      yield* TestClock.adjust(Duration.days(2));
+      const second = yield* stopAfterWrite;
+      const relinking = yield* linkTo(a.links, b).pipe(Effect.forkChild);
+      yield* Deferred.succeed(second.release, undefined);
+      yield* Fiber.join(second.stopping);
+      yield* Fiber.join(relinking);
+      const relinked = yield* storedLink(a.sql);
+      expect(relinked?.secret_name).not.toBe(before!.secret_name);
+      expect(yield* tokenIn(secrets, before!.secret_name)).toEqual(Option.none());
+      expect(Option.isSome(yield* tokenIn(secrets, relinked!.secret_name))).toBe(true);
+      yield* a.links.resolve(box.environmentId);
     }),
   ).pipe(Effect.provide(NodeHttpServer.layerTest)),
 );

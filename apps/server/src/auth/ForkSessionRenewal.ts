@@ -32,18 +32,38 @@ export const DISABLED_POLICY: RenewalPolicy = {
   maxAge: Option.none(),
 };
 
-/** `T3CODE_SESSION_RENEWAL=false` turns it off; a max age of 0 days means no cap. */
+/** Longer settings would put a signed expiry past what a date can hold. */
+const MAX_DAYS = 100 * 365;
+
+/**
+ * `T3CODE_SESSION_RENEWAL=false` turns it off; a max age of 0 days means no cap.
+ * Anything else out of range fails, so the host turns renewal off rather than weaken the cap.
+ */
 export const policyConfig: Config.Config<RenewalPolicy> = Config.all({
   enabled: Config.Boolean("T3CODE_SESSION_RENEWAL").pipe(Config.withDefault(true)),
-  windowDays: Config.Number("T3CODE_SESSION_RENEWAL_WINDOW_DAYS").pipe(Config.withDefault(30)),
-  maxAgeDays: Config.Number("T3CODE_SESSION_RENEWAL_MAX_AGE_DAYS").pipe(Config.withDefault(365)),
+  windowDays: Config.schema(
+    Schema.Finite.check(Schema.isGreaterThanOrEqualTo(1), Schema.isLessThanOrEqualTo(MAX_DAYS)),
+    "T3CODE_SESSION_RENEWAL_WINDOW_DAYS",
+  ).pipe(Config.withDefault(30)),
+  maxAgeDays: Config.schema(
+    Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(MAX_DAYS)),
+    "T3CODE_SESSION_RENEWAL_MAX_AGE_DAYS",
+  ).pipe(Config.withDefault(365)),
 }).pipe(
   Config.map(({ enabled, windowDays, maxAgeDays }) => ({
     enabled,
-    window: Duration.days(Math.max(1, windowDays)),
-    maxAge: maxAgeDays > 0 ? Option.some(Duration.days(maxAgeDays)) : Option.none(),
+    window: Duration.days(windowDays),
+    maxAge: maxAgeDays === 0 ? Option.none() : Option.some(Duration.days(maxAgeDays)),
   })),
 );
+
+/**
+ * A renewal that would move the expiry by less than this is not due: a day for
+ * the default window, less for short ones, so a one-day window still renews on
+ * the clients' six-hourly checks before its token expires.
+ */
+const dueStepMillis = (window: Duration.Duration) =>
+  Math.min(DAY_MILLIS, Duration.toMillis(window) / 4);
 
 /** The verified view of a token this needs; `SessionStore.verify` returns it. */
 interface RenewableSession {
@@ -197,8 +217,11 @@ export const make = Effect.fn("ForkSessionRenewal.make")(function* <E>(deps: {
     const wanted = DateTime.add(now, { milliseconds: Duration.toMillis(policy.window) });
     const capped = Option.isSome(cap) && cap.value.epochMilliseconds < wanted.epochMilliseconds;
     const target = capped && Option.isSome(cap) ? cap.value : wanted;
-    // At most one renewal per token per day; the last step up to the cap is always allowed.
-    if (!capped && target.epochMilliseconds - current.epochMilliseconds < DAY_MILLIS) {
+    // Renewed in steps of at least `dueStepMillis`; the last step up to the cap is always allowed.
+    if (
+      !capped &&
+      target.epochMilliseconds - current.epochMilliseconds < dueStepMillis(policy.window)
+    ) {
       return { _tag: "Unchanged", reason: "not_due", expiresAt: current } as const;
     }
 

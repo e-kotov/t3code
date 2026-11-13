@@ -2,6 +2,7 @@ import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { EnvironmentId, mcpClientScopes } from "@t3tools/contracts";
 import { expect, it } from "@effect/vitest";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -13,6 +14,7 @@ import * as TestClock from "effect/testing/TestClock";
 import * as ServerConfig from "../config.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
+import * as ForkSessionRenewal from "./ForkSessionRenewal.ts";
 import type { RenewalPolicy } from "./ForkSessionRenewal.ts";
 import * as ServerSecretStore from "./ServerSecretStore.ts";
 import * as SessionStore from "./SessionStore.ts";
@@ -36,6 +38,7 @@ const policy: RenewalPolicy = {
 };
 
 const day = (days: number) => Duration.toMillis(Duration.days(days));
+const hour = (hours: number) => Duration.toMillis(Duration.hours(hours));
 const pairing = { subject: "one-time-token", method: "bearer-access-token" } as const;
 const agentLink = {
   subject: "mcp-client",
@@ -45,6 +48,14 @@ const agentLink = {
   peerLink: true,
   ttl: Duration.days(30),
 } as const;
+
+/** The host's renewal settings, by the suffix after `T3CODE_SESSION_RENEWAL_`. */
+const settings = (env: Record<string, string>) =>
+  ConfigProvider.fromEnv({
+    env: Object.fromEntries(
+      Object.entries(env).map(([name, value]) => [`T3CODE_SESSION_RENEWAL_${name}`, value]),
+    ),
+  });
 
 const claimsOf = (token: string) =>
   JSON.parse(base64UrlDecodeUtf8(token.split(".")[0]!)) as Record<string, unknown>;
@@ -155,6 +166,76 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("ForkSessionRenew
       }
       expect((yield* sessions.verify(token)).subject).toBe("one-time-token");
     }).pipe(Effect.provide(Layer.merge(layerSessionStore, TestClock.layer()))),
+  );
+
+  it.effect("a one-day window renews in quarter-day steps, before each token expires", () =>
+    Effect.gen(function* () {
+      const sessions = yield* SessionStore.SessionStore;
+      const daily = { ...policy, window: Duration.days(1), maxAge: Option.some(Duration.days(2)) };
+      const issued = yield* sessions.issue({ ...pairing, ttl: Duration.days(1) });
+      yield* TestClock.adjust(Duration.millis(hour(6) - 1));
+      expect(yield* sessions.renewSession(issued.token, daily)).toMatchObject({
+        _tag: "Unchanged",
+        reason: "not_due",
+      });
+      yield* TestClock.adjust(Duration.millis(1));
+      let token = renewed(yield* sessions.renewSession(issued.token, daily)).token;
+      expect(claimsOf(token)).toEqual({ ...claimsOf(issued.token), exp: hour(30) });
+      // Each six-hourly check renews, long before the token it presents expires.
+      for (const expected of [hour(36), hour(42), hour(48)]) {
+        yield* TestClock.adjust(Duration.hours(6));
+        const next = renewed(yield* sessions.renewSession(token, daily));
+        expect(next.expiresAt.epochMilliseconds).toBe(expected);
+        token = next.token;
+      }
+      // The first token still ends at its own expiry, and the cap still holds.
+      expect((yield* Effect.flip(sessions.verify(issued.token)))._tag).toBe(
+        "SessionTokenExpiredError",
+      );
+      yield* TestClock.adjust(Duration.hours(6));
+      expect(yield* sessions.renewSession(token, daily)).toMatchObject({
+        _tag: "Unchanged",
+        reason: "cap_reached",
+      });
+      yield* TestClock.adjust(Duration.hours(18));
+      expect((yield* Effect.flip(sessions.verify(token)))._tag).toBe("SessionTokenExpiredError");
+    }).pipe(Effect.provide(Layer.merge(layerSessionStore, TestClock.layer()))),
+  );
+
+  it.effect.each([
+    { name: "the defaults", env: {}, window: 30, maxAge: Option.some(365) },
+    { name: "0 days as no cap", env: { MAX_AGE_DAYS: "0" }, window: 30, maxAge: Option.none() },
+    {
+      name: "a one-day window and a short cap",
+      env: { WINDOW_DAYS: "1", MAX_AGE_DAYS: "45" },
+      window: 1,
+      maxAge: Option.some(45),
+    },
+  ])("reads $name from the host's settings", ({ env, window, maxAge }) =>
+    Effect.gen(function* () {
+      const read = yield* ForkSessionRenewal.policyConfig.parse(settings(env));
+      expect(read.enabled).toBe(true);
+      expect(Duration.toMillis(read.window)).toBe(day(window));
+      expect(Option.map(read.maxAge, Duration.toMillis)).toEqual(Option.map(maxAge, day));
+    }),
+  );
+
+  it.effect.each([
+    { MAX_AGE_DAYS: "-1" },
+    { MAX_AGE_DAYS: "-0.5" },
+    { MAX_AGE_DAYS: "Infinity" },
+    { MAX_AGE_DAYS: "NaN" },
+    { WINDOW_DAYS: "0" },
+    { WINDOW_DAYS: "0.5" },
+    { WINDOW_DAYS: "-30" },
+    { WINDOW_DAYS: "Infinity" },
+    { WINDOW_DAYS: "1e9" },
+  ])("rejects %o instead of lifting the cap or shortening the window", (env) =>
+    Effect.gen(function* () {
+      expect((yield* Effect.flip(ForkSessionRenewal.policyConfig.parse(settings(env))))._tag).toBe(
+        "ConfigError",
+      );
+    }),
   );
 
   it.effect.each([

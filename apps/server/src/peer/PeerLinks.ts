@@ -223,6 +223,10 @@ export const LoopbackHost = Context.Reference<(host: string) => boolean>(
 const linkLimitsHold = (peer: { readonly capabilities: ExecutionEnvironmentCapabilities }) =>
   peer.capabilities.mcpModeLimitHeader === true && peer.capabilities.linkFence === true;
 
+/** Fork: set only by `resolveForRenewal`; the peer still checks the token's own expiry. */
+const Renewing = Context.Reference<boolean>("t3/peer/PeerLinks/Renewing", {
+  defaultValue: () => false,
+});
 const make = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
   const secrets = yield* ServerSecretStore.ServerSecretStore;
@@ -637,8 +641,8 @@ const make = Effect.gen(function* () {
     },
   );
 
-  const resolve = Effect.fn("PeerLinks.resolve")(
-    function* (environmentId: EnvironmentId, forRenewal = false) {
+  const resolve: PeerLinks["Service"]["resolve"] = Effect.fn("PeerLinks.resolve")(
+    function* (environmentId) {
       const row = yield* readRow(environmentId);
       if (Option.isNone(row)) {
         return yield* new PeerLinkError({
@@ -647,7 +651,7 @@ const make = Effect.gen(function* () {
         });
       }
       const link = yield* toLink(row.value);
-      if (!forRenewal && DateTime.isLessThanOrEqualTo(link.expiresAt, yield* DateTime.now)) {
+      if (!(yield* Renewing) && DateTime.isLessThanOrEqualTo(link.expiresAt, yield* DateTime.now)) {
         return yield* new PeerLinkError({
           reason: "expired",
           message: `The link to ${link.label} expired. Link it again with a new pairing code from ${link.label}.`,
@@ -721,7 +725,7 @@ const make = Effect.gen(function* () {
     get,
     unlink,
     resolve,
-    resolveForRenewal: (environmentId) => resolve(environmentId, true),
+    resolveForRenewal: (id) => resolve(id).pipe(Effect.provideService(Renewing, true)),
     recordOutcome,
   });
 });

@@ -9,7 +9,8 @@ SSH, and the links in **Settings → Labs → Linked environments**. T3 Connect,
 that serves the web app itself, startup links and outside MCP clients are unchanged.
 
 **When.** A connected device asks its host about once every six hours, and the host extends
-the session at most once a day to 30 days from then. A host keeps its own agent links
+the session at most once a day to 30 days from then (with a shorter window, in steps of a
+quarter of it). A host keeps its own agent links
 renewed in the background while it runs. Both ends need this fork version; with an older
 host or client nothing changes and pairings expire as before.
 
@@ -24,7 +25,9 @@ connection, or a Tailscale address.
 | Variable                              | Default | Meaning                                                         |
 | ------------------------------------- | ------- | --------------------------------------------------------------- |
 | `T3CODE_SESSION_RENEWAL`              | `true`  | `false` turns renewal off; pairings expire after 30 days again. |
-| `T3CODE_SESSION_RENEWAL_WINDOW_DAYS`  | `30`    | How long a pairing lasts after its last renewal.                |
+| `T3CODE_SESSION_RENEWAL_WINDOW_DAYS`  | `30`    | How long a pairing lasts after its last renewal; at least `1`.  |
 | `T3CODE_SESSION_RENEWAL_MAX_AGE_DAYS` | `365`   | Cap from the first pairing; `0` removes the cap.                |
 
-A managed policy that does not allow remote clients also stops renewal.
+A value out of range (a window under one day, a negative cap, or more than 100 years) turns
+renewal off and logs a warning. A managed policy that does not allow remote clients also stops
+renewal.
