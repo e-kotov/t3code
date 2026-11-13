@@ -1,6 +1,13 @@
-import { EnvironmentId, ThreadId, type PreviewSessionSnapshot } from "@t3tools/contracts";
+import {
+  BrowserProxyError,
+  EnvironmentId,
+  ThreadId,
+  type PreviewSessionSnapshot,
+} from "@t3tools/contracts";
 import type { PreviewStreamControl } from "@t3tools/client-runtime/preview/server-browser-stream";
 import type { ComponentProps } from "react";
+import * as Cause from "effect/Cause";
+import { AsyncResult } from "effect/reactivity";
 import { expect, it, vi } from "vite-plus/test";
 import { userEvent } from "vite-plus/test/browser";
 
@@ -12,6 +19,8 @@ import { PreviewView } from "./PreviewView";
 
 const state = vi.hoisted(() => ({
   navigate: vi.fn(),
+  open: vi.fn(),
+  hasSession: true,
   remember: vi.fn(),
   visit: vi.fn(),
   control: undefined as ((control: PreviewStreamControl | null) => void) | undefined,
@@ -33,11 +42,11 @@ vi.mock(import("~/previewStateStore"), async (original) => ({
   ...(await original()),
   rememberPreviewUrl: state.remember,
   useThreadPreviewState: (() => ({
-    activeTabId: "tab",
+    activeTabId: state.hasSession ? "tab" : null,
     serverEpoch: null,
     desktopByTabId: {},
     recentlySeenUrls: [],
-    sessions: { tab: snapshot },
+    sessions: state.hasSession ? { tab: snapshot } : {},
   })) as never,
 }));
 vi.mock(import("~/browserHistoryStore"), async (original) => ({
@@ -57,6 +66,7 @@ vi.mock(import("~/state/environments"), async (original) => ({
 }));
 vi.mock(import("./useDiscoveredLocalServers"), () => ({ useDiscoveredLocalServers: () => [] }));
 vi.mock(import("./usePreviewSession"), () => ({ usePreviewSession: () => {} }));
+vi.mock(import("./openPreviewSession"), () => ({ openPreviewSession: state.open }));
 vi.mock(import("~/browser/ServerBrowserSurface"), async () => {
   const { useImperativeHandle } = await import("react");
   type Props = ComponentProps<typeof import("~/browser/ServerBrowserSurface").ServerBrowserSurface>;
@@ -76,6 +86,8 @@ vi.mock(import("~/browser/ServerBrowserSurface"), async () => {
 });
 
 it("reports local navigation from a blank proxy tab without changing page or history", async () => {
+  state.hasSession = true;
+  state.open.mockReset();
   state.navigate.mockReset();
   state.remember.mockReset();
   state.visit.mockReset();
@@ -98,6 +110,7 @@ it("reports local navigation from a blank proxy tab without changing page or his
     type: "error",
     title: "Browser proxy unavailable",
   });
+  expect(state.open).not.toHaveBeenCalled();
   expect(state.navigate).not.toHaveBeenCalled();
   expect(state.remember).not.toHaveBeenCalled();
   expect(state.visit).not.toHaveBeenCalled();
@@ -107,4 +120,36 @@ it("reports local navigation from a blank proxy tab without changing page or his
   await userEvent.keyboard("{Enter}");
   await vi.waitFor(() => expect(state.navigate).toHaveBeenCalledWith("https://example.com/page"));
   expect(state.visit).toHaveBeenCalledWith(threadRef, "https://example.com/page");
+});
+
+it("does not record a visit when opening a new tab fails through the proxy", async () => {
+  state.hasSession = false;
+  state.open
+    .mockReset()
+    .mockResolvedValue(
+      AsyncResult.failure(Cause.fail(new BrowserProxyError({ message: "Proxy unavailable." }))),
+    );
+  state.navigate.mockReset();
+  state.remember.mockReset();
+  state.visit.mockReset();
+  state.control = undefined;
+  await using screen = await render(<PreviewView threadRef={threadRef} visible />);
+  using toast = vi.spyOn(toastManager, "add").mockReturnValue("proxy-error");
+  const address = screen.getByRole("textbox", { name: "Search or enter URL" });
+  await expect.element(address).toBeEnabled();
+  await userEvent.fill(address, "https://example.com/page");
+  await userEvent.keyboard("{Enter}");
+  await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+  expect(state.open).toHaveBeenCalledExactlyOnceWith({
+    openPreview: expect.any(Function),
+    threadRef,
+    url: "https://example.com/page",
+  });
+  expect(toast.mock.calls[0]?.[0]).toMatchObject({
+    type: "error",
+    title: "Browser proxy unavailable",
+  });
+  expect(state.navigate).not.toHaveBeenCalled();
+  expect(state.remember).not.toHaveBeenCalled();
+  expect(state.visit).not.toHaveBeenCalled();
 });

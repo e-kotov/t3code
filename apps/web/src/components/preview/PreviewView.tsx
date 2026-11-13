@@ -259,8 +259,8 @@ export function PreviewView({
   );
 
   /** Resolves to the profile of the tab that loaded the URL, or null when nothing opened. */
-  const navigateToResolvedUrl = async (resolvedUrl: string) => {
-    if (reportBrowserProxyNavigationError(snapshot?.proxyUrl, resolvedUrl)) return false;
+  const navigateToResolvedUrl = async (resolvedUrl: string): Promise<string | null> => {
+    if (reportBrowserProxyNavigationError(snapshot?.proxyUrl, resolvedUrl)) return null;
     if (isServerTab && serverSurfaceRef.current) {
       if (serverInputDisabled) return null;
       serverSurfaceRef.current.navigate(resolvedUrl);
@@ -275,7 +275,7 @@ export function PreviewView({
     }
     const result = await openPreviewSession({ openPreview: open, threadRef, url: resolvedUrl });
     if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
-      if (reportBrowserProxyFailure(result.cause)) return false;
+      if (reportBrowserProxyFailure(result.cause)) return null;
       const error = squashAtomCommandFailure(result);
       if (isBrowserSettingsReadError(error)) {
         toastManager.add({

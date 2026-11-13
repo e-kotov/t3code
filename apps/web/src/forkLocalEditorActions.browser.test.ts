@@ -1,6 +1,6 @@
 import { EnvironmentId } from "@t3tools/contracts";
 import { AsyncResult } from "effect/reactivity";
-import { beforeEach, expect, it, vi } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 import { openSavedConfiguredEditor } from "./forkLocalEditorActions";
 import {
   editorPreferencesKey,
@@ -9,16 +9,24 @@ import {
 } from "./forkEditorPreferences";
 import { setLocalStorageItem } from "./hooks/useLocalStorage";
 const environmentId = EnvironmentId.make("mac");
-const invoke = vi.fn();
-beforeEach(() => {
+function setup() {
   localStorage.clear();
-  invoke.mockReset().mockResolvedValue(AsyncResult.success(undefined));
-});
+  return {
+    invoke: vi.fn().mockResolvedValue(AsyncResult.success(undefined)),
+    [Symbol.dispose]() {
+      localStorage.clear();
+    },
+  };
+}
 it("leaves existing behavior untouched when no editor configuration has been saved", async () => {
+  using state = setup();
+  const { invoke } = state;
   expect(await openSavedConfiguredEditor(environmentId, ["vscode"], "/project", invoke)).toBeNull();
   expect(invoke).not.toHaveBeenCalled();
 });
 it("uses saved custom commands for file actions and does not borrow another environment's settings", async () => {
+  using state = setup();
+  const { invoke } = state;
   const custom = {
     id: "custom:test",
     name: "My editor",
@@ -49,6 +57,8 @@ it("uses saved custom commands for file actions and does not borrow another envi
   ).toBeNull();
 });
 it("does not fall back to a hidden editor", async () => {
+  using state = setup();
+  const { invoke } = state;
   setLocalStorageItem(
     editorPreferencesKey(environmentId, false),
     { ...EMPTY_EDITOR_PREFERENCES, builtIns: [{ id: "vscode", visibility: "hide" }] },
@@ -61,6 +71,8 @@ it("does not fall back to a hidden editor", async () => {
 });
 
 it("preserves the project root when opening files in a configured built-in editor", async () => {
+  using state = setup();
+  const { invoke } = state;
   setLocalStorageItem(
     editorPreferencesKey(environmentId, false),
     { ...EMPTY_EDITOR_PREFERENCES, preferred: "vscode" },
