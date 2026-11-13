@@ -6,6 +6,7 @@ import { page, userEvent } from "vite-plus/test/browser";
 import { AppRoot } from "~/AppRoot";
 // The thread route loads ChatView lazily; its first transform would eat the test's timeout.
 import "~/components/ChatView";
+import { composerDraftHasUserContent, useComposerDraftStore } from "~/composerDraftStore";
 import { useThreadUndoNotice } from "~/hooks/showThreadUndoNotice";
 import { __setClientSettingsForTests } from "~/hooks/useSettings";
 import { getRouter } from "~/router";
@@ -13,6 +14,7 @@ import {
   dispatchedCommands,
   ENVIRONMENT_ID,
   installFakeEnvironment,
+  PROJECT_ID,
   threadWithHistory,
   type FakeDriver,
 } from "../../../test/fakeEnvironment";
@@ -34,6 +36,11 @@ vi.mock(import("~/rpc/requestLatencyState"), async (original) => ({
   ...(await original()),
   trackRpcRequestSent: () => {},
 }));
+// The fake environment never answers file reads; a project without t3.json reads as null.
+vi.mock(import("~/lib/t3ProjectFileDefaults"), async (original) => ({
+  ...(await original()),
+  readT3ProjectFile: async () => null,
+}));
 vi.mock(import("~/state/server"), async (original) => {
   const actual = await original();
   const { Atom } = await import("effect/reactivity");
@@ -50,7 +57,9 @@ it.each([
   ["opens a new chat in the same project when chosen", "new-chat", "new-chat"],
 ] as const)("%s", async (_name, choice, destination) => {
   useThreadUndoNotice.setState({ notice: null });
-  const [open, next] = [threadWithHistory("settle-open", 1), threadWithHistory("settle-next", 1)];
+  // Distinct ids per case: optimistic settles outlive the render in the shared atom registry.
+  const open = threadWithHistory(`${destination}-open`, 1);
+  const next = threadWithHistory(`${destination}-next`, 1);
   using _environment = installFakeEnvironment([open, next], { acceptCommands: true });
   using _platform = vi.spyOn(navigator, "platform", "get").mockReturnValue("Linux x86_64");
   __setClientSettingsForTests({
@@ -66,7 +75,7 @@ it.each([
     // AppRoot owns the router, as it does in main.tsx.
     router: false,
   });
-  await expect.element(page.getByText("settle-open: question 0")).toBeVisible();
+  await expect.element(page.getByText(`${open.id}: question 0`)).toBeVisible();
   await expect.element(page.getByText(`Thread ${next.id}`).first()).toBeVisible();
 
   await userEvent.keyboard("{Control>}{Shift>}S{/Shift}{/Control}");
@@ -81,16 +90,25 @@ it.each([
     await vi.waitFor(() =>
       expect(router.history.location.pathname).toBe(`/${ENVIRONMENT_ID}/${next.id}`),
     );
-    await expect.element(page.getByText("settle-next: question 0")).toBeVisible();
+    await expect.element(page.getByText(`${next.id}: question 0`)).toBeVisible();
     // Opening the next thread is what marks it read.
     await vi.waitFor(() => expect(commandsFor("thread.visit", next.id)).not.toHaveLength(0));
   } else {
     if (destination === "settled") {
       expect(router.history.location.pathname).toBe(openPath);
-      await expect.element(page.getByText("settle-open: question 0")).toBeVisible();
+      await expect.element(page.getByText(`${open.id}: question 0`)).toBeVisible();
     } else {
       await vi.waitFor(() => expect(router.history.location.pathname).toMatch(/^\/draft\//));
       await expect.element(page.getByTestId("composer-editor")).toBeVisible();
+      const drafts = useComposerDraftStore.getState();
+      const draft = drafts.getDraftSessionByProjectRef({
+        environmentId: ENVIRONMENT_ID,
+        projectId: PROJECT_ID,
+      });
+      expect(router.history.location.pathname).toBe(`/draft/${draft?.draftId}`);
+      const composerDraft = draft ? drafts.getComposerDraft(draft.draftId) : null;
+      expect(draft).not.toBeNull();
+      expect(composerDraftHasUserContent(composerDraft)).toBe(false);
     }
     expect(commandsFor("thread.visit", next.id)).toEqual([]);
     expect(
