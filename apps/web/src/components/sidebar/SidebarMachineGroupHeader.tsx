@@ -2,7 +2,13 @@ import { sidebarListItemId } from "../Sidebar.logic";
 import { SortableSidebarMarker } from "./SidebarListMarkers";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import type { EnvironmentId } from "@t3tools/contracts";
-import { ArrowDownIcon, ArrowUpIcon, ChevronDownIcon, ChevronRightIcon } from "lucide-react";
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  PinIcon,
+} from "lucide-react";
 
 import { updateClientSettings, useClientSettings } from "../../hooks/useSettings";
 import { useEnvironmentMachines, usePrimaryEnvironmentId } from "../../state/environments";
@@ -13,6 +19,7 @@ import { MachineGroupSlurmTime } from "../MachineGroupSlurmTime";
 import type { SidebarListItem } from "../Sidebar.logic";
 import { moveMachineGroup, type SidebarConversationView } from "./sidebarConversationGroups";
 
+import { machineGroupKey } from "@t3tools/client-runtime/state/machine-group-collapse";
 import { useMachineGroupCollapse } from "./machineGroupCollapse";
 import { useUiStateStore } from "../../uiStateStore";
 
@@ -45,10 +52,12 @@ export function SidebarMachineGroupHeader(props: {
   /** All sidebar threads: moving a machine reorders every machine that has rows. */
   readonly threads: readonly EnvironmentThreadShell[];
 }) {
-  const { environmentId, groupPosition, groupCount } = props.item;
+  const { environmentId, groupPosition, groupCount, section } = props.item;
   const view = useSidebarConversationView();
   const { collapsedMachineGroups, toggleMachineGroup } = useMachineGroupCollapse();
-  const collapsed = environmentId !== undefined && collapsedMachineGroups.includes(environmentId);
+  const collapsed =
+    environmentId !== undefined &&
+    collapsedMachineGroups.includes(machineGroupKey(environmentId, section));
   const machineById = useEnvironmentMachines();
   const label = environmentId ? (props.labelById.get(environmentId) ?? "Machine") : "Machine";
   const move = (delta: -1 | 1) => {
@@ -64,6 +73,9 @@ export function SidebarMachineGroupHeader(props: {
   return (
     <div className="mx-2 mt-2 flex items-center gap-1 border-t border-sidebar-border/60 pt-2 text-3xs font-medium uppercase tracking-wide text-sidebar-muted-foreground/70">
       {environmentId ? <MachineGroupConnectionStatus environmentId={environmentId} /> : null}
+      {section === "pinned" ? (
+        <PinIcon role="img" aria-label="Pinned" className="size-3 shrink-0" />
+      ) : null}
       {environmentId ? (
         <EnvironmentMachineIcon
           kind={machineById.get(environmentId) ?? "server"}
@@ -110,7 +122,7 @@ export function SidebarMachineGroupHeader(props: {
             className="rounded p-1 hover:bg-accent"
             onClick={(event) => {
               event.stopPropagation();
-              toggleMachineGroup(environmentId);
+              toggleMachineGroup(environmentId, section);
             }}
           >
             {collapsed ? (

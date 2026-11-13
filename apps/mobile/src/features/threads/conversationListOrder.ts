@@ -1,3 +1,4 @@
+import type { MachineGroupSection } from "@t3tools/client-runtime/state/machine-group-collapse";
 import { sortSidebarConversations } from "@t3tools/client-runtime/state/thread-sort";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import type {
@@ -24,6 +25,7 @@ export interface ThreadListV2MachineHeaderListItem {
   readonly count: number;
   readonly machineKind?: EnvironmentMachineKind;
   readonly collapsible?: boolean;
+  readonly section?: MachineGroupSection;
 }
 
 /**
@@ -59,7 +61,8 @@ export function machineHeadersAreEqual(
     header.position === item.position &&
     header.count === item.count &&
     header.machineKind === item.machineKind &&
-    header.collapsible === item.collapsible
+    header.collapsible === item.collapsible &&
+    header.section === item.section
   );
 }
 
