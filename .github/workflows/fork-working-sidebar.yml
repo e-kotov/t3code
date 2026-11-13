@@ -50,6 +50,19 @@ jobs:
           python3 scripts/fork-footprint-budget.py
       - uses: ./.github/actions/setup-ci-deps
       - uses: ./.github/actions/setup-fork-chromium
+      - name: Prove the Working-first drag regression
+        run: |
+          file=apps/web/src/components/Sidebar.drag.ts
+          cp "$file" "$RUNNER_TEMP/Sidebar.drag.ts"
+          trap 'cp "$RUNNER_TEMP/Sidebar.drag.ts" "$file"' EXIT
+          git show "b19aa45a1ef5d4c3e501307ccde20190220698a3:$file" > "$file"
+          if vp test run apps/web/src/components/Sidebar.drag.test.ts -t 'keeps Working first while' > "$RUNNER_TEMP/working-drag-before.log" 2>&1; then
+            cat "$RUNNER_TEMP/working-drag-before.log"
+            echo 'The regression must fail on the previous drag implementation.'
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/working-drag-before.log"
+          python3 -c 'import os, pathlib; assert "AssertionError" in (pathlib.Path(os.environ["RUNNER_TEMP"]) / "working-drag-before.log").read_text()'
       - name: Check changed code
         run: vp run check:changed origin/main
       - name: Capture Working filtering and section ordering
