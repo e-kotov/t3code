@@ -711,13 +711,18 @@ const yieldToBrowserTask = Effect.callback<void>((resume) => {
   return Effect.sync(() => port1.close());
 });
 
+import { ForkCredentialCatalog } from "@t3tools/client-runtime/connection";
+import { catalogWebLock } from "./forkCatalogLock";
 export const layer = Layer.effectContext(
   Effect.gen(function* () {
     const { handle: database } = yield* Effect.acquireRelease(
       makeDatabaseHandle(),
       (owned) => owned.close,
     );
-    const catalog = yield* makeCatalogStore(makeCatalogBackend(database));
+    const catalog = yield* ForkCredentialCatalog.makeFreshCatalogStore(
+      makeCatalogStore(makeCatalogBackend(database)),
+      catalogWebLock(),
+    );
     const pullRequestRoutingPermissions = makeBrowserPullRequestRoutingPermissions();
     // Remembers each thread row's encoding, so a save only encodes rows that changed.
     const encodeStoredShellSnapshot = makeStoredShellSnapshotEncoder({
@@ -793,7 +798,7 @@ export const layer = Layer.effectContext(
     });
     const credentialStore = CredentialStore.make({
       get: (connectionId) =>
-        catalog.read.pipe(
+        catalog.readFresh.pipe(
           Effect.map((document) =>
             Option.fromUndefinedOr(
               document.credentials.find((entry) => entry.connectionId === connectionId)?.credential,
@@ -1111,6 +1116,10 @@ export const layer = Layer.effectContext(
       Context.add(Persistence.ConnectionRegistrationStore, registrationStore),
       Context.add(ProfileStore.ConnectionProfileStore, profileStore),
       Context.add(CredentialStore.ConnectionCredentialStore, credentialStore),
+      Context.add(
+        ForkCredentialCatalog.ForkCredentialSwap,
+        ForkCredentialCatalog.makeCredentialSwap(catalog),
+      ),
       Context.add(TokenStore.RemoteDpopAccessTokenStore, remoteTokenStore),
       Context.add(Persistence.EnvironmentCacheStore, cacheStore),
       Context.add(EnvironmentQueryStore, queryStore),

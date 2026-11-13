@@ -1,0 +1,148 @@
+import {
+  BearerConnectionCredential,
+  ForkCredentialCatalog,
+} from "@t3tools/client-runtime/connection";
+import {
+  ConnectionCatalogDocument,
+  EMPTY_CONNECTION_CATALOG_DOCUMENT,
+} from "@t3tools/client-runtime/platform";
+import { EnvironmentId } from "@t3tools/contracts";
+import { describe, expect, it } from "@effect/vitest";
+import * as Deferred from "effect/Deferred";
+import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
+import * as Schema from "effect/Schema";
+
+import { type LockManagerLike, withLocks } from "./forkCatalogLock";
+import { type CatalogBackend, makeCatalogStore } from "./storage";
+
+const decode = Schema.decodeUnknownSync(Schema.fromJsonString(ConnectionCatalogDocument));
+const encode = Schema.encodeSync(Schema.fromJsonString(ConnectionCatalogDocument));
+
+const withToken = (token: string): ConnectionCatalogDocument => ({
+  ...EMPTY_CONNECTION_CATALOG_DOCUMENT,
+  credentials: [
+    { connectionId: "paired-1", credential: new BearerConnectionCredential({ token }) },
+  ],
+});
+
+/** One stored catalog that every tab reads and writes, as IndexedDB or desktop storage is. */
+const sharedStorage = (initial: ConnectionCatalogDocument) => {
+  let raw = encode(initial);
+  const backend: CatalogBackend = {
+    read: Effect.sync(() => raw),
+    write: (next) =>
+      Effect.sync(() => {
+        raw = next;
+      }),
+  };
+  const tokens = () =>
+    decode(raw).credentials.map(({ connectionId, credential }) => [connectionId, credential.token]);
+  return { backend, tokens };
+};
+
+const openTab = (backend: CatalogBackend) =>
+  ForkCredentialCatalog.makeFreshCatalogStore(makeCatalogStore(backend));
+
+const tokenIn = (document: ConnectionCatalogDocument) => document.credentials[0]?.credential.token;
+const disable = (document: ConnectionCatalogDocument): ConnectionCatalogDocument => ({
+  ...document,
+  disabledEnvironmentIds: [EnvironmentId.make("environment-other")],
+});
+
+describe("ForkCredentialCatalog on web storage", () => {
+  it.effect("a tab with an old copy never writes back a token another tab replaced", () =>
+    Effect.gen(function* () {
+      const storage = sharedStorage(withToken("first"));
+      const renewing = yield* openTab(storage.backend);
+      const stale = yield* openTab(storage.backend);
+      yield* renewing.read;
+      yield* stale.read;
+
+      const swap = ForkCredentialCatalog.makeCredentialSwap(renewing);
+      expect(yield* swap.swap("paired-1", "first", "renewed")).toBe(true);
+      yield* stale.update(disable);
+      expect(storage.tokens()).toEqual([["paired-1", "renewed"]]);
+      // Its next connect reads the renewed token, without reloading.
+      expect(tokenIn(yield* stale.readFresh)).toBe("renewed");
+
+      // A credential one tab removed stays removed.
+      yield* renewing.update((document) => ({ ...document, credentials: [] }));
+      yield* stale.update(disable);
+      expect(storage.tokens()).toEqual([]);
+    }),
+  );
+
+  it.effect("a renewal never replaces a token paired again since it was read", () =>
+    Effect.gen(function* () {
+      const storage = sharedStorage(withToken("first"));
+      const renewing = yield* openTab(storage.backend);
+      const pairing = yield* openTab(storage.backend);
+      yield* renewing.read;
+      yield* pairing.update(() => withToken("paired-again"));
+      const swap = ForkCredentialCatalog.makeCredentialSwap(renewing);
+      expect(yield* swap.swap("paired-1", "first", "renewed")).toBe(false);
+      expect(storage.tokens()).toEqual([["paired-1", "paired-again"]]);
+    }),
+  );
+});
+
+/** An exclusive lock manager like the browser's, for one origin. */
+const fakeLocks = (): LockManagerLike => {
+  let held = false;
+  const waiting: Array<() => void> = [];
+  return {
+    request: (_name, options, callback) =>
+      new Promise((resolve, reject) => {
+        const grant = () => {
+          held = true;
+          void Promise.resolve(callback()).finally(() => {
+            held = false;
+            waiting.shift()?.();
+            resolve(undefined);
+          });
+        };
+        if (!held) return grant();
+        waiting.push(grant);
+        options.signal.addEventListener("abort", () => {
+          const index = waiting.indexOf(grant);
+          if (index === -1) return;
+          waiting.splice(index, 1);
+          reject(new DOMException("Aborted", "AbortError"));
+        });
+      }),
+  };
+};
+
+describe("catalog Web Lock", () => {
+  it.effect("holds one tab's rewrite until another's ends, and a gone waiter leaks nothing", () =>
+    Effect.gen(function* () {
+      const exclusive = withLocks(fakeLocks());
+      const order: Array<string> = [];
+      const gate = yield* Deferred.make<void>();
+      const section = (name: string, wait: Effect.Effect<void>) =>
+        exclusive(
+          Effect.sync(() => order.push(`${name} start`)).pipe(
+            Effect.andThen(wait),
+            Effect.andThen(Effect.sync(() => order.push(`${name} end`))),
+          ),
+        );
+      const first = yield* section("first", Deferred.await(gate)).pipe(Effect.forkChild);
+      const second = yield* section("second", Effect.void).pipe(Effect.forkChild);
+      const abandoned = yield* section("abandoned", Effect.void).pipe(Effect.forkChild);
+      yield* Fiber.interrupt(abandoned);
+      yield* Deferred.succeed(gate, undefined);
+      yield* Fiber.join(first);
+      yield* Fiber.join(second);
+      yield* section("third", Effect.void);
+      expect(order).toEqual([
+        "first start",
+        "first end",
+        "second start",
+        "second end",
+        "third start",
+        "third end",
+      ]);
+    }),
+  );
+});
