@@ -200,8 +200,9 @@ const make = Effect.gen(function* () {
         ),
       ),
     ),
-    resolve: (environmentId) =>
+    resolve: Effect.fn("ForkPeerLinkRenewal.resolve")((environmentId: EnvironmentId) =>
       links.resolve(environmentId).pipe(Effect.tap(() => afterUse(environmentId))),
+    ),
   });
 });
 
