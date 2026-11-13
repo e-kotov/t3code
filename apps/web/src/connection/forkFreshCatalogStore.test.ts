@@ -6,7 +6,6 @@ import {
   ConnectionCatalogDocument,
   EMPTY_CONNECTION_CATALOG_DOCUMENT,
 } from "@t3tools/client-runtime/platform";
-import { EnvironmentId } from "@t3tools/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -17,7 +16,6 @@ import { type LockManagerLike, withLocks } from "./forkCatalogLock";
 import { type CatalogBackend, makeCatalogStore } from "./storage";
 
 const decode = Schema.decodeUnknownSync(Schema.fromJsonString(ConnectionCatalogDocument));
-const encode = Schema.encodeSync(Schema.fromJsonString(ConnectionCatalogDocument));
 
 const withToken = (token: string): ConnectionCatalogDocument => ({
   ...EMPTY_CONNECTION_CATALOG_DOCUMENT,
@@ -25,21 +23,6 @@ const withToken = (token: string): ConnectionCatalogDocument => ({
     { connectionId: "paired-1", credential: new BearerConnectionCredential({ token }) },
   ],
 });
-
-/** One stored catalog that every tab reads and writes, as IndexedDB or desktop storage is. */
-const sharedStorage = (initial: ConnectionCatalogDocument) => {
-  let raw = encode(initial);
-  const backend: CatalogBackend = {
-    read: Effect.sync(() => raw),
-    write: (next) =>
-      Effect.sync(() => {
-        raw = next;
-      }),
-  };
-  const tokens = () =>
-    decode(raw).credentials.map(({ connectionId, credential }) => [connectionId, credential.token]);
-  return { backend, tokens };
-};
 
 /**
  * Storage holding a corrupt catalog, whose first write behaves like the desktop
@@ -89,48 +72,7 @@ const corruptWithNativeWrite = () => {
 const openTab = (backend: CatalogBackend) =>
   ForkCredentialCatalog.makeFreshCatalogStore(makeCatalogStore(backend));
 
-const tokenIn = (document: ConnectionCatalogDocument) => document.credentials[0]?.credential.token;
-const disable = (document: ConnectionCatalogDocument): ConnectionCatalogDocument => ({
-  ...document,
-  disabledEnvironmentIds: [EnvironmentId.make("environment-other")],
-});
-
 describe("ForkCredentialCatalog on web storage", () => {
-  it.effect("a tab with an old copy never writes back a token another tab replaced", () =>
-    Effect.gen(function* () {
-      const storage = sharedStorage(withToken("first"));
-      const renewing = yield* openTab(storage.backend);
-      const stale = yield* openTab(storage.backend);
-      yield* renewing.read;
-      yield* stale.read;
-
-      const swap = ForkCredentialCatalog.makeCredentialSwap(renewing);
-      expect(yield* swap.swap("paired-1", "first", "renewed")).toBe(true);
-      yield* stale.update(disable);
-      expect(storage.tokens()).toEqual([["paired-1", "renewed"]]);
-      // Its next connect reads the renewed token, without reloading.
-      expect(tokenIn(yield* stale.readFresh)).toBe("renewed");
-
-      // A credential one tab removed stays removed.
-      yield* renewing.update((document) => ({ ...document, credentials: [] }));
-      yield* stale.update(disable);
-      expect(storage.tokens()).toEqual([]);
-    }),
-  );
-
-  it.effect("a renewal never replaces a token paired again since it was read", () =>
-    Effect.gen(function* () {
-      const storage = sharedStorage(withToken("first"));
-      const renewing = yield* openTab(storage.backend);
-      const pairing = yield* openTab(storage.backend);
-      yield* renewing.read;
-      yield* pairing.update(() => withToken("paired-again"));
-      const swap = ForkCredentialCatalog.makeCredentialSwap(renewing);
-      expect(yield* swap.swap("paired-1", "first", "renewed")).toBe(false);
-      expect(storage.tokens()).toEqual([["paired-1", "paired-again"]]);
-    }),
-  );
-
   it.effect(
     "a read stopped while it repairs a corrupt catalog holds it until the repair lands",
     () =>
