@@ -1,3 +1,4 @@
+import { WorkingSectionDivider } from "./WorkingSidebarControls";
 import { CollapsibleSectionHeader } from "../ui/collapsible-section-header";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -78,6 +79,7 @@ export function SidebarSectionPlaceholder(props: {
 
 export function SidebarDragBoundary(props: {
   marker: "pinned-header" | "pinned-divider";
+  divider?: boolean;
   label: string;
   visible: boolean;
   isDropTarget: boolean;
@@ -88,6 +90,7 @@ export function SidebarDragBoundary(props: {
       data-testid={`sidebar-${props.marker}`}
       className="pointer-events-none relative mx-0.5 -mb-px h-0"
     >
+      <WorkingSectionDivider show={props.divider === true} />
       {props.visible ? (
         <div className="sidebar-drag-boundary-label absolute inset-x-2 top-1 flex h-4 items-center gap-2">
           <span
@@ -133,6 +136,7 @@ export function SidebarSectionHeader(props: {
       data-testid={`sidebar-${props.marker}`}
       className={cn("relative mx-0.5 h-8", props.className)}
     >
+      <WorkingSectionDivider show={props.marker === "working-header"} />
       <CollapsibleSectionHeader
         data-sidebar-row={`shelf:${shelf}`}
         onClick={props.toggle.onToggle}

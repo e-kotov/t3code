@@ -1,3 +1,8 @@
+import {
+  WorkingSidebarRow as ThreadListV2Row,
+  WorkingSidebarHeader as ThreadListV2WorkingShelfHeader,
+} from "../threads/WorkingSidebarRows";
+import { hasWorkingDivider } from "../threads/workingSidebarList";
 import { useContentTopInset } from "../../components/ui/useBarInset";
 import { usePaneRole } from "../../components/ui/Pane";
 import { ScreenContent } from "../../components/ui/ScreenContent";
@@ -71,11 +76,9 @@ import type { PendingNewTask } from "../../state/use-pending-new-tasks";
 import { useQueuedThreadKeys } from "../../state/use-thread-outbox";
 import {
   ThreadListV2PendingRow,
-  ThreadListV2Row,
   ThreadListV2SettledShelfHeader,
   ThreadListV2ShowMoreRow,
   ThreadListV2SnoozedShelfHeader,
-  ThreadListV2WorkingShelfHeader,
 } from "../threads/thread-list-v2-items";
 import { ConversationListHeader } from "./ConversationListHeader";
 import { useThreadRowProviderInstanceResolver } from "../threads/thread-provider-instance";
@@ -540,6 +543,7 @@ export function HomeScreen(props: HomeScreenProps) {
     const thread = item.item.thread;
     return (
       <ThreadListV2Row
+        workingDivider={hasWorkingDivider(item)}
         pane={sidebarSurface ? "sidebar" : "screen"}
         selected={scopedThreadKey(thread.environmentId, thread.id) === selectedThreadKey}
         fullSwipeWidth={fullSwipeWidth}

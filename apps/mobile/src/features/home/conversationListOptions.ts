@@ -17,16 +17,22 @@ import {
 export interface ConversationListOptions {
   readonly conversationSortOrder: SidebarConversationSortOrder;
   readonly conversationGrouping: SidebarConversationGrouping;
+  readonly workingOnly: boolean;
+  readonly workingFirst: boolean;
 }
 
 export interface ConversationListControls extends ConversationListOptions {
   readonly onConversationSortOrderChange: (value: SidebarConversationSortCriterion) => void;
   readonly onConversationGroupingChange: (value: SidebarConversationGrouping) => void;
+  readonly onWorkingOnlyChange: (value: boolean) => void;
+  readonly onWorkingFirstChange: (value: boolean) => void;
 }
 
 export const DEFAULT_CONVERSATION_LIST_OPTIONS: ConversationListOptions = {
   conversationSortOrder: "updated_at",
   conversationGrouping: "none",
+  workingOnly: false,
+  workingFirst: false,
 };
 
 const SORT_CHOICES = [
@@ -38,10 +44,18 @@ const SORT_CHOICES = [
 export function conversationListControls(
   options: ConversationListOptions,
   updateOptions: (patch: Partial<ConversationListOptions>) => void,
+  onWorkingFilterEnabled?: () => void,
 ): ConversationListControls {
   return {
     conversationSortOrder: options.conversationSortOrder,
     conversationGrouping: options.conversationGrouping,
+    workingOnly: options.workingOnly,
+    workingFirst: options.workingFirst,
+    onWorkingOnlyChange: (workingOnly) => {
+      if (workingOnly && !options.workingOnly) onWorkingFilterEnabled?.();
+      updateOptions({ workingOnly });
+    },
+    onWorkingFirstChange: (workingFirst) => updateOptions({ workingFirst }),
     onConversationSortOrderChange: (value) => {
       updateOptions({
         conversationSortOrder: selectSidebarConversationSortOrder(
@@ -59,7 +73,9 @@ export function conversationListControls(
 export function isConversationListCustomized(options: ConversationListOptions): boolean {
   return (
     options.conversationSortOrder !== DEFAULT_CONVERSATION_LIST_OPTIONS.conversationSortOrder ||
-    options.conversationGrouping !== DEFAULT_CONVERSATION_LIST_OPTIONS.conversationGrouping
+    options.conversationGrouping !== DEFAULT_CONVERSATION_LIST_OPTIONS.conversationGrouping ||
+    options.workingOnly ||
+    options.workingFirst
   );
 }
 
@@ -74,19 +90,23 @@ export function conversationChoiceActions(
   machineSummary?: string,
 ): MenuAction[] {
   if (kind === "sort") {
-    return SORT_CHOICES.map(([value, title]) => {
-      const isSelected =
-        getSidebarConversationSortCriterion(options.conversationSortOrder) === value;
-      const direction = directionLabel(
-        value as SidebarConversationSortCriterion,
-        options.conversationSortOrder,
-      );
-      return {
-        id: `sort:${value}`,
-        title: direction ? `${title} · ${direction}` : title,
-        state: isSelected ? ("on" as const) : offState,
-      };
-    });
+    return [
+      ...SORT_CHOICES.map(([value, title]) => {
+        const isSelected =
+          getSidebarConversationSortCriterion(options.conversationSortOrder) === value;
+        const direction = directionLabel(value, options.conversationSortOrder);
+        return {
+          id: `sort:${value}`,
+          title: direction ? `${title} · ${direction}` : title,
+          state: isSelected ? ("on" as const) : offState,
+        };
+      }),
+      {
+        id: "working:first",
+        title: "Working above main list",
+        state: options.workingFirst ? "on" : offState,
+      },
+    ];
   }
   const machineTitle = machineSummary ? `By machine · ${machineSummary}` : "By machine";
   return [
@@ -103,6 +123,10 @@ export function applyConversationListMenuEvent(
   event: string,
   controls: ConversationListControls,
 ): boolean {
+  if (event === "working:first") {
+    controls.onWorkingFirstChange(!controls.workingFirst);
+    return true;
+  }
   if (event.startsWith("sort:")) {
     const value = event.slice("sort:".length);
     const choice = SORT_CHOICES.find(([candidate]) => candidate === value);
@@ -128,14 +152,26 @@ export function buildConversationListFilterSubmenus(
     submenus.push({
       id: "sort",
       title: "Sort conversations",
-      items: SORT_CHOICES.map(([value, title]) => ({
-        id: `sort:${value}`,
-        title: `${title} · ${directionLabel(value, props.conversationSortOrder ?? "updated_at")}`,
-        selected:
-          getSidebarConversationSortCriterion(props.conversationSortOrder ?? "updated_at") ===
-          value,
-        onPress: () => onSortOrderChange(value),
-      })),
+      items: [
+        ...SORT_CHOICES.map(([value, title]) => ({
+          id: `sort:${value}`,
+          title: `${title} · ${directionLabel(value, props.conversationSortOrder ?? "updated_at")}`,
+          selected:
+            getSidebarConversationSortCriterion(props.conversationSortOrder ?? "updated_at") ===
+            value,
+          onPress: () => onSortOrderChange(value),
+        })),
+        ...(props.onWorkingFirstChange
+          ? [
+              {
+                id: "working:first",
+                title: "Working above main list",
+                selected: props.workingFirst ?? false,
+                onPress: () => props.onWorkingFirstChange?.(!props.workingFirst),
+              },
+            ]
+          : []),
+      ],
     });
   }
   const onGroupingChange = props.onConversationGroupingChange;
@@ -169,4 +205,23 @@ function directionLabel(
     isSidebarConversationSortReversed(order);
   if (criterion === "cache_expiry") return reversed ? "Latest first" : "Soonest first";
   return reversed ? "Oldest first" : "Newest first";
+}
+
+export type WorkingStatusFilterControls = Partial<
+  Pick<ConversationListControls, "workingOnly" | "onWorkingOnlyChange">
+>;
+
+export function workingStatusActions(controls: WorkingStatusFilterControls): MenuAction[] {
+  return controls.onWorkingOnlyChange
+    ? [{ id: "working:only", title: "Working only", state: controls.workingOnly ? "on" : "off" }]
+    : [];
+}
+
+export function applyWorkingStatusMenuEvent(
+  event: string,
+  controls: WorkingStatusFilterControls,
+): boolean {
+  if (event !== "working:only") return false;
+  controls.onWorkingOnlyChange?.(!controls.workingOnly);
+  return true;
 }

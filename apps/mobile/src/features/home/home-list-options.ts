@@ -1,3 +1,4 @@
+import { useWorkingSidebarPlacement } from "../threads/useWorkingSidebarPlacement";
 import type { EnvironmentId, SidebarProjectGroupingMode } from "@t3tools/contracts";
 import { DEFAULT_SIDEBAR_PROJECT_SORT_ORDER } from "@t3tools/contracts";
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react";
@@ -79,6 +80,8 @@ export function HomeListOptionsProvider({
 
 export function useHomeListOptions(availableEnvironmentIds: ReadonlySet<EnvironmentId>) {
   const shared = useContext(HomeListOptionsContext);
+  const { savedWorkingFirst, saveWorkingFirst } = useWorkingSidebarPlacement();
+  const savePreferences = useAtomSet(updateMobilePreferencesAtom);
   const [localOptions, setLocalOptions] = useState<HomeListOptions>(defaultHomeListOptions);
   const options = shared?.options ?? localOptions;
   const updateOptions =
@@ -95,6 +98,7 @@ export function useHomeListOptions(availableEnvironmentIds: ReadonlySet<Environm
       : { ...options, selectedEnvironmentId };
   const resolvedOptions: ResolvedHomeListOptions = {
     ...availableOptions,
+    workingFirst: savedWorkingFirst ?? availableOptions.workingFirst,
     projectGroupingMode: shared?.projectGroupingMode ?? "repository",
   };
 
@@ -112,6 +116,18 @@ export function useHomeListOptions(availableEnvironmentIds: ReadonlySet<Environm
     setSelectedEnvironmentId,
     setSelectedProjectKey,
     setProjectSortOrder,
-    conversationList: conversationListControls(resolvedOptions, updateOptions),
+    conversationList: conversationListControls(
+      resolvedOptions,
+      (patch) => {
+        updateOptions(patch);
+        if (patch.workingFirst !== undefined) saveWorkingFirst(patch.workingFirst);
+      },
+      () =>
+        savePreferences({
+          threadListWorkingShelfExpanded: true,
+          threadListSnoozedShelfExpanded: true,
+          threadListSettledShelfExpanded: true,
+        }),
+    ),
   } as const;
 }

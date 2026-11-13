@@ -1,3 +1,10 @@
+import {
+  filterWorkingThreads,
+  orderWorkingSections,
+} from "@t3tools/client-runtime/state/working-sidebar-view";
+import { useWorkingSidebarView } from "./sidebar/useWorkingSidebarView";
+import { SidebarFilterButton, WorkingOnlyFilter } from "./sidebar/WorkingSidebarControls";
+import { arrangeWorkingSidebarItems } from "./sidebar/workingSidebarOrder";
 import { showThreadCachePolicyMenu } from "./threadCachePolicyContextMenu";
 import { SidebarThreadListControls } from "./sidebar/SidebarThreadListControls";
 import { SidebarCacheWarmingToggle } from "./CacheWarmingToggle";
@@ -276,7 +283,7 @@ import {
 } from "./ui/combobox";
 import { SidebarContent, SidebarGroup, useSidebar } from "./ui/sidebar";
 import { SidebarChromeFooter, SidebarChromeHeader } from "./sidebar/SidebarChrome";
-import { SidebarHeaderIconButton, SidebarThreadHeader } from "./sidebar/SidebarThreadHeader";
+import { SidebarThreadHeader } from "./sidebar/SidebarThreadHeader";
 import { TooltipProvider } from "./ui/tooltip";
 import {
   composerDraftHasUserContent,
@@ -383,6 +390,7 @@ interface SidebarThreadPartitionInput {
   readonly connectedEnvironmentIds: readonly EnvironmentId[];
   readonly optimisticDrop: SidebarOptimisticDrop | null;
   readonly workingShelfEnabled: boolean;
+  readonly workingOnly: boolean;
   /** Boring mode: folders list active threads by the user's latest message. */
   readonly sortActiveBySend: boolean;
   // Snooze wakes, the queued-turn grace and the Working shelf's exit grace depend
@@ -467,6 +475,7 @@ function useSidebarThreads(input: {
     folderGroups,
     keepEmptyFolders: keepEmpty,
   } = input;
+  const { workingOnly, workingFirst } = useWorkingSidebarView();
   const conversationView = useSidebarConversationView(routeRowThreadKey);
   // Folders already separate the work, so boring mode has no Working shelf.
   const workingShelfEnabled =
@@ -514,6 +523,7 @@ function useSidebarThreads(input: {
     connectedEnvironmentIds,
     optimisticDrop,
     workingShelfEnabled,
+    workingOnly,
     sortActiveBySend: folderGroups !== null,
     clockKey: `${nowMinute}:${snoozeWakeClock}:${inboxReturnsVersion}`,
     conversationView,
@@ -524,13 +534,14 @@ function useSidebarThreads(input: {
   // Older settled threads load in pages; the shelf lists them only as far as they are loaded.
   const olderSettledShelf = useOlderSettledShelf({
     scopes: olderSettledScopes([...serverConfigs.keys()], scopedProjectKeys),
-    expanded: settledShelfExpanded,
+    expanded: settledShelfExpanded && !workingOnly,
     visibleCount: settledVisibleCount,
   });
   const listedSettledThreads = settledThreads.filter(olderSettledShelf.isListed);
   useOlderSettledShelfGrowth(olderSettledShelf, listedSettledThreads);
   const settledCount =
-    settledThreads.length + olderSettledShelf.unloadedCount(partition.visibleThreads);
+    settledThreads.length +
+    (workingOnly ? 0 : olderSettledShelf.unloadedCount(partition.visibleThreads));
   const visibleSettledThreads = (() => {
     const visible = listedSettledThreads.slice(0, settledVisibleCount);
     if (
@@ -575,10 +586,11 @@ function useSidebarThreads(input: {
         });
   const orderedThreads = [
     ...pinnedThreads,
-    ...(projectFolders === null
-      ? activeThreads
-      : projectFolders.flatMap((folder) => folder.threads)),
-    ...visibleWorkingThreads,
+    ...orderWorkingSections(
+      projectFolders === null ? activeThreads : projectFolders.flatMap((folder) => folder.threads),
+      visibleWorkingThreads,
+      workingFirst,
+    ),
     ...visibleSnoozedThreads,
     ...renderedSettledThreads,
   ];
@@ -653,7 +665,10 @@ function partitionSidebarThreads(input: SidebarThreadPartitionInput) {
     sortActiveBySend,
   } = input;
   const preciseNow = new Date().toISOString();
-  const visible = filterSidebarV2VisibleThreads(threads, scopedProjectKeys, delegatedUnderParent);
+  const visible = filterWorkingThreads(
+    filterSidebarV2VisibleThreads(threads, scopedProjectKeys, delegatedUnderParent),
+    input.workingOnly ?? false,
+  );
   const inboxObservation = inboxReturns.observe(workingShelfEnabled ? threads : null);
   const pinned: EnvironmentThreadShell[] = [];
   const active: EnvironmentThreadShell[] = [];
@@ -1208,6 +1223,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
             ),
           ),
         );
+  const { workingOnly, workingFirst } = useWorkingSidebarView();
   const conversationView = useSidebarConversationView(routeRowThreadKey);
   const isSearchingThreads = threadSearchQuery.trim().length > 0;
 
@@ -1309,6 +1325,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   );
   const routeDraftIdForRows = routeTarget?.kind === "draft" ? routeTarget.draftId : null;
   const visibleDraftSessionCount = useComposerDraftStore((store) => {
+    if (workingOnly) return 0;
     let count = 0;
     for (const [draftKey, session] of Object.entries(store.draftThreadsByThreadKey)) {
       if (session.promotedTo != null) {
@@ -1468,7 +1485,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         )
       : null,
     keepEmptyFolders: (group) =>
-      scopedProjectGroups.length > 0 || (group.pinned && !group.archived),
+      !workingOnly && (scopedProjectGroups.length > 0 || (group.pinned && !group.archived)),
   });
 
   // Ranked across environments as the palette ranks them, so one
@@ -2095,7 +2112,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     const settledRows = rowsOf(renderedSettledThreads, "settled");
     items.push({ kind: "marker", marker: "settled-placeholder" });
     items.push(...settledRows);
-    return items;
+    return arrangeWorkingSidebarItems(items, workingFirst);
   })();
   // Preserve the list while streamed updates leave order unchanged to retain row memoization.
   const sidebarListItemsKey = sidebarListItemsFresh
@@ -2172,6 +2189,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         });
   const sidebarSortingStrategy = createSidebarSortingStrategy({
     items: sidebarListItems,
+    workingFirst,
     enabled: !isContextDrag,
     boundaryLabelHeight: SIDEBAR_DRAG_LABEL_HEIGHT,
     settledOrder: draggedSettledOrder,
@@ -3150,7 +3168,9 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                 >
                   <ComboboxTrigger
                     render={
-                      <SidebarHeaderIconButton
+                      <SidebarFilterButton
+                        machineScoped={environmentScopeIds.length > 0}
+                        projectScoped={scopedProjectGroups.length > 0}
                         label={`Filter threads by project or machine${
                           environmentScopeIds.length > 0 || scopedProjectGroups.length > 0
                             ? `: ${[
@@ -3262,6 +3282,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                         })
                       }
                     />
+                    <WorkingOnlyFilter />
                     <ComboboxEmpty>No matching projects or machines.</ComboboxEmpty>
                     <ComboboxList aria-multiselectable>
                       {(item: (typeof projectScopeItems)[number]) => {
@@ -3501,7 +3522,9 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
             0 &&
           (settledCount === 0 || scopedProjectGroups.length > 0) ? (
             <div className="flex flex-col items-center gap-2 px-2 py-6 text-center text-xs text-muted-foreground/60">
-              {projects.length === 0 ? (
+              {workingOnly ? (
+                <span>No working threads match these filters.</span>
+              ) : projects.length === 0 ? (
                 <>
                   <span>No projects yet</span>
                   <button
@@ -3689,15 +3712,17 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                       };
                       const from = isContextDrag ? null : (dragState?.activeSection ?? null);
                       const items: ReactNode[] = [
-                        <SidebarDraftBlock
-                          key="draft-sessions"
-                          projectByKey={projectByKey}
-                          projectDisplayNameByKey={projectDisplayNameByKey}
-                          scopedProjectKeys={scopedProjectKeys}
-                          routeDraftId={routeDraftIdForRows}
-                          onNavigateToDraft={navigateToDraft}
-                          onDraftContextMenu={handleDraftContextMenu}
-                        />,
+                        workingOnly ? null : (
+                          <SidebarDraftBlock
+                            key="draft-sessions"
+                            projectByKey={projectByKey}
+                            projectDisplayNameByKey={projectDisplayNameByKey}
+                            scopedProjectKeys={scopedProjectKeys}
+                            routeDraftId={routeDraftIdForRows}
+                            onNavigateToDraft={navigateToDraft}
+                            onDraftContextMenu={handleDraftContextMenu}
+                          />
+                        ),
                       ];
                       for (const item of sidebarListItems) {
                         if (item.kind === "thread") {
@@ -3804,6 +3829,11 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                               <SidebarDragBoundary
                                 key="pinned-divider"
                                 marker="pinned-divider"
+                                divider={
+                                  workingFirst &&
+                                  workingThreads.length > 0 &&
+                                  activeThreads.length > 0
+                                }
                                 label="Active"
                                 visible={from !== null}
                                 isDropTarget={dragTargetSection === "active"}
@@ -3833,7 +3863,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                               <SidebarSectionHeader
                                 key="working-shelf-header"
                                 marker="working-header"
-                                className="mt-auto"
+                                className={workingFirst || workingOnly ? "" : "mt-auto"}
                                 label="Working"
                                 count={workingThreads.length}
                                 toggle={{

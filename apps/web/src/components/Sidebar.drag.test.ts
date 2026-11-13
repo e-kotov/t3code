@@ -120,17 +120,21 @@ describe("sidebar collision detection", () => {
   );
 
   it.each([
-    { sourceSection: "active", pins: 0 },
-    { sourceSection: "active", pins: 1 },
-    { sourceSection: "pinned", pins: 1 },
-    { sourceSection: "settled", pins: 1 },
+    { sourceSection: "active", pins: 0, workingFirst: false },
+    { sourceSection: "active", pins: 1, workingFirst: false },
+    { sourceSection: "pinned", pins: 1, workingFirst: false },
+    { sourceSection: "settled", pins: 1, workingFirst: false },
+    { sourceSection: "active", pins: 1, workingFirst: true },
+    { sourceSection: "pinned", pins: 1, workingFirst: true },
+    { sourceSection: "settled", pins: 1, workingFirst: true },
   ] as const)(
-    "switches on crossing the divider row from $sourceSection with $pins pins",
-    ({ sourceSection, pins }) => {
+    "switches on crossing the divider row from $sourceSection with $pins pins (Working first: $workingFirst)",
+    ({ sourceSection, pins, workingFirst }) => {
       const items = [
         pinnedHeader,
         ...(pins ? [thread("p", "pinned")] : []),
         ...(sourceSection === "pinned" ? [thread("source", "pinned")] : []),
+        ...(workingFirst ? [marker("working-header"), thread("w", "working")] : []),
         divider,
         thread("a", "active"),
         ...(sourceSection === "active" ? [thread("source", "active")] : []),
@@ -181,9 +185,11 @@ describe("sidebar collision detection", () => {
               current:
                 item === divider
                   ? boundaryNode
-                  : item === settledHeader
-                    ? ({ getBoundingClientRect: () => ({ top: 600 }) } as unknown as HTMLElement)
-                    : null,
+                  : item.kind === "marker" && item.marker === "working-header"
+                    ? ({ getBoundingClientRect: () => ({ top: 100 }) } as unknown as HTMLElement)
+                    : item === settledHeader
+                      ? ({ getBoundingClientRect: () => ({ top: 600 }) } as unknown as HTMLElement)
+                      : null,
             },
             rect: { current: rects[index]! },
           })),
@@ -528,6 +534,35 @@ describe("sidebar drag projection", () => {
     expect(byTime.get("a2")?.y).toBe(-83);
     expect(byTime.get(sidebarMarkerId("working-header"))).toEqual(stationary);
     expect(byTime.get("w")).toEqual(stationary);
+  });
+
+  it.each(["p", "a1", "s"])("keeps Working first while %s is dragged into Main", (source) => {
+    const items = [
+      pinnedHeader,
+      thread("p", "pinned"),
+      marker("working-header"),
+      thread("w", "working"),
+      divider,
+      thread("a1", "active"),
+      thread("a2", "active"),
+      settledHeader,
+      thread("s", "settled"),
+    ];
+    const result = preview(
+      { items, workingFirst: true, settledOrder: ["s"], settledExpanded: true },
+      source,
+      "a2",
+    );
+    const { rects } = layout(items, source, "a2");
+    const top = (key: string) => {
+      const index = items.findIndex((item) => sidebarListItemId(item) === key);
+      return rects[index]!.top + result.get(key)!.y;
+    };
+    expect(top(sidebarMarkerId("working-header"))).toBeLessThan(
+      top(sidebarMarkerId("pinned-divider")),
+    );
+    expect(top("w")).toBeLessThan(top("a1"));
+    expect(top("w")).toBeLessThan(top("a2"));
   });
 
   it("updates the projection when the target or measured geometry changes", () => {

@@ -1,3 +1,8 @@
+import {
+  workingStatusActions,
+  applyWorkingStatusMenuEvent,
+  type WorkingStatusFilterControls,
+} from "./conversationListOptions";
 import type { ReactNode } from "react";
 import { Pressable, ScrollView } from "react-native";
 import { SymbolView } from "../../components/ui/AppSymbol";
@@ -13,17 +18,19 @@ import {
 } from "./machineFilterPresentation";
 import { formatFilterOptionTitle, formatFilterOptionSubtitle } from "./mobileNonSettledCounts";
 
-export function ThreadListFilters(props: {
-  readonly environments: ReadonlyArray<HomeListFilterMenuEnvironment>;
-  readonly projects: ReadonlyArray<HomeListFilterMenuProject>;
-  readonly selectedEnvironmentId: EnvironmentId | null;
-  readonly selectedProjectKey: string | null;
-  readonly onEnvironmentChange: (environmentId: EnvironmentId | null) => void;
-  readonly onProjectChange: (projectKey: string | null) => void;
-  /** List padding the scroller bleeds through so pills start where row content does. */
-  readonly gutter: number;
-  readonly children?: ReactNode;
-}) {
+export function ThreadListFilters(
+  props: {
+    readonly environments: ReadonlyArray<HomeListFilterMenuEnvironment>;
+    readonly projects: ReadonlyArray<HomeListFilterMenuProject>;
+    readonly selectedEnvironmentId: EnvironmentId | null;
+    readonly selectedProjectKey: string | null;
+    readonly onEnvironmentChange: (environmentId: EnvironmentId | null) => void;
+    readonly onProjectChange: (projectKey: string | null) => void;
+    /** List padding the scroller bleeds through so pills start where row content does. */
+    readonly gutter: number;
+    readonly children?: ReactNode;
+  } & WorkingStatusFilterControls,
+) {
   const selectedEnvironment = props.environments.find(
     (environment) => environment.environmentId === props.selectedEnvironmentId,
   );
@@ -40,7 +47,7 @@ export function ThreadListFilters(props: {
       <ListFilterMenu
         label={selectedEnvironment?.label ?? "All environments"}
         accessibilityLabel="Filter threads by environment"
-        active={selectedEnvironment !== undefined}
+        active={selectedEnvironment !== undefined || props.workingOnly === true}
         actions={[
           {
             id: "all",
@@ -55,8 +62,10 @@ export function ThreadListFilters(props: {
                 ? ("on" as const)
                 : ("off" as const),
           })),
+          ...workingStatusActions(props),
         ]}
         onSelect={(id) => {
+          if (applyWorkingStatusMenuEvent(id, props)) return;
           if (id === "all") props.onEnvironmentChange(null);
           else {
             const environment = props.environments.find(
