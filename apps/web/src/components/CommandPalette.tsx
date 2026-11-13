@@ -582,20 +582,20 @@ function OpenCommandPaletteDialog(props: {
 
   const addProjectEnvironmentOptions = (() => {
     const options = environments.map((environment): AddProjectEnvironmentOption => {
-        const isPrimary = environment.entry.target._tag === "PrimaryConnectionTarget";
-        return {
-          environmentId: environment.environmentId,
-          label: resolveEnvironmentOptionLabel({
-            isPrimary,
-            environmentId: environment.environmentId,
-            runtimeLabel: environment.label,
-          }),
+      const isPrimary = environment.entry.target._tag === "PrimaryConnectionTarget";
+      return {
+        environmentId: environment.environmentId,
+        label: resolveEnvironmentOptionLabel({
           isPrimary,
-          machine: resolveEnvironmentMachineKind(environment.serverConfig),
-          isConnected: canCreateProjectInEnvironment(environment.connection.phase),
-          status: connectionStatusText(environment.connection),
-        };
-      });
+          environmentId: environment.environmentId,
+          runtimeLabel: environment.label,
+        }),
+        isPrimary,
+        machine: resolveEnvironmentMachineKind(environment.serverConfig),
+        isConnected: canCreateProjectInEnvironment(environment.connection.phase),
+        status: connectionStatusText(environment.connection),
+      };
+    });
 
     options.sort((left, right) => {
       if (left.isPrimary !== right.isPrimary) {

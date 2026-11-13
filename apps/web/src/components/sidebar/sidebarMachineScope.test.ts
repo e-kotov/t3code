@@ -17,7 +17,9 @@ const refs = [mac, gwdg, hub].map((environmentId) => ({ environmentId, projectId
 describe("machine filter persistence", () => {
   it("restores old single-machine selections and multiple-machine selections", () => {
     for (const scope of [null, "gwdg", ["mac", "gwdg"]]) {
-      const restored = parsePersistedState(JSON.parse(JSON.stringify({ sidebarEnvironmentScopeId: scope })));
+      const restored = parsePersistedState(
+        JSON.parse(JSON.stringify({ sidebarEnvironmentScopeId: scope })),
+      );
       expect(restored.sidebarEnvironmentScopeId).toEqual(scope);
     }
     expect(normalizeSidebarMachineScope([" mac ", "mac", "", 4, "gwdg"])).toEqual(["mac", "gwdg"]);
@@ -30,7 +32,13 @@ describe("machine and project scope intersection", () => {
     expect(scopeSidebarProjectKeysToEnvironments(null, [mac, gwdg], refs)).toEqual(
       new Set(["mac:shared-project", "gwdg:shared-project"]),
     );
-    expect(scopeSidebarProjectKeysToEnvironments(new Set(["gwdg:shared-project", "hub:shared-project"]), [mac, gwdg], refs)).toEqual(new Set(["gwdg:shared-project"]));
+    expect(
+      scopeSidebarProjectKeysToEnvironments(
+        new Set(["gwdg:shared-project", "hub:shared-project"]),
+        [mac, gwdg],
+        refs,
+      ),
+    ).toEqual(new Set(["gwdg:shared-project"]));
     expect(scopeSidebarProjectKeysToEnvironments(null, [], refs)).toBeNull();
     expect(scopeSidebarProjectKeysToEnvironments(new Set(), [mac, gwdg], refs)).toEqual(new Set());
   });

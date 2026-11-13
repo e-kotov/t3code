@@ -68,7 +68,12 @@ import {
 } from "./sidebar/sidebarNonSettledCounts";
 import { MachineGroupSlurmTime } from "./MachineGroupSlurmTime";
 import { MachineGroupConnectionStatus } from "./MachineGroupConnectionStatus";
-import { sidebarMachineScopeIds, sidebarMachineScopeIncludes, scopeSidebarProjectKeysToEnvironments, toggleSidebarMachineScope } from "./sidebar/sidebarMachineScope";
+import {
+  sidebarMachineScopeIds,
+  sidebarMachineScopeIncludes,
+  scopeSidebarProjectKeysToEnvironments,
+  toggleSidebarMachineScope,
+} from "./sidebar/sidebarMachineScope";
 import {
   parseScopedThreadKey,
   scopeProjectRef,
@@ -1059,11 +1064,13 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   );
   const setProjectExpanded = useUiStateStore((store) => store.setProjectExpanded);
   const chosenEnvironmentScopes = lookupProjectScopeItems.filter(
-    (item) => item.kind === "machine" && item.environmentId !== null &&
+    (item) =>
+      item.kind === "machine" &&
+      item.environmentId !== null &&
       sidebarMachineScopeIds(persistedEnvironmentScopeId).includes(item.environmentId),
   );
-  const chosenEnvironmentIds = chosenEnvironmentScopes.flatMap(
-    (item) => item.kind === "machine" && item.environmentId !== null ? [item.environmentId] : [],
+  const chosenEnvironmentIds = chosenEnvironmentScopes.flatMap((item) =>
+    item.kind === "machine" && item.environmentId !== null ? [item.environmentId] : [],
   );
   const [projectScopeMenuState, dispatchProjectScopeMenu] = useReducer(
     reduceSidebarProjectScopeMenuState,
@@ -1136,7 +1143,9 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     setPersistedProjectScopeKeys(keys);
     scrollSidebarToTop(sidebarContentRef.current);
   };
-  const setEnvironmentScopeId = (environmentId: EnvironmentId | readonly EnvironmentId[] | null) => {
+  const setEnvironmentScopeId = (
+    environmentId: EnvironmentId | readonly EnvironmentId[] | null,
+  ) => {
     clearSelection();
     setPersistedEnvironmentScopeId(environmentId);
     scrollSidebarToTop(sidebarContentRef.current);
@@ -1216,7 +1225,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   const projectScopeKeys = revealWidensScope ? [] : chosenProjectScopeKeys;
   const environmentScopeIds = revealWidensScope ? [] : chosenEnvironmentIds;
   const environmentScopeId = environmentScopeIds.length === 1 ? environmentScopeIds[0]! : null;
-  const includesEnvironment = (id: EnvironmentId) => sidebarMachineScopeIncludes(environmentScopeIds, id);
+  const includesEnvironment = (id: EnvironmentId) =>
+    sidebarMachineScopeIncludes(environmentScopeIds, id);
   const toggleEnvironmentScopeId = (id: EnvironmentId) =>
     setEnvironmentScopeId(toggleSidebarMachineScope(environmentScopeIds, id));
   const projectScopeKey =
@@ -1286,8 +1296,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     .flatMap((project) => project.memberProjectRefs)
     .filter((ref) => includesEnvironment(ref.environmentId));
   const scopedProjectKeys = revealWidensScope ? null : chosenScopeProjectKeys;
-  const scopedEnvironmentIds = connectedEnvironmentIds.filter(
-    (environmentId) => includesEnvironment(environmentId),
+  const scopedEnvironmentIds = connectedEnvironmentIds.filter((environmentId) =>
+    includesEnvironment(environmentId),
   );
   const threadSearch = useThreadSearch(
     scopedEnvironmentIds,
@@ -1355,7 +1365,9 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   const startThreadInProjectFolder = useStableCallback((group: SidebarProjectSnapshot) => {
     if (isMobile) setOpenMobile(false);
     const project =
-      (environmentScopeIds.length > 0 ? group.memberProjects.find((member) => includesEnvironment(member.environmentId)) : null) ?? group;
+      (environmentScopeIds.length > 0
+        ? group.memberProjects.find((member) => includesEnvironment(member.environmentId))
+        : null) ?? group;
     void handleNewThread(scopeProjectRef(project.environmentId, project.id));
   });
   const handleProjectFolderContextMenu = useStableCallback(
@@ -1450,9 +1462,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
           ? // An archived project keeps a folder for its active threads, below the rest.
             [...scopeGroups, ...projectGroups.filter((project) => project.archived)]
           : scopedProjectGroups
-        ).filter(
-          (group) =>
-            group.memberProjectRefs.some((ref) => includesEnvironment(ref.environmentId)),
+        ).filter((group) =>
+          group.memberProjectRefs.some((ref) => includesEnvironment(ref.environmentId)),
         )
       : null,
     keepEmptyFolders: (group) =>
@@ -3111,7 +3122,11 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                     }
                     if (!item) return;
                     if (item.kind === "machine") {
-                      if (item.environmentId !== null && eventDetails.event instanceof MouseEvent && eventDetails.event.shiftKey) {
+                      if (
+                        item.environmentId !== null &&
+                        eventDetails.event instanceof MouseEvent &&
+                        eventDetails.event.shiftKey
+                      ) {
                         eventDetails.cancel();
                         toggleEnvironmentScopeId(item.environmentId);
                       } else {
@@ -3137,7 +3152,14 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                         label={`Filter threads by project or machine${
                           environmentScopeIds.length > 0 || scopedProjectGroups.length > 0
                             ? `: ${[
-                                ...chosenEnvironmentScopes.filter((item) => item.kind === "machine" && item.environmentId !== null && environmentScopeIds.includes(item.environmentId)).map((item) => item.label),
+                                ...chosenEnvironmentScopes
+                                  .filter(
+                                    (item) =>
+                                      item.kind === "machine" &&
+                                      item.environmentId !== null &&
+                                      environmentScopeIds.includes(item.environmentId),
+                                  )
+                                  .map((item) => item.label),
                                 ...scopedProjectGroups.map((project) => project.displayName),
                               ]
                                 .filter(Boolean)
@@ -3209,10 +3231,17 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                         }
                         if (event.ctrlKey || event.altKey || event.metaKey) return;
                         if (event.shiftKey && event.key === "Enter") {
-                          const machine = projectScopeItems.find((item) => item.value === scopeKey && item.kind === "machine");
-                          if (!project && !(machine?.kind === "machine" && machine.environmentId !== null)) return;
+                          const machine = projectScopeItems.find(
+                            (item) => item.value === scopeKey && item.kind === "machine",
+                          );
+                          if (
+                            !project &&
+                            !(machine?.kind === "machine" && machine.environmentId !== null)
+                          )
+                            return;
                           event.preventDefault();
-                          if (machine?.kind === "machine" && machine.environmentId !== null) toggleEnvironmentScopeId(machine.environmentId);
+                          if (machine?.kind === "machine" && machine.environmentId !== null)
+                            toggleEnvironmentScopeId(machine.environmentId);
                           else if (project) toggleProjectScopeKey(project.projectKey);
                           return;
                         }
@@ -3240,7 +3269,9 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                             : null;
                         const isSelected =
                           item.kind === "machine"
-                            ? item.environmentId === null ? environmentScopeIds.length === 0 : environmentScopeIds.includes(item.environmentId)
+                            ? item.environmentId === null
+                              ? environmentScopeIds.length === 0
+                              : environmentScopeIds.includes(item.environmentId)
                             : project
                               ? projectScopeKeys.includes(item.value)
                               : projectScopeKeys.length === 0;
@@ -3290,7 +3321,9 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                                 )}
                               </ProjectScopeRowIcon>
                               <span className="min-w-0 truncate text-sm">{item.label}</span>
-                              {item.kind === "machine" && item.environmentId ? <MachineGroupConnectionStatus environmentId={item.environmentId} /> : null}
+                              {item.kind === "machine" && item.environmentId ? (
+                                <MachineGroupConnectionStatus environmentId={item.environmentId} />
+                              ) : null}
                               {item.kind === "machine" && item.environmentId ? (
                                 <MachineGroupSlurmTime
                                   environmentId={item.environmentId}

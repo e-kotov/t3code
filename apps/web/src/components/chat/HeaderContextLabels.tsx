@@ -42,7 +42,8 @@ export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedTh
   const { presentation } = useEnvironmentPresentation(threadRef.environmentId);
   const { startScratchThread } = useScratchProject();
   const navigate = useNavigate();
-  const canInspectConnection = presentation !== null && presentation.connection.phase !== "connected";
+  const canInspectConnection =
+    presentation !== null && presentation.connection.phase !== "connected";
   if (!presentation) return null;
   const label = presentation.entry.target.label;
   const status = connectionStatusText(presentation.connection);
@@ -66,7 +67,11 @@ export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedTh
                   canStartThread
                     ? () => void startScratchThread(threadRef.environmentId)
                     : canInspectConnection
-                      ? () => void navigate({ to: "/settings/connections", search: { machine: threadRef.environmentId } })
+                      ? () =>
+                          void navigate({
+                            to: "/settings/connections",
+                            search: { machine: threadRef.environmentId },
+                          })
                       : undefined
                 }
                 className={cn(
@@ -89,7 +94,11 @@ export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedTh
           </TooltipTrigger>
           <TooltipPopup>
             {label}: {status}
-            {canStartThread ? <div>New thread on {label}</div> : canInspectConnection ? <div>Open connection settings for {label}</div> : null}
+            {canStartThread ? (
+              <div>New thread on {label}</div>
+            ) : canInspectConnection ? (
+              <div>Open connection settings for {label}</div>
+            ) : null}
           </TooltipPopup>
         </Tooltip>
         <MachineGroupSlurmTime

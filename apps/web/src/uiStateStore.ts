@@ -2,7 +2,10 @@ import { Debouncer } from "@tanstack/react-pacer";
 import { PullRequestMergeMethod } from "@t3tools/contracts";
 import * as Schema from "effect/Schema";
 import { create } from "zustand";
-import { normalizeSidebarMachineScope, type SidebarMachineScope } from "./components/sidebar/sidebarMachineScope";
+import {
+  normalizeSidebarMachineScope,
+  type SidebarMachineScope,
+} from "./components/sidebar/sidebarMachineScope";
 import { normalizeProjectPathForComparison } from "@t3tools/client-runtime/state/projects";
 
 export const PERSISTED_STATE_KEY = "t3code:ui-state:v1";
