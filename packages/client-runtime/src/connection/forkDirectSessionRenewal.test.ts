@@ -2,11 +2,16 @@ import { EnvironmentId } from "@t3tools/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Queue from "effect/Queue";
 import * as Ref from "effect/Ref";
+import * as Stream from "effect/Stream";
+import * as SubscriptionRef from "effect/SubscriptionRef";
+import * as TestClock from "effect/testing/TestClock";
 import {
   HttpClient,
   HttpClientError,
@@ -19,15 +24,24 @@ import {
   BearerConnectionProfile,
   type ConnectionRoute,
 } from "./catalog.ts";
+import * as RemoteEnvironmentAuthorization from "../authorization/service.ts";
+import type { WsRpcProtocolClient } from "../rpc/protocol.ts";
+import * as RpcSession from "../rpc/session.ts";
+import * as Connectivity from "./connectivity.ts";
 import * as ConnectionCredentialStore from "./credentialStore.ts";
+import * as ConnectionDriver from "./driver.ts";
 import { ForkCredentialSwap } from "./forkCredentialCatalog.ts";
 import * as ForkDirectSessionRenewal from "./forkDirectSessionRenewal.ts";
 import {
   BearerConnectionTarget,
+  type NetworkStatus,
   type PreparedConnection,
   RelayConnectionTarget,
   SshConnectionTarget,
 } from "./model.ts";
+import * as ConnectionResolver from "./resolver.ts";
+import * as EnvironmentSupervisor from "./supervisor.ts";
+import * as ConnectionWakeups from "./wakeups.ts";
 
 const environmentId = EnvironmentId.make("environment-host");
 const otherEnvironmentId = EnvironmentId.make("environment-other");
@@ -173,6 +187,7 @@ const setup = (stored: Record<string, string>, responder: Responder) =>
     const tokens = yield* Ref.make(new Map(Object.entries(stored)));
     const respond = yield* Ref.make(responder);
     const requests = yield* Queue.unbounded<{ readonly url: string; readonly token: string }>();
+    const swaps = yield* Queue.unbounded<boolean>();
     const client = HttpClient.make((request) =>
       Queue.offer(requests, {
         url: request.url,
@@ -207,19 +222,28 @@ const setup = (stored: Record<string, string>, responder: Responder) =>
           map.get(connectionId) === expected
             ? [true, new Map(map).set(connectionId, next)]
             : [false, map],
-        ),
+        ).pipe(Effect.tap((swapped) => Queue.offer(swaps, swapped))),
     });
+    const stores = Context.make(
+      ConnectionCredentialStore.ConnectionCredentialStore,
+      credentials,
+    ).pipe(Context.add(ForkCredentialSwap, swap));
     const renewal = yield* ForkDirectSessionRenewal.make(client).pipe(
-      Effect.provideContext(
-        Context.make(ConnectionCredentialStore.ConnectionCredentialStore, credentials).pipe(
-          Context.add(ForkCredentialSwap, swap),
-        ),
-      ),
+      Effect.provideContext(stores),
     );
     const sent = Queue.clear(requests).pipe(
       Effect.map((all) => all.map((request) => request.token)),
     );
-    return { renewal, tokens, respond, requests, sent };
+    return { renewal, tokens, respond, requests, swaps, sent, client, stores };
+  });
+
+const descriptorOf = (answering: EnvironmentId) =>
+  json(200, {
+    environmentId: answering,
+    label: "Host",
+    platform: { os: "linux", arch: "x64" },
+    serverVersion: "0.0.0-test",
+    capabilities: { repositoryIdentity: true },
   });
 
 const paired = bearerRoute("paired-1", "https://host.example/");
@@ -334,14 +358,6 @@ describe("ForkDirectSessionRenewal", () => {
 
   it.effect("checks who answers at an address that can change hands before sending it", () =>
     Effect.gen(function* () {
-      const descriptorOf = (answering: EnvironmentId) =>
-        json(200, {
-          environmentId: answering,
-          label: "Host",
-          platform: { os: "linux", arch: "x64" },
-          serverVersion: "0.0.0-test",
-          capabilities: { repositoryIdentity: true },
-        });
       const tailnet = bearerRoute("paired-1", "http://host.tail1234.ts.net:3773/");
       const tailnetLease = preparedFor(tailnet, "http://host.tail1234.ts.net:3773/");
       const host = yield* setup({ "paired-1": "old" }, (request) =>
@@ -376,5 +392,223 @@ describe("ForkDirectSessionRenewal", () => {
       expect(yield* host.sent).toEqual([]);
       expect((yield* Ref.get(host.tokens)).get("paired-1")).toBe("new");
     }),
+  );
+});
+
+const notDue = json(200, {
+  status: "unchanged",
+  reason: "not_due",
+  environmentId,
+  expiresAt: "2026-12-13T00:00:00.000Z",
+  expiresIn: 2_592_000,
+});
+
+const bearerOf = (prepared: Option.Option<PreparedConnection>) =>
+  Option.flatMap(prepared, (value) =>
+    value.httpAuthorization?._tag === "Bearer"
+      ? Option.some(value.httpAuthorization.token)
+      : Option.none(),
+  );
+
+type Host = Effect.Success<ReturnType<typeof setup>>;
+
+/** A host that answers its public descriptor as itself, and renewals with `renewal`. */
+const asItself =
+  (renewal: Responder): Responder =>
+  (request) =>
+    request.url.includes("/.well-known/") ? descriptorOf(environmentId)(request) : renewal(request);
+
+/** The tokens renewal requests carried, leaving out the descriptor checks before some. */
+const renewalsSent = (host: Host) =>
+  Queue.clear(host.requests).pipe(
+    Effect.map((all) =>
+      all
+        .filter((request) => !request.url.includes("/.well-known/"))
+        .map((request) => request.token),
+    ),
+  );
+
+/**
+ * The real driver and supervisor over `setup`'s host, as a client runs them:
+ * each connection presents the token stored for the route when it connects.
+ */
+const connectThrough = Effect.fn("test.connectThrough")(function* (
+  host: Host,
+  route: ConnectionRoute,
+  httpBaseUrl: string,
+  credentialId: string,
+) {
+  const sessions = yield* Ref.make(0);
+  const session: RpcSession.RpcSession = {
+    client: {} as WsRpcProtocolClient,
+    initialConfig: Effect.never,
+    subscribeServerConfig: () => Stream.never,
+    ready: Effect.void,
+    probe: Effect.void,
+    inboundFrames: Effect.succeed(0),
+    closed: Effect.never,
+  };
+  const driver = yield* ConnectionDriver.make.pipe(
+    Effect.provide(
+      Layer.mergeAll(
+        Layer.mock(ConnectionResolver.ConnectionResolver)({
+          prepare: () =>
+            Ref.get(host.tokens).pipe(
+              Effect.map((map) =>
+                preparedFor(route, httpBaseUrl, {
+                  _tag: "Bearer",
+                  token: map.get(credentialId) ?? "",
+                }),
+              ),
+            ),
+        }),
+        Layer.mock(RpcSession.RpcSessionFactory)({
+          connect: () => Ref.update(sessions, (count) => count + 1).pipe(Effect.as(session)),
+        }),
+        Layer.mock(RemoteEnvironmentAuthorization.RemoteEnvironmentAuthorization)({}),
+        Layer.succeed(HttpClient.HttpClient, host.client),
+      ),
+    ),
+    Effect.provideContext(host.stores),
+  );
+  const supervisor = yield* EnvironmentSupervisor.make({
+    target: route.target,
+    profile: route.profile,
+    enabled: true,
+  }).pipe(
+    Effect.provide(
+      Layer.mergeAll(
+        Layer.succeed(ConnectionDriver.ConnectionDriver, driver),
+        Layer.succeed(
+          Connectivity.Connectivity,
+          Connectivity.Connectivity.of({
+            status: Effect.succeed<NetworkStatus>("online"),
+            changes: Stream.never,
+          }),
+        ),
+        Layer.succeed(
+          ConnectionWakeups.ConnectionWakeups,
+          ConnectionWakeups.ConnectionWakeups.of({ changes: Stream.never }),
+        ),
+      ),
+    ),
+  );
+  // Every bearer the connection's HTTP requests would present, in order, up to `last`.
+  const presentedUntil = Effect.fnUntraced(function* (last: string) {
+    const subscribed = yield* Deferred.make<void>();
+    const presented = yield* SubscriptionRef.changes(supervisor.prepared).pipe(
+      Stream.tap(() => Deferred.succeed(subscribed, undefined)),
+      Stream.map((prepared) => Option.getOrUndefined(bearerOf(prepared))),
+      Stream.filter((token): token is string => token !== undefined),
+      Stream.changes,
+      Stream.takeUntil((token) => token === last),
+      Stream.runCollect,
+      Effect.forkScoped,
+    );
+    yield* Deferred.await(subscribed);
+    return presented;
+  });
+  const connected = SubscriptionRef.changes(supervisor.state).pipe(
+    Stream.filter((state) => state.phase === "connected"),
+    Stream.runHead,
+  );
+  return { supervisor, sessions, presentedUntil, connected };
+});
+
+describe("a connected lease's HTTP credential", () => {
+  it.effect.each([
+    {
+      name: "a paired address",
+      route: paired,
+      httpBaseUrl: "https://host.example/",
+      credentialId: "paired-1",
+    },
+    {
+      name: "a learned route",
+      route: bearerRoute(
+        "learned:environment-host:https://other.example@paired-1",
+        "https://other.example/",
+      ),
+      httpBaseUrl: "https://other.example/",
+      credentialId: "paired-1",
+    },
+    {
+      name: "an SSH pairing",
+      route: sshRoute,
+      httpBaseUrl: "http://127.0.0.1:41234/",
+      credentialId: "ssh-1",
+    },
+  ])("follows each renewal on $name without reconnecting", ({ route, httpBaseUrl, credentialId }) =>
+    Effect.gen(function* () {
+      const host = yield* setup({ [credentialId]: "old" }, asItself(renewedTo("new")));
+      const connection = yield* connectThrough(host, route, httpBaseUrl, credentialId);
+      const presented = yield* connection.presentedUntil("newer");
+      yield* connection.supervisor.connect;
+      yield* connection.connected;
+      expect(yield* Queue.take(host.swaps)).toBe(true);
+
+      yield* Ref.set(host.respond, asItself(renewedTo("newer")));
+      // Well past the first token's own expiry in a short window, still on the same socket.
+      yield* TestClock.adjust(Duration.hours(6));
+      expect(yield* Fiber.join(presented)).toEqual(["old", "new", "newer"]);
+      expect(yield* renewalsSent(host)).toEqual(["old", "new"]);
+      expect((yield* Ref.get(host.tokens)).get(credentialId)).toBe("newer");
+      expect(yield* Ref.get(connection.sessions)).toBe(1);
+      expect((yield* SubscriptionRef.get(connection.supervisor.state)).phase).toBe("connected");
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("never presents a discarded renewal, and takes up a token renewed elsewhere", () =>
+    Effect.gen(function* () {
+      const host = yield* setup({ "paired-1": "old" }, renewedTo("new"));
+      // Another window pairs again while this renewal is in flight, so its token is discarded.
+      yield* Ref.set(host.respond, (request) =>
+        Ref.update(host.tokens, (map) => new Map(map).set("paired-1", "paired-again")).pipe(
+          Effect.andThen(renewedTo("discarded")(request)),
+        ),
+      );
+      const connection = yield* connectThrough(host, paired, "https://host.example/", "paired-1");
+      const presented = yield* connection.presentedUntil("paired-again");
+      yield* connection.supervisor.connect;
+      yield* connection.connected;
+      expect(yield* Queue.take(host.swaps)).toBe(false);
+
+      // This host still accepts the newer token; the live connection moves to it.
+      yield* Ref.set(host.respond, notDue);
+      yield* TestClock.adjust(Duration.hours(6));
+      expect(yield* Fiber.join(presented)).toEqual(["old", "paired-again"]);
+      expect(yield* host.sent).toEqual(["old", "paired-again"]);
+      expect((yield* Ref.get(host.tokens)).get("paired-1")).toBe("paired-again");
+      expect(yield* Ref.get(connection.sessions)).toBe(1);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect(
+    "takes a renewal finished before the connection, and yields to any other credential",
+    () =>
+      Effect.gen(function* () {
+        const lease = preparedFor(paired, "https://host.example/");
+        const bearer = yield* SubscriptionRef.make("old");
+        const connected = yield* SubscriptionRef.make(Option.some(lease));
+        // Renewed before the supervisor started following this lease.
+        yield* SubscriptionRef.set(bearer, "new");
+        const following = yield* ForkDirectSessionRenewal.followRenewedBearer(
+          { prepared: lease, forkRenewedBearer: bearer },
+          connected,
+        );
+        yield* SubscriptionRef.changes(connected).pipe(
+          Stream.filter((current) => Option.getOrUndefined(bearerOf(current)) === "new"),
+          Stream.runHead,
+        );
+
+        // Settings stored a newer credential for the live connection, as a desktop backend's does.
+        const replaced = Option.some(
+          preparedFor(paired, "https://host.example/", { _tag: "Bearer", token: "replaced" }),
+        );
+        yield* SubscriptionRef.set(connected, replaced);
+        yield* SubscriptionRef.set(bearer, "renewed-later");
+        yield* Fiber.join(following);
+        expect(yield* SubscriptionRef.get(connected)).toBe(replaced);
+      }).pipe(Effect.scoped),
   );
 });

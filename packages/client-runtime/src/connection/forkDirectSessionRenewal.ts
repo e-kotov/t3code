@@ -4,6 +4,8 @@ import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import * as Stream from "effect/Stream";
+import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
@@ -73,6 +75,44 @@ export const renewsOverProtectedTransport = (
 
 type Tick = "again" | "stop";
 
+/** The bearer a live lease's HTTP requests present, advanced as renewal proves a newer one. */
+export type RenewedBearer = SubscriptionRef.SubscriptionRef<string>;
+/** Whether to keep following, and the connection to show next if it changes. */
+type FollowStep = readonly [boolean, Option.Option<Option.Option<PreparedConnection>>];
+
+/**
+ * Keeps a connected environment's HTTP credential on the token its lease's
+ * renewal proved, without reconnecting. It stops for good once the connection
+ * shows any other credential, so a newer one set elsewhere always wins.
+ * Runs in the background for the caller's scope: the connection attempt's.
+ */
+export const followRenewedBearer = Effect.fn("ForkDirectSessionRenewal.followRenewedBearer")(
+  function* (
+    lease: {
+      readonly prepared: PreparedConnection;
+      readonly forkRenewedBearer?: RenewedBearer | undefined;
+    },
+    connected: SubscriptionRef.SubscriptionRef<Option.Option<PreparedConnection>>,
+  ) {
+    const bearer = lease.forkRenewedBearer;
+    let own = lease.prepared;
+    const follow = (renewed: RenewedBearer) =>
+      SubscriptionRef.changes(renewed).pipe(
+        Stream.runForEachWhile((token) =>
+          SubscriptionRef.modifySome(connected, (current): FollowStep => {
+            if (Option.isNone(current) || current.value !== own) return [false, Option.none()];
+            if (own.httpAuthorization?._tag !== "Bearer" || own.httpAuthorization.token === token) {
+              return [true, Option.none()];
+            }
+            own = { ...own, httpAuthorization: { _tag: "Bearer", token } };
+            return [true, Option.some(Option.some(own))];
+          }),
+        ),
+      );
+    return yield* (bearer === undefined ? Effect.void : follow(bearer)).pipe(Effect.forkScoped);
+  },
+);
+
 /**
  * Fork: keeps a connected direct pairing renewed. The host extends the same
  * session and returns a token with a later expiry; it is stored only where the
@@ -99,7 +139,11 @@ export const make = Effect.fn("ForkDirectSessionRenewal.make")(function* (
     credentialId: string,
     route: ConnectionRoute,
     prepared: PreparedConnection,
+    bearer: RenewedBearer | undefined,
   ) {
+    // The lease presents only a token its own host accepted or issued and this runtime kept.
+    const present = (accepted: string) =>
+      bearer === undefined ? Effect.void : SubscriptionRef.set(bearer, accepted);
     // Read fresh, so a token renewed or paired again since the lease started is the one sent.
     const stored = Option.getOrUndefined(yield* store.get(credentialId));
     if (stored?._tag !== "BearerConnectionCredential") return "stop" satisfies Tick;
@@ -146,6 +190,7 @@ export const make = Effect.fn("ForkDirectSessionRenewal.make")(function* (
     switch (answer.value.status) {
       case "renewed": {
         const swapped = yield* swapper.swap(credentialId, token, answer.value.token);
+        if (swapped) yield* present(answer.value.token);
         yield* Effect.logInfo(
           swapped
             ? "Renewed a direct pairing."
@@ -155,6 +200,8 @@ export const make = Effect.fn("ForkDirectSessionRenewal.make")(function* (
         return "again" satisfies Tick;
       }
       case "unchanged":
+        // Still valid here, though perhaps renewed or paired again since this lease began.
+        yield* present(token);
         return (answer.value.reason === "cap_reached" ? "stop" : "again") satisfies Tick;
       case "unavailable":
         return "again" satisfies Tick;
@@ -168,7 +215,11 @@ export const make = Effect.fn("ForkDirectSessionRenewal.make")(function* (
   });
 
   /** One renewal attempt for a lease: "again" to ask later, "stop" when asking cannot help. */
-  const renewNow = (route: ConnectionRoute, prepared: PreparedConnection): Effect.Effect<Tick> => {
+  const renewNow = (
+    route: ConnectionRoute,
+    prepared: PreparedConnection,
+    bearer?: RenewedBearer,
+  ): Effect.Effect<Tick> => {
     const credentialId = renewableCredentialId(route, prepared);
     if (
       credentialId === undefined ||
@@ -182,7 +233,7 @@ export const make = Effect.fn("ForkDirectSessionRenewal.make")(function* (
       // One request per stored token at a time, across this runtime's leases.
       if (inFlight.has(credentialId)) return Effect.succeed<Tick>("again");
       inFlight.add(credentialId);
-      return renewOnce(credentials.value, swap.value, credentialId, route, prepared).pipe(
+      return renewOnce(credentials.value, swap.value, credentialId, route, prepared, bearer).pipe(
         Effect.orElseSucceed((): Tick => "again"),
         Effect.ensuring(Effect.sync(() => inFlight.delete(credentialId))),
       );
@@ -191,11 +242,26 @@ export const make = Effect.fn("ForkDirectSessionRenewal.make")(function* (
 
   /** Runs for the lease's lifetime. Never fails, so it can never fail a connection. */
   const keepRenewed = Effect.fn("ForkDirectSessionRenewal.keepRenewed")(
-    function* (route: ConnectionRoute, prepared: PreparedConnection) {
-      while ((yield* renewNow(route, prepared)) === "again") yield* Effect.sleep(CHECK_INTERVAL);
+    function* (route: ConnectionRoute, prepared: PreparedConnection, bearer?: RenewedBearer) {
+      while ((yield* renewNow(route, prepared, bearer)) === "again") {
+        yield* Effect.sleep(CHECK_INTERVAL);
+      }
     },
     Effect.ignoreCause({ log: true }),
   );
 
-  return { renewNow, keepRenewed };
+  /** Renews in the background for the lease's scope; follow the result with `followRenewedBearer`. */
+  const renewLease = Effect.fn("ForkDirectSessionRenewal.renewLease")(function* (
+    route: ConnectionRoute,
+    prepared: PreparedConnection,
+  ) {
+    const bearer =
+      prepared.httpAuthorization?._tag === "Bearer"
+        ? yield* SubscriptionRef.make(prepared.httpAuthorization.token)
+        : undefined;
+    yield* keepRenewed(route, prepared, bearer).pipe(Effect.forkScoped);
+    return bearer;
+  });
+
+  return { renewNow, keepRenewed, renewLease };
 });

@@ -41,6 +41,7 @@ export type ConnectionDriverProgress =
 export interface EnvironmentConnectionLease {
   readonly prepared: PreparedConnection;
   readonly session: RpcSession.RpcSession;
+  readonly forkRenewedBearer?: ForkDirectSessionRenewal.RenewedBearer | undefined;
 }
 
 export type RouteCheck = "answered" | "silent" | "unchecked";
@@ -228,8 +229,8 @@ export const make = Effect.gen(function* () {
               Effect.forkScoped,
             );
         }
-        yield* directRenewal.keepRenewed(route, prepared).pipe(Effect.forkScoped);
-        return { prepared, session } satisfies EnvironmentConnectionLease;
+        const forkRenewedBearer = yield* directRenewal.renewLease(route, prepared);
+        return { prepared, session, forkRenewedBearer } satisfies EnvironmentConnectionLease;
       }),
     );
   });

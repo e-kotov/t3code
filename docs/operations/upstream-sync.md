@@ -135,6 +135,10 @@ merge and a failure reaches the resolver as "This run":
   columns. An unrelated upstream addition updates the snapshot, which still needs Egor's approval
   as a fork-test change; an addition about lifetime, renewal, lineage or device keys needs the
   decision file.
+- **Client mounts:** a live connection keeps its HTTP credential current only through two mount
+  lines: the driver starts renewal for each lease and the supervisor follows the lease's renewed
+  bearer. `packages/client-runtime/src/connection/forkDirectSessionRenewal.test.ts` runs the real
+  driver and supervisor, so a clean merge that drops either line fails there; restore the mount.
 
 The tripwires detect that something changed, not whether two implementations are equivalent, and
 they miss an upstream mechanism built entirely outside that surface. Pending proposals and draft

@@ -28,6 +28,7 @@ import {
 } from "./model.ts";
 import * as RpcSession from "../rpc/session.ts";
 import { safeErrorLogAttributes } from "../errors/safeLog.ts";
+import * as ForkDirectSessionRenewal from "./forkDirectSessionRenewal.ts";
 import { NETWORK_BLOCKING_HINT } from "../errors/network.ts";
 import * as ConnectionWakeups from "./wakeups.ts";
 import { relabelCatalogEntry } from "./serverLabel.ts";
@@ -1042,6 +1043,7 @@ export const make = Effect.fn("EnvironmentSupervisor.make")(function* (
     };
     const connectedAt = yield* Clock.currentTimeMillis;
     yield* SubscriptionRef.set(prepared, Option.some(connectedLease.prepared));
+    yield* ForkDirectSessionRenewal.followRenewedBearer(connectedLease, prepared);
     yield* SubscriptionRef.set(session, Option.some(connectedLease.session));
     if (options?.learnRoutes !== undefined) {
       yield* learnRoutesFrom(options.learnRoutes, connectedLease).pipe(Effect.forkScoped);
