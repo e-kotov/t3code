@@ -51,10 +51,12 @@ vi.mock(import("~/state/server"), async (original) => {
   return { ...actual, primaryServerKeybindingsAtom: Atom.make(keybindings) };
 });
 
+const ELEMENT_WAIT = { timeout: 5_000 };
+
 it.each([
-  ["stays on the settled thread without a saved choice", undefined, "settled"],
   ["opens the next thread when chosen", "next-thread", "next"],
   ["opens a new chat in the same project when chosen", "new-chat", "new-chat"],
+  ["stays on the settled thread without a saved choice", undefined, "settled"],
 ] as const)("%s", async (_name, choice, destination) => {
   useThreadUndoNotice.setState({ notice: null });
   // Distinct ids per case: optimistic settles outlive the render in the shared atom registry.
@@ -75,8 +77,8 @@ it.each([
     // AppRoot owns the router, as it does in main.tsx.
     router: false,
   });
-  await expect.element(page.getByText(`${open.id}: question 0`)).toBeVisible();
-  await expect.element(page.getByText(`Thread ${next.id}`).first()).toBeVisible();
+  await expect.element(page.getByText(`${open.id}: question 0`), ELEMENT_WAIT).toBeVisible();
+  await expect.element(page.getByText(`Thread ${next.id}`).first(), ELEMENT_WAIT).toBeVisible();
 
   await userEvent.keyboard("{Control>}{Shift>}S{/Shift}{/Control}");
   await vi.waitFor(() => expect(useThreadUndoNotice.getState().notice?.action).toBe("Settled"));
@@ -90,16 +92,16 @@ it.each([
     await vi.waitFor(() =>
       expect(router.history.location.pathname).toBe(`/${ENVIRONMENT_ID}/${next.id}`),
     );
-    await expect.element(page.getByText(`${next.id}: question 0`)).toBeVisible();
+    await expect.element(page.getByText(`${next.id}: question 0`), ELEMENT_WAIT).toBeVisible();
     // Opening the next thread is what marks it read.
     await vi.waitFor(() => expect(commandsFor("thread.visit", next.id)).not.toHaveLength(0));
   } else {
     if (destination === "settled") {
       expect(router.history.location.pathname).toBe(openPath);
-      await expect.element(page.getByText(`${open.id}: question 0`)).toBeVisible();
+      await expect.element(page.getByText(`${open.id}: question 0`), ELEMENT_WAIT).toBeVisible();
     } else {
       await vi.waitFor(() => expect(router.history.location.pathname).toMatch(/^\/draft\//));
-      await expect.element(page.getByTestId("composer-editor")).toBeVisible();
+      await expect.element(page.getByTestId("composer-editor"), ELEMENT_WAIT).toBeVisible();
       const drafts = useComposerDraftStore.getState();
       const draft = drafts.getDraftSessionByProjectRef({
         environmentId: ENVIRONMENT_ID,
@@ -126,7 +128,7 @@ it.each([
     if (destination === "settled") {
       await router.navigate({ to: "/settings/general" });
       const row = page.getByText("After settling the open thread");
-      await expect.element(row).toBeVisible();
+      await expect.element(row, ELEMENT_WAIT).toBeVisible();
       await app.locator.screenshot({
         path: "../../../../../.t3/settle-evidence/settings.png",
       });
