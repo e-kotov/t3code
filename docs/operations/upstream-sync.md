@@ -118,10 +118,31 @@ records an upstream authentication assumption must lead to that comparison and a
 rather than overriding upstream to restore the old behavior. The reviewer checks the upstream
 diff and resulting code directly; the fixer's closing summary is not passed to it.
 
-These instructions apply when the resolver runs. A clean merge with passing checks skips agent
-review, so the eventual fork renewal feature must also account for upstream overlap on that
-path; these prompt changes do not add automatic semantic detection. Pending proposals and
-draft PRs must not be treated as functionality already shipped in the fork.
+### Session-renewal tripwires
+
+A clean merge with passing checks skips agent review, so the fork's `session-renewal` feature
+ships tests that fail when upstream changes what it relies on. They are registered as the
+`session-renewal-tripwires` feature in `scripts/fork-features.json`
+(`apps/server/src/auth/forkSessionRenewal.tripwire.test.ts`), so the sync runs them on every
+merge and a failure reaches the resolver as "This run":
+
+- **Behavior:** a pairing-link token and an agent-link token that are never renewed stop verifying
+  at their signed 30-day expiry, their subjects are `one-time-token` and `mcp-client`, and a socket
+  closes at the expiry it opened with. A failure means upstream changed session lifetime or added
+  its own renewal: compare both implementations as above and write `.claude-needs-decision.md`.
+  Restoring the old behavior over upstream is never the fix.
+- **Surface:** the `SessionStore` members and the `auth_sessions` and `peer_environment_links`
+  columns. An unrelated upstream addition updates the snapshot, which still needs Egor's approval
+  as a fork-test change; an addition about lifetime, renewal, lineage or device keys needs the
+  decision file.
+- **Client mounts:** a live connection keeps its HTTP credential current only through two mount
+  lines: the driver starts renewal for each lease and the supervisor follows the lease's renewed
+  bearer. `packages/client-runtime/src/connection/forkDirectSessionRenewal.test.ts` runs the real
+  driver and supervisor, so a clean merge that drops either line fails there; restore the mount.
+
+The tripwires detect that something changed, not whether two implementations are equivalent, and
+they miss an upstream mechanism built entirely outside that surface. Pending proposals and draft
+PRs must not be treated as functionality already shipped in the fork.
 
 Workflow changes run `scripts/claude-sync.test.py` without a model call. The regression executes
 actual workflow shell steps with a failed installer and checks that the preferred resolver runs,

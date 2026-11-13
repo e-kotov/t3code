@@ -186,7 +186,8 @@ describe("built-in Tailscale routes", () => {
       });
       const { tailnet } = fakeTailnet("last");
       const result = yield* connect(withBuiltInTailnet(driver, tailnet));
-      expect(result._tag).toBe("Success");
+      // The driver's own lease, so what it carries (a renewed bearer) reaches the supervisor.
+      expect(result._tag === "Success" && result.success).toBe(lease);
       expect(attempts).toEqual([[FORWARDED_URL]]);
     }),
   );

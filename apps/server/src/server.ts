@@ -219,6 +219,8 @@ import { acceptsPrivateNetworkConnection, loopbackUrlHostForAddress } from "./st
 import * as OrchestrationHttp from "./orchestration-v2/http.ts";
 import * as ForkThreadQuotaHttp from "./provider/forkThreadQuotaHttp.ts";
 import * as ForkThreadQuota from "./provider/ForkThreadQuota.ts";
+import * as ForkSessionRenewalHttp from "./auth/forkSessionRenewalHttp.ts";
+import * as ForkPeerLinkRenewal from "./peer/ForkPeerLinkRenewal.ts";
 import * as ProjectHttp from "./project/http.ts";
 import * as NetService from "@t3tools/shared/Net";
 import * as RelayClient from "@t3tools/shared/relayClient";
@@ -839,6 +841,7 @@ const layerMakeRoutes = Layer.mergeAll(
     DeviceHubProxy.layer,
     ServerBrowserStream.routeLayer,
     BetterWrightViewerFallback.routeLayer,
+    ForkSessionRenewalHttp.routeLayer,
     ServerHttp.layerStaticAndDevRoute,
     Ws.layer,
     speechStreamRouteLayer,
@@ -873,7 +876,7 @@ const layerMakeRoutes = Layer.mergeAll(
   Layer.provide(
     PeerForwarding.layer.pipe(
       Layer.provideMerge(PeerMcpClient.layer),
-      Layer.provideMerge(PeerLinks.layer),
+      Layer.provideMerge(ForkPeerLinkRenewal.renewing(PeerLinks.layer)),
     ),
   ),
   Layer.provide(

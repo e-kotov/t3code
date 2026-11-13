@@ -39,9 +39,11 @@ function targetPersistenceError(
   });
 }
 
+import { ForkCredentialCatalog } from "@t3tools/client-runtime/connection";
+import { renewalServices } from "./forkRenewalServices";
 export const layer = Layer.effectContext(
   Effect.gen(function* () {
-    const catalog = yield* CatalogStore.make();
+    const catalog = yield* ForkCredentialCatalog.makeFreshCatalogStore(CatalogStore.make());
     const githubRoutingPermissions = yield* makePullRequestRoutingPermissions({
       read: catalog.read.pipe(Effect.map((document) => document.githubRoutingPermissions ?? [])),
       write: (githubRoutingPermissions) =>
@@ -113,7 +115,7 @@ export const layer = Layer.effectContext(
     });
     const credentialStore = CredentialStore.make({
       get: (connectionId) =>
-        catalog.read.pipe(
+        catalog.readFresh.pipe(
           Effect.map((document) =>
             Option.fromUndefinedOr(
               document.credentials.find((entry) => entry.connectionId === connectionId)?.credential,
@@ -163,6 +165,7 @@ export const layer = Layer.effectContext(
       Context.add(Persistence.ConnectionRegistrationStore, registrationStore),
       Context.add(ProfileStore.ConnectionProfileStore, profileStore),
       Context.add(CredentialStore.ConnectionCredentialStore, credentialStore),
+      renewalServices(catalog),
       Context.add(TokenStore.RemoteDpopAccessTokenStore, remoteTokenStore),
     );
   }),

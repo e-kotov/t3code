@@ -31,6 +31,12 @@ expiry or device-key binding requires a fresh comparison with any implemented fo
 This paragraph takes precedence over the rule to keep fork-test behavior: do not override
 upstream or rewrite an authentication-assumption test just to make it pass; stop with
 `.claude-needs-decision.md` when the assumed upstream behavior has changed.
+The tests of the `session-renewal-tripwires` feature in `scripts/fork-features.json` record
+these assumptions for the fork's `session-renewal` feature. When one fails, compare and decide as
+below; never restore the old default over upstream or edit a behavior assertion. Update the
+session-surface snapshot only when the upstream change is unrelated to session lifetime, renewal or
+expiry checks; otherwise write the decision file. A configurable or longer pairing lifetime and a
+change in how expiry is verified count as renewal changes here.
 During step 2, inspect upstream additions even if "This run" names a conflict elsewhere:
 `m=$(git rev-list --merges -1 HEAD); git diff "$m^1...$m^2" -- apps/server/src/auth packages/client-runtime/src/authorization packages/client-runtime/src/connection packages/contracts/src/auth.ts`.
 Inspect the actual code and tests on both sides; a proposal or draft PR is not a shipped feature.

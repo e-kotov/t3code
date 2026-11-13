@@ -29,7 +29,9 @@ Judge only the fix:
   and compatibility using the code and tests. This exception takes precedence over preserving
   fork-test behavior: an authentication-assumption test must not be made to pass by overriding
   upstream or weakening its assertion. A changed assumption requires the decision file even
-  if every other check passes.
+  if every other check passes. The `session-renewal-tripwires` tests in
+  `scripts/fork-features.json` are such tests: request changes if the fix edited one other than an
+  unrelated update of the session-surface snapshot.
 
 Request changes only for real defects, each with file, line and the concrete fix. Approve when the
 fix is correct even if you would have written it differently.

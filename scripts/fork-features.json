@@ -366,6 +366,21 @@
       ]
     },
     {
+      "id": "session-renewal",
+      "group": "Connections",
+      "summary": "direct pairings and agent links renew themselves while in use, up to a yearly cap",
+      "docs": "docs/user/connection-renewal.md",
+      "tests": [
+        "apps/server/src/auth/ForkSessionRenewal.test.ts",
+        "apps/server/src/peer/ForkPeerLinkRenewal.test.ts",
+        "packages/client-runtime/src/connection/forkCredentialCatalog.test.ts",
+        "packages/client-runtime/src/connection/forkDirectSessionRenewal.test.ts",
+        "apps/web/src/connection/forkFreshCatalogStore.test.ts",
+        "apps/mobile/src/connection/forkFreshCatalogStore.test.ts",
+        "apps/mobile/src/connection/forkRenewalServices.test.ts"
+      ]
+    },
+    {
       "id": "fork-releases",
       "group": "Releases",
       "summary": "fork builds and updates for macOS, Android and Termux, with fork telemetry and update policies",
@@ -398,6 +413,14 @@
         "scripts/fork-sync-excerpt.test.py",
         "scripts/fork-feature-guard.test.py"
       ]
+    },
+    {
+      "id": "session-renewal-tripwires",
+      "group": "Maintenance",
+      "summary": "upstream session-lifetime assumptions that session renewal relies on",
+      "docs": "docs/operations/upstream-sync.md",
+      "readme": false,
+      "tests": ["apps/server/src/auth/forkSessionRenewal.tripwire.test.ts"]
     },
     {
       "id": "working-sidebar",
