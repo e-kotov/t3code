@@ -2,7 +2,13 @@ import { sidebarListItemId } from "../Sidebar.logic";
 import { SortableSidebarMarker } from "./SidebarListMarkers";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import type { EnvironmentId } from "@t3tools/contracts";
-import { ArrowDownIcon, ArrowUpIcon, ChevronDownIcon, ChevronRightIcon, PinIcon } from "lucide-react";
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  PinIcon,
+} from "lucide-react";
 
 import { updateClientSettings, useClientSettings } from "../../hooks/useSettings";
 import { useEnvironmentMachines, usePrimaryEnvironmentId } from "../../state/environments";
@@ -49,7 +55,9 @@ export function SidebarMachineGroupHeader(props: {
   const { environmentId, groupPosition, groupCount, section } = props.item;
   const view = useSidebarConversationView();
   const { collapsedMachineGroups, toggleMachineGroup } = useMachineGroupCollapse();
-  const collapsed = environmentId !== undefined && collapsedMachineGroups.includes(machineGroupKey(environmentId, section));
+  const collapsed =
+    environmentId !== undefined &&
+    collapsedMachineGroups.includes(machineGroupKey(environmentId, section));
   const machineById = useEnvironmentMachines();
   const label = environmentId ? (props.labelById.get(environmentId) ?? "Machine") : "Machine";
   const move = (delta: -1 | 1) => {
@@ -65,7 +73,9 @@ export function SidebarMachineGroupHeader(props: {
   return (
     <div className="mx-2 mt-2 flex items-center gap-1 border-t border-sidebar-border/60 pt-2 text-3xs font-medium uppercase tracking-wide text-sidebar-muted-foreground/70">
       {environmentId ? <MachineGroupConnectionStatus environmentId={environmentId} /> : null}
-      {section === "pinned" ? <PinIcon role="img" aria-label="Pinned" className="size-3 shrink-0" /> : null}
+      {section === "pinned" ? (
+        <PinIcon role="img" aria-label="Pinned" className="size-3 shrink-0" />
+      ) : null}
       {environmentId ? (
         <EnvironmentMachineIcon
           kind={machineById.get(environmentId) ?? "server"}

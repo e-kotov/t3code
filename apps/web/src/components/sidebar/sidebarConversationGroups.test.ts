@@ -64,7 +64,10 @@ describe("groupSidebarRowsByMachine", () => {
   });
 
   it("folds each shelf independently while retaining headers and the saved machine order", () => {
-    const folded = view({ machineOrder: [alpha, local, zulu], collapsedMachineGroups: [machineGroupKey(local, "pinned")] });
+    const folded = view({
+      machineOrder: [alpha, local, zulu],
+      collapsedMachineGroups: [machineGroupKey(local, "pinned")],
+    });
     for (const section of ["pinned", "active", "working", "snoozed", "settled"] as const) {
       expect(layout(groupSidebarRowsByMachine(threads, section, folded, rowsOf))).toEqual([
         "[env-alpha:0/3]",
@@ -158,7 +161,11 @@ describe("groupSidebarRowsByMachine", () => {
           "active",
           view({
             grouping: "none",
-            collapsedMachineGroups: [machineGroupKey(local), machineGroupKey(alpha), machineGroupKey(zulu)],
+            collapsedMachineGroups: [
+              machineGroupKey(local),
+              machineGroupKey(alpha),
+              machineGroupKey(zulu),
+            ],
           }),
           rowsOf,
         ),
@@ -392,7 +399,10 @@ describe("visibleSidebarKeys", () => {
       [thread("a1", alpha), thread("l1", local), thread("a2", alpha), thread("z1", zulu)],
       [thread("settled-l", local), thread("settled-z", zulu)],
     ];
-    const folded = view({ machineOrder: [zulu, local, alpha], collapsedMachineGroups: [machineGroupKey(alpha)] });
+    const folded = view({
+      machineOrder: [zulu, local, alpha],
+      collapsedMachineGroups: [machineGroupKey(alpha)],
+    });
     const sections = ["pinned", "active", "settled"] as const;
     const sectionByKey = new Map(
       shelves.flatMap((shelf, index) =>

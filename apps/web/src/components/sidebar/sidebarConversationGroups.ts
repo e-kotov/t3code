@@ -201,7 +201,9 @@ export function groupSidebarRowsByMachine<
       groupCount: groups.length,
     };
 
-    const visibleThreads = group.filter((thread) => machineGroupThreadVisible(thread, { ...view, section }));
+    const visibleThreads = group.filter((thread) =>
+      machineGroupThreadVisible(thread, { ...view, section }),
+    );
 
     if (section !== "active" || !isProject) {
       return [machineHeader, ...rowsOf(visibleThreads, section)];

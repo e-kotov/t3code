@@ -1,3 +1,4 @@
+import { asLaunchingThread } from "@t3tools/client-runtime/state/thread-inbox";
 import type * as Context from "effect/Context";
 import { createMemoryHistory } from "@tanstack/react-router";
 import { DEFAULT_CLIENT_SETTINGS } from "@t3tools/contracts/settings";
@@ -7,25 +8,35 @@ import { AppRoot } from "~/AppRoot";
 import "~/components/ChatView";
 import { __setClientSettingsForTests } from "~/hooks/useSettings";
 import { getRouter } from "~/router";
-import { ENVIRONMENT_ID, installFakeEnvironment, threadWithHistory, type FakeDriver } from "../../../test/fakeEnvironment";
+import {
+  ENVIRONMENT_ID,
+  installFakeEnvironment,
+  threadWithHistory,
+  type FakeDriver,
+} from "../../../test/fakeEnvironment";
 import { render } from "../../../test/render";
 import "../../index.css";
 
-vi.mock("../../../../../packages/client-runtime/src/connection/driver.ts", async (importOriginal) => {
-  const [actual, { fakeDriver }, Layer] = await Promise.all([
-    importOriginal<{ readonly ConnectionDriver: Context.Key<unknown, FakeDriver> }>(),
-    import("../../../test/fakeEnvironment"),
-    import("effect/Layer"),
-  ]);
-  return { ...actual, layer: Layer.succeed(actual.ConnectionDriver, fakeDriver) };
-});
+vi.mock(
+  "../../../../../packages/client-runtime/src/connection/driver.ts",
+  async (importOriginal) => {
+    const [actual, { fakeDriver }, Layer] = await Promise.all([
+      importOriginal<{ readonly ConnectionDriver: Context.Key<unknown, FakeDriver> }>(),
+      import("../../../test/fakeEnvironment"),
+      import("effect/Layer"),
+    ]);
+    return { ...actual, layer: Layer.succeed(actual.ConnectionDriver, fakeDriver) };
+  },
+);
 vi.mock(import("~/rpc/requestLatencyState"), async (original) => ({
-  ...(await original()), trackRpcRequestSent: () => {},
+  ...(await original()),
+  trackRpcRequestSent: () => {},
 }));
 vi.mock(import("~/lib/t3ProjectFileDefaults"), async (original) => ({
-  ...(await original()), readT3ProjectFile: async () => null,
+  ...(await original()),
+  readT3ProjectFile: async () => null,
 }));
-// The fake server lacks placement fields; supply one pin at the shell fixture boundary.
+// Supply pin placement and a launching thread at the shell fixture boundary.
 vi.mock(import("~/state/entities"), async (original) => {
   const actual = await original();
   const { useMemo } = await import("react");
@@ -33,8 +44,17 @@ vi.mock(import("~/state/entities"), async (original) => {
     ...actual,
     useQuietThreadShells: () => {
       const threads = actual.useQuietThreadShells();
-      return useMemo(() => threads.map((thread) => thread.id === "pinned-fold"
-        ? { ...thread, pinnedAt: thread.createdAt, pinOrderKey: "a" } : thread), [threads]);
+      return useMemo(
+        () =>
+          threads.map((thread) => {
+            if (thread.id === "pinned-fold") {
+              return { ...thread, pinnedAt: thread.createdAt, pinOrderKey: "a" };
+            }
+            if (thread.id === "working-fold") return asLaunchingThread(thread);
+            return thread;
+          }),
+        [threads],
+      );
     },
   };
 });
@@ -53,16 +73,20 @@ it("folds pinned, unpinned and Working machine sections through their own button
     onboardingCompletedAt: "2026-01-01T00:00:00.000Z",
   });
   await page.viewport(1280, 850);
-  const router = getRouter(createMemoryHistory({ initialEntries: [`/${ENVIRONMENT_ID}/${open.id}`] }));
+  const router = getRouter(
+    createMemoryHistory({ initialEntries: [`/${ENVIRONMENT_ID}/${open.id}`] }),
+  );
   await router.load();
   // AppRoot owns the production router.
   await using app = await render(<AppRoot router={router} />, { router: false });
   const row = (title: string) => page.getByTestId("sidebar-row-card").filter({ hasText: title });
-  for (const thread of [pin, main, working, open]) await expect.element(row(thread.title)).toBeVisible();
+  for (const thread of [pin, main, working, open])
+    await expect.element(row(thread.title)).toBeVisible();
   const capture = async (name: string) => {
-    if (import.meta.env.VITE_MACHINE_FOLD_CAPTURE) await app.locator.screenshot({
-      path: `../../../../../.t3/machine-fold-evidence/${name}.png`,
-    });
+    if (import.meta.env.VITE_MACHINE_FOLD_CAPTURE)
+      await app.locator.screenshot({
+        path: `../../../../../.t3/machine-fold-evidence/${name}.png`,
+      });
   };
   await capture(`${import.meta.env.VITE_MACHINE_FOLD_CAPTURE}-expanded`);
   if (import.meta.env.VITE_MACHINE_FOLD_CAPTURE === "before") return;

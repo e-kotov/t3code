@@ -11,7 +11,10 @@ import { MachineGroupConnectionStatus } from "./MachineGroupConnectionStatus";
 import { MachineGroupSlurmTime } from "./MachineGroupSlurmTime";
 import { ThreadListV2Section } from "./thread-list-v2-items";
 
-import { machineGroupKey, type MachineGroupSection } from "@t3tools/client-runtime/state/machine-group-collapse";
+import {
+  machineGroupKey,
+  type MachineGroupSection,
+} from "@t3tools/client-runtime/state/machine-group-collapse";
 import { useMachineGroupCollapse } from "./machineGroupCollapse";
 
 type MoveMachine = (environmentId: string, delta: -1 | 1) => void;
@@ -50,12 +53,19 @@ const ThreadListV2MachineHeader = memo(function ThreadListV2MachineHeader(props:
 }) {
   const { environmentId, position, count, onMove } = props;
   const { collapsedMachineGroups, toggleMachineGroup } = useMachineGroupCollapse();
-  const collapsed = environmentId !== undefined && collapsedMachineGroups.includes(machineGroupKey(environmentId, props.section));
+  const collapsed =
+    environmentId !== undefined &&
+    collapsedMachineGroups.includes(machineGroupKey(environmentId, props.section));
   return (
     <View className={cn("flex-row items-center", props.pane === "sidebar" ? "px-3" : "px-5")}>
       <MachineGroupConnectionStatus environmentId={environmentId} />
       {props.section === "pinned" ? (
-        <SymbolView name="pin" size={13} tintColorClassName="accent-foreground-muted" type="monochrome" />
+        <SymbolView
+          name="pin"
+          size={13}
+          tintColorClassName="accent-foreground-muted"
+          type="monochrome"
+        />
       ) : null}
       {props.machineKind ? (
         <EnvironmentMachineSymbol

@@ -15,9 +15,7 @@ export function machineGroupKey(environmentId: string, section: MachineGroupSect
 }
 
 export function toggleCollapsedMachineGroup(current: readonly string[], key: string) {
-  return current.includes(key)
-    ? current.filter((id) => id !== key)
-    : [...current, key];
+  return current.includes(key) ? current.filter((id) => id !== key) : [...current, key];
 }
 
 export function machineGroupThreadVisible(
@@ -33,7 +31,9 @@ export function machineGroupThreadVisible(
   return (
     !isSidebarMachineGrouping((options.grouping ?? "none") as SidebarConversationGrouping) ||
     Boolean(options.searchQuery?.trim()) ||
-    !options.collapsedMachineGroups?.includes(machineGroupKey(thread.environmentId, options.section)) ||
+    !options.collapsedMachineGroups?.includes(
+      machineGroupKey(thread.environmentId, options.section),
+    ) ||
     (options.selectedThreadKey != null &&
       scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)) ===
         options.selectedThreadKey)

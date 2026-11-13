@@ -1,4 +1,7 @@
-import { machineGroupThreadVisible, type MachineGroupSection } from "@t3tools/client-runtime/state/machine-group-collapse";
+import {
+  machineGroupThreadVisible,
+  type MachineGroupSection,
+} from "@t3tools/client-runtime/state/machine-group-collapse";
 import {
   isSidebarMachineGrouping,
   type EnvironmentMachineKind,
@@ -138,7 +141,10 @@ export function arrangeMobileConversationList<T extends { readonly type: string 
         },
       ];
     }
-    if (isThreadRow(item) && !machineGroupThreadVisible(item.item.thread, { ...options, section })) {
+    if (
+      isThreadRow(item) &&
+      !machineGroupThreadVisible(item.item.thread, { ...options, section })
+    ) {
       return [];
     }
     return [item];

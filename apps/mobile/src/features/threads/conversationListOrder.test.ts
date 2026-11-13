@@ -381,16 +381,28 @@ describe("arrangeMobileConversationList", () => {
       row("machine-a", "z1"),
     ];
     for (const grouping of ["machine", "both"] as const) {
-      for (const [section, hidden] of [["pinned", "p1"], ["active", "a1"], ["working", "w1"], ["snoozed", "s1"], ["settled", "z1"]] as const) {
+      for (const [section, hidden] of [
+        ["pinned", "p1"],
+        ["active", "a1"],
+        ["working", "w1"],
+        ["snoozed", "s1"],
+        ["settled", "z1"],
+      ] as const) {
         const arranged = arrangeMobileConversationList(input, {
-          grouping, environments, machineKinds, machineOrder: [],
+          grouping,
+          environments,
+          machineKinds,
+          machineOrder: [],
           collapsedMachineGroups: [machineGroupKey("machine-a", section)],
         });
         expect(arranged.filter((item) => item.type === "v2-thread").map(keyOf)).toEqual(
           ["p1", "a1", "w1", "s1", "z1"].filter((key) => key !== hidden),
         );
-        expect(arranged.flatMap((item) => item.type === "v2-machine-header" && "section" in item ? [item.section] : []))
-          .toEqual(["pinned", "active", "working", "snoozed", "settled"]);
+        expect(
+          arranged.flatMap((item) =>
+            item.type === "v2-machine-header" && "section" in item ? [item.section] : [],
+          ),
+        ).toEqual(["pinned", "active", "working", "snoozed", "settled"]);
       }
     }
   });

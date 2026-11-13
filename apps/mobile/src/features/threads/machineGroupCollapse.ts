@@ -9,7 +9,9 @@ import {
 export function useMachineGroupCollapse() {
   const [collapsedMachineGroups, setCollapsedMachineGroups] = useAtom(collapsedMachineGroupsAtom);
   const toggleMachineGroup = (environmentId: string, section: MachineGroupSection = "active") => {
-    setCollapsedMachineGroups((current) => toggleCollapsedMachineGroup(current, machineGroupKey(environmentId, section)));
+    setCollapsedMachineGroups((current) =>
+      toggleCollapsedMachineGroup(current, machineGroupKey(environmentId, section)),
+    );
   };
   return { collapsedMachineGroups, toggleMachineGroup };
 }

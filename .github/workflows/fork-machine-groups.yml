@@ -88,6 +88,7 @@ jobs:
           cat "$RUNNER_TEMP/fold-regression.log"
           python3 -c 'import os, pathlib; assert "AssertionError" in (pathlib.Path(os.environ["RUNNER_TEMP"]) / "fold-regression.log").read_text()'
       - name: Prove separate shelf folding fails before the fix
+        if: github.event.pull_request.number == 80
         run: |
           files=(apps/web/src/components/sidebar/sidebarConversationGroups.ts apps/mobile/src/features/threads/machineGroupedThreadList.ts)
           for file in "${files[@]}"; do cp "$file" "$RUNNER_TEMP/$(basename "$file")"; done
@@ -95,7 +96,7 @@ jobs:
             for file in "${files[@]}"; do cp "$RUNNER_TEMP/$(basename "$file")" "$file"; done
           }
           trap restore EXIT
-          for file in "${files[@]}"; do git show "origin/main:$file" > "$file"; done
+          for file in "${files[@]}"; do git show "8be2bf4d8bd7332e4c3e867bbccfb7e381f83c24:$file" > "$file"; done
           if vp test run apps/web/src/components/sidebar/sidebarConversationGroups.test.ts apps/mobile/src/features/threads/conversationListOrder.test.ts -t 'folds each shelf independently' > "$RUNNER_TEMP/shelf-fold-before.log" 2>&1; then
             cat "$RUNNER_TEMP/shelf-fold-before.log"
             echo 'Separate shelf folding must fail before the fix.'

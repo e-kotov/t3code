@@ -35,14 +35,27 @@ describe("machine group visibility", () => {
     const working = machineGroupKey("mac", "working");
     let collapsedMachineGroups = toggleCollapsedMachineGroup([], pinned);
     for (const section of ["pinned", "active", "working", "snoozed", "settled"] as const) {
-      expect(machineGroupThreadVisible(thread, { grouping: "both", section, collapsedMachineGroups }))
-        .toBe(section !== "pinned");
+      expect(
+        machineGroupThreadVisible(thread, { grouping: "both", section, collapsedMachineGroups }),
+      ).toBe(section !== "pinned");
     }
     collapsedMachineGroups = toggleCollapsedMachineGroup(collapsedMachineGroups, working);
     collapsedMachineGroups = toggleCollapsedMachineGroup(collapsedMachineGroups, pinned);
     expect(collapsedMachineGroups).toEqual([working]);
-    expect(machineGroupThreadVisible(thread, { grouping: "machine", section: "working", collapsedMachineGroups })).toBe(false);
-    expect(machineGroupThreadVisible(thread, { grouping: "machine", section: "pinned", collapsedMachineGroups })).toBe(true);
+    expect(
+      machineGroupThreadVisible(thread, {
+        grouping: "machine",
+        section: "working",
+        collapsedMachineGroups,
+      }),
+    ).toBe(false);
+    expect(
+      machineGroupThreadVisible(thread, {
+        grouping: "machine",
+        section: "pinned",
+        collapsedMachineGroups,
+      }),
+    ).toBe(true);
     expect(machineGroupKey("x:y", "pinned")).not.toBe(machineGroupKey("y", "active"));
   });
 
@@ -57,10 +70,16 @@ describe("machine group visibility", () => {
       );
       client.set(
         collapsedMachineGroupsAtom,
-        toggleCollapsedMachineGroup(client.get(collapsedMachineGroupsAtom), machineGroupKey("gwdg")),
+        toggleCollapsedMachineGroup(
+          client.get(collapsedMachineGroupsAtom),
+          machineGroupKey("gwdg"),
+        ),
       );
       unsubscribe();
-      expect(client.get(collapsedMachineGroupsAtom)).toEqual([machineGroupKey("mac"), machineGroupKey("gwdg")]);
+      expect(client.get(collapsedMachineGroupsAtom)).toEqual([
+        machineGroupKey("mac"),
+        machineGroupKey("gwdg"),
+      ]);
       expect(otherClient.get(collapsedMachineGroupsAtom)).toEqual([]);
       client.set(
         collapsedMachineGroupsAtom,
