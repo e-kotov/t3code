@@ -4,7 +4,6 @@ import { Checkbox } from "../ui/checkbox";
 import { MenuCheckboxItem, MenuSeparator } from "../ui/menu";
 import { SidebarHeaderIconButton } from "./SidebarThreadHeader";
 import { useWorkingSidebarView } from "./useWorkingSidebarView";
-import { cn } from "../../lib/utils";
 
 export function WorkingOnlyFilter() {
   const { workingOnly, setWorkingOnly } = useWorkingSidebarView();
@@ -48,7 +47,8 @@ export function SidebarFilterButton({
     <SidebarHeaderIconButton
       {...props}
       label={description}
-      className={cn(className, active && "bg-primary/10 text-primary")}
+      active={active}
+      className={className}
     >
       {children}
       {active ? (

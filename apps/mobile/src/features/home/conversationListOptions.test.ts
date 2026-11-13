@@ -136,9 +136,7 @@ describe("conversationListOptions", () => {
     expect(list.onWorkingOnlyChange).toHaveBeenCalledWith(true);
     const sort = items[3];
     const workingFirst =
-      sort && "items" in sort
-        ? sort.items.find((item) => item.id === "working:first")
-        : undefined;
+      sort && "items" in sort ? sort.items.find((item) => item.id === "working:first") : undefined;
     if (workingFirst && !("items" in workingFirst)) workingFirst.onPress();
     expect(list.onWorkingFirstChange).toHaveBeenCalledWith(true);
     const grouping = items[4];

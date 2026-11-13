@@ -1,3 +1,4 @@
+import { threadSearchMatchKey } from "@t3tools/client-runtime/state/thread-search";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { EnvironmentId, ProjectId, ProviderInstanceId, ThreadId } from "@t3tools/contracts";
@@ -139,7 +140,6 @@ it("updates sort and machine grouping while retaining upstream pinned ordering a
   expect(titles()).toEqual(["Pinned", "New", "Old"]);
 });
 
-
 it("filters Working in scope and search with either shelf setting, and moves it after pinned rows", () => {
   const environmentId = EnvironmentId.make("working-env");
   const projectId = ProjectId.make("working-project");
@@ -180,20 +180,16 @@ it("filters Working in scope and search with either shelf setting, and moves it 
       environmentId: EnvironmentId.make("other-machine"),
     }),
   ];
-  function List({
-    only = false,
-    first = false,
-    shelf = true,
-    expanded = false,
-    search = "",
-  }) {
+  function List({ only = false, first = false, shelf = true, expanded = false, search = "" }) {
     const { items } = useConversationThreadListV2({
       threads,
       pendingTasks: [],
       environmentId,
       projectRefs: [{ environmentId, projectId }],
       searchQuery: search,
-      searchMatches: new Map([["working-env:content-match", {}]]),
+      searchMatches: new Map([
+        [threadSearchMatchKey({ environmentId, threadId: ThreadId.make("content-match") }), {}],
+      ]),
       settlementEnvironmentIds: new Set(),
       snoozeEnvironmentIds: new Set(),
       pinReorderEnvironmentIds: new Set(),
@@ -207,7 +203,7 @@ it("filters Working in scope and search with either shelf setting, and moves it 
       workingShelfExpanded: expanded,
       snoozedShelfExpanded: false,
       settledShelfExpanded: false,
-      selectedThreadKey: "working-env:main-idle",
+      selectedThreadKey: JSON.stringify([environmentId, "main-idle"]),
       conversation: {
         view: { workingOnly: only, workingFirst: first },
         environments: [{ environmentId, label: "Machine" }],
@@ -218,10 +214,7 @@ it("filters Working in scope and search with either shelf setting, and moves it 
     return (
       <ol>
         {items.map((item) => (
-          <li
-            key={item.key}
-            data-divider={item.type === "v2-thread" && hasWorkingDivider(item)}
-          >
+          <li key={item.key} data-divider={item.type === "v2-thread" && hasWorkingDivider(item)}>
             {item.type === "v2-thread" ? item.item.thread.id : item.type}
           </li>
         ))}

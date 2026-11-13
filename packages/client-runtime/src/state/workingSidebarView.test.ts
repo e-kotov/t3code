@@ -1,6 +1,10 @@
 import { ProviderInstanceId } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
-import { filterWorkingThreads, orderWorkingSections, workingSidebarFilterActive } from "./workingSidebarView.ts";
+import {
+  filterWorkingThreads,
+  orderWorkingSections,
+  workingSidebarFilterActive,
+} from "./workingSidebarView.ts";
 
 const running = {
   latestRun: null,
@@ -28,7 +32,10 @@ describe("Working sidebar view", () => {
       { ...running, id: "question", hasPendingUserInput: true },
       { ...running, id: "child", pendingSubagentRequest: "approval" as const },
     ];
-    expect(filterWorkingThreads(threads, true).map((thread) => thread.id)).toEqual(["run", "monitor"]);
+    expect(filterWorkingThreads(threads, true).map((thread) => thread.id)).toEqual([
+      "run",
+      "monitor",
+    ]);
     expect(filterWorkingThreads(threads, false)).toBe(threads);
   });
 

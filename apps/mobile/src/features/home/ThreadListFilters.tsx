@@ -18,17 +18,19 @@ import {
 } from "./machineFilterPresentation";
 import { formatFilterOptionTitle, formatFilterOptionSubtitle } from "./mobileNonSettledCounts";
 
-export function ThreadListFilters(props: {
-  readonly environments: ReadonlyArray<HomeListFilterMenuEnvironment>;
-  readonly projects: ReadonlyArray<HomeListFilterMenuProject>;
-  readonly selectedEnvironmentId: EnvironmentId | null;
-  readonly selectedProjectKey: string | null;
-  readonly onEnvironmentChange: (environmentId: EnvironmentId | null) => void;
-  readonly onProjectChange: (projectKey: string | null) => void;
-  /** List padding the scroller bleeds through so pills start where row content does. */
-  readonly gutter: number;
-  readonly children?: ReactNode;
-} & WorkingStatusFilterControls) {
+export function ThreadListFilters(
+  props: {
+    readonly environments: ReadonlyArray<HomeListFilterMenuEnvironment>;
+    readonly projects: ReadonlyArray<HomeListFilterMenuProject>;
+    readonly selectedEnvironmentId: EnvironmentId | null;
+    readonly selectedProjectKey: string | null;
+    readonly onEnvironmentChange: (environmentId: EnvironmentId | null) => void;
+    readonly onProjectChange: (projectKey: string | null) => void;
+    /** List padding the scroller bleeds through so pills start where row content does. */
+    readonly gutter: number;
+    readonly children?: ReactNode;
+  } & WorkingStatusFilterControls,
+) {
   const selectedEnvironment = props.environments.find(
     (environment) => environment.environmentId === props.selectedEnvironmentId,
   );

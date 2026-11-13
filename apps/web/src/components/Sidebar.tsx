@@ -1,4 +1,7 @@
-import { filterWorkingThreads, orderWorkingSections } from "@t3tools/client-runtime/state/working-sidebar-view";
+import {
+  filterWorkingThreads,
+  orderWorkingSections,
+} from "@t3tools/client-runtime/state/working-sidebar-view";
 import { useWorkingSidebarView } from "./sidebar/useWorkingSidebarView";
 import { SidebarFilterButton, WorkingOnlyFilter } from "./sidebar/WorkingSidebarControls";
 import { arrangeWorkingSidebarItems } from "./sidebar/workingSidebarOrder";
@@ -280,7 +283,7 @@ import {
 } from "./ui/combobox";
 import { SidebarContent, SidebarGroup, useSidebar } from "./ui/sidebar";
 import { SidebarChromeFooter, SidebarChromeHeader } from "./sidebar/SidebarChrome";
-import { SidebarHeaderIconButton, SidebarThreadHeader } from "./sidebar/SidebarThreadHeader";
+import { SidebarThreadHeader } from "./sidebar/SidebarThreadHeader";
 import { TooltipProvider } from "./ui/tooltip";
 import {
   composerDraftHasUserContent,
@@ -537,7 +540,8 @@ function useSidebarThreads(input: {
   const listedSettledThreads = settledThreads.filter(olderSettledShelf.isListed);
   useOlderSettledShelfGrowth(olderSettledShelf, listedSettledThreads);
   const settledCount =
-    settledThreads.length + (workingOnly ? 0 : olderSettledShelf.unloadedCount(partition.visibleThreads));
+    settledThreads.length +
+    (workingOnly ? 0 : olderSettledShelf.unloadedCount(partition.visibleThreads));
   const visibleSettledThreads = (() => {
     const visible = listedSettledThreads.slice(0, settledVisibleCount);
     if (
@@ -2185,6 +2189,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         });
   const sidebarSortingStrategy = createSidebarSortingStrategy({
     items: sidebarListItems,
+    workingFirst,
     enabled: !isContextDrag,
     boundaryLabelHeight: SIDEBAR_DRAG_LABEL_HEIGHT,
     settledOrder: draggedSettledOrder,
@@ -3707,15 +3712,17 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                       };
                       const from = isContextDrag ? null : (dragState?.activeSection ?? null);
                       const items: ReactNode[] = [
-                        workingOnly ? null : <SidebarDraftBlock
-                          key="draft-sessions"
-                          projectByKey={projectByKey}
-                          projectDisplayNameByKey={projectDisplayNameByKey}
-                          scopedProjectKeys={scopedProjectKeys}
-                          routeDraftId={routeDraftIdForRows}
-                          onNavigateToDraft={navigateToDraft}
-                          onDraftContextMenu={handleDraftContextMenu}
-                        />,
+                        workingOnly ? null : (
+                          <SidebarDraftBlock
+                            key="draft-sessions"
+                            projectByKey={projectByKey}
+                            projectDisplayNameByKey={projectDisplayNameByKey}
+                            scopedProjectKeys={scopedProjectKeys}
+                            routeDraftId={routeDraftIdForRows}
+                            onNavigateToDraft={navigateToDraft}
+                            onDraftContextMenu={handleDraftContextMenu}
+                          />
+                        ),
                       ];
                       for (const item of sidebarListItems) {
                         if (item.kind === "thread") {
@@ -3822,7 +3829,11 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                               <SidebarDragBoundary
                                 key="pinned-divider"
                                 marker="pinned-divider"
-                                divider={workingFirst && workingThreads.length > 0 && activeThreads.length > 0}
+                                divider={
+                                  workingFirst &&
+                                  workingThreads.length > 0 &&
+                                  activeThreads.length > 0
+                                }
                                 label="Active"
                                 visible={from !== null}
                                 isDropTarget={dragTargetSection === "active"}
@@ -3852,7 +3863,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                               <SidebarSectionHeader
                                 key="working-shelf-header"
                                 marker="working-header"
-                                className={workingFirst || workingOnly ? undefined : "mt-auto"}
+                                className={workingFirst || workingOnly ? "" : "mt-auto"}
                                 label="Working"
                                 count={workingThreads.length}
                                 toggle={{

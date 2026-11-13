@@ -6,9 +6,7 @@ function Divider({ pane }: { readonly pane?: "screen" | "sidebar" }) {
   return (
     <View
       className={
-        pane === "sidebar"
-          ? "mx-3 mt-3 h-px bg-drawer-border"
-          : "mx-5 mt-3 h-px bg-border"
+        pane === "sidebar" ? "mx-3 mt-3 h-px bg-drawer-border" : "mx-5 mt-3 h-px bg-border"
       }
     />
   );

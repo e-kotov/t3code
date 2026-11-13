@@ -128,18 +128,20 @@ export function arrangeMobileConversationList<T extends { readonly type: string 
     options.machineKinds,
     options.machineOrder,
   );
-  return placeWorkingMainDivider(withContext.flatMap((item): (T | ThreadListV2MachineHeaderListItem)[] => {
-    if (isMachineHeader(item)) {
-      return [
-        {
-          ...item,
-          collapsible: isSidebarMachineGrouping(options.grouping) && !options.searchQuery?.trim(),
-        },
-      ];
-    }
-    if (isThreadRow(item) && !machineGroupThreadVisible(item.item.thread, options)) {
-      return [];
-    }
-    return [item];
-  }));
+  return placeWorkingMainDivider(
+    withContext.flatMap((item): (T | ThreadListV2MachineHeaderListItem)[] => {
+      if (isMachineHeader(item)) {
+        return [
+          {
+            ...item,
+            collapsible: isSidebarMachineGrouping(options.grouping) && !options.searchQuery?.trim(),
+          },
+        ];
+      }
+      if (isThreadRow(item) && !machineGroupThreadVisible(item.item.thread, options)) {
+        return [];
+      }
+      return [item];
+    }),
+  );
 }

@@ -403,6 +403,7 @@
       "tests": [
         "packages/client-runtime/src/state/workingSidebarView.test.ts",
         "apps/web/src/components/sidebar/workingSidebarOrder.test.ts",
+        "apps/web/src/components/Sidebar.drag.test.ts",
         "apps/web/src/components/sidebar/workingSidebar.app.browser.test.tsx",
         "apps/web/src/components/MachineFilters.app.browser.test.tsx",
         "apps/mobile/src/features/home/conversationListOptions.test.ts",

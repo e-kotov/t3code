@@ -207,7 +207,6 @@ function directionLabel(
   return reversed ? "Oldest first" : "Newest first";
 }
 
-
 export type WorkingStatusFilterControls = Partial<
   Pick<ConversationListControls, "workingOnly" | "onWorkingOnlyChange">
 >;
