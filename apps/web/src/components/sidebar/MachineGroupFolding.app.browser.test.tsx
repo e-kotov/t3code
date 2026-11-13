@@ -39,22 +39,17 @@ vi.mock(import("~/lib/t3ProjectFileDefaults"), async (original) => ({
 // Supply pin placement and a launching thread at the shell fixture boundary.
 vi.mock(import("~/state/entities"), async (original) => {
   const actual = await original();
-  const { useMemo } = await import("react");
   return {
     ...actual,
     useQuietThreadShells: () => {
       const threads = actual.useQuietThreadShells();
-      return useMemo(
-        () =>
-          threads.map((thread) => {
-            if (thread.id === "pinned-fold") {
-              return { ...thread, pinnedAt: thread.createdAt, pinOrderKey: "a" };
-            }
-            if (thread.id === "working-fold") return asLaunchingThread(thread);
-            return thread;
-          }),
-        [threads],
-      );
+      return threads.map((thread) => {
+        if (thread.id === "pinned-fold") {
+          return { ...thread, pinnedAt: thread.createdAt, pinOrderKey: "a" };
+        }
+        if (thread.id === "working-fold") return asLaunchingThread(thread);
+        return thread;
+      });
     },
   };
 });
@@ -83,10 +78,21 @@ it("folds pinned, unpinned and Working machine sections through their own button
   for (const thread of [pin, main, working, open])
     await expect.element(row(thread.title)).toBeVisible();
   const capture = async (name: string) => {
-    if (import.meta.env.VITE_MACHINE_FOLD_CAPTURE)
-      await app.locator.screenshot({
-        path: `../../../../../.t3/machine-fold-evidence/${name}.png`,
-      });
+    if (!import.meta.env.VITE_MACHINE_FOLD_CAPTURE) return;
+    await vi.waitFor(() =>
+      expect(
+        document
+          .getAnimations()
+          .filter(
+            (animation) =>
+              animation.playState === "running" &&
+              Number.isFinite(animation.effect?.getComputedTiming().iterations),
+          ),
+      ).toHaveLength(0),
+    );
+    await app.locator.screenshot({
+      path: `../../../../../.t3/machine-fold-evidence/${name}.png`,
+    });
   };
   await capture(`${import.meta.env.VITE_MACHINE_FOLD_CAPTURE}-expanded`);
   if (import.meta.env.VITE_MACHINE_FOLD_CAPTURE === "before") return;
