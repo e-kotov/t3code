@@ -104,6 +104,21 @@ The resolver job runs repository code with the selected model credential in its 
 has no push credential. The separate promotion job runs no repository code. As before, keep the
 Claude workspace spend limit and the Gateway key budget bounded.
 
+### Upstream direct-session renewal
+
+When upstream introduces its own renewal, sliding expiry or device-key implementation, the
+resolver and reviewer must compare it with any implemented fork equivalent before choosing
+which behavior to keep. Authentication policy, revocation, signed expiry, scopes, concurrency,
+offline recovery, transport restrictions and client/server migration all matter; similar names
+or green checks do not establish equivalence. A policy change or retirement of fork behavior
+uses `.claude-needs-decision.md` and waits for Egor rather than silently preserving both paths
+or automatically favoring either implementation.
+
+These instructions apply when the resolver runs. A clean merge with passing checks skips agent
+review, so the eventual fork renewal feature must also account for upstream overlap on that
+path; these prompt changes do not add automatic semantic detection. Pending proposals and
+draft PRs must not be treated as functionality already shipped in the fork.
+
 Workflow changes run `scripts/claude-sync.test.py` without a model call. The regression executes
 actual workflow shell steps with a failed installer and checks that the preferred resolver runs,
 Pi takes over when Claude's API call fails, the resolver order can be reversed, an unrepaired

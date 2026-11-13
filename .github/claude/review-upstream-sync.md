@@ -20,6 +20,13 @@ Judge only the fix:
 - Is anything likely to fail typecheck, lint or tests, or behave wrongly at runtime?
 - If it lowered `scripts/fork-footprint-budget.json` via `--write`, is each reduction an
   intentional extraction or feature retirement rather than a lost fork integration?
+- If upstream adds direct-session renewal, sliding expiry or device-key binding alongside a
+  fork equivalent, did the resolver compare actual behavior and tests, including revocation,
+  signed expiry, scopes, races, offline recovery, transport restrictions and compatibility?
+  Request changes for duplicate renewal paths or an undocumented choice of which implementation
+  to keep. A policy change or fork-feature retirement requires `.claude-needs-decision.md`
+  and Egor's decision, even if checks pass; do not require keeping fork code merely because
+  its tests currently assert that implementation.
 
 Request changes only for real defects, each with file, line and the concrete fix. Approve when the
 fix is correct even if you would have written it differently.

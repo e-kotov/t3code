@@ -26,6 +26,16 @@ future upstream merges clean:
   but never weaken, delete or rewrite their assertions to accept upstream's behavior; if both cannot
   hold, follow the bail-out rule in step 5.
 
+For direct-connection authentication, an upstream implementation of session renewal, sliding
+expiry or device-key binding requires a fresh comparison with any implemented fork equivalent.
+Inspect the actual code and tests on both sides; a proposal or draft PR is not a shipped feature.
+Compare revocation, signed expiry, scopes, concurrent renewal and stale credentials, offline
+recovery, transport restrictions, client/server compatibility and migrations. Do not blindly keep
+the fork version, replace it because upstream has a similar name, or run both renewal paths.
+If adopting, retaining or combining them requires an authentication-policy decision or retiring
+fork behavior, write `.claude-needs-decision.md` with the recommendation, evidence, migration
+and verification needed, then follow step 5. Passing tests alone does not settle that choice.
+
 1. Fix exactly what "This run" describes. In conflicted files remove every marker and keep both
    sides' intent: "ours" is fork code, "theirs" is upstream's change. When upstream removed or
    restructured code that a fork line touched, move the fork's addition onto upstream's new
