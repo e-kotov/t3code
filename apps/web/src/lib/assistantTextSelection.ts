@@ -1,3 +1,4 @@
+import type { createCitationCommentInput } from "./forkCitationCommentInput";
 import { ASSISTANT_CITATION_CONTEXT_LENGTH, type AssistantCitation } from "@t3tools/contracts";
 
 import { mathWrapperOf } from "../markdown-clipboard";
@@ -14,6 +15,8 @@ export type AssistantCitationSourceAnchor = {
   source: HTMLElement;
   range: Range;
   viewport: HTMLElement;
+  initialComment?: string;
+  commentInput?: ReturnType<typeof createCitationCommentInput>;
 };
 
 export function findAssistantCitationSourceAnchor(

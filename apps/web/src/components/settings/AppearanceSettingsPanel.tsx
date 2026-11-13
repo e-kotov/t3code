@@ -36,6 +36,7 @@ import { AdvancedSettings } from "./AdvancedSettings";
 import { PanelAnimationsPreview } from "./PanelAnimationsPreview";
 import { TypographySection } from "./TypographySettings";
 import { ThreadDetailsItemsRow } from "./ThreadDetailsItemsRow";
+import { TypeToCiteSetting } from "./TypeToCiteSetting";
 import { UsagePopupSettings } from "./UsagePopupSettings";
 
 const ENVIRONMENT_IDENTIFICATION_LABELS: Record<EnvironmentIdentificationMode, string> = {
@@ -257,6 +258,8 @@ export function AppearanceSettingsPanel() {
             </div>
           }
         />
+
+        <TypeToCiteSetting />
 
         <SettingsRow
           {...searchableSetting("chat-width")}

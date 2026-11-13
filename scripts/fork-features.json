@@ -438,6 +438,18 @@
         "apps/mobile/src/features/threads/conversationListOrder.test.ts",
         "apps/mobile/src/features/threads/useConversationThreadListV2.test.tsx"
       ]
+    },
+    {
+      "id": "type-to-cite",
+      "group": "Composer and chat",
+      "summary": "optional typing or pasting on selected assistant text to start a citation comment",
+      "docs": "docs/user/composer.md",
+      "tests": [
+        "apps/web/src/components/TypeToCiteDraft.browser.test.tsx",
+        "apps/web/src/components/chat/TypeToCiteChip.browser.test.tsx",
+        "apps/web/src/components/chat/TypeToCiteSelection.browser.test.tsx",
+        "apps/web/src/components/chat/TypeToCiteShortcut.browser.test.tsx"
+      ]
     }
   ]
 }

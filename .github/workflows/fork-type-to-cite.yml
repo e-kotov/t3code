@@ -1,0 +1,43 @@
+name: Fork type to cite
+on:
+  push:
+    branches: ["feat/type-to-cite-*"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: type-to-cite-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.sha }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch --no-tags origin main "$CHECKOUT_REF"
+          git checkout --detach "$CHECKOUT_REF"
+      - uses: ./.github/actions/setup-ci-deps
+      - uses: ./.github/actions/setup-fork-chromium
+      - name: Check changed code
+        run: vp run check:changed "$(git merge-base origin/main HEAD)"
+      - name: Test citation input and existing behavior
+        run: >-
+          vp test run
+          apps/web/src/components/TypeToCiteDraft.browser.test.tsx
+          apps/web/src/components/chat/TypeToCiteChip.browser.test.tsx
+          apps/web/src/components/chat/TypeToCiteSelection.browser.test.tsx
+          apps/web/src/components/chat/TypeToCiteShortcut.browser.test.tsx
+          apps/web/src/components/ComposerPromptEditorTiptap.citationDraft.browser.test.tsx
+          apps/web/src/components/chat/AssistantCitationChip.browser.test.tsx
+          apps/web/src/components/chat/useChatShortcuts.browser.test.tsx
+          apps/web/src/components/settings/CloudVoiceConfiguration.browser.test.tsx

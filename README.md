@@ -16,6 +16,7 @@ Slurm and workflows across multiple machines.
 - **Everyday tools:** assistant citations with quoting, in-place comments and passage reveal on Android; comments on source files, including files outside the project; [custom editors and open-in options](docs/user/editors.md); recent custom snooze dates in context and bulk menus; settling the open thread stays on it by default, or opens a new chat or the next thread; a new thread started with the selected conversation attached; paste as plain text, and Enter on an effort closes the model picker.
 - **Connections:** [direct pairings and agent links renew themselves while in use, up to a yearly cap](docs/user/connection-renewal.md).
 - **Releases:** [fork builds and updates for macOS, Android and Termux, with fork telemetry and update policies](docs/user/fork-install.md).
+- **Composer and chat:** [optional typing or pasting on selected assistant text to start a citation comment](docs/user/composer.md).
 
 <!-- fork-features:end -->
 
