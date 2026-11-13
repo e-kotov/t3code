@@ -1,3 +1,4 @@
+import { useNavigate } from "@tanstack/react-router";
 import { useAtomValue } from "@effect/atom-react";
 import { connectionStatusText } from "@t3tools/client-runtime/connection";
 import { threadSupportsProviderHandoff } from "@t3tools/client-runtime/state/thread-workflows";
@@ -24,6 +25,7 @@ import { useEnvironmentPresentation } from "../../state/presentation";
 import { providersIgnoringCheckedAtAtom } from "../../state/server";
 import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
 import { MachineGroupConnectionStatus } from "../MachineGroupConnectionStatus";
+import { machineConnectionSettingsTargetId } from "../settings/machineConnectionSettingsTarget";
 import { MachineGroupSlurmTime } from "../MachineGroupSlurmTime";
 import { deriveLockedProvider } from "../ChatView.logic";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -40,6 +42,9 @@ export interface HeaderModelContext {
 export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedThreadRef }) {
   const { presentation } = useEnvironmentPresentation(threadRef.environmentId);
   const { startScratchThread } = useScratchProject();
+  const navigate = useNavigate();
+  const canInspectConnection =
+    presentation !== null && presentation.connection.phase !== "connected";
   if (!presentation) return null;
   const label = presentation.entry.target.label;
   const status = connectionStatusText(presentation.connection);
@@ -62,11 +67,18 @@ export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedTh
                 onClick={
                   canStartThread
                     ? () => void startScratchThread(threadRef.environmentId)
-                    : undefined
+                    : canInspectConnection
+                      ? () =>
+                          void navigate({
+                            to: "/settings/connections",
+                            search: { machine: threadRef.environmentId },
+                            hash: machineConnectionSettingsTargetId(threadRef.environmentId),
+                          })
+                      : undefined
                 }
                 className={cn(
                   "inline-flex min-w-0 items-center gap-1.5 rounded-sm text-xs text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                  canStartThread
+                  canStartThread || canInspectConnection
                     ? "cursor-pointer transition-colors hover:text-foreground"
                     : "cursor-help",
                 )}
@@ -84,7 +96,11 @@ export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedTh
           </TooltipTrigger>
           <TooltipPopup>
             {label}: {status}
-            {canStartThread ? <div>New thread on {label}</div> : null}
+            {canStartThread ? (
+              <div>New thread on {label}</div>
+            ) : canInspectConnection ? (
+              <div>Open connection settings for {label}</div>
+            ) : null}
           </TooltipPopup>
         </Tooltip>
         <MachineGroupSlurmTime

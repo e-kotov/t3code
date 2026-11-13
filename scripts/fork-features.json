@@ -84,7 +84,13 @@
         "packages/client-runtime/src/state/machineGroupCollapse.test.ts",
         "packages/client-runtime/src/connection/machineGroupStatus.test.ts",
         "packages/contracts/src/sidebarGrouping.test.ts",
-        "apps/web/src/components/sidebar/sidebarConversationGroups.test.ts"
+        "apps/web/src/components/sidebar/sidebarConversationGroups.test.ts",
+        "apps/web/src/components/sidebar/sidebarMachineScope.test.ts",
+        "apps/web/src/components/MachineFilters.app.browser.test.tsx",
+        "apps/web/src/components/settings/TargetedMachineConnectionRow.browser.test.tsx",
+        "apps/web/src/components/settings/TargetedLocalMachineConnection.browser.test.tsx",
+        "apps/mobile/src/features/home/machineFilterPresentation.test.ts",
+        "apps/mobile/src/features/home/useMachineFilterEnvironments.test.tsx"
       ]
     },
     {
@@ -398,6 +404,7 @@
         "packages/client-runtime/src/state/workingSidebarView.test.ts",
         "apps/web/src/components/sidebar/workingSidebarOrder.test.ts",
         "apps/web/src/components/sidebar/workingSidebar.app.browser.test.tsx",
+        "apps/web/src/components/MachineFilters.app.browser.test.tsx",
         "apps/mobile/src/features/home/conversationListOptions.test.ts",
         "apps/mobile/src/features/home/home-list-options.test.tsx",
         "apps/mobile/src/features/home/ConversationThreadListFilters.test.tsx",

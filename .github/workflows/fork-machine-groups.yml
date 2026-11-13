@@ -6,12 +6,31 @@ on:
     paths:
       - ".github/workflows/fork-machine-groups.yml"
       - "apps/web/src/components/Sidebar.tsx"
+      - "apps/web/src/components/CommandPalette.tsx"
+      - "apps/web/src/components/MachinePickerIndicators.tsx"
+      - "apps/web/src/components/MachineFilters*"
+      - "apps/web/src/components/sidebar/sidebarMachineScope*"
+      - "apps/web/src/components/chat/HeaderContextLabels*"
+      - "apps/web/src/uiStateStore.ts"
+      - "apps/web/src/components/settings/TargetedMachineConnection*"
+      - "apps/web/src/components/settings/TargetedLocalMachineConnection*"
+      - "apps/web/src/components/settings/ConnectionsSettings.tsx"
       - "apps/web/src/usageCompact/HeaderUsageControl.browser.test.tsx"
       - "packages/client-runtime/src/state/machineGroupCollapse*"
       - "packages/client-runtime/package.json"
       - "scripts/fork-footprint-budget.json"
       - "apps/web/src/components/sidebar/*achineGroup*"
       - "apps/web/src/components/sidebar/sidebarConversationGroups*"
+      - "apps/mobile/src/features/home/*MachineFilter*"
+      - "apps/mobile/src/features/home/machineFilter*"
+      - "apps/mobile/src/features/home/home-list-filter-menu.ts"
+      - "apps/mobile/src/features/home/ThreadListFilters.tsx"
+      - "apps/mobile/src/features/home/HomeRouteScreen.tsx"
+      - "apps/mobile/src/features/threads/ThreadNavigationSidebar.tsx"
+      - "apps/mobile/src/components/ui/MenuPopup.android.tsx"
+      - "apps/mobile/src/components/ui/liveMenuActionPath.ts"
+      - "apps/mobile/src/components/ui/AndroidAnchoredMenu.android.tsx"
+      - "apps/mobile/fork-react-tests.ts"
       - "apps/mobile/src/features/threads/*achineGroup*"
       - "apps/mobile/src/features/threads/conversationListOrder*"
       - "apps/mobile/src/features/threads/useConversationThreadListV2*"
@@ -67,6 +86,18 @@ jobs:
           fi
           cat "$RUNNER_TEMP/fold-regression.log"
           python3 -c 'import os, pathlib; assert "AssertionError" in (pathlib.Path(os.environ["RUNNER_TEMP"]) / "fold-regression.log").read_text()'
+      - name: Capture machine pickers before the change
+        run: |
+          files=(apps/web/src/components/Sidebar.tsx apps/web/src/components/CommandPalette.tsx)
+          for file in "${files[@]}"; do cp "$file" "$RUNNER_TEMP/$(basename "$file")"; done
+          restore() {
+            for file in "${files[@]}"; do cp "$RUNNER_TEMP/$(basename "$file")" "$file"; done
+          }
+          trap restore EXIT
+          for file in "${files[@]}"; do git show "origin/main:$file" > "$file"; done
+          VITE_MACHINE_FILTER_CAPTURE=before vp test run apps/web/src/components/MachineFilters.app.browser.test.tsx
+      - name: Verify machine picker interactions and capture the result
+        run: VITE_MACHINE_FILTER_CAPTURE=after vp test run apps/web/src/components/MachineFilters.app.browser.test.tsx
       - name: Check changed code
         run: vp run check:changed origin/main
       - name: Check surrounding mobile list behavior
@@ -78,8 +109,11 @@ jobs:
             xargs -0 -r vp fmt --no-error-on-unmatched-pattern
           git diff --binary > "$RUNNER_TEMP/machine-groups-format.patch"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: failure()
+        if: always()
         with:
-          name: machine-groups-format-fixes
-          path: ${{ runner.temp }}/machine-groups-format.patch
+          name: machine-filter-evidence
+          include-hidden-files: true
+          path: |
+            .t3/machine-filter-evidence/
+            ${{ runner.temp }}/machine-groups-format.patch
           retention-days: 3

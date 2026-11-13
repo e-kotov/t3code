@@ -43,7 +43,7 @@ it("filters Working through the existing menu, preserves project scope, and move
     if (import.meta.env.VITE_WORKING_CAPTURE) await app.locator.screenshot({ path: `../../../../../.t3/working-sidebar-evidence/${name}.png` });
   };
   await capture("before");
-  await userEvent.click(page.getByRole("button", { name: /^Filter threads by project or machine/ }));
+  await userEvent.click(page.getByRole("combobox", { name: /^Filter threads by project or machine/ }));
   const workingCheckbox = page.getByRole("checkbox", { name: "Working only" });
   workingCheckbox.element().focus();
   await expect.element(workingCheckbox).toBeFocused();
@@ -58,12 +58,12 @@ it("filters Working through the existing menu, preserves project scope, and move
   await userEvent.fill(page.getByRole("combobox", { name: "Search threads" }), "idle-view");
   await expect.element(page.getByRole("option", { name: /Thread idle-view/ })).not.toBeInTheDocument();
   await userEvent.fill(page.getByRole("combobox", { name: "Search threads" }), "");
-  await userEvent.click(page.getByRole("button", { name: /^Filter threads by project or machine/ }));
+  await userEvent.click(page.getByRole("combobox", { name: /^Filter threads by project or machine/ }));
   await userEvent.click(page.getByRole("checkbox", { name: "Working only" }));
   await userEvent.click(page.getByRole("option", { name: /^render/ }));
   await expect.element(page.getByTestId("sidebar-filter-active")).toBeInTheDocument();
   await expect.element(row(idle.title)).toBeVisible();
-  await userEvent.click(page.getByRole("button", { name: /^Filter threads by project or machine/ }));
+  await userEvent.click(page.getByRole("combobox", { name: /^Filter threads by project or machine/ }));
   await userEvent.click(page.getByRole("option", { name: /^All projects/ }));
   await expect.element(page.getByTestId("sidebar-filter-active")).not.toBeInTheDocument();
   await expect.element(row(working.title)).toBeVisible();

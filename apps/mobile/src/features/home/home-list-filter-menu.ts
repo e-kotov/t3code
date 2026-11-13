@@ -5,9 +5,13 @@ import {
 } from "./conversationListOptions";
 import { formatFilterOptionTitle, formatFilterOptionSubtitle } from "./mobileNonSettledCounts";
 
+import {
+  machineFilterOptionPresentation,
+  type MachineFilterDetails,
+} from "./machineFilterPresentation";
 import type { AppBarMenuItem } from "../../components/ui/AppBar.types";
 
-export interface HomeListFilterMenuEnvironment {
+export interface HomeListFilterMenuEnvironment extends MachineFilterDetails {
   readonly environmentId: EnvironmentId;
   readonly label: string;
   readonly nonSettledCount?: number;
@@ -44,10 +48,7 @@ export function buildHomeListFilterMenuItems(
         },
         ...props.environments.map((environment) => ({
           id: `environment:${environment.environmentId}`,
-          title: formatFilterOptionTitle(environment.label, environment.nonSettledCount),
-          ...(environment.nonSettledCount !== undefined && environment.nonSettledCount > 0
-            ? { subtitle: formatFilterOptionSubtitle(environment.nonSettledCount) }
-            : {}),
+          ...machineFilterOptionPresentation(environment),
           selected: props.selectedEnvironmentId === environment.environmentId,
           onPress: () => props.onEnvironmentChange(environment.environmentId),
         })),
