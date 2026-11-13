@@ -725,7 +725,9 @@ const make = Effect.gen(function* () {
     get,
     unlink,
     resolve,
-    resolveForRenewal: (id) => resolve(id).pipe(Effect.provideService(Renewing, true)),
+    resolveForRenewal: Effect.fn("PeerLinks.resolveForRenewal")((id: EnvironmentId) =>
+      resolve(id).pipe(Effect.provideService(Renewing, true)),
+    ),
     recordOutcome,
   });
 });
