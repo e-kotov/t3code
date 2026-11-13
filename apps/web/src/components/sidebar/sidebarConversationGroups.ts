@@ -28,6 +28,7 @@ export interface SidebarMarkerFields {
   readonly environmentId?: EnvironmentId;
   readonly projectId?: ProjectId;
   readonly projectKey?: string;
+  readonly section?: SidebarSection;
   readonly groupPosition?: number;
   readonly groupCount?: number;
 }
@@ -195,11 +196,12 @@ export function groupSidebarRowsByMachine<
       marker: "machine-header",
       key: `sidebar-machine:${section}:${group[0]!.environmentId}`,
       environmentId: group[0]!.environmentId,
+      section,
       groupPosition,
       groupCount: groups.length,
     };
 
-    const visibleThreads = group.filter((thread) => machineGroupThreadVisible(thread, view));
+    const visibleThreads = group.filter((thread) => machineGroupThreadVisible(thread, { ...view, section }));
 
     if (section !== "active" || !isProject) {
       return [machineHeader, ...rowsOf(visibleThreads, section)];

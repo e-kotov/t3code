@@ -11,6 +11,7 @@ import { MachineGroupConnectionStatus } from "./MachineGroupConnectionStatus";
 import { MachineGroupSlurmTime } from "./MachineGroupSlurmTime";
 import { ThreadListV2Section } from "./thread-list-v2-items";
 
+import { machineGroupKey, type MachineGroupSection } from "@t3tools/client-runtime/state/machine-group-collapse";
 import { useMachineGroupCollapse } from "./machineGroupCollapse";
 
 type MoveMachine = (environmentId: string, delta: -1 | 1) => void;
@@ -31,6 +32,7 @@ export function renderMachineGroupHeader(
       onMove={onMove}
       machineKind={item.machineKind}
       collapsible={item.collapsible}
+      section={item.section}
     />
   );
 }
@@ -44,13 +46,17 @@ const ThreadListV2MachineHeader = memo(function ThreadListV2MachineHeader(props:
   readonly onMove?: MoveMachine;
   readonly machineKind?: EnvironmentMachineKind;
   readonly collapsible?: boolean;
+  readonly section?: MachineGroupSection;
 }) {
   const { environmentId, position, count, onMove } = props;
   const { collapsedMachineGroups, toggleMachineGroup } = useMachineGroupCollapse();
-  const collapsed = environmentId !== undefined && collapsedMachineGroups.includes(environmentId);
+  const collapsed = environmentId !== undefined && collapsedMachineGroups.includes(machineGroupKey(environmentId, props.section));
   return (
     <View className={cn("flex-row items-center", props.pane === "sidebar" ? "px-3" : "px-5")}>
       <MachineGroupConnectionStatus environmentId={environmentId} />
+      {props.section === "pinned" ? (
+        <SymbolView name="pin" size={13} tintColorClassName="accent-foreground-muted" type="monochrome" />
+      ) : null}
       {props.machineKind ? (
         <EnvironmentMachineSymbol
           kind={props.machineKind}
@@ -101,10 +107,10 @@ const ThreadListV2MachineHeader = memo(function ThreadListV2MachineHeader(props:
                   accessibilityLabel={`${collapsed ? "Expand" : "Collapse"} ${props.label} machine group`}
                   accessibilityState={{ expanded: !collapsed }}
                   className="size-7 items-center justify-center"
-                  onPress={() => toggleMachineGroup(environmentId)}
+                  onPress={() => toggleMachineGroup(environmentId, props.section)}
                 >
                   <SymbolView
-                    name={collapsed ? "chevron.down" : "chevron.up"}
+                    name={collapsed ? "chevron.right" : "chevron.down"}
                     size={12}
                     tintColorClassName="accent-foreground-muted"
                     type="monochrome"

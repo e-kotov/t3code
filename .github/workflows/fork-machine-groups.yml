@@ -20,6 +20,7 @@ on:
       - "packages/client-runtime/package.json"
       - "scripts/fork-footprint-budget.json"
       - "apps/web/src/components/sidebar/*achineGroup*"
+      - "apps/web/src/components/sidebar/MachineGroupFolding*"
       - "apps/web/src/components/sidebar/sidebarConversationGroups*"
       - "apps/mobile/src/features/home/*MachineFilter*"
       - "apps/mobile/src/features/home/machineFilter*"
@@ -86,6 +87,34 @@ jobs:
           fi
           cat "$RUNNER_TEMP/fold-regression.log"
           python3 -c 'import os, pathlib; assert "AssertionError" in (pathlib.Path(os.environ["RUNNER_TEMP"]) / "fold-regression.log").read_text()'
+      - name: Prove separate shelf folding fails before the fix
+        run: |
+          files=(apps/web/src/components/sidebar/sidebarConversationGroups.ts apps/mobile/src/features/threads/machineGroupedThreadList.ts)
+          for file in "${files[@]}"; do cp "$file" "$RUNNER_TEMP/$(basename "$file")"; done
+          restore() {
+            for file in "${files[@]}"; do cp "$RUNNER_TEMP/$(basename "$file")" "$file"; done
+          }
+          trap restore EXIT
+          for file in "${files[@]}"; do git show "origin/main:$file" > "$file"; done
+          if vp test run apps/web/src/components/sidebar/sidebarConversationGroups.test.ts apps/mobile/src/features/threads/conversationListOrder.test.ts -t 'folds each shelf independently' > "$RUNNER_TEMP/shelf-fold-before.log" 2>&1; then
+            cat "$RUNNER_TEMP/shelf-fold-before.log"
+            echo 'Separate shelf folding must fail before the fix.'
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/shelf-fold-before.log"
+          python3 -c 'import os, pathlib; assert "AssertionError" in (pathlib.Path(os.environ["RUNNER_TEMP"]) / "shelf-fold-before.log").read_text()'
+      - name: Capture machine sections before the change
+        run: |
+          files=(apps/web/src/components/sidebar/SidebarMachineGroupHeader.tsx apps/web/src/components/sidebar/sidebarConversationGroups.ts apps/web/src/components/sidebar/machineGroupCollapse.ts)
+          for file in "${files[@]}"; do cp "$file" "$RUNNER_TEMP/$(basename "$file")"; done
+          restore() {
+            for file in "${files[@]}"; do cp "$RUNNER_TEMP/$(basename "$file")" "$file"; done
+          }
+          trap restore EXIT
+          for file in "${files[@]}"; do git show "origin/main:$file" > "$file"; done
+          VITE_MACHINE_FOLD_CAPTURE=before vp test run apps/web/src/components/sidebar/MachineGroupFolding.app.browser.test.tsx
+      - name: Verify independent machine section controls and capture the result
+        run: VITE_MACHINE_FOLD_CAPTURE=after vp test run apps/web/src/components/sidebar/MachineGroupFolding.app.browser.test.tsx
       - name: Capture machine pickers before the change
         run: |
           files=(apps/web/src/components/Sidebar.tsx apps/web/src/components/CommandPalette.tsx)
@@ -115,5 +144,6 @@ jobs:
           include-hidden-files: true
           path: |
             .t3/machine-filter-evidence/
+            .t3/machine-fold-evidence/
             ${{ runner.temp }}/machine-groups-format.patch
           retention-days: 3

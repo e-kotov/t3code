@@ -1,3 +1,4 @@
+import { machineGroupKey } from "@t3tools/client-runtime/state/machine-group-collapse";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import { EnvironmentId, ProviderInstanceId, ThreadId } from "@t3tools/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -284,10 +285,10 @@ describe("groupThreadListV2ItemsByMachine", () => {
     expect(new Set(grouped.map((item) => item.key)).size).toBe(grouped.length);
   });
 
-  it("keeps a single-machine list unsectioned", () => {
+  it("keeps a single-machine group header reachable", () => {
     const rows = [row("machine-a", "a1"), row("machine-a", "a2")];
     const grouped = groupThreadListV2ItemsByMachine(rows, labels);
-    expect(grouped).toEqual(rows);
+    expect(grouped.map(keyOf)).toEqual(["[machine-a]", "a1", "a2"]);
     expect(grouped).not.toBe(rows);
   });
 });
@@ -334,7 +335,7 @@ describe("arrangeMobileConversationList", () => {
     } as const;
     const folded = arrangeMobileConversationList(rows, {
       ...options,
-      collapsedMachineGroups: ["machine-a"],
+      collapsedMachineGroups: [machineGroupKey("machine-a")],
     });
     expect(folded.map(keyOf)).toEqual(["[machine-b]", "b1", "[machine-a]"]);
     expect(folded.at(-1)).toMatchObject({ collapsible: true, position: 1, count: 2 });
@@ -360,10 +361,38 @@ describe("arrangeMobileConversationList", () => {
       environments,
       machineKinds,
       machineOrder: [],
-      collapsedMachineGroups: ["machine-a"],
+      collapsedMachineGroups: [machineGroupKey("machine-a")],
     });
-    expect(folded.map(keyOf)).toEqual(["[machine-a]", "active", "pending"]);
+    expect(folded.map(keyOf)).toEqual(["[machine-a]", "active", "pending", "[machine-a]"]);
     expect(folded[0]).toMatchObject({ collapsible: true });
+  });
+
+  it("folds each shelf independently with one machine and keeps pinned metadata", () => {
+    const pinned = row("machine-a", "p1");
+    if (pinned.type !== "v2-thread") throw new Error("Expected thread row");
+    const input = [
+      { ...pinned, item: { ...pinned.item, pinned: true } },
+      row("machine-a", "a1"),
+      { type: "v2-working-shelf", key: "working" },
+      row("machine-a", "w1"),
+      { type: "v2-snoozed-shelf", key: "snoozed" },
+      row("machine-a", "s1"),
+      { type: "v2-settled-shelf", key: "settled" },
+      row("machine-a", "z1"),
+    ];
+    for (const grouping of ["machine", "both"] as const) {
+      for (const [section, hidden] of [["pinned", "p1"], ["active", "a1"], ["working", "w1"], ["snoozed", "s1"], ["settled", "z1"]] as const) {
+        const arranged = arrangeMobileConversationList(input, {
+          grouping, environments, machineKinds, machineOrder: [],
+          collapsedMachineGroups: [machineGroupKey("machine-a", section)],
+        });
+        expect(arranged.filter((item) => item.type === "v2-thread").map(keyOf)).toEqual(
+          ["p1", "a1", "w1", "s1", "z1"].filter((key) => key !== hidden),
+        );
+        expect(arranged.flatMap((item) => item.type === "v2-machine-header" && "section" in item ? [item.section] : []))
+          .toEqual(["pinned", "active", "working", "snoozed", "settled"]);
+      }
+    }
   });
 
   it("shows ungrouped conversations even if their machine was folded", () => {
@@ -372,7 +401,7 @@ describe("arrangeMobileConversationList", () => {
       environments,
       machineKinds,
       machineOrder: [],
-      collapsedMachineGroups: ["machine-a", "machine-b"],
+      collapsedMachineGroups: [machineGroupKey("machine-a"), machineGroupKey("machine-b")],
     });
     expect(arranged.map(keyOf)).toEqual(["[machine-a]", "[machine-b]", "a1", "b1", "a2"]);
     expect(arranged[0]).toMatchObject({ collapsible: false });
@@ -413,6 +442,7 @@ describe("machine header list equality", () => {
   it("treats a rebuilt identical header as unchanged and a moved one as changed", () => {
     expect(threadListV2ListItemsAreEqual({ ...header }, header)).toBe(true);
     expect(threadListV2ListItemsAreEqual({ ...header, position: 1 }, header)).toBe(false);
+    expect(threadListV2ListItemsAreEqual({ ...header, section: "pinned" }, header)).toBe(false);
     expect(threadListV2ListItemsAreEqual({ ...header, label: "Renamed" }, header)).toBe(false);
     expect(threadListV2ListItemsAreEqual(row("machine-a", header.key), header)).toBe(false);
   });

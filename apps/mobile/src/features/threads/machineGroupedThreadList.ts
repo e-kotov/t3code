@@ -1,4 +1,4 @@
-import { machineGroupThreadVisible } from "@t3tools/client-runtime/state/machine-group-collapse";
+import { machineGroupThreadVisible, type MachineGroupSection } from "@t3tools/client-runtime/state/machine-group-collapse";
 import {
   isSidebarMachineGrouping,
   type EnvironmentMachineKind,
@@ -27,7 +27,7 @@ function isThreadRow<T extends { readonly type: string }>(
 /**
  * Splits each run of thread rows into machine sections in the saved machine
  * order. Every other row (shelf headers, pending tasks, trailing rows) stays in
- * place, and a list with at most one machine is returned without sections.
+ * place, including when only one machine has rows.
  */
 export function groupThreadListV2ItemsByMachine<T extends { readonly type: string }>(
   items: readonly T[],
@@ -42,12 +42,15 @@ export function groupThreadListV2ItemsByMachine<T extends { readonly type: strin
         .map((item) => item.item.thread.environmentId),
     ),
   ].sort(compareMachineOrder(preferredOrder));
-  if (environmentIds.length <= 1) return [...items];
   const grouped: (T | ThreadListV2MachineHeaderListItem)[] = [];
   let index = 0;
+  let shelf: MachineGroupSection = "active";
   let cursor = 0;
   while (cursor < items.length) {
     const item = items[cursor]!;
+    if (item.type === "v2-working-shelf") shelf = "working";
+    else if (item.type === "v2-snoozed-shelf") shelf = "snoozed";
+    else if (item.type === "v2-settled-shelf") shelf = "settled";
     if (!isThreadRow(item)) {
       grouped.push(item);
       cursor += 1;
@@ -61,6 +64,7 @@ export function groupThreadListV2ItemsByMachine<T extends { readonly type: strin
       cursor += 1;
       row = items[cursor];
     }
+    const section = item.item.pinned ? "pinned" : shelf;
     const groupedRows = new Map<string, T[]>();
     for (const threadRow of segment) {
       const id = threadRow.item.thread.environmentId;
@@ -76,6 +80,7 @@ export function groupThreadListV2ItemsByMachine<T extends { readonly type: strin
         position,
         count: segmentEnvironmentIds.length,
         machineKind: machineKinds.get(environmentId),
+        section,
       });
       grouped.push(...(groupedRows.get(environmentId) ?? []));
     }
@@ -122,8 +127,10 @@ export function arrangeMobileConversationList<T extends { readonly type: string 
     options.machineKinds,
     options.machineOrder,
   );
+  let section: MachineGroupSection = "active";
   return withContext.flatMap((item): (T | ThreadListV2MachineHeaderListItem)[] => {
     if (isMachineHeader(item)) {
+      section = item.section ?? "active";
       return [
         {
           ...item,
@@ -131,7 +138,7 @@ export function arrangeMobileConversationList<T extends { readonly type: string 
         },
       ];
     }
-    if (isThreadRow(item) && !machineGroupThreadVisible(item.item.thread, options)) {
+    if (isThreadRow(item) && !machineGroupThreadVisible(item.item.thread, { ...options, section })) {
       return [];
     }
     return [item];
