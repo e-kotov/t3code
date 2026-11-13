@@ -200,8 +200,10 @@ it("shows reconnecting machines and Slurm time remaining when adding a project",
       .screenshot({ path: "../../../../.t3/machine-filter-evidence/before-project-picker.png" });
     return;
   }
-  await expect.element(gwdg).toHaveAttribute("aria-disabled", "true");
-  await expect.element(gwdg.getByRole("button", { name: "GWDG is reconnecting" })).toBeVisible();
+  await expect.element(gwdg).not.toBeInTheDocument();
+  await expect
+    .element(page.getByRole("dialog").getByRole("button", { name: "GWDG is reconnecting" }))
+    .toBeVisible();
   await expect.element(page.getByRole("option", { name: /hub/ }).getByText("1h30m")).toBeVisible();
   if (capture)
     await page
