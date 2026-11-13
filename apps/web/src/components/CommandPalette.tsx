@@ -1216,7 +1216,7 @@ function OpenCommandPaletteDialog(props: {
     void navigate({ to: "/settings/connections" });
   };
   const addProjectEntry = resolveAddProjectEntry(
-    addProjectEnvironmentOptions,
+    defaultAddProjectEnvironmentId === null ? [] : addProjectEnvironmentOptions,
     defaultAddProjectEnvironmentId,
   );
 
@@ -1243,6 +1243,7 @@ function OpenCommandPaletteDialog(props: {
     switch (addProjectEntry.kind) {
       case "connect-environment":
         return [
+          ...(addProjectEnvironmentItems.length > 0 ? addProjectEnvironmentGroups : []),
           {
             value: ADD_PROJECT_ENTRY_GROUP,
             label: "",

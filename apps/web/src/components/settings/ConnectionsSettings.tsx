@@ -134,6 +134,7 @@ import {
 } from "./AuthorizedClientsSettings";
 import { ITEM_ROW_CLASSNAME } from "./itemRows";
 import { CloudLinkRow, CloudRemoteEnvironmentRows } from "./SavedEnvironmentRows";
+import { TargetedLocalMachineConnection } from "./TargetedLocalMachineConnection";
 import { TargetedMachineConnectionRow as SavedBackendListRow } from "./TargetedMachineConnectionRow";
 import { AddEnvironmentDialog } from "./AddEnvironmentDialog";
 
@@ -1587,6 +1588,7 @@ function ConnectionsSettingsContent({
 
   return (
     <SettingsPageContainer>
+      <TargetedLocalMachineConnection />
       {desktopBridge ? (
         <SettingsSection id="this-app" title="This app">
           <LocalEnvironmentSetting />

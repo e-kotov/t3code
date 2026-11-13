@@ -232,3 +232,23 @@ it.skipIf(import.meta.env.VITE_MACHINE_FILTER_CAPTURE === "before")(
     await expect.element(page.getByRole("option", { name: /GWDG/ })).not.toBeInTheDocument();
   },
 );
+
+it.skipIf(import.meta.env.VITE_MACHINE_FILTER_CAPTURE === "before")(
+  "keeps connection recovery alongside machine status when every destination is unavailable",
+  async () => {
+    await using screen = await mount();
+    machines.primaryOffline = true;
+    machines.presentations = machines.presentations.map((presentation) => ({
+      ...presentation,
+      connection: { ...presentation.connection, phase: "reconnecting" },
+    }));
+    await userEvent.click(screen.app.getByRole("button", { name: "Add project", exact: true }));
+    await expect
+      .element(page.getByRole("option", { name: /Connect an environment/ }))
+      .toBeVisible();
+    await expect
+      .element(page.getByRole("dialog").getByRole("button", { name: "GWDG is reconnecting" }))
+      .toBeVisible();
+    await expect.element(page.getByRole("option", { name: /GWDG/ })).not.toBeInTheDocument();
+  },
+);
