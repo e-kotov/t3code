@@ -134,7 +134,7 @@
     "apps/web/src/browser/useOpenLink.ts": 3,
     "apps/web/src/components/ChatMarkdown.tsx": 13,
     "apps/web/src/components/ChatView.tsx": 17,
-    "apps/web/src/components/CommandPalette.tsx": 44,
+    "apps/web/src/components/CommandPalette.tsx": 45,
     "apps/web/src/components/ComposerPromptEditorTiptap.tsx": 4,
     "apps/web/src/components/CustomSnoozeDialog.tsx": 3,
     "apps/web/src/components/EnvironmentMachineIcon.tsx": 11,
