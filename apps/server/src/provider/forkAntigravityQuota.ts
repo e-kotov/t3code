@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import { resolveAntigravityReleaseAsset } from "./antigravityRelease.ts";
+import { antigravityCliTarget } from "./antigravityCliRelease.ts";
 
 export function antigravityQuotaUserAgent(
   input: { readonly runtimeVersion?: Effect.Effect<string | null> },
@@ -14,8 +14,10 @@ export function antigravityQuotaUserAgent(
   }
   return input.runtimeVersion.pipe(
     Effect.map((version) => {
+      // The updater now resolves CLI releases dynamically. Unknown custom executables retain
+      // the fork's last ACP quota identity, not a claim about the installed CLI version.
       const runtimeVersion =
-        version ?? resolveAntigravityReleaseAsset(platform, architecture)?.version ?? "1.0.0";
+        version ?? (antigravityCliTarget(platform, architecture) === null ? "1.0.0" : "1.4.5");
       return `antigravity/acp/${runtimeVersion} (aidev_client; os_type=${platform}; arch=${architecture})`;
     }),
   );

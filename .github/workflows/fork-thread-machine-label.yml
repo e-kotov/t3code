@@ -18,6 +18,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  typecheck:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch --no-tags origin main "$CHECKOUT_REF"
+          git checkout --detach "$CHECKOUT_REF"
+      - uses: ./.github/actions/setup-ci-deps
+      - name: Typecheck every workspace with package diagnostics
+        run: |
+          if vp run -r --cache --parallel --concurrency-limit 1 --verbose --log grouped typecheck; then
+            exit 0
+          else
+            status=$?
+            vp run --last-details || true
+            exit "$status"
+          fi
+      - name: Check fork Antigravity quota compatibility
+        run: vp test run apps/server/src/provider/forkAntigravityQuota.test.ts
   checks:
     if: github.repository == 'e-kotov/t3code'
     runs-on: ubuntu-24.04
@@ -55,20 +84,6 @@ jobs:
           fi
           grep -q 'Thread, Routing, on Raven' "$RUNNER_TEMP/before.log" || { cat "$RUNNER_TEMP/before.log"; exit 1; }
           echo 'The test rejects the pre-fix implementation because its link name omits the machine.'
-      - name: Diagnose typechecks sequentially
-        run: |
-          for package in apps/server apps/web packages/shared; do
-            echo "::group::Typecheck diagnostic: $package"
-            if (cd "$package" && vp run typecheck); then
-              status=0
-            else
-              status=$?
-            fi
-            echo "Typecheck diagnostic exit status for $package: $status"
-            echo '::endgroup::'
-          done
-          # This is diagnostic only; the unchanged broad check below remains the gate.
-          exit 0
       - name: Check changed code
         id: check-changed
         run: |
