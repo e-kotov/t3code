@@ -44,7 +44,11 @@ it("filters Working through the existing menu, preserves project scope, and move
   };
   await capture("before");
   await userEvent.click(page.getByRole("button", { name: /^Filter threads by project or machine/ }));
-  await userEvent.click(page.getByRole("checkbox", { name: "Working only" }));
+  const workingCheckbox = page.getByRole("checkbox", { name: "Working only" });
+  workingCheckbox.element().focus();
+  await expect.element(workingCheckbox).toBeFocused();
+  await userEvent.keyboard(" ");
+  await expect.element(workingCheckbox).toBeChecked();
   await expect.element(page.getByTestId("sidebar-filter-active")).toBeInTheDocument();
   await capture("working-filter-menu");
   await userEvent.keyboard("{Escape}");

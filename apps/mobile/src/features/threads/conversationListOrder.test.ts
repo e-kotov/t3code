@@ -466,11 +466,11 @@ it("moves the Working section after pending and pinned rows before applying mach
     "v2-working-shelf",
     "working-a",
     "working-b",
-    "main-b:after-working",
+    "main-b",
     "main-a",
     "v2-settled-shelf",
   ]);
-  const dividerRow = reordered.find((item) => item.key === "main-b:after-working");
+  const dividerRow = reordered.find((item) => item.key === "main-b");
   expect(dividerRow?.type === "v2-thread" && hasWorkingDivider(dividerRow)).toBe(true);
   const grouped = arrangeMobileConversationList(reordered, {
     grouping: "machine",
@@ -498,4 +498,17 @@ it("moves the Working section after pending and pinned rows before applying mach
     "main-a",
     "v2-settled-shelf",
   ]);
+  const reorderedMachines = (collapsedMachineGroups: string[] = []) => arrangeMobileConversationList(reordered, {
+    grouping: "machine",
+    environments: [{ environmentId: "machine-a", label: "A" }, { environmentId: "machine-b", label: "B" }],
+    machineKinds: new Map(),
+    machineOrder: ["machine-a", "machine-b"],
+    collapsedMachineGroups,
+  });
+  const mainDividers = (items: ReturnType<typeof reorderedMachines>) => items.filter(
+    (item) => item.type === "v2-thread" && hasWorkingDivider(item),
+  ).map(keyOf);
+  expect(mainDividers(reorderedMachines())).toEqual(["main-a:after-working"]);
+  expect(mainDividers(reorderedMachines(["machine-a"]))).toEqual(["main-b:after-working"]);
+
 });

@@ -1,4 +1,4 @@
-import { hasWorkingDivider } from "./workingSidebarList";
+import { hasWorkingDivider, placeWorkingMainDivider } from "./workingSidebarList";
 import { machineGroupThreadVisible } from "@t3tools/client-runtime/state/machine-group-collapse";
 import {
   isSidebarMachineGrouping,
@@ -128,7 +128,7 @@ export function arrangeMobileConversationList<T extends { readonly type: string 
     options.machineKinds,
     options.machineOrder,
   );
-  return withContext.flatMap((item): (T | ThreadListV2MachineHeaderListItem)[] => {
+  return placeWorkingMainDivider(withContext.flatMap((item): (T | ThreadListV2MachineHeaderListItem)[] => {
     if (isMachineHeader(item)) {
       return [
         {
@@ -141,5 +141,5 @@ export function arrangeMobileConversationList<T extends { readonly type: string 
       return [];
     }
     return [item];
-  });
+  }));
 }

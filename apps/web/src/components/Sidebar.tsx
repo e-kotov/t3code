@@ -3235,7 +3235,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                         })
                       }
                     />
-                    {!filteredProjectScopeItems.some((item) => item.kind === "project") ? <WorkingOnlyFilter /> : null}
+                    <WorkingOnlyFilter />
                     <ComboboxEmpty>No matching projects or machines.</ComboboxEmpty>
                     <ComboboxList aria-multiselectable>
                       {(item: (typeof projectScopeItems)[number]) => {
@@ -3259,7 +3259,6 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                         );
                         return (
                           <Fragment key={item.value}>
-                            {startsGroup && item.kind === "project" ? <WorkingOnlyFilter /> : null}
                             {startsGroup ? (
                               <div
                                 className="px-2 pt-2 pb-1 text-xs font-medium text-muted-foreground"
@@ -3806,7 +3805,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                               <SidebarSectionHeader
                                 key="working-shelf-header"
                                 marker="working-header"
-                                className={workingFirst ? undefined : "mt-auto"}
+                                className={workingFirst || workingOnly ? undefined : "mt-auto"}
                                 label="Working"
                                 count={workingThreads.length}
                                 toggle={{
