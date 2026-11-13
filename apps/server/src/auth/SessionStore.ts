@@ -25,6 +25,7 @@ import * as ServerConfig from "../config.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import * as AuthSessions from "../persistence/AuthSessions.ts";
 import * as PayloadSigner from "./PayloadSigner.ts";
+import * as ForkSessionRenewal from "./ForkSessionRenewal.ts";
 import * as ServerSecretStore from "./ServerSecretStore.ts";
 import {
   REUSABLE_DEV_SESSION_EXPIRES_AT,
@@ -421,6 +422,8 @@ export class SessionStore extends Context.Service<
     ) => Effect.Effect<number, SessionCredentialInternalError>;
     readonly markConnected: (sessionId: AuthSessionId) => Effect.Effect<void, never>;
     readonly markDisconnected: (sessionId: AuthSessionId) => Effect.Effect<void, never>;
+    /** Fork: extends a still-valid paired session in place (ForkSessionRenewal.ts). */
+    readonly renewSession: ForkSessionRenewal.RenewSession<SessionCredentialError>;
   }
 >()("t3/auth/SessionStore") {}
 
@@ -1098,6 +1101,24 @@ const make = Effect.gen(function* () {
     );
   });
 
+  const renewSession = yield* ForkSessionRenewal.make({
+    verify,
+    getRow: (sessionId) => authSessions.getById({ sessionId }),
+    resign: (token, expiresAt) =>
+      decodeSessionClaims(base64UrlDecodeUtf8(token.split(".")[0] ?? "")).pipe(
+        Effect.flatMap((claims) => encodeClaims({ ...claims, exp: expiresAt.epochMilliseconds })),
+        Effect.map(base64UrlEncode),
+        Effect.flatMap((payload) =>
+          signer.sign(payload).pipe(Effect.map((signature) => `${payload}.${signature}`)),
+        ),
+      ),
+    publish: (sessionId) =>
+      loadActiveSession(sessionId).pipe(
+        Effect.flatMap(Option.match({ onNone: () => Effect.void, onSome: emitUpsert })),
+        Effect.ignore,
+      ),
+  });
+
   return SessionStore.of({
     cookieName,
     legacyCookieName,
@@ -1114,6 +1135,7 @@ const make = Effect.gen(function* () {
     revokeAllExcept,
     markConnected,
     markDisconnected,
+    renewSession,
   });
 });
 
