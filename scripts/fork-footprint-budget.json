@@ -160,7 +160,7 @@
     "apps/web/src/components/preview/openPreviewSession.ts": 2,
     "apps/web/src/components/preview/openTerminalLinkInPreview.ts": 4,
     "apps/web/src/components/settings/AppearanceSettingsPanel.tsx": 2,
-    "apps/web/src/components/settings/ConnectionsSettings.tsx": 2,
+    "apps/web/src/components/settings/ConnectionsSettings.tsx": 7,
     "apps/web/src/components/settings/IntegrationsSettings.tsx": 5,
     "apps/web/src/components/settings/ScheduledTasksSettings.tsx": 4,
     "apps/web/src/components/settings/SettingsScopeSentence.tsx": 1,
