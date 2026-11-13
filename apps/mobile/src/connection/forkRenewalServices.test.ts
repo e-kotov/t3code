@@ -1,5 +1,5 @@
-import * as Http from "node:http";
-import type { AddressInfo } from "node:net";
+import * as NodeHttp from "node:http";
+import type * as NodeNet from "node:net";
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
@@ -50,20 +50,22 @@ const renewedTo = (token: string) =>
   });
 
 /** A loopback server recording each request it receives. */
-const serve = (respond: (request: Http.IncomingMessage, response: Http.ServerResponse) => void) =>
+const serve = (
+  respond: (request: NodeHttp.IncomingMessage, response: NodeHttp.ServerResponse) => void,
+) =>
   Effect.acquireRelease(
     Effect.callback<{
-      readonly server: Http.Server;
+      readonly server: NodeHttp.Server;
       readonly url: string;
       readonly seen: Array<string>;
     }>((resume) => {
       const seen: Array<string> = [];
-      const server = Http.createServer((request, response) => {
+      const server = NodeHttp.createServer((request, response) => {
         seen.push(`${request.method} ${request.url}`);
         respond(request, response);
       });
       server.listen(0, "127.0.0.1", () => {
-        const { port } = server.address() as AddressInfo;
+        const { port } = server.address() as NodeNet.AddressInfo;
         resume(Effect.succeed({ server, url: `http://127.0.0.1:${port}/`, seen }));
       });
     }),
@@ -74,10 +76,11 @@ const serve = (respond: (request: Http.IncomingMessage, response: Http.ServerRes
       }),
   );
 
-const answer = (body: string) => (_: Http.IncomingMessage, response: Http.ServerResponse) => {
-  response.writeHead(200, { "content-type": "application/json" });
-  response.end(body);
-};
+const answer =
+  (body: string) => (_: NodeHttp.IncomingMessage, response: NodeHttp.ServerResponse) => {
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(body);
+  };
 
 /**
  * Renewal as the app mounts it: the runtime's client over React Native's fetch,

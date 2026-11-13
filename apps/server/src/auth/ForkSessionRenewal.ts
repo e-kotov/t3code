@@ -133,13 +133,13 @@ const ExtendSessionRequest = Schema.Struct({
   expiresAt: Schema.DateTimeUtcFromString,
 });
 
-export const make = Effect.fn("ForkSessionRenewal.make")(function* <E>(deps: {
+export const make = Effect.fn("ForkSessionRenewal.make")(function* <E, ReadError, SignError>(deps: {
   readonly verify: (token: string) => Effect.Effect<RenewableSession, E>;
   readonly getRow: (
     sessionId: AuthSessionId,
-  ) => Effect.Effect<Option.Option<AuthSessionRecord>, unknown>;
+  ) => Effect.Effect<Option.Option<AuthSessionRecord>, ReadError>;
   /** Re-signs the token's own claims with only `exp` changed. */
-  readonly resign: (token: string, expiresAt: DateTime.Utc) => Effect.Effect<string, unknown>;
+  readonly resign: (token: string, expiresAt: DateTime.Utc) => Effect.Effect<string, SignError>;
   /** Publishes the session's new expiry to Settings → Connections. */
   readonly publish: (sessionId: AuthSessionId) => Effect.Effect<void>;
 }) {
