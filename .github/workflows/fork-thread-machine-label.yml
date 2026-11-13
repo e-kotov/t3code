@@ -18,13 +18,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  checks:
+  typecheck:
     if: github.repository == 'e-kotov/t3code'
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 20
     env:
       NODE_OPTIONS: --max-old-space-size=6144
       ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch --no-tags origin main "$CHECKOUT_REF"
+          git checkout --detach "$CHECKOUT_REF"
+      - uses: ./.github/actions/setup-ci-deps
+      - name: Typecheck every workspace with package diagnostics
+        run: |
+          if vp run -r --cache --parallel --concurrency-limit 1 --verbose --log grouped typecheck; then
+            exit 0
+          else
+            status=$?
+            vp run --last-details || true
+            exit "$status"
+          fi
+      - name: Check fork Antigravity quota compatibility
+        run: vp test run apps/server/src/provider/forkAntigravityQuota.test.ts
+  checks:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      CHECK_CHANGED_TIMEOUT: "1800"
     steps:
       - name: Checkout without vendored gitlinks
         env:
@@ -55,7 +85,15 @@ jobs:
           grep -q 'Thread, Routing, on Raven' "$RUNNER_TEMP/before.log" || { cat "$RUNNER_TEMP/before.log"; exit 1; }
           echo 'The test rejects the pre-fix implementation because its link name omits the machine.'
       - name: Check changed code
-        run: vp run check:changed origin/main
+        id: check-changed
+        run: |
+          if vp run check:changed origin/main; then
+            exit 0
+          else
+            status=$?
+            vp run --last-details || true
+            exit "$status"
+          fi
       - name: Test thread link names, including upstream's unknown-machine case
         run: |
           vp test run apps/web/src/components/ThreadMachineLabel.browser.test.tsx \

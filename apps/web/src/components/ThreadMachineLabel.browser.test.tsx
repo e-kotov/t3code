@@ -16,10 +16,20 @@ const state = vi.hoisted(() => ({
   environment: undefined as Atom.Writable<MachineEnvironment> | undefined,
 }));
 
-vi.mock("../state/environments", () => ({
-  useEnvironment: () => {
+vi.mock("../state/presentation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../state/presentation")>()),
+  useEnvironmentPresentation: () => {
     if (!state.environment) throw new Error("Environment not configured");
-    return useAtomValue(state.environment);
+    const environment = useAtomValue(state.environment);
+    return {
+      isReady: true,
+      presentation: environment
+        ? {
+            entry: { target: { label: environment.label } },
+            serverConfig: environment.serverConfig,
+          }
+        : null,
+    };
   },
 }));
 vi.mock("../state/entities", () => ({

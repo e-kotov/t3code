@@ -65,6 +65,7 @@ export class DesktopSshEnvironment extends Context.Service<
       target: DesktopSshEnvironmentTarget,
     ) => Effect.Effect<void, DesktopSshEnvironmentOperationError>;
     readonly activeEndpoints: SshTunnel.SshEnvironmentManagerShape["activeEndpoints"];
+    readonly closeAllTunnels: Effect.Effect<void>;
   }
 >()("@t3tools/desktop/ssh/DesktopSshEnvironment") {}
 
@@ -158,6 +159,7 @@ export const make = Effect.gen(function* () {
       Effect.provide(runtimeContext),
     ),
     activeEndpoints: manager.activeEndpoints,
+    closeAllTunnels: manager.closeAllTunnels,
   });
 });
 

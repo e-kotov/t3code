@@ -23,6 +23,7 @@ export async function openSavedConfiguredEditor<E>(
     environmentId: EnvironmentId;
     input: LaunchEditorInput;
   }) => Promise<AtomCommandResult<void, E>>,
+  projectRoot?: string,
 ) {
   const key = editorPreferencesKey(environmentId, false);
   let preferences: EditorPreferences | null;
@@ -55,5 +56,8 @@ export async function openSavedConfiguredEditor<E>(
         customEditor: { name: entry.name, command: entry.custom.command, args: entry.custom.args },
       }
     : { cwd: target, editor: entry.builtIn! };
-  return mapAtomCommandResult(await invoke({ environmentId, input }), () => entry.id);
+  return mapAtomCommandResult(
+    await invoke({ environmentId, input: { ...input, ...(projectRoot ? { projectRoot } : {}) } }),
+    () => entry.id,
+  );
 }

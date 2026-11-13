@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { HttpClient, HttpClientResponse } from "effect/http";
-import { resolveAntigravityReleaseAsset } from "./antigravityRelease.ts";
+import { antigravityQuotaUserAgent } from "./forkAntigravityQuota.ts";
 import { makeAntigravityUsageProbe } from "./antigravityUsageLimits.ts";
 
 const fixture = Effect.fn("ForkAntigravityQuotaTest.fixture")(function* (
@@ -54,10 +54,9 @@ const fixture = Effect.fn("ForkAntigravityQuotaTest.fixture")(function* (
       userAgents.push(request.headers["user-agent"]);
       if (options.failure === "http") return json({ error: "Unavailable" }, 503);
       if (options.failure === "schema") return json({ groups: "invalid" });
-      const pinnedVersion = resolveAntigravityReleaseAsset("darwin", "arm64")?.version ?? "1.0.0";
       const correctIdentity =
         request.headers["user-agent"] ===
-        `antigravity/acp/${options.unknownVersion ? pinnedVersion : version} (aidev_client; os_type=darwin; arch=arm64)`;
+        `antigravity/acp/${options.unknownVersion ? "1.4.5" : version} (aidev_client; os_type=darwin; arch=arm64)`;
       const buckets = options.empty
         ? []
         : [
@@ -147,18 +146,19 @@ it.effect("does not fill missing Gemini windows with per-model 100-percent readi
   }).pipe(Effect.scoped, Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
 );
 
-it.effect("uses the pinned ACP identity when a custom executable has no recorded version", () =>
-  Effect.gen(function* () {
-    const { probe, userAgents } = yield* fixture({ unknownVersion: true });
-    const limits = yield* probe;
-    const pinnedVersion = resolveAntigravityReleaseAsset("darwin", "arm64")?.version ?? "1.0.0";
-    expect(limits.unavailable).toBeUndefined();
-    expect(limits.windows).toHaveLength(4);
-    expect(userAgents).toEqual([
-      `antigravity/acp/${pinnedVersion} (aidev_client; os_type=darwin; arch=arm64)`,
-      `antigravity/acp/${pinnedVersion} (aidev_client; os_type=darwin; arch=arm64)`,
-    ]);
-  }).pipe(Effect.scoped, Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
+it.effect(
+  "uses the legacy quota compatibility identity when a custom executable has no recorded version",
+  () =>
+    Effect.gen(function* () {
+      const { probe, userAgents } = yield* fixture({ unknownVersion: true });
+      const limits = yield* probe;
+      expect(limits.unavailable).toBeUndefined();
+      expect(limits.windows).toHaveLength(4);
+      expect(userAgents).toEqual([
+        `antigravity/acp/1.4.5 (aidev_client; os_type=darwin; arch=arm64)`,
+        `antigravity/acp/1.4.5 (aidev_client; os_type=darwin; arch=arm64)`,
+      ]);
+    }).pipe(Effect.scoped, Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
 );
 
 it.effect("reports HTTP and malformed-summary failures as failed probes", () =>
@@ -171,4 +171,48 @@ it.effect("reports HTTP and malformed-summary failures as failed probes", () =>
       expect(requests.some((url) => url.endsWith(":fetchAvailableModels"))).toBe(false);
     }
   }).pipe(Effect.scoped, Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
+);
+
+it.effect(
+  "preserves runtime, legacy fallback and upstream hub identities without release requests",
+  () =>
+    Effect.gen(function* () {
+      for (const platform of ["darwin", "linux", "win32"] as const) {
+        for (const architecture of ["arm64", "x64"]) {
+          for (const version of [null, "1.5.3"]) {
+            expect(
+              yield* antigravityQuotaUserAgent(
+                { runtimeVersion: Effect.succeed(version) },
+                platform,
+                architecture,
+              ),
+            ).toBe(
+              `antigravity/acp/${version ?? "1.4.5"} (aidev_client; os_type=${platform}; arch=${architecture})`,
+            );
+          }
+        }
+      }
+      for (const [platform, architecture] of [
+        ["freebsd", "x64"],
+        ["linux", "riscv64"],
+      ] as const) {
+        expect(
+          yield* antigravityQuotaUserAgent(
+            { runtimeVersion: Effect.succeed(null) },
+            platform,
+            architecture,
+          ),
+        ).toBe(`antigravity/acp/1.0.0 (aidev_client; os_type=${platform}; arch=${architecture})`);
+        expect(
+          yield* antigravityQuotaUserAgent(
+            { runtimeVersion: Effect.succeed("1.5.3") },
+            platform,
+            architecture,
+          ),
+        ).toBe(`antigravity/acp/1.5.3 (aidev_client; os_type=${platform}; arch=${architecture})`);
+      }
+      expect(yield* antigravityQuotaUserAgent({}, "darwin", "arm64")).toBe(
+        "antigravity/hub/2.24.0 (aidev_client; os_type=darwin; arch=arm64; cl=963137146)",
+      );
+    }),
 );
