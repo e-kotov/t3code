@@ -20,14 +20,17 @@ import {
 import { render } from "../../../test/render";
 import "../../index.css";
 
-vi.mock("../../../../../packages/client-runtime/src/connection/driver.ts", async (importOriginal) => {
-  const [actual, { fakeDriver }, Layer] = await Promise.all([
-    importOriginal<{ readonly ConnectionDriver: Context.Key<unknown, FakeDriver> }>(),
-    import("../../../test/fakeEnvironment"),
-    import("effect/Layer"),
-  ]);
-  return { ...actual, layer: Layer.succeed(actual.ConnectionDriver, fakeDriver) };
-});
+vi.mock(
+  "../../../../../packages/client-runtime/src/connection/driver.ts",
+  async (importOriginal) => {
+    const [actual, { fakeDriver }, Layer] = await Promise.all([
+      importOriginal<{ readonly ConnectionDriver: Context.Key<unknown, FakeDriver> }>(),
+      import("../../../test/fakeEnvironment"),
+      import("effect/Layer"),
+    ]);
+    return { ...actual, layer: Layer.succeed(actual.ConnectionDriver, fakeDriver) };
+  },
+);
 vi.mock(import("~/rpc/requestLatencyState"), async (original) => ({
   ...(await original()),
   trackRpcRequestSent: () => {},
