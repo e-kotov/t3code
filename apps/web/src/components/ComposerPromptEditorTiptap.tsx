@@ -138,6 +138,10 @@ import { resolveAssistantCitationCommentDismissal } from "./chat/assistantCitati
 import { composerCodeBlockHighlight } from "./composerCodeBlockHighlight";
 import { importPastedComposerText, readPastedPlainText } from "./composerInlineTokenPaste";
 import { didComposerSelectionChangeVisibly } from "./composerSelection";
+import {
+  captureComposerAttachmentInsertion,
+  type ComposerAttachmentInsertion,
+} from "./composerAttachmentInsertion";
 import type { ComposerDraftContextRecords } from "./composerContextPresentation";
 import { isTextOnlyPasteEvent } from "./chat/forkPasteAsText";
 
@@ -147,6 +151,7 @@ export interface ComposerPromptEditorHandle {
   focusAtEnd: () => void;
   readSelectionRange: () => { start: number; end: number };
   canInsertCitation: () => boolean;
+  captureAttachmentInsertion: () => ComposerAttachmentInsertion | undefined;
   requestCitationComment: (request: ComposerCitationCommentRequest) => void;
   readSnapshot: () => {
     value: string;
@@ -1772,6 +1777,8 @@ function ComposerPromptEditorTiptapInner(
           !!citationType && $from.parent.canReplaceWith($from.index(), $from.index(), citationType)
         );
       },
+      captureAttachmentInsertion: () =>
+        editor ? captureComposerAttachmentInsertion(editor) : undefined,
       requestCitationComment: (request) => {
         citationInputRequestRef.current?.sourceAnchor.commentInput?.release();
         citationInputRequestRef.current = request;
