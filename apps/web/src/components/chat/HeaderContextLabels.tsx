@@ -15,6 +15,7 @@ import { availableScratchWorkspaceRoot } from "@t3tools/client-runtime/operation
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 
 import { cn } from "../../lib/utils";
+import { draftModelSelectionApplies, threadHasStarted } from "../../lib/chatThreadActions";
 import { useComposerDraftModelState, type ComposerThreadTarget } from "../../composerDraftStore";
 import { useScratchProject } from "../../hooks/useScratchProject";
 import { useEnvironmentSettings } from "../../hooks/useSettings";
@@ -142,10 +143,14 @@ export function HeaderModelLabel({
       ? defaultModelSelection
       : resolveProjectSettings(settings, project?.id ?? null, project ?? undefined).settings
           .defaultModelSelection;
+  const threadStarted = threadHasStarted(thread);
+  const draftProvider = draftModelSelectionApplies(draft, threadStarted)
+    ? draft.activeProvider
+    : null;
   const canHandoff = threadSupportsProviderHandoff(projection?.projection ?? null);
   const lockedProvider = deriveLockedProvider({
     thread,
-    selectedProvider: draft.activeProvider,
+    selectedProvider: draftProvider,
     threadProvider: thread?.modelSelection.instanceId ?? projectModelSelection?.instanceId ?? null,
     providers,
   });
@@ -154,11 +159,11 @@ export function HeaderModelLabel({
     settings,
     activeProjectId: project?.id ?? thread?.projectId ?? null,
     threadRef: target,
+    threadStarted,
     threadModelSelection: thread?.modelSelection,
     projectModelSelection,
     promptInjectionState: getComposerPromptInjectionState(""),
     candidateInstanceIds: [
-      draft.activeProvider,
       thread?.runtime?.providerInstanceId,
       thread?.modelSelection.instanceId,
       projectModelSelection?.instanceId,
@@ -170,7 +175,7 @@ export function HeaderModelLabel({
   });
   const entry = resolved.selectedProviderEntry;
   const retainedSelection =
-    (draft.activeProvider ? draft.modelSelectionByProvider[draft.activeProvider] : null) ??
+    (draftProvider ? draft.modelSelectionByProvider[draftProvider] : null) ??
     thread?.modelSelection;
   const modelSlug = entry ? resolved.selectedModel : retainedSelection?.model;
   const model = entry?.models.find((candidate) => candidate.slug === modelSlug);

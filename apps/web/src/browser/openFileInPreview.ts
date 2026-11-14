@@ -87,7 +87,9 @@ export async function openUrlInPreview<E>(input: {
       viewport: defaults.viewport,
       profileId: input.profileId ?? defaults.profileId,
       ...(input.proxyUrl === undefined ? {} : { proxyUrl: input.proxyUrl }),
-      ...(runtime === undefined ? {} : { runtime }),
+      ...(runtime === undefined
+        ? {}
+        : { runtime, zoomFactor: defaults.zoomFactor, colorScheme: defaults.appearance }),
     },
   });
   return mapAtomCommandResult(result, (snapshot) => {

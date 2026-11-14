@@ -406,6 +406,10 @@
       "docs": "docs/operations/upstream-sync.md",
       "readme": false,
       "tests": [
+        "apps/server/src/process/NonBlockingSpawner.test.ts",
+        "apps/server/src/process/forkIsolatedAccess.test.ts",
+        "apps/server/src/process/forkHungMount.test.ts",
+        "scripts/fork-process-helper-shutdown.test.py",
         "scripts/claude-sync.test.py",
         "scripts/fork-failed-tests.test.py",
         "scripts/fork-footprint-budget.test.py",
@@ -420,7 +424,10 @@
       "summary": "upstream session-lifetime assumptions that session renewal relies on",
       "docs": "docs/operations/upstream-sync.md",
       "readme": false,
-      "tests": ["apps/server/src/auth/forkSessionRenewal.tripwire.test.ts"]
+      "tests": [
+        "apps/server/src/auth/forkSessionRenewal.tripwire.test.ts",
+        "apps/server/src/auth/forkConnectApproval.test.ts"
+      ]
     },
     {
       "id": "working-sidebar",

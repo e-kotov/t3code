@@ -96,6 +96,7 @@ import {
   buildHomeProjectScopes,
   findHomeProjectScope,
   type HomeProjectSortOrder,
+  sortHomeProjectScopes,
 } from "./homeThreadList";
 import { createSwipeRowActivation } from "./swipe-row-activation";
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-swipe-actions";
@@ -706,7 +707,14 @@ export function HomeScreen(props: HomeScreenProps) {
             ...env,
             nonSettledCount: nonSettledCounts.byEnvironment.get(String(env.environmentId)) ?? 0,
           }))}
-          projects={pickableProjectGroups(projectScopes).map((scope) => ({
+          projects={pickableProjectGroups(
+            sortHomeProjectScopes({
+              scopes: projectScopes,
+              threads: props.threads,
+              pendingTasks: [],
+              projectSortOrder: "updated_at",
+            }),
+          ).map((scope) => ({
             key: scope.key,
             label: scope.title,
             nonSettledCount: nonSettledCounts.byProjectScopeKey.get(scope.key) ?? 0,

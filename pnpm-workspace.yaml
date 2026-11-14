@@ -23,7 +23,7 @@ allowBuilds:
   node-pty: true
   # Ships N-API prebuilds; its install script only rebuilds from source.
   objc-js: false
-  "react-native-enriched-markdown@file:apps/mobile/deps/react-native-enriched-markdown-1.2.0-t3.18-0dc7ed81.tgz": true
+  "react-native-enriched-markdown@file:apps/mobile/deps/react-native-enriched-markdown-1.2.0-t3.18-16db4c75.tgz": true
   sharp: true
   utf-8-validate: false
   workerd: false
@@ -99,6 +99,9 @@ catalog:
   unified: 11.0.5
 
 overrides:
+  # Alchemy beta.85 allows newer unenv RCs, but its Cloudflare preset requires rc.24.
+  # Keep lockfile-free installs compatible; reassess with the next Alchemy upgrade.
+  "@alchemy.run/cloudflare-runtime@2.0.0-beta.85>unenv": 2.0.0-rc.24
   # Pin every patched package, including transitive dependencies, so lockfile-free
   # release installs cannot drift past the patch. Update these with patchedDependencies.
   react-native-image-viewing: 0.2.2
