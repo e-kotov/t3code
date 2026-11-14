@@ -21,6 +21,9 @@ import { expect, it, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser";
 import { act, render } from "../../../test/render";
 import { DraftId, useComposerDraftStore } from "../../composerDraftStore";
+import type { ThreadRouteTarget } from "../../threadRoutes";
+import type { LimitPresentations } from "@t3tools/shared/usageLimits";
+import { useActiveComposerSelection } from "../../usageCompact/useActiveComposerSelection";
 import { AppAtomRegistryProvider } from "../../rpc/atomRegistry";
 import { ChatHeader } from "./ChatHeader";
 import type { HeaderModelContext } from "./HeaderContextLabels";
@@ -31,6 +34,7 @@ const fixture = vi.hoisted(() => ({
   shells: new Map<string, EnvironmentThreadShell>(),
   listeners: new Set<() => void>(),
   settings: null as UnifiedSettings | null,
+  routeTarget: null as ThreadRouteTarget | null,
   startScratchThread: vi.fn<(id: EnvironmentId) => Promise<void>>(async () => {}),
   setProviders: (_id: EnvironmentId, _providers: ReadonlyArray<ServerProvider>): void => {
     throw new Error("Provider fixture is not initialized");
@@ -66,6 +70,8 @@ vi.mock(import("../../hooks/useScratchProject"), async (original) => {
 });
 vi.mock(import("../../state/entities"), async (original) => ({
   ...(await original()),
+  useProjects: () => [],
+  useQuietThreadProjection: () => null,
   useQuietThreadShell: (ref: ScopedThreadRef | null) =>
     ref ? (fixture.shells.get(ref.environmentId) ?? null) : null,
 }));
@@ -87,6 +93,10 @@ vi.mock(import("../../hooks/useSettings"), async (original) => {
   const actual = await original();
   return {
     ...actual,
+    usePrimarySettings: ((selector?: (settings: UnifiedSettings) => unknown) => {
+      const settings = fixture.settings ?? DEFAULT_UNIFIED_SETTINGS;
+      return selector ? selector(settings) : settings;
+    }) as typeof actual.usePrimarySettings,
     useEnvironmentSettings: ((
       _id: EnvironmentId,
       selector?: (settings: UnifiedSettings) => unknown,
@@ -96,6 +106,11 @@ vi.mock(import("../../hooks/useSettings"), async (original) => {
     }) as typeof actual.useEnvironmentSettings,
   };
 });
+
+vi.mock(import("../../hooks/useThreadRouteTarget"), async (original) => ({
+  ...(await original()),
+  useThreadRouteTarget: () => fixture.routeTarget,
+}));
 
 const MAC = EnvironmentId.make("header-mac");
 const REMOTE = EnvironmentId.make("header-remote");
@@ -147,6 +162,7 @@ function setup() {
   fixture.shells.clear();
   fixture.listeners.clear();
   fixture.settings = null;
+  fixture.routeTarget = null;
   useComposerDraftStore.setState({ draftsByThreadKey: {}, draftThreadsByThreadKey: {} });
   for (const [id, label, modelName] of [
     [MAC, "Mac", "GPT-6.1 Sol"],
@@ -157,6 +173,8 @@ function setup() {
     fixture.shells.set(id, {
       modelSelection: { instanceId: INSTANCE, model: "shared-model" },
       runtime: null,
+      latestRun: null,
+      itemCount: 0,
       projectId: null,
     } as unknown as EnvironmentThreadShell);
   }
@@ -287,6 +305,10 @@ it("updates an unsent model choice and clears the previous machine's model when 
   const editingTarget = DraftId.make("header-queued-edit");
   const editingContext = { thread: fixture.shells.get(REMOTE), draftTarget: editingTarget };
   await screen.rerender(header(REMOTE, null, undefined, editingContext));
+  expect(
+    screen.container.querySelector("[data-header-model]")?.getAttribute("aria-label"),
+    "HEADER_CONTEXT_DRAFT_TARGET: editing context must use its own model",
+  ).toMatch(/^Model: Remote custom model/);
   await expect
     .element(screen.getByRole("button", { name: /^Model: Remote custom model/ }))
     .toBeVisible();
@@ -386,6 +408,10 @@ it("uses the composer's available provider fallback and project default before a
       { thread: unlistedThread, draftTarget: scopeThreadRef(REMOTE, THREAD) },
     ),
   );
+  expect(
+    screen.container.querySelector("[data-header-model]")?.getAttribute("aria-label"),
+    "HEADER_CONTEXT_PROVIDER_FALLBACK: explicit thread context must override the project default",
+  ).toMatch(/^Model: Available fallback/);
   await expect
     .element(screen.getByRole("button", { name: /^Model: Available fallback/ }))
     .toBeVisible();
@@ -405,5 +431,49 @@ it.each(["connecting", "reconnecting", "offline", "error", "unsupported", "avail
       expect(screen.router?.state.location.hash).toBe(`machine-connection-${REMOTE}`);
     });
     expect(fixture.startScratchThread).not.toHaveBeenCalled();
+  },
+);
+
+function CompactSelection() {
+  const presentations = new Map([
+    [REMOTE, { serverConfig: { providers: [provider("Remote custom model")] } }],
+  ]) as unknown as LimitPresentations;
+  const selection = useActiveComposerSelection(presentations);
+  return <output data-testid="compact-selection">{selection.activeModel}</output>;
+}
+
+it.each([
+  { started: false, explicit: false, expected: "Other available model" },
+  { started: false, explicit: true, expected: "Other available model" },
+  { started: true, explicit: false, expected: "Remote custom model" },
+  { started: true, explicit: true, expected: "Other available model" },
+])(
+  "respects draft intent when started=$started and explicit=$explicit",
+  async ({ started, explicit, expected }) => {
+    setup();
+    fixture.routeTarget = { kind: "server", threadRef: scopeThreadRef(REMOTE, THREAD) };
+    const thread = fixture.shells.get(REMOTE)!;
+    fixture.shells.set(REMOTE, { ...thread, itemCount: started ? 1 : 0 });
+    useComposerDraftStore
+      .getState()
+      .setModelSelection(
+        scopeThreadRef(REMOTE, THREAD),
+        { instanceId: INSTANCE, model: "other-model" },
+        { explicit },
+      );
+    await using screen = await render(
+      <>
+        {header()}
+        <AppAtomRegistryProvider>
+          <CompactSelection />
+        </AppAtomRegistryProvider>
+      </>,
+    );
+    await expect
+      .element(screen.getByTestId("compact-selection"))
+      .toHaveTextContent(started && !explicit ? "shared-model" : "other-model");
+    await expect
+      .element(screen.getByRole("button", { name: new RegExp(`^Model: ${expected}`) }))
+      .toBeVisible();
   },
 );

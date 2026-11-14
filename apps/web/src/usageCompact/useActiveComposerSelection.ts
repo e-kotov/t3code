@@ -12,6 +12,8 @@ import {
 import { deriveEffectiveComposerModelState } from "../composerDraftStore";
 import { providerInstanceEntriesFor, NO_PROVIDER_MODEL_SELECTION } from "../providerInstances";
 
+import { draftModelSelectionApplies, threadHasStarted } from "../lib/chatThreadActions";
+
 const EMPTY_PROVIDERS: ReadonlyArray<ServerProvider> = [];
 
 export function useActiveComposerSelection(presentations?: LimitPresentations): {
@@ -60,9 +62,13 @@ export function useActiveComposerSelection(presentations?: LimitPresentations): 
     activeProject?.defaultModelSelection?.instanceId ??
     null;
 
+  const threadStarted = threadHasStarted(activeThread);
+  const draftProvider = draftModelSelectionApplies(draftModelState, threadStarted)
+    ? draftModelState.activeProvider
+    : null;
   const lockedProvider = deriveLockedProvider({
     thread: activeThread,
-    selectedProvider: draftModelState.activeProvider ?? null,
+    selectedProvider: draftProvider,
     threadProvider,
     providers: providerStatuses,
   });
@@ -78,7 +84,7 @@ export function useActiveComposerSelection(presentations?: LimitPresentations): 
   const selection = resolveComposerProviderSelection({
     entries: providerInstanceEntries,
     candidateInstanceIds: [
-      draftModelState.activeProvider ?? null,
+      draftProvider,
       activeThread?.runtime?.providerInstanceId,
       activeThread?.modelSelection?.instanceId,
       activeProject?.defaultModelSelection?.instanceId,
@@ -96,6 +102,7 @@ export function useActiveComposerSelection(presentations?: LimitPresentations): 
 
   const modelState = deriveEffectiveComposerModelState({
     draft: draftModelState,
+    threadStarted,
     providers: providerStatuses,
     selectedProvider,
     selectedInstanceId,
