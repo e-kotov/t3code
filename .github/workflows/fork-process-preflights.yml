@@ -1,0 +1,54 @@
+name: Fork process preflights
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/fork-process-preflights.yml"
+      - "apps/server/src/binMain.ts"
+      - "apps/server/src/process/**"
+      - "scripts/fork-process-helper-shutdown.test.py"
+      - "packages/shared/src/envTrampoline.ts"
+      - "packages/shared/src/nodeRuntime.ts"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-process-preflights-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git init -q .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch -q --no-tags origin main "$CHECKOUT_REF"
+          git checkout -q --detach "$CHECKOUT_REF"
+      - uses: ./.github/actions/setup-ci-deps
+      - name: Typecheck server
+        working-directory: apps/server
+        run: vp exec effect-tsgo tsrs --noEmit --pretty false
+      - name: Test native parity, bounded helpers, cancellation and exhausted capacity
+        run: |
+          vp test run \
+            apps/server/src/process/NonBlockingSpawner.test.ts \
+            apps/server/src/process/forkIsolatedAccess.test.ts \
+            apps/server/src/process/forkHungMount.test.ts
+      - name: Verify shutdown with a syscall-blocked helper and ineffective kill
+        run: python3 scripts/fork-process-helper-shutdown.test.py
