@@ -129,9 +129,9 @@ function callerOrigin(input: {
 }
 
 /**
- * Settings the agent chose for a handoff, read only from closed enums and
- * booleans in the tool's arguments and result. Prompts, titles, and ids are
- * never read.
+ * Settings for a handoff, recorded only as closed enums and booleans derived
+ * from the tool's arguments and result. Prompts, titles, and ids are never
+ * recorded.
  */
 export function handoffSettings(tool: string, args: unknown, result: unknown): Fields {
   const input = asFields(args);
