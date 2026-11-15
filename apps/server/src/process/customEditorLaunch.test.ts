@@ -9,6 +9,7 @@ import * as Sink from "effect/Sink";
 import * as Stream from "effect/Stream";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import * as HostProcess from "@t3tools/shared/HostProcess";
+import { expandLaunchEditorInput } from "./customEditorLaunch.ts";
 import * as ExternalLauncher from "./externalLauncher.ts";
 
 it.effect("launches a custom executable with literal arguments through the existing launcher", () =>
@@ -75,3 +76,32 @@ it.effect("launches a custom executable with literal arguments through the exist
     assert.equal(unreferenced, true);
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
+
+it("expands ~/ paths in cwd and built-in projectRoot without failing on custom editors", () => {
+  const expand = (value: string, home: string) =>
+    value.startsWith("~/") ? `${home}/${value.slice(2)}` : value;
+  assert.deepEqual(
+    expandLaunchEditorInput(
+      {
+        cwd: "~/repo/file.ts:1:1",
+        editor: "custom",
+        customEditor: { name: "My editor", command: "/bin/ed", args: ["{path}"] },
+      },
+      "/home/ek",
+      expand,
+    ),
+    {
+      cwd: "/home/ek/repo/file.ts:1:1",
+      editor: "custom",
+      customEditor: { name: "My editor", command: "/bin/ed", args: ["{path}"] },
+    },
+  );
+  assert.deepEqual(
+    expandLaunchEditorInput(
+      { cwd: "~/repo/file.ts", editor: "zed", projectRoot: "~/repo" },
+      "/home/ek",
+      expand,
+    ),
+    { cwd: "/home/ek/repo/file.ts", editor: "zed", projectRoot: "/home/ek/repo" },
+  );
+});
