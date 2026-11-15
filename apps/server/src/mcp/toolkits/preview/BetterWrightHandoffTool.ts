@@ -1,6 +1,6 @@
 import { OrchestratorMcpFailure } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
-import { Tool, Toolkit } from "effect/ai";
+import { McpSchema, Tool, Toolkit } from "effect/ai";
 import * as McpToolAccess from "../../McpToolAccess.ts";
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
 import * as ThreadManagementService from "../../../orchestration-v2/ThreadManagementService.ts";
@@ -26,7 +26,8 @@ export const toolkit = Toolkit.make(
   })
     .annotate(Tool.Title, "Hand browser control to you")
     .annotate(Tool.OpenWorld, true)
-    .annotate(Tool.Destructive, false),
+    .annotate(Tool.Destructive, false)
+    .annotate(McpSchema.EnabledWhen, McpInvocationContext.hiddenFromOutsideClients),
 );
 
 export const handlers = McpToolAccess.toLayer(toolkit, {
