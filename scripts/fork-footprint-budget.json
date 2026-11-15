@@ -123,7 +123,7 @@
     "apps/server/src/preview/ServerBrowserContexts.ts": 11,
     "apps/server/src/process/NonBlockingSpawner.test.ts": 7,
     "apps/server/src/process/NonBlockingSpawner.ts": 20,
-    "apps/server/src/process/externalLauncher.ts": 4,
+    "apps/server/src/process/externalLauncher.ts": 9,
     "apps/server/src/provider/AntigravityInstallation.ts": 2,
     "apps/server/src/provider/ClaudeProvider.ts": 2,
     "apps/server/src/provider/Drivers/AntigravityDriver.ts": 8,
