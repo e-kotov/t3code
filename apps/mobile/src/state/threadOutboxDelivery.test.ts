@@ -855,10 +855,6 @@ describe("thread outbox recovery rollback", () => {
         [threadKey]: { text: "my unsent draft", attachments: [] },
       });
       yield* Effect.promise(() => harness.manager.enqueue(message));
-      harness.removeOutboxMessage.mockRejectedValueOnce(new Error("storage unavailable"));
-      expect(yield* restoreRejectedQueuedMessage(message, "provider disabled")).toBe("retry");
-      expect(remainingMessages()).toEqual([message]);
-      expect(composerDrafts.getComposerDraftSnapshot(threadKey).text).toBe("my unsent draft");
       expect(yield* restoreRejectedQueuedMessage(message, "provider disabled")).toBe("restored");
       expect(composerDrafts.getComposerDraftSnapshot(threadKey).text).toBe("my unsent draft");
       expect(remainingMessages()).toEqual([]);

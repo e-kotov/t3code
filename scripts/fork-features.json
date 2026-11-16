@@ -35,7 +35,10 @@
       "id": "mobile-context",
       "group": "Cache and context",
       "summary": "context usage and a compact action on mobile",
-      "tests": ["apps/mobile/src/features/threads/MobileContextControl.test.tsx"]
+      "tests": [
+        "apps/mobile/src/features/threads/MobileContextControl.test.tsx",
+        "apps/mobile/src/state/forkCompactActionRecovery.test.ts"
+      ]
     },
     {
       "id": "usage-quotas",
