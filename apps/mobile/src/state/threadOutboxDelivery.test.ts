@@ -844,25 +844,29 @@ describe("thread outbox recovery rollback", () => {
     }),
   );
 
-  it("reports rejected menu compaction without changing the draft", async () => {
-    const message = {
-      ...queuedMessage({ messageId: "menu-compaction", text: "/compact" }),
-      compactAction: true as const,
-    };
-    const threadKey = `${message.environmentId}:${message.threadId}`;
-    appAtomRegistry.set(composerDrafts.composerDraftsAtom, {
-      [threadKey]: { text: "my unsent draft", attachments: [] },
-    });
-    await harness.manager.enqueue(message);
-    await expect(
-      Effect.runPromise(restoreRejectedQueuedMessage(message, "provider disabled")),
-    ).resolves.toBe("restored");
-    expect(composerDrafts.getComposerDraftSnapshot(threadKey).text).toBe("my unsent draft");
-    expect(remainingMessages()).toEqual([]);
-    expect(appAtomRegistry.get(threadComposerErrorsAtom)[threadKey]?.message).toContain(
-      "provider disabled",
-    );
-  });
+  it.effect("reports rejected menu compaction without changing the draft", () =>
+    Effect.gen(function* () {
+      const message = {
+        ...queuedMessage({ messageId: "menu-compaction", text: "/compact" }),
+        compactAction: true as const,
+      };
+      const threadKey = `${message.environmentId}:${message.threadId}`;
+      appAtomRegistry.set(composerDrafts.composerDraftsAtom, {
+        [threadKey]: { text: "my unsent draft", attachments: [] },
+      });
+      yield* Effect.promise(() => harness.manager.enqueue(message));
+      harness.removeOutboxMessage.mockRejectedValueOnce(new Error("storage unavailable"));
+      expect(yield* restoreRejectedQueuedMessage(message, "provider disabled")).toBe("retry");
+      expect(remainingMessages()).toEqual([message]);
+      expect(composerDrafts.getComposerDraftSnapshot(threadKey).text).toBe("my unsent draft");
+      expect(yield* restoreRejectedQueuedMessage(message, "provider disabled")).toBe("restored");
+      expect(composerDrafts.getComposerDraftSnapshot(threadKey).text).toBe("my unsent draft");
+      expect(remainingMessages()).toEqual([]);
+      expect(appAtomRegistry.get(threadComposerErrorsAtom)[threadKey]?.message).toContain(
+        "provider disabled",
+      );
+    }),
+  );
 
   it.effect("does not record a creation outcome for a rejected follow-up message", () =>
     Effect.gen(function* () {
