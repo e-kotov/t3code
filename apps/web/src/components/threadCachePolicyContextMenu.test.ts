@@ -4,13 +4,16 @@ import {
   DEFAULT_SERVER_SETTINGS,
   EnvironmentId,
   ProviderInstanceId,
+  ProjectId,
   ThreadId,
   type ContextMenuItem,
+  type ContextMenuSource,
 } from "@t3tools/contracts";
 
 const state = vi.hoisted(() => ({
   selected: null as string | null,
   canWrite: true,
+  source: undefined as ContextMenuSource | undefined,
   items: [] as readonly ContextMenuItem[],
   write: vi.fn(),
 }));
@@ -31,14 +34,22 @@ vi.mock("@t3tools/client-runtime/state/runtime", () => ({
 vi.mock("../localApi", () => ({
   readLocalApi: () => ({
     contextMenu: {
-      show: (items: readonly ContextMenuItem[]) => {
+      show: (items: readonly ContextMenuItem[], _position: unknown, source?: ContextMenuSource) => {
+        state.source = source;
         state.items = items;
         return Promise.resolve(state.selected);
       },
     },
   }),
 }));
-vi.mock("./threadReferenceContextMenu", () => ({ showThreadReferenceContextMenu: vi.fn() }));
+vi.mock("../state/entities", () => ({ readProject: vi.fn() }));
+vi.mock("./ui/toast", () => ({
+  toastManager: { add: vi.fn() },
+  stackedThreadToast: (value: unknown) => value,
+}));
+vi.mock("../composerDraftStore", () => ({
+  useComposerDraftStore: { getState: () => ({ addThreadContexts: vi.fn() }) },
+}));
 
 import { showThreadCachePolicyMenu } from "./threadCachePolicyContextMenu";
 const thread = {
@@ -50,13 +61,31 @@ const thread = {
 
 it("adds a checked per-thread menu while preserving ordinary actions and targets the correct remote machine", async () => {
   state.selected = "rename";
-  expect(await showThreadCachePolicyMenu(thread, [{ id: "rename", label: "Rename" }])).toBe(
-    "rename",
-  );
+  expect(
+    await showThreadCachePolicyMenu(
+      thread,
+      [{ id: "rename", label: "Rename" }],
+      undefined,
+      undefined,
+      "keyboard",
+    ),
+  ).toBe("rename");
+  expect(state.source).toBe("keyboard");
   expect(state.items[0]).toEqual({ id: "rename", label: "Rename" });
   expect(
     state.items[1]?.children?.find((choice) => choice.id === "cache-policy:default")?.checked,
   ).toBe(true);
+  state.source = undefined;
+  expect(
+    await showThreadCachePolicyMenu(
+      { ...thread, projectId: ProjectId.make("project"), title: "Thread" },
+      [{ id: "rename", label: "Rename" }],
+      undefined,
+      async () => null,
+      "keyboard",
+    ),
+  ).toBe("rename");
+  expect(state.source).toBe("keyboard");
   state.selected = "cache-policy:warm";
   expect(await showThreadCachePolicyMenu(thread, [])).toBeNull();
   expect(state.write).toHaveBeenCalledWith(

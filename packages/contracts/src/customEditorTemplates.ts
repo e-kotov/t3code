@@ -7,7 +7,7 @@ function editorTarget(target: string) {
 export function customEditorArguments(
   args: readonly string[],
   target: string,
-  position?: { readonly line?: number; readonly column?: number },
+  position?: { readonly line?: number | undefined; readonly column?: number | undefined },
 ): string[] {
   const values =
     position === undefined

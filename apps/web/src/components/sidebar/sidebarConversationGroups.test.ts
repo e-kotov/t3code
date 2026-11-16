@@ -1,3 +1,5 @@
+import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { resolveListedAncestorThreadRef } from "@t3tools/client-runtime/state/threads";
 import { machineGroupKey } from "@t3tools/client-runtime/state/machine-group-collapse";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import { EnvironmentId, ProjectId, ThreadId } from "@t3tools/contracts";
@@ -5,7 +7,6 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   resolveSidebarDropTarget,
-  resolveSidebarRowThreadId,
   planSidebarThreadDrop,
   sidebarListItemId,
   type SidebarListItem,
@@ -131,7 +132,11 @@ describe("groupSidebarRowsByMachine", () => {
       lineage: { rootThreadId: root.id, parentThreadId: root.id, relationshipToParent: "subagent" },
     });
     const hidden = makeThreadFixture({ id: ThreadId.make("hidden"), environmentId: alpha });
-    const rowId = resolveSidebarRowThreadId(child.id, alpha, [root, child, hidden]);
+    const rowId = resolveListedAncestorThreadRef(scopeThreadRef(alpha, child.id), [
+      root,
+      child,
+      hidden,
+    ]).threadId;
     const selected = {
       ...view({ collapsedMachineGroups: [machineGroupKey(alpha)] }),
       selectedThreadKey: `${alpha}:${rowId}`,
