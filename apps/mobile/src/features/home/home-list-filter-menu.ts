@@ -4,17 +4,33 @@ import {
   type ConversationListControls,
 } from "./conversationListOptions";
 import { formatFilterOptionTitle, formatFilterOptionSubtitle } from "./mobileNonSettledCounts";
+import * as Arr from "effect/Array";
+import * as Order from "effect/Order";
 
 import {
   machineFilterOptionPresentation,
   type MachineFilterDetails,
 } from "./machineFilterPresentation";
 import type { AppBarMenuItem } from "../../components/ui/AppBar.types";
+import type { WorkspaceEnvironment } from "../../state/workspaceModel";
 
 export interface HomeListFilterMenuEnvironment extends MachineFilterDetails {
   readonly environmentId: EnvironmentId;
   readonly label: string;
   readonly nonSettledCount?: number;
+}
+
+export function homeListFilterEnvironments(environments: ReadonlyArray<WorkspaceEnvironment>) {
+  return Arr.sort(
+    environments
+      .filter((environment) => environment.isEnabled)
+      .map((environment) => ({
+        environmentId: environment.environmentId,
+        label: environment.environmentLabel,
+        connectionState: environment.connectionState,
+      })),
+    Order.mapInput(Order.String, (environment: { readonly label: string }) => environment.label),
+  );
 }
 
 export interface HomeListFilterMenuProject {

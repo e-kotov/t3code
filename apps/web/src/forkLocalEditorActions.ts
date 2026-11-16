@@ -1,3 +1,5 @@
+import { parseFileUrlHref, splitFilePathPosition } from "@t3tools/shared/fileLinks";
+import { safeDecodeURIComponent } from "@t3tools/shared/markdownLinks";
 import type { EditorId, EnvironmentId, LaunchEditorInput } from "@t3tools/contracts";
 import {
   mapAtomCommandResult,
@@ -49,13 +51,19 @@ export async function openSavedConfiguredEditor<E>(
     return AsyncResult.failure<string, Error>(
       Cause.fail(new Error("No editor is enabled for this environment.")),
     );
+  const uri = /^file:\/\//iu.test(target) ? parseFileUrlHref(target) : null;
+  const { line, column } = uri ? splitFilePathPosition("", uri.hash) : {};
+  const location = {
+    cwd: uri ? safeDecodeURIComponent(uri.path) : target,
+    ...(uri ? { position: { line, column } } : {}),
+  };
   const input: LaunchEditorInput = entry.custom
     ? {
-        cwd: target,
+        ...location,
         editor: "custom",
         customEditor: { name: entry.name, command: entry.custom.command, args: entry.custom.args },
       }
-    : { cwd: target, editor: entry.builtIn! };
+    : { ...location, editor: entry.builtIn! };
   return mapAtomCommandResult(
     await invoke({ environmentId, input: { ...input, ...(projectRoot ? { projectRoot } : {}) } }),
     () => entry.id,

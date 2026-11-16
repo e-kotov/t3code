@@ -4,8 +4,19 @@ function editorTarget(target: string) {
   return { path: match?.[1] ?? target, line: match?.[2] ?? "1", column: match?.[3] ?? "1" };
 }
 
-export function customEditorArguments(args: readonly string[], target: string): string[] {
-  const values = editorTarget(target);
+export function customEditorArguments(
+  args: readonly string[],
+  target: string,
+  position?: { readonly line?: number; readonly column?: number },
+): string[] {
+  const values =
+    position === undefined
+      ? editorTarget(target)
+      : {
+          path: target,
+          line: String(position.line ?? 1),
+          column: String(position.column ?? 1),
+        };
   const expanded = args.map((arg) =>
     arg.replace(/\{(path|line|column)\}/g, (_, key: keyof typeof values) => values[key]),
   );
