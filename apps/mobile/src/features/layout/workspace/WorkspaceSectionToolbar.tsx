@@ -11,7 +11,6 @@ import {
 import { useWorkspaceTabs } from "./WorkspaceTabsContext";
 import { useSelectWorkspaceTab } from "./useSelectWorkspaceTab";
 import { useCompactWorkspaceTabs, useSidebarWorkspaceTabs } from "./useSystemWorkspaceTabBar";
-import { highlightUtilities } from "../../device-commands/utilitiesWorkspaceTab";
 
 const PULL_REQUEST_ICON = require("../../../../assets/icons/pull-request.png");
 const ISSUE_ICON = require("../../../../assets/icons/issue.png");
@@ -21,7 +20,7 @@ export function WorkspaceTabToolbarButtons() {
   const hidden = useHiddenNavigationTabs();
   const workspace = useWorkspaceTabs()!;
   const selectTab = useSelectWorkspaceTab();
-  const selected = highlightUtilities(selectedNavigationTab)(
+  const selected = selectedNavigationTab(
     order,
     workspace.state.selectedTab,
     workspace.settingsOpen,

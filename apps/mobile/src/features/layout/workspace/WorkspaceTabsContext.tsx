@@ -5,6 +5,7 @@ import { createContext, use, useState, type Dispatch, type ReactNode } from "rea
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../../state/preferences";
 import {
   isSharedSlotTab,
+  sharedSlotAbsentee,
   navigationCustomizationAvailable,
   resolveHiddenNavigationTabs,
   resolveSelectedNavigationTab,
@@ -18,7 +19,6 @@ import {
   type WorkspaceTabsAction,
   type WorkspaceTabsState,
 } from "./workspace-tabs-state";
-import { keepUtilities, sharedSlotAbsentee } from "../../device-commands/utilitiesWorkspaceTab";
 
 export const WorkspaceTabsContext = createContext<{
   readonly state: WorkspaceTabsState;
@@ -51,7 +51,7 @@ function resolveWorkspaceTabsSelection(
       : []),
     sharedSlotAbsentee(state.selectedTab, saved?.sharedSlotTab),
   ];
-  const selected = keepUtilities(resolveSelectedNavigationTab)(order, hidden, state.selectedTab);
+  const selected = resolveSelectedNavigationTab(order, hidden, state.selectedTab);
   return selected && selected !== state.selectedTab
     ? workspaceTabsReducer(state, { type: "select", tab: selected })
     : state;
@@ -67,7 +67,6 @@ function createWorkspaceTabsModel(selectedTab?: WorkspaceTab) {
     issues: 0,
     usage: 0,
     settings: 0,
-    commands: 0,
   };
   return {
     stored,

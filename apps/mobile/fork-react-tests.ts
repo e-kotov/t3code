@@ -1,4 +1,5 @@
 export const FORK_REACT_TESTS = [
+  "src/features/device-commands/DeviceCommandsScreen.test.tsx",
   "src/features/home/useMachineFilterEnvironments.test.tsx",
   "src/features/threads/ReferencedNewTaskDraftScreen.test.tsx",
   "src/features/threads/CacheHud.test.tsx",
