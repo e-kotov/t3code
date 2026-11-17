@@ -23,6 +23,7 @@ import * as NodePath from "node:path";
 import { expect } from "vite-plus/test";
 
 import * as EnvironmentAuth from "../auth/EnvironmentAuth.ts";
+import * as SessionStore from "../auth/SessionStore.ts";
 import * as ServerConfig from "../config.ts";
 import * as Handoff from "./BetterWrightHandoff.ts";
 import * as Manager from "./Manager.ts";
@@ -210,6 +211,13 @@ it.live(
       const serverContext = yield* Layer.build(
         HttpRouter.serve(routes, { disableListenLog: true }).pipe(
           Layer.provideMerge(NodeHttpServer.layerTest),
+          Layer.provide(
+            Layer.mock(SessionStore.SessionStore, {
+              cookieName: "test",
+              legacyCookieName: undefined,
+              awaitInvalidation: () => Effect.never,
+            }),
+          ),
           Layer.provide(
             Layer.mock(EnvironmentAuth.EnvironmentAuth, {
               authenticateWebSocketUpgrade: () =>

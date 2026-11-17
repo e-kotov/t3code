@@ -130,7 +130,7 @@ class T3WorkspaceNavigationView(
   private val onOverlayChange by EventDispatcher()
   var utilitiesLabel by mutableStateOf("Utilities, unknown")
   var utilitiesColor by mutableStateOf(0xff888888.toInt())
-  var tabs by mutableStateOf(listOf("threads", "pullRequests", "usage", "settings"))
+  var tabs by mutableStateOf(listOf("threads", "pullRequests", "issues", "usage", "settings"))
   var selectedTab by mutableStateOf("threads")
   var rail by mutableStateOf(false)
   var floating by mutableStateOf(false)
@@ -414,6 +414,7 @@ class T3WorkspaceNavigationView(
   private fun tabTitle(tab: String) = when (tab) {
     "threads" -> "Chats"
     "pullRequests" -> "Pulls"
+    "issues" -> "Issues"
     "usage" -> "Usage"
     "commands" -> "Utilities"
     else -> "Settings"
@@ -432,6 +433,7 @@ class T3WorkspaceNavigationView(
     when (tab) {
       "threads" -> R.drawable.t3_chats
       "pullRequests" -> R.drawable.t3_pull_requests
+      "issues" -> R.drawable.t3_issues
       "usage" -> R.drawable.t3_usage
       else -> R.drawable.t3_settings
     }

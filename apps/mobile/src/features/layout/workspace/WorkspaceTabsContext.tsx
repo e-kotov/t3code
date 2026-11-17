@@ -1,9 +1,10 @@
-import { RegistryContext, useAtomValue } from "@effect/atom-react";
+import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react";
 import { AsyncResult, Atom } from "effect/reactivity";
 import { createContext, use, useState, type Dispatch, type ReactNode } from "react";
 
-import { mobilePreferencesAtom } from "../../../state/preferences";
+import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../../state/preferences";
 import {
+  isSharedSlotTab,
   navigationCustomizationAvailable,
   resolveHiddenNavigationTabs,
   resolveSelectedNavigationTab,
@@ -17,7 +18,7 @@ import {
   type WorkspaceTabsAction,
   type WorkspaceTabsState,
 } from "./workspace-tabs-state";
-import { keepUtilities } from "../../device-commands/utilitiesWorkspaceTab";
+import { keepUtilities, sharedSlotAbsentee } from "../../device-commands/utilitiesWorkspaceTab";
 
 export const WorkspaceTabsContext = createContext<{
   readonly state: WorkspaceTabsState;
@@ -44,9 +45,12 @@ function resolveWorkspaceTabsSelection(
 ): WorkspaceTabsState {
   const saved = AsyncResult.isSuccess(preferences) ? preferences.value : undefined;
   const order = resolveWorkspaceTabOrder(saved?.navigationTabOrder);
-  const hidden = navigationCustomizationAvailable()
-    ? resolveHiddenNavigationTabs(saved?.hiddenNavigationTabs)
-    : [];
+  const hidden = [
+    ...(navigationCustomizationAvailable()
+      ? resolveHiddenNavigationTabs(saved?.hiddenNavigationTabs)
+      : []),
+    sharedSlotAbsentee(state.selectedTab, saved?.sharedSlotTab),
+  ];
   const selected = keepUtilities(resolveSelectedNavigationTab)(order, hidden, state.selectedTab);
   return selected && selected !== state.selectedTab
     ? workspaceTabsReducer(state, { type: "select", tab: selected })
@@ -60,6 +64,7 @@ function createWorkspaceTabsModel(selectedTab?: WorkspaceTab) {
   const scrollOffsets: Record<WorkspaceSearchTab, number> = {
     threads: 0,
     pullRequests: 0,
+    issues: 0,
     usage: 0,
     settings: 0,
     commands: 0,
@@ -84,8 +89,12 @@ export function WorkspaceTabsProvider(props: {
   const registry = use(RegistryContext);
   const [model] = useState(() => createWorkspaceTabsModel(props.initialTab));
   const state = useAtomValue(model.resolved);
-  const dispatch = (action: WorkspaceTabsAction) =>
+  const savePreferences = useAtomSet(updateMobilePreferencesAtom);
+  const dispatch = (action: WorkspaceTabsAction) => {
     registry.set(model.stored, workspaceTabsReducer(registry.get(model.resolved), action));
+    if (action.type === "select" && isSharedSlotTab(action.tab))
+      savePreferences({ sharedSlotTab: action.tab });
+  };
   const context = {
     state,
     dispatch,

@@ -27,6 +27,7 @@ it("reveals and focuses the machine named by a connection-settings link", async 
             label: environmentId,
             displayUrl: null,
             relayManaged: false,
+            refusedRouteIds: [],
             entry: {
               target: new BearerConnectionTarget({
                 environmentId,
