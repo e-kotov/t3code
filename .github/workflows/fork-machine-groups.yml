@@ -118,7 +118,7 @@ jobs:
         run: VITE_MACHINE_FOLD_CAPTURE=after vp test run apps/web/src/components/sidebar/MachineGroupFolding.app.browser.test.tsx
       - name: Capture machine pickers before the change
         run: |
-          files=(apps/web/src/components/Sidebar.tsx apps/web/src/components/CommandPalette.tsx)
+          files=(apps/web/src/components/Sidebar.tsx apps/web/src/components/Sidebar.logic.ts apps/web/src/components/CommandPalette.tsx)
           for file in "${files[@]}"; do cp "$file" "$RUNNER_TEMP/$(basename "$file")"; done
           restore() {
             for file in "${files[@]}"; do cp "$RUNNER_TEMP/$(basename "$file")" "$file"; done
