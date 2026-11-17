@@ -50,7 +50,7 @@
     "apps/mobile/src/features/layout/workspace/WorkspaceToolbar.tsx": 3,
     "apps/mobile/src/features/layout/workspace/navigation-tabs.ts": 2,
     "apps/mobile/src/features/layout/workspace/workspace-tab-navigation.ts": 2,
-    "apps/mobile/src/features/layout/workspace/workspace-tabs-state.ts": 4,
+    "apps/mobile/src/features/layout/workspace/workspace-tabs-state.ts": 8,
     "apps/mobile/src/features/observability/observe.ts": 5,
     "apps/mobile/src/features/settings/SettingsNotificationsRouteScreen.tsx": 3,
     "apps/mobile/src/features/settings/SettingsRouteScreen.tsx": 9,
