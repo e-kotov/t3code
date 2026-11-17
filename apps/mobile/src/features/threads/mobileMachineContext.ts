@@ -13,7 +13,17 @@ export function withMobileMachineContext<T extends { readonly type: string }>(
   machineKinds: ReadonlyMap<string, EnvironmentMachineKind>,
   preferredOrder: readonly string[],
 ): readonly (T | ThreadListV2MachineHeaderListItem)[] {
-  if (items.some((item) => item.type === "v2-machine-header")) return items;
+  const isHeader = (item: T): item is T & ThreadListV2MachineHeaderListItem =>
+    item.type === "v2-machine-header";
+  const existingHeaders = items.filter(isHeader);
+  if (existingHeaders.length > 0) {
+    if (existingHeaders.every((header) => header.machineKind !== undefined)) return items;
+    return items.map((item) =>
+      isHeader(item) && item.machineKind === undefined
+        ? { ...item, machineKind: machineKinds.get(item.environmentId) ?? "server" }
+        : item,
+    );
+  }
 
   const ids = new Set<string>();
   for (const item of items) {

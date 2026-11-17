@@ -15,7 +15,11 @@ const machineKinds = new Map([
 const labels = new Map(environments.map(({ environmentId, label }) => [environmentId, label]));
 
 const row = (environmentId: string, key: string) =>
-  ({ type: "v2-thread", key, item: { thread: { environmentId } } }) as unknown as ThreadListV2ListItem;
+  ({
+    type: "v2-thread",
+    key,
+    item: { thread: { environmentId } },
+  }) as unknown as ThreadListV2ListItem;
 
 describe("mobile machine context", () => {
   it.each(["none", "machine"] as const)(
@@ -58,6 +62,15 @@ describe("mobile machine context", () => {
     expect(withMobileMachineContext(grouped, environments, machineKinds, [])).toBe(grouped);
   });
 
+  it("fills missing grouped machine kinds without replacing conversation rows", () => {
+    const rows = [row("mac", "m1")];
+    const grouped = groupThreadListV2ItemsByMachine(rows, labels);
+    const displayed = withMobileMachineContext(grouped, environments, machineKinds, []);
+    expect(displayed[0]).toMatchObject({ environmentId: "mac", machineKind: "mac-studio" });
+    expect(displayed[1]).toBe(rows[0]);
+    expect(withMobileMachineContext(displayed, environments, machineKinds, [])).toBe(displayed);
+  });
+
   it("includes a machine with only a queued offline task", () => {
     const pending = {
       type: "v2-pending",
@@ -72,14 +85,22 @@ describe("mobile machine context", () => {
   it("keeps empty and shelf-only lists empty of machine summaries", () => {
     const empty: ThreadListV2ListItem[] = [];
     const shelf: ThreadListV2ListItem[] = [
-      { type: "v2-settled-shelf", key: "v2-settled-shelf", count: 2, expanded: false, disabled: false },
+      {
+        type: "v2-settled-shelf",
+        key: "v2-settled-shelf",
+        count: 2,
+        expanded: false,
+        disabled: false,
+      },
     ];
     expect(withMobileMachineContext(empty, environments, machineKinds, [])).toBe(empty);
     expect(withMobileMachineContext(shelf, environments, machineKinds, [])).toBe(shelf);
   });
 
   it("uses a stable fallback until a saved machine's details are available", () => {
-    expect(withMobileMachineContext([row("unavailable", "u1")], [], new Map(), [])[0]).toMatchObject({
+    expect(
+      withMobileMachineContext([row("unavailable", "u1")], [], new Map(), [])[0],
+    ).toMatchObject({
       label: "Machine",
       machineKind: "server",
       environmentId: "unavailable",
