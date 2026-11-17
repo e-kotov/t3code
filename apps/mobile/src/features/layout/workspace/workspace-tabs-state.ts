@@ -19,7 +19,7 @@ export type WorkspaceSearchMode = "resting" | "active" | "expanded";
 
 /** Settings, Chats, pull requests and issues pair a list with a detail column; Usage is one page. */
 export function workspaceUsesColumns(tab: WorkspaceTab, settingsOpen = false) {
-  return settingsOpen || tab !== "usage";
+  return settingsOpen || (tab !== "usage" && tab !== "commands");
 }
 
 export interface WorkspaceTabState {
@@ -83,7 +83,7 @@ export function workspaceTabsReducer(
           selectionRevision: state.selectionRevision + 1,
         };
   const tab = action.tab ?? state.selectedTab;
-  if (tab === "usage") return state;
+  if (tab === "usage" || tab === "commands") return state;
   const current = state.tabs[tab];
   let next: WorkspaceTabState;
   switch (action.type) {

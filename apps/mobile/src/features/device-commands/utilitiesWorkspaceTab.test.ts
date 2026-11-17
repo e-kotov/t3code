@@ -7,6 +7,7 @@ import { highlightUtilities, keepUtilities, sharedSlotAbsentee } from "./utiliti
 import {
   initialWorkspaceTabsState,
   workspaceTabsReducer,
+  workspaceUsesColumns,
 } from "../layout/workspace/workspace-tabs-state";
 import { workspaceTabNavigationState } from "../layout/workspace/workspace-tab-navigation";
 
@@ -35,6 +36,9 @@ it("retains Settings search when Utilities is selected", () => {
   });
   state = workspaceTabsReducer(state, { type: "select", tab: "commands" });
   expect(state.selectedTab).toBe("commands");
+  expect(workspaceUsesColumns("commands")).toBe(false);
+  expect(workspaceUsesColumns("commands", true)).toBe(true);
+  expect(workspaceUsesColumns("issues")).toBe(true);
   expect(workspaceTabsReducer(state, { type: "search" })).toBe(state);
   expect(state.tabs.settings.query).toBe("tail");
 });
@@ -56,7 +60,6 @@ it("opens Utilities without restoring a chat or pull-request detail beside it", 
   expect(next.routes).toEqual([home]);
 });
 
-
 it("keeps the saved PR or Issues slot while Utilities is selected", () => {
   expect(sharedSlotAbsentee("commands", "issues")).toBe("pullRequests");
   expect(sharedSlotAbsentee("commands", "pullRequests")).toBe("issues");
@@ -65,11 +68,27 @@ it("keeps the saved PR or Issues slot while Utilities is selected", () => {
 
 it("restores Issues detail in columns after leaving Utilities", () => {
   const home = { key: "home", name: "Home" };
-  const issue = { environmentId: "env", projectId: "project", tracker: "github", scope: "owner/repo", issueKey: "42" };
+  const issue = {
+    environmentId: "env",
+    projectId: "project",
+    tracker: "github",
+    scope: "owner/repo",
+    issueKey: "42",
+  };
   const check = { thread: () => true, pullRequest: () => true, issue: () => true };
-  const utilities = workspaceTabNavigationState({ routes: [home] }, "commands", { issues: issue }, { columns: true, check });
+  const utilities = workspaceTabNavigationState(
+    { routes: [home] },
+    "commands",
+    { issues: issue },
+    { columns: true, check },
+  );
   expect(utilities.routes).toEqual([home]);
-  const next = workspaceTabNavigationState(utilities, "issues", { issues: issue }, { columns: true, check });
+  const next = workspaceTabNavigationState(
+    utilities,
+    "issues",
+    { issues: issue },
+    { columns: true, check },
+  );
   expect(next.routes).toHaveLength(2);
   expect(next.routes[1]).toMatchObject({ name: "Issue", params: issue });
 });

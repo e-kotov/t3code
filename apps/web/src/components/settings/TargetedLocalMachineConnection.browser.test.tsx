@@ -56,6 +56,7 @@ it.each(["primary", "desktop-local"] as const)(
         label: "Local machine",
         displayUrl: null,
         relayManaged: false,
+        refusedRouteIds: [],
         entry: {
           target:
             kind === "primary"

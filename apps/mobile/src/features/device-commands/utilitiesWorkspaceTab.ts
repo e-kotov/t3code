@@ -43,5 +43,8 @@ export function sharedSlotAbsentee(
   selected: Parameters<typeof upstreamSharedSlotAbsentee>[0] | UtilitiesWorkspaceTab,
   last: unknown,
 ) {
-  return upstreamSharedSlotAbsentee(selected === UTILITIES_WORKSPACE_TAB ? "threads" : selected, last);
+  return upstreamSharedSlotAbsentee(
+    selected === UTILITIES_WORKSPACE_TAB ? "threads" : selected,
+    last,
+  );
 }
