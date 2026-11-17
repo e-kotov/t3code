@@ -32,6 +32,7 @@ import {
   createDeviceCommand,
   latestDeviceCommandRuns,
   reorderDeviceCommand,
+  sameDeviceCommands,
 } from "./termuxCommands.logic";
 import {
   clearTermuxWaitingStatus,
@@ -83,7 +84,9 @@ export function DeviceCommandsScreen() {
   }
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<ReadonlyArray<DeviceCommand> | null>(null);
-  usePreventRemove(editing, ({ data }) => {
+  const [editBaseline, setEditBaseline] = useState<ReadonlyArray<DeviceCommand>>([]);
+  const dirty = editing && draft !== null && !sameDeviceCommands(draft, editBaseline);
+  usePreventRemove(dirty, ({ data }) => {
     Alert.alert("Discard command changes?", "Your unsaved command edits will be lost.", [
       { text: "Keep editing", style: "cancel" },
       { text: "Discard", style: "destructive", onPress: () => navigation.dispatch(data.action) },
@@ -134,6 +137,7 @@ export function DeviceCommandsScreen() {
   }
   function edit() {
     if (!editing) {
+      setEditBaseline(state?.commands ?? []);
       setDraft(state?.commands ?? []);
       setEditing(true);
       return;

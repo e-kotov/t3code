@@ -4,6 +4,7 @@ import {
   decodeTermuxState,
   latestDeviceCommandRuns,
   reorderDeviceCommand,
+  sameDeviceCommands,
 } from "./termuxCommands.logic";
 
 describe("Termux commands", () => {
@@ -45,4 +46,31 @@ describe("Termux commands", () => {
     const older = { ...base, runId: "old", status: "succeeded" as const };
     expect(latestDeviceCommandRuns([newer, older]).up).toEqual(newer);
   });
+});
+
+it("compares all saved command fields and order against the edit-session baseline", () => {
+  const first = { ...createDeviceCommand([]), name: "Up", command: "up" };
+  const second = { ...createDeviceCommand([first]), name: "Down", command: "down" };
+  const baseline = [first, second];
+  expect(
+    sameDeviceCommands(
+      baseline.map((command) => ({ ...command })),
+      baseline,
+    ),
+  ).toBe(true);
+  const changedFields = {
+    id: "different",
+    name: "Different",
+    command: "different",
+    icon: "play",
+    confirm: true,
+    showInCommandPalette: true,
+  } as const;
+  for (const [field, value] of Object.entries(changedFields)) {
+    expect(sameDeviceCommands([{ ...first, [field]: value }, second], baseline), field).toBe(false);
+  }
+  expect(sameDeviceCommands([second, first], baseline)).toBe(false);
+  expect(sameDeviceCommands([first], baseline)).toBe(false);
+  expect(sameDeviceCommands([first, second, createDeviceCommand(baseline)], baseline)).toBe(false);
+  expect(sameDeviceCommands([first, second], baseline)).toBe(true);
 });

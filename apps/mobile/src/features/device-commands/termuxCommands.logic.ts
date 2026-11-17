@@ -40,3 +40,23 @@ export function reorderDeviceCommand<T>(items: ReadonlyArray<T>, from: number, t
   next.splice(to, 0, item!);
   return next;
 }
+
+export function sameDeviceCommands(
+  left: ReadonlyArray<DeviceCommand>,
+  right: ReadonlyArray<DeviceCommand>,
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((command, index) => {
+      const other = right[index]!;
+      return (
+        command.id === other.id &&
+        command.name === other.name &&
+        command.command === other.command &&
+        command.icon === other.icon &&
+        command.confirm === other.confirm &&
+        command.showInCommandPalette === other.showInCommandPalette
+      );
+    })
+  );
+}

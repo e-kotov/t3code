@@ -24,8 +24,18 @@ vi.mock("react-native", () => ({
     <div style={style}>{children}</div>
   ),
   ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  Pressable: ({ children, onPress }: { children?: ReactNode; onPress: () => void }) => (
-    <button onClick={onPress}>{children}</button>
+  Pressable: ({
+    children,
+    onPress,
+    accessibilityLabel,
+  }: {
+    children?: ReactNode;
+    onPress: () => void;
+    accessibilityLabel?: string;
+  }) => (
+    <button aria-label={accessibilityLabel} onClick={onPress}>
+      {children}
+    </button>
   ),
   TextInput: ({
     value,
@@ -271,4 +281,31 @@ it.each([
   expect(layout.children[0]!.textContent).toContain("Services");
   expect(layout.children[0]!.textContent).not.toContain("Commands");
   expect(layout.children[1]).toBe(commandColumn);
+});
+
+it("only guards changes from the edit-session baseline and becomes clean after restore or save", () => {
+  render();
+  click("Edit commands");
+  expect(mocks.prevent).toBe(false);
+  expect(mocks.alert).not.toHaveBeenCalled();
+  const selectIcon = (icon: string) =>
+    act(() => container.querySelector<HTMLButtonElement>(`button[aria-label="${icon}"]`)!.click());
+  selectIcon("play");
+  expect(mocks.prevent).toBe(true);
+  act(() => mocks.onRemove({ data: { action: { type: "GO_BACK" } } }));
+  const keep = mocks.alert.mock.calls
+    .at(-1)![2]
+    .find((button: { text: string }) => button.text === "Keep editing");
+  expect(keep.style).toBe("cancel");
+  expect(mocks.dispatch).not.toHaveBeenCalled();
+  expect(mocks.prevent).toBe(true);
+  expect(container.querySelectorAll("input")).toHaveLength(2);
+  selectIcon("terminal");
+  expect(mocks.prevent).toBe(false);
+  selectIcon("play");
+  expect(mocks.prevent).toBe(true);
+  click("Save commands");
+  expect(mocks.save).toHaveBeenCalledWith([expect.objectContaining({ icon: "play" })]);
+  expect(mocks.prevent).toBe(false);
+  expect(container.querySelectorAll("input")).toHaveLength(0);
 });
