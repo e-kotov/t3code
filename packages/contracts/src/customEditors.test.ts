@@ -15,11 +15,24 @@ it("accepts a custom executable without widening the detected-editor catalog", (
     },
   };
   expect(decodeLaunchEditorInput(input)).toEqual(input);
+  for (const position of [{}, { line: 5, column: 3 }]) {
+    expect(decodeLaunchEditorInput({ ...input, position })).toEqual({ ...input, position });
+  }
   expect(() => decodeLaunchEditorInput({ cwd: "/repo", editor: "custom" })).toThrow();
   expect(() => decodeLaunchEditorInput({ ...input, editor: "anything" })).toThrow();
 });
 
 it("preserves spaces, quotes, Unicode and shell metacharacters as literal argv values", () => {
+  expect(
+    customEditorArguments(["{path}", "{line}", "{column}"], "/work/report.txt:12", {}),
+  ).toEqual(["/work/report.txt:12", "1", "1"]);
+  expect(
+    customEditorArguments(["{path}", "{line}", "{column}"], "/work/report.txt:12", {
+      line: 5,
+      column: 3,
+    }),
+  ).toEqual(["/work/report.txt:12", "5", "3"]);
+
   expect(
     customEditorArguments(
       ["--goto", "{path}:{line}:{column}", "$(do-not-run)"],

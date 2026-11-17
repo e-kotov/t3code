@@ -1,6 +1,6 @@
 import type { AssistantCitation } from "@t3tools/contracts";
 import { requireNativeView, requireOptionalNativeModule } from "expo";
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps, ComponentType, ReactNode } from "react";
 import { Platform, type NativeSyntheticEvent, type ViewProps } from "react-native";
 import Animated from "react-native-reanimated";
 import type { AssistantCitationPassageLocation } from "../../lib/assistantCitationPassage";
@@ -59,4 +59,20 @@ export function AssistantCitationPassage({
       ) : null}
     </Animated.View>
   );
+}
+
+/** Compose outside the disclosure row so native passage coordinates keep the same ancestry. */
+export function withAssistantCitationPassage<P extends object>(Row: ComponentType<P>) {
+  return function CitationRow({
+    citationPassage,
+    ...props
+  }: P & {
+    readonly citationPassage: Omit<ComponentProps<typeof AssistantCitationPassage>, "children">;
+  }) {
+    return (
+      <AssistantCitationPassage {...citationPassage}>
+        <Row {...(props as P)} />
+      </AssistantCitationPassage>
+    );
+  };
 }

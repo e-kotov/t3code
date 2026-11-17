@@ -3,7 +3,7 @@ import {
   type ReferenceThread,
   type StartReferencedThread,
 } from "./threadReferenceContextMenu";
-import type { ContextMenuItem } from "@t3tools/contracts";
+import type { ContextMenuItem, ContextMenuSource } from "@t3tools/contracts";
 import { AuthSettingsWriteScope } from "@t3tools/contracts";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import { runAtomCommand } from "@t3tools/client-runtime/state/runtime";
@@ -26,17 +26,19 @@ async function showCachePolicyMenu<T extends string>(
   thread: CacheThread,
   items: readonly ContextMenuItem<T>[],
   position?: { x: number; y: number },
+  source?: ContextMenuSource,
 ): Promise<T | null> {
   const api = readLocalApi();
   if (!api) return null;
   const settings = appAtomRegistry.get(serverEnvironment.settingsValueAtom(thread.environmentId));
-  if (!settings) return api.contextMenu.show(items, position);
+  if (!settings) return api.contextMenu.show(items, position, source);
   const driver = cachePolicyDriver(
     settings,
     thread.modelSelection.instanceId,
     thread.cacheHud?.driver,
   );
-  if (driver !== "codex" && driver !== "claudeAgent") return api.contextMenu.show(items, position);
+  if (driver !== "codex" && driver !== "claudeAgent")
+    return api.contextMenu.show(items, position, source);
   const policy = threadCachePolicy(settings, thread.id);
   const canWrite = readEnvironmentScope(thread.environmentId, AuthSettingsWriteScope);
   const choices = cachePolicyChoices(driver);
@@ -56,6 +58,7 @@ async function showCachePolicyMenu<T extends string>(
       },
     ],
     position,
+    source,
   );
   if (selected === null) return null;
   const choice = choices.find((entry) => selected === `cache-policy:${entry.value}`);
@@ -78,6 +81,7 @@ export function showThreadCachePolicyMenu<T extends string>(
   items: readonly ContextMenuItem<T>[],
   position?: { x: number; y: number },
   start?: StartReferencedThread,
+  source?: ContextMenuSource,
 ): Promise<T | null> {
   if (start && thread.projectId && thread.title !== undefined) {
     return showThreadReferenceContextMenu(
@@ -91,8 +95,8 @@ export function showThreadCachePolicyMenu<T extends string>(
       items,
       position,
       start,
-      (menu, location) => showCachePolicyMenu(thread, menu, location),
+      (menu, location) => showCachePolicyMenu(thread, menu, location, source),
     );
   }
-  return showCachePolicyMenu(thread, items, position);
+  return showCachePolicyMenu(thread, items, position, source);
 }

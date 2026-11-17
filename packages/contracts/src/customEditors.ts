@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema";
-import { TrimmedNonEmptyString } from "./baseSchemas.ts";
+import { PositiveInt, TrimmedNonEmptyString } from "./baseSchemas.ts";
 
 export const CustomEditorCommand = Schema.Struct({
   name: TrimmedNonEmptyString,
@@ -14,3 +14,15 @@ export const CustomEditorUrlInput = Schema.Struct({
   target: TrimmedNonEmptyString,
 });
 export type CustomEditorUrlInput = typeof CustomEditorUrlInput.Type;
+
+export const CustomLaunchEditorInput = Schema.Struct({
+  cwd: TrimmedNonEmptyString,
+  editor: Schema.Literal("custom"),
+  customEditor: CustomEditorCommand,
+  position: Schema.optional(
+    Schema.Struct({
+      line: Schema.optional(PositiveInt),
+      column: Schema.optional(PositiveInt),
+    }),
+  ),
+});

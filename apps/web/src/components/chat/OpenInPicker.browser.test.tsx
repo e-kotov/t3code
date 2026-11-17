@@ -240,7 +240,7 @@ describe("open in editor announcement", () => {
     await renderPicker();
     const regions = () => [...document.querySelectorAll('body > [aria-live="polite"]')];
     const spoken = async () => {
-      await act(async () => vi.runAllTimersAsync());
+      await act(async () => vi.advanceTimersByTime(250));
       return regions()
         .map((region) => region.textContent)
         .join("");

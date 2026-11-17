@@ -4,8 +4,19 @@ function editorTarget(target: string) {
   return { path: match?.[1] ?? target, line: match?.[2] ?? "1", column: match?.[3] ?? "1" };
 }
 
-export function customEditorArguments(args: readonly string[], target: string): string[] {
-  const values = editorTarget(target);
+export function customEditorArguments(
+  args: readonly string[],
+  target: string,
+  position?: { readonly line?: number | undefined; readonly column?: number | undefined },
+): string[] {
+  const values =
+    position === undefined
+      ? editorTarget(target)
+      : {
+          path: target,
+          line: String(position.line ?? 1),
+          column: String(position.column ?? 1),
+        };
   const expanded = args.map((arg) =>
     arg.replace(/\{(path|line|column)\}/g, (_, key: keyof typeof values) => values[key]),
   );
@@ -37,10 +48,8 @@ export function buildCustomEditorUrl(
 ): string | undefined {
   if (!template.includes("{host}") || !/\{path(?:Query)?\}/.test(template)) return undefined;
   const scheme = /^([a-z][a-z0-9+.-]*):\/\//i.exec(template)?.[1]?.toLowerCase();
-  // oxlint-disable-next-line no-control-regex -- App links reject raw controls and whitespace.
   if (!scheme || forbiddenSchemes.has(scheme) || /[\u0000-\u0020\u007f]/.test(template))
     return undefined;
-  // oxlint-disable-next-line no-control-regex -- The host must stay a single SSH alias or hostname.
   if (!host || /[\u0000-\u0020\u007f/@:?#\\]/.test(host)) return undefined;
   const values = editorTarget(target);
   const path = values.path.replaceAll("\\", "/");

@@ -1,3 +1,4 @@
+import * as Effect from "effect/Effect";
 import type { QueuedThreadMessage } from "./thread-outbox-model";
 import { appAtomRegistry } from "./atom-registry";
 import { scopedThreadKey } from "../lib/scopedEntities";
@@ -5,7 +6,7 @@ import { editingQueuedMessageIdsAtom } from "./use-thread-outbox";
 import { removeThreadOutboxMessage } from "./thread-outbox-removal";
 import { setThreadComposerError } from "./thread-composer-error";
 
-export async function recoverRejectedCompactAction(
+async function recoverCompactAction(
   queuedMessage: QueuedThreadMessage,
   revision: number,
   message: string,
@@ -32,3 +33,11 @@ export async function recoverRejectedCompactAction(
   );
   return "restored";
 }
+
+export const recoverRejectedCompactAction = Effect.fn("ThreadOutbox.recoverRejectedCompactAction")(
+  (queuedMessage: QueuedThreadMessage, revision: number, message: string) =>
+    Effect.tryPromise({
+      try: () => recoverCompactAction(queuedMessage, revision, message),
+      catch: (cause) => ({ cause }),
+    }),
+);

@@ -1,7 +1,7 @@
 import * as Schema from "effect/Schema";
-import { TrimmedNonEmptyString } from "./baseSchemas.ts";
+import { PositiveInt, TrimmedNonEmptyString } from "./baseSchemas.ts";
 import { buildGramRemoteOpenUrl, FORK_EDITORS } from "./forkEditors.ts";
-import { CustomEditorCommand } from "./customEditors.ts";
+import { CustomLaunchEditorInput } from "./customEditors.ts";
 export { CustomEditorCommand, CustomEditorUrlInput } from "./customEditors.ts";
 export { buildCustomEditorUrl, customEditorArguments } from "./customEditorTemplates.ts";
 
@@ -162,19 +162,19 @@ export type FileManagerRevealKind = typeof FileManagerRevealKind.Type;
 const BuiltInLaunchEditorInput = Schema.Struct({
   cwd: TrimmedNonEmptyString,
   editor: EditorId,
+  /** When present, cwd is an exact path; {} opens it without a position. Omit for diagnostic suffix parsing. */
+  position: Schema.optional(
+    Schema.Struct({
+      line: Schema.optional(PositiveInt),
+      column: Schema.optional(PositiveInt),
+    }),
+  ),
   /** Workspace the target belongs to; JetBrains IDEs open positioned files in this project. */
   projectRoot: Schema.optional(TrimmedNonEmptyString),
   /** Only for file-manager; requires the server's shellRevealInFileManager capability. */
   reveal: Schema.optional(Schema.Boolean),
 });
-export const LaunchEditorInput = Schema.Union([
-  BuiltInLaunchEditorInput,
-  Schema.Struct({
-    cwd: TrimmedNonEmptyString,
-    editor: Schema.Literal("custom"),
-    customEditor: CustomEditorCommand,
-  }),
-]);
+export const LaunchEditorInput = Schema.Union([BuiltInLaunchEditorInput, CustomLaunchEditorInput]);
 export type LaunchEditorInput = typeof LaunchEditorInput.Type;
 const LauncherEditorId = Schema.Literals([...EDITORS.map((editor) => editor.id), "custom"]);
 

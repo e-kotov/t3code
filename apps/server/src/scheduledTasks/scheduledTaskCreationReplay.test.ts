@@ -39,6 +39,7 @@ it.effect("a retried agent create returns the task it created", () =>
       workspaceStrategy: { type: "root" } as const,
     };
     const created = yield* service.upsert({ ...input, keepExistingOnReplay: true });
+    expect(created.task.workspaceStrategy).toEqual(input.workspaceStrategy);
     const replayed = yield* service.upsert({ ...rebound, keepExistingOnReplay: true });
     expect(replayed.task).toEqual(created.task);
 
@@ -53,7 +54,9 @@ it.effect("a retried agent create returns the task it created", () =>
             NodeCrypto.layer,
             ManagedPolicy.layerTest(),
             Scheduler.layer,
-            Layer.mock(ThreadLaunchService.ThreadLaunchService)({}),
+            Layer.mock(ThreadLaunchService.ThreadLaunchService)({
+              isNonGitProject: () => Effect.succeed(false),
+            }),
             Layer.mock(ThreadManagementService.ThreadManagementService)({
               getThreadShell: () =>
                 Effect.succeed({

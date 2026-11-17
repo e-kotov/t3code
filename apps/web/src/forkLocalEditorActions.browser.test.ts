@@ -52,6 +52,22 @@ it("uses saved custom commands for file actions and does not borrow another envi
       customEditor: { name: custom.name, command: custom.command, args: custom.args },
     },
   });
+  for (const [uri, cwd, position] of [
+    ["file:///work/read%20me.md", "/work/read me.md", {}],
+    ["file:///work/report.txt:12", "/work/report.txt:12", {}],
+    ["file:///work/report.txt:12#L5C3", "/work/report.txt:12", { line: 5, column: 3 }],
+  ] as const) {
+    await openSavedConfiguredEditor(environmentId, [], uri, invoke);
+    expect(invoke).toHaveBeenLastCalledWith({
+      environmentId,
+      input: {
+        editor: "custom",
+        cwd,
+        position,
+        customEditor: { name: custom.name, command: custom.command, args: custom.args },
+      },
+    });
+  }
   expect(
     await openSavedConfiguredEditor(EnvironmentId.make("gwdg"), [], "/project", invoke),
   ).toBeNull();
@@ -91,4 +107,15 @@ it("preserves the project root when opening files in a configured built-in edito
     environmentId,
     input: { editor: "vscode", cwd: "/project/file.ts:8", projectRoot: "/project" },
   });
+  for (const [uri, cwd, position] of [
+    ["file:///work/read%20me.md", "/work/read me.md", {}],
+    ["file:///work/report.txt:12", "/work/report.txt:12", {}],
+    ["file:///work/report.txt:12#L5C3", "/work/report.txt:12", { line: 5, column: 3 }],
+  ] as const) {
+    await openSavedConfiguredEditor(environmentId, ["vscode"], uri, invoke, "/project");
+    expect(invoke).toHaveBeenLastCalledWith({
+      environmentId,
+      input: { editor: "vscode", cwd, position, projectRoot: "/project" },
+    });
+  }
 });

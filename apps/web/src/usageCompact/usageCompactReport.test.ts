@@ -143,7 +143,7 @@ it("shows only signed-in native providers and proxy accounts of the compact harn
     ),
   );
   expect([...report.drivers].toSorted()).toEqual(["antigravity", "codex"]);
-  expect(report.accounts.map((account) => account.key)).toEqual(["proxy:proxied"]);
+  expect(report.accounts.map((account) => account.key)).toEqual(["test:proxy:proxied"]);
   expect(report.notices).toEqual(["antigravity: Could not read limits."]);
 });
 

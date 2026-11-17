@@ -6,7 +6,7 @@ export function customEditorLaunch(input: LaunchEditorInput) {
     editor: "custom" as const,
     target: input.cwd,
     command: input.customEditor.command,
-    args: customEditorArguments(input.customEditor.args, input.cwd),
+    args: customEditorArguments(input.customEditor.args, input.cwd, input.position),
   };
 }
 
