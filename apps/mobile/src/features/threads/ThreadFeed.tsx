@@ -1,4 +1,4 @@
-import { AssistantCitationPassage } from "./AssistantCitationPassage";
+import { withAssistantCitationPassage } from "./AssistantCitationPassage";
 import { toServerClock } from "@t3tools/client-runtime/clock";
 import { formatDuration } from "@t3tools/shared/orchestrationTiming";
 import { Button } from "../../components/ui/Button";
@@ -2970,6 +2970,8 @@ function DisclosureRow(props: {
   );
 }
 
+const CitationDisclosureRow = withAssistantCitationPassage(DisclosureRow);
+
 const THREAD_FEED_MAINTAIN_SCROLL_AT_END = {
   animated: false,
   on: { dataChange: true, itemLayout: true, layout: true },
@@ -4047,106 +4049,110 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   }, [textSizeKey, contentWidth, hasHtmlRenders, listRef]);
 
   const renderItem = (info: { item: GroupedThreadFeedRow; index: number }) => (
-    <AssistantCitationPassage
-      rowId={info.item.id}
-      target={citationSource.passage}
-      onLocated={citationSource.onPassageLocated}
+    <CitationDisclosureRow
       key={info.item.id}
-      className={
-        citationSource.rowId === info.item.id ? "rounded-xl border border-foreground/30" : undefined
-      }
+      itemKey={info.item.id}
+      index={info.index}
+      layout={disclosureLayout}
+      citationPassage={{
+        rowId: info.item.id,
+        target: citationSource.passage,
+        onLocated: citationSource.onPassageLocated,
+        className:
+          citationSource.rowId === info.item.id
+            ? "rounded-xl border border-foreground/30"
+            : undefined,
+      }}
     >
-      <DisclosureRow itemKey={info.item.id} index={info.index} layout={disclosureLayout}>
-        <MessageImageGalleryScope
-          entry={info.item}
-          environmentId={props.environmentId}
-          threadId={props.threadId}
-          workspaceRoot={props.workspaceRoot}
-        >
-          <ThreadMediaVisibility rowId={info.item.id} setRetainedRowId={setRetainedMediaRowId}>
-            {info.item.type === "message" &&
-            info.item.message.projectedItem?.item.type === "user_message" &&
-            info.item.message.projectedItem.item.freshContext ? (
-              <ThreadContextDivider
-                label="New session"
-                icon="arrow.clockwise"
-                iconColor={iconSubtleColor}
-              />
-            ) : null}
-            {info.item.type === "message" &&
-            !isCompactionCommandFeedEntry(info.item) &&
-            info.item.message.projectedItem?.item.type === "user_message" &&
-            info.item.message.projectedItem.item.modelSwitch ? (
-              <ThreadModelSwitchDivider
-                environmentId={props.environmentId}
-                modelSwitch={info.item.message.projectedItem.item.modelSwitch}
-                iconColor={iconSubtleColor}
-              />
-            ) : null}
-            {renderFeedEntry(info, {
-              userMessageGrouping: info.item.userMessageGrouping,
-              formatMessageTime,
-              environmentId: props.environmentId,
-              canCiteAssistantText: props.canCiteAssistantText,
-              dispatchingMessageId: props.dispatchingMessageId,
-              pendingFoldMessageId,
-              setupFoldRowId,
-              worktreeSetup: props.worktreeSetup,
-              setupDetailsOpen,
-              onOpenSetupDetails: openSetupDetails,
-              onEditPendingMessage: props.onEditPendingMessage,
-              onUseArtifactTemplate: props.onUseArtifactTemplate,
-              threadId: props.threadId,
-              copiedRowId,
-              expandedWorkRows,
-              workRowSizing,
-              workGroupScrollPositions,
-              terminalAssistantMessageIds,
-              unsettledTurnId,
-              compactionLabelsByEntryId,
-              failedRunIds,
-              onCopyWorkRow,
-              onToggleWorkGroup,
-              onToggleWorkRow,
-              onToggleTurnFold,
-              onOpenTurnDiff,
-              onPressPreview,
-              onPlaybackStart: onInlinePlaybackStart,
-              markdownLinkHandlers,
-              renderMarkdownImage,
-              renderViewedImage,
-              renderReasoning,
-              iconSubtleColor,
-              replyActionSize,
-              screenColor,
-              userBubbleColor,
-              markdownStyles,
-              reviewCommentColors,
-              reviewCommentBubbleWidth,
-              themeAppearance,
-              duoColumns,
-              userBubbleMaxWidth,
-              markdownContentWidth,
-              contentWidth,
-              threadTitle: props.threadTitle,
-              skills: props.skills,
-              workspaceRoot: props.workspaceRoot,
-              workflowOpening,
-            })}
-            {props.worktreeSetup && info.index === setupAnchorIndex ? (
-              <WorktreeSetupCard
-                key={props.threadId}
-                {...props.worktreeSetup}
-                detailsOpen={setupDetailsOpen}
-                onOpenDetails={openSetupDetails}
-              />
-            ) : props.preparingWorktree && info.index === setupAnchorIndex ? (
-              <WorktreePreparingHeader />
-            ) : null}
-          </ThreadMediaVisibility>
-        </MessageImageGalleryScope>
-      </DisclosureRow>
-    </AssistantCitationPassage>
+      <MessageImageGalleryScope
+        entry={info.item}
+        environmentId={props.environmentId}
+        threadId={props.threadId}
+        workspaceRoot={props.workspaceRoot}
+      >
+        <ThreadMediaVisibility rowId={info.item.id} setRetainedRowId={setRetainedMediaRowId}>
+          {info.item.type === "message" &&
+          info.item.message.projectedItem?.item.type === "user_message" &&
+          info.item.message.projectedItem.item.freshContext ? (
+            <ThreadContextDivider
+              label="New session"
+              icon="arrow.clockwise"
+              iconColor={iconSubtleColor}
+            />
+          ) : null}
+          {info.item.type === "message" &&
+          !isCompactionCommandFeedEntry(info.item) &&
+          info.item.message.projectedItem?.item.type === "user_message" &&
+          info.item.message.projectedItem.item.modelSwitch ? (
+            <ThreadModelSwitchDivider
+              environmentId={props.environmentId}
+              modelSwitch={info.item.message.projectedItem.item.modelSwitch}
+              iconColor={iconSubtleColor}
+            />
+          ) : null}
+          {renderFeedEntry(info, {
+            userMessageGrouping: info.item.userMessageGrouping,
+            formatMessageTime,
+            environmentId: props.environmentId,
+            canCiteAssistantText: props.canCiteAssistantText,
+            dispatchingMessageId: props.dispatchingMessageId,
+            pendingFoldMessageId,
+            setupFoldRowId,
+            worktreeSetup: props.worktreeSetup,
+            setupDetailsOpen,
+            onOpenSetupDetails: openSetupDetails,
+            onEditPendingMessage: props.onEditPendingMessage,
+            onUseArtifactTemplate: props.onUseArtifactTemplate,
+            threadId: props.threadId,
+            copiedRowId,
+            expandedWorkRows,
+            workRowSizing,
+            workGroupScrollPositions,
+            terminalAssistantMessageIds,
+            unsettledTurnId,
+            compactionLabelsByEntryId,
+            failedRunIds,
+            onCopyWorkRow,
+            onToggleWorkGroup,
+            onToggleWorkRow,
+            onToggleTurnFold,
+            onOpenTurnDiff,
+            onPressPreview,
+            onPlaybackStart: onInlinePlaybackStart,
+            markdownLinkHandlers,
+            renderMarkdownImage,
+            renderViewedImage,
+            renderReasoning,
+            iconSubtleColor,
+            replyActionSize,
+            screenColor,
+            userBubbleColor,
+            markdownStyles,
+            reviewCommentColors,
+            reviewCommentBubbleWidth,
+            themeAppearance,
+            duoColumns,
+            userBubbleMaxWidth,
+            markdownContentWidth,
+            contentWidth,
+            threadTitle: props.threadTitle,
+            skills: props.skills,
+            workspaceRoot: props.workspaceRoot,
+            workflowOpening,
+          })}
+          {props.worktreeSetup && info.index === setupAnchorIndex ? (
+            <WorktreeSetupCard
+              key={props.threadId}
+              {...props.worktreeSetup}
+              detailsOpen={setupDetailsOpen}
+              onOpenDetails={openSetupDetails}
+            />
+          ) : props.preparingWorktree && info.index === setupAnchorIndex ? (
+            <WorktreePreparingHeader />
+          ) : null}
+        </ThreadMediaVisibility>
+      </MessageImageGalleryScope>
+    </CitationDisclosureRow>
   );
 
   if (props.contentPresentation.kind === "unavailable" && props.queuedMessages.length === 0) {
