@@ -3,7 +3,7 @@ import {
   resolveSelectedNavigationTab,
   selectedNavigationTab,
 } from "../layout/workspace/navigation-tab-order";
-import { highlightUtilities, keepUtilities } from "./utilitiesWorkspaceTab";
+import { highlightUtilities, keepUtilities, sharedSlotAbsentee } from "./utilitiesWorkspaceTab";
 import {
   initialWorkspaceTabsState,
   workspaceTabsReducer,
@@ -40,7 +40,7 @@ it("retains Settings search when Utilities is selected", () => {
 });
 
 it("opens Utilities without restoring a chat or pull-request detail beside it", () => {
-  const check = { thread: () => true, pullRequest: () => true };
+  const check = { thread: () => true, pullRequest: () => true, issue: () => true };
   const home = { key: "home", name: "Home" };
   const thread = {
     key: "chat",
@@ -54,4 +54,22 @@ it("opens Utilities without restoring a chat or pull-request detail beside it", 
     { columns: true, check },
   );
   expect(next.routes).toEqual([home]);
+});
+
+
+it("keeps the saved PR or Issues slot while Utilities is selected", () => {
+  expect(sharedSlotAbsentee("commands", "issues")).toBe("pullRequests");
+  expect(sharedSlotAbsentee("commands", "pullRequests")).toBe("issues");
+  expect(sharedSlotAbsentee("issues", "pullRequests")).toBe("pullRequests");
+});
+
+it("restores Issues detail in columns after leaving Utilities", () => {
+  const home = { key: "home", name: "Home" };
+  const issue = { environmentId: "env", projectId: "project", tracker: "github", scope: "owner/repo", issueKey: "42" };
+  const check = { thread: () => true, pullRequest: () => true, issue: () => true };
+  const utilities = workspaceTabNavigationState({ routes: [home] }, "commands", { issues: issue }, { columns: true, check });
+  expect(utilities.routes).toEqual([home]);
+  const next = workspaceTabNavigationState(utilities, "issues", { issues: issue }, { columns: true, check });
+  expect(next.routes).toHaveLength(2);
+  expect(next.routes[1]).toMatchObject({ name: "Issue", params: issue });
 });

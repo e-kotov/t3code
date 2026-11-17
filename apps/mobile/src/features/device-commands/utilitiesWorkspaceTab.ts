@@ -1,3 +1,4 @@
+import { sharedSlotAbsentee as upstreamSharedSlotAbsentee } from "../layout/workspace/navigation-tab-order";
 import type {
   resolveSelectedNavigationTab,
   selectedNavigationTab,
@@ -36,4 +37,11 @@ export function highlightUtilities(select: typeof selectedNavigationTab) {
     }
     return settingsOpen ? "settings" : selected;
   };
+}
+
+export function sharedSlotAbsentee(
+  selected: Parameters<typeof upstreamSharedSlotAbsentee>[0] | UtilitiesWorkspaceTab,
+  last: unknown,
+) {
+  return upstreamSharedSlotAbsentee(selected === UTILITIES_WORKSPACE_TAB ? "threads" : selected, last);
 }

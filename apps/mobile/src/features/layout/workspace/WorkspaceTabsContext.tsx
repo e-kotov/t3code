@@ -5,7 +5,6 @@ import { createContext, use, useState, type Dispatch, type ReactNode } from "rea
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../../state/preferences";
 import {
   isSharedSlotTab,
-  sharedSlotAbsentee,
   navigationCustomizationAvailable,
   resolveHiddenNavigationTabs,
   resolveSelectedNavigationTab,
@@ -19,7 +18,7 @@ import {
   type WorkspaceTabsAction,
   type WorkspaceTabsState,
 } from "./workspace-tabs-state";
-import { keepUtilities } from "../../device-commands/utilitiesWorkspaceTab";
+import { keepUtilities, sharedSlotAbsentee } from "../../device-commands/utilitiesWorkspaceTab";
 
 export const WorkspaceTabsContext = createContext<{
   readonly state: WorkspaceTabsState;
