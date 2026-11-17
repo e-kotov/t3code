@@ -4,7 +4,7 @@ import { UsageRouteScreen } from "../../usage/UsageRouteScreen";
 import { DeviceUtilitiesTab } from "../../device-commands/DeviceUtilitiesTab";
 
 export function WorkspaceExtraTab(_props: {
-  tab: Exclude<NavigationTab, "threads" | "pullRequests"> | "commands";
+  tab: Extract<NavigationTab, "usage"> | "commands";
 }) {
   if (_props.tab === "commands") return <DeviceUtilitiesTab />;
   return (
