@@ -188,6 +188,7 @@ export function DeviceCommandsScreen() {
             <UtilitiesSection />
           </View>
           <View style={{ flex: wide ? 1 : undefined, minWidth: 0, gap: 16 }}>
+            <Text className="font-t3-medium">Commands</Text>
             <Text className="text-foreground-muted">
               Commands run locally in Termux, using this phone’s setup. Output arrives when the
               command finishes.

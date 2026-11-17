@@ -75,7 +75,9 @@ vi.mock("@react-navigation/native", () => ({
     mocks.onRemove = callback;
   },
 }));
-vi.mock("../../components/ui/AppText", () => ({ AppText: Children }));
+vi.mock("../../components/ui/AppText", () => ({
+  AppText: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+}));
 vi.mock("../../components/ui/AppBar", () => ({
   AppBar: ({
     onClose,
@@ -116,8 +118,15 @@ vi.mock("../../components/ui/Button", () => ({
 }));
 vi.mock("../../components/ui/AppSymbol", () => ({ SymbolView: () => null }));
 vi.mock("../../components/ui/ThemedSwitch", () => ({ ThemedSwitch: () => null }));
-vi.mock("../device-utilities/UtilitiesSection", () => ({
-  UtilitiesSection: () => <div>Services</div>,
+vi.mock("../settings/appearance/AppearancePreferencesProvider", () => ({
+  useAppearancePreferences: () => ({ themeAppearance: "light" }),
+}));
+vi.mock("../device-utilities/utilitiesStore", () => ({
+  utilitiesAvailable: true,
+  useDeviceUtilities: () => ({ snapshot: null, error: null, now: 0, statuses: [] }),
+  refreshUtilities: vi.fn(),
+  importUtilities: vi.fn(),
+  runUtilityAction: vi.fn(),
 }));
 vi.mock("./termuxCommands", () => ({
   termuxCommandsAvailable: true,
@@ -238,4 +247,28 @@ it("confirms local execution, retains the output dialog during rotation, and rel
   render();
   expect(container.textContent).toContain("Finished");
   expect(mocks.run).toHaveBeenCalledOnce();
+});
+
+it.each([
+  { width: 400, direction: "column" },
+  { width: 1200, direction: "row" },
+])("keeps the Commands heading with its controls at $width points", ({ width, direction }) => {
+  mocks.width = width;
+  render();
+  const headings = [...container.querySelectorAll("span")];
+  const commands = headings.filter((element) => element.textContent === "Commands");
+  expect(commands).toHaveLength(1);
+  const commandColumn = commands[0]!.parentElement!;
+  expect(commandColumn.firstElementChild).toBe(commands[0]);
+  expect(commandColumn.textContent).toContain("Termux setup");
+  expect(
+    [...commandColumn.querySelectorAll("button")].some((button) => button.textContent === "Run"),
+  ).toBe(true);
+  expect(commandColumn.textContent).not.toContain("Services");
+  const layout = commandColumn.parentElement!;
+  expect(layout.style.flexDirection).toBe(direction);
+  expect(layout.children).toHaveLength(2);
+  expect(layout.children[0]!.textContent).toContain("Services");
+  expect(layout.children[0]!.textContent).not.toContain("Commands");
+  expect(layout.children[1]).toBe(commandColumn);
 });
