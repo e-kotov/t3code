@@ -218,7 +218,8 @@
         "apps/desktop/src/deviceUtilities/DeviceUtilitiesRuntime.test.ts",
         "apps/desktop/src/deviceUtilities/UtilityProcessRunner.test.ts",
         "packages/contracts/src/deviceUtilities.test.ts",
-        "apps/mobile/src/features/device-commands/utilitiesWorkspaceTab.test.ts",
+        "apps/mobile/src/features/device-commands/utilitiesRoute.test.ts",
+        "apps/mobile/src/features/device-commands/DeviceCommandsScreen.test.tsx",
         "apps/mobile/modules/t3-termux-command/android/src/test/java/expo/modules/t3termuxcommand/DeviceUtilitiesTest.kt"
       ]
     },

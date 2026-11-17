@@ -48,7 +48,8 @@ run in your login shell. Output streams into the dialog, where **Stop** ends
 the local command and its subprocesses. Stopping the launcher does not undo a
 remote job it already submitted.
 
-On Android, open the **Utilities** tab beside Chats and Pull requests. Tap **Edit**
+On Android, tap **Utilities** in the navigation bar or rail. It opens a full-screen
+page; Back or Close returns to the page you were using. Tap **Edit**
 to add, reorder or delete commands. Install Termux, enable
 `allow-external-apps = true` in `~/.termux/termux.properties`, and grant T3
 permission to run Termux commands. **Test connection** checks that the setup

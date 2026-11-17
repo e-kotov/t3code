@@ -492,6 +492,8 @@ function NotFoundScreen() {
   );
 }
 
+import { UTILITIES_SCREENS } from "./features/device-commands/utilitiesScreens";
+
 const RootStackConfig = createWorkspaceStackNavigator({
   initialRouteName: "Home",
   UNSTABLE_router: workspaceDetailRouter,
@@ -501,6 +503,7 @@ const RootStackConfig = createWorkspaceStackNavigator({
     headerShown: false,
   },
   screens: {
+    ...UTILITIES_SCREENS,
     ...(__DEV__
       ? {
           ComponentCatalog: createNativeStackScreen({

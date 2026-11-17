@@ -188,7 +188,6 @@ export function UtilitiesSection() {
       <Text className="text-foreground-muted">
         Runs through this phone’s Termux, using its scripts and credentials.
       </Text>
-      <Text className="font-t3-medium">Commands</Text>
     </View>
   );
 }

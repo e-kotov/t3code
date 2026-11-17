@@ -1,13 +1,14 @@
 import { UtilitiesSection } from "../device-utilities/UtilitiesSection";
-import { WorkspaceTabsContext, useWorkspaceTabs } from "../layout/workspace/WorkspaceTabsContext";
-import { useUtilitiesSidebarExitActions } from "./useUtilitiesSidebarActions";
+import { StackActions, useNavigation, usePreventRemove } from "@react-navigation/native";
+import { WindowHingeContext } from "../../native/window-hinge-context";
+import { utilitiesLayout } from "./utilitiesLayout";
 import {
   DEVICE_COMMAND_ICONS,
   DEVICE_COMMANDS_MAX_COUNT,
   type DeviceCommand,
   type DeviceCommandRun,
 } from "@t3tools/contracts";
-import { useCallback, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import {
   Alert,
   AppState,
@@ -17,10 +18,11 @@ import {
   ScrollView,
   TextInput,
   View,
+  useWindowDimensions,
 } from "react-native";
 
 import { AppText as Text } from "../../components/ui/AppText";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppBar } from "../../components/ui/AppBar";
 import { SheetHeader } from "../../components/ui/SheetHeader";
 import { Button } from "../../components/ui/Button";
@@ -30,6 +32,7 @@ import {
   createDeviceCommand,
   latestDeviceCommandRuns,
   reorderDeviceCommand,
+  sameDeviceCommands,
 } from "./termuxCommands.logic";
 import {
   clearTermuxWaitingStatus,
@@ -64,16 +67,31 @@ function readSnapshot(): {
   }
 }
 
-export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
-  const exitActions = useUtilitiesSidebarExitActions();
-  const workspaceTabs = useWorkspaceTabs();
-  const bottomPadding = Math.max(40, (workspaceTabs?.bottomClearance ?? 0) + 16);
+export function DeviceCommandsScreen() {
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  const hinge = use(WindowHingeContext);
+  const { width, fontScale } = useWindowDimensions();
+  const { left, right, wide } = utilitiesLayout(width, fontScale, insets, hinge);
+  const bottomPadding = Math.max(40, insets.bottom + 16);
+  const close = () =>
+    navigation.canGoBack()
+      ? navigation.goBack()
+      : navigation.dispatch(StackActions.replace("Home"));
   const [{ state, error }, setSnapshot] = useState(readSnapshot);
   function setError(error: string | null) {
     setSnapshot((previous) => ({ ...previous, error }));
   }
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<ReadonlyArray<DeviceCommand> | null>(null);
+  const [editBaseline, setEditBaseline] = useState<ReadonlyArray<DeviceCommand>>([]);
+  const dirty = editing && draft !== null && !sameDeviceCommands(draft, editBaseline);
+  usePreventRemove(dirty, ({ data }) => {
+    Alert.alert("Discard command changes?", "Your unsaved command edits will be lost.", [
+      { text: "Keep editing", style: "cancel" },
+      { text: "Discard", style: "destructive", onPress: () => navigation.dispatch(data.action) },
+    ]);
+  });
   const [outputId, setOutputId] = useState<string | null>(null);
   const [active, setActive] = useState(AppState.currentState === "active");
   const refresh = useCallback(() => setSnapshot(readSnapshot()), []);
@@ -119,6 +137,7 @@ export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
   }
   function edit() {
     if (!editing) {
+      setEditBaseline(state?.commands ?? []);
       setDraft(state?.commands ?? []);
       setEditing(true);
       return;
@@ -139,13 +158,13 @@ export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
     return run.error ?? `Failed${run.exitCode === null ? "" : ` · exit ${run.exitCode}`}`;
   }
   return (
-    <View className="flex-1 bg-screen">
+    <View className="flex-1 bg-screen" style={{ paddingLeft: left, paddingRight: right }}>
       <AppBar
-        embedded
+        onClose={close}
+        closeAccessibilityLabel="Close utilities"
         title="Utilities"
-        actions={[
-          ...(props.sidebar ? exitActions : []),
-          ...(state
+        actions={
+          state
             ? [
                 {
                   icon: editing ? "checkmark" : "pencil",
@@ -155,179 +174,203 @@ export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
                     editing && items.some((item) => !item.name.trim() || !item.command.trim()),
                 } as const,
               ]
-            : []),
-        ]}
+            : []
+        }
       />
       <ScrollView
-        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: bottomPadding }}
+        contentContainerStyle={{
+          padding: 16,
+          paddingBottom: bottomPadding,
+          width: "100%",
+          maxWidth: 1200,
+          alignSelf: "center",
+        }}
         keyboardShouldPersistTaps="handled"
       >
-        <UtilitiesSection />
-        <Text className="text-foreground-muted">
-          Commands run locally in Termux, using this phone’s setup. Output arrives when the command
-          finishes.
-        </Text>
-        {!termuxCommandsAvailable ? (
-          <Text>Install an updated Android build to use Termux commands.</Text>
-        ) : null}
-        {state ? (
-          <View className="gap-3 rounded-xl border border-border p-4">
-            <Text className="font-t3-medium">Termux setup</Text>
-            <Text>
-              {state.installed ? "Termux installed" : "Install Termux first"} ·{" "}
-              {state.permissionGranted ? "Permission granted" : "Permission needed"}
-            </Text>
+        <View style={{ flexDirection: wide ? "row" : "column", gap: 24 }}>
+          <View style={{ flex: wide ? 1 : undefined, minWidth: 0 }}>
+            <UtilitiesSection />
+          </View>
+          <View style={{ flex: wide ? 1 : undefined, minWidth: 0, gap: 16 }}>
+            <Text className="font-t3-medium">Commands</Text>
             <Text className="text-foreground-muted">
-              Enable allow-external-apps = true in ~/.termux/termux.properties. Test the connection
-              to verify it.
+              Commands run locally in Termux, using this phone’s setup. Output arrives when the
+              command finishes.
             </Text>
-            <View className="flex-row flex-wrap gap-2">
-              {!state.permissionGranted && state.installed ? (
-                <Button
-                  label="Grant permission"
-                  onPress={() =>
-                    void requestTermuxPermission()
-                      .then(refresh)
-                      .catch((cause) => setError(errorText(cause)))
-                  }
-                />
-              ) : null}
-              <Button label="Android settings" onPress={() => void Linking.openSettings()} />
-              <Button
-                label={probe?.status === "running" ? "Testing…" : "Test connection"}
-                disabled={
-                  !state.installed || !state.permissionGranted || probe?.status === "running"
-                }
-                onPress={() => perform(testTermuxConnection)}
-              />
-            </View>
-            {probe ? <Text>{resultLabel(probe)}</Text> : null}
-          </View>
-        ) : null}
-        {error ? (
-          <Text accessibilityRole="alert" className="text-danger-foreground">
-            {error}
-          </Text>
-        ) : null}
-        {items.length === 0 ? (
-          <Text>No commands yet. Tap Edit to add your first command.</Text>
-        ) : null}
-        {items.map((command, index) => (
-          <View key={command.id} className="gap-3 rounded-xl border border-border p-4">
-            {editing ? (
-              <>
-                <Text>Name</Text>
-                <TextInput
-                  accessibilityLabel="Command name"
-                  value={command.name}
-                  onChangeText={(name) => update(command.id, { name })}
-                  className="rounded-lg border border-border p-3 text-foreground"
-                />
-                <Text>Shell command</Text>
-                <TextInput
-                  accessibilityLabel="Shell command"
-                  value={command.command}
-                  onChangeText={(value) => update(command.id, { command: value })}
-                  multiline
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  className="min-h-24 rounded-lg border border-border p-3 text-foreground"
-                />
+            {!termuxCommandsAvailable ? (
+              <Text>Install an updated Android build to use Termux commands.</Text>
+            ) : null}
+            {state ? (
+              <View className="gap-3 rounded-xl border border-border p-4">
+                <Text className="font-t3-medium">Termux setup</Text>
+                <Text>
+                  {state.installed ? "Termux installed" : "Install Termux first"} ·{" "}
+                  {state.permissionGranted ? "Permission granted" : "Permission needed"}
+                </Text>
+                <Text className="text-foreground-muted">
+                  Enable allow-external-apps = true in ~/.termux/termux.properties. Test the
+                  connection to verify it.
+                </Text>
                 <View className="flex-row flex-wrap gap-2">
-                  {DEVICE_COMMAND_ICONS.map((icon) => (
-                    <Pressable
-                      key={icon}
-                      accessibilityRole="button"
-                      accessibilityLabel={icon}
-                      accessibilityState={{ selected: command.icon === icon }}
-                      onPress={() => update(command.id, { icon })}
-                      className={
-                        command.icon === icon ? "rounded-lg bg-subtle-strong p-3" : "rounded-lg p-3"
+                  {!state.permissionGranted && state.installed ? (
+                    <Button
+                      label="Grant permission"
+                      onPress={() =>
+                        void requestTermuxPermission()
+                          .then(refresh)
+                          .catch((cause) => setError(errorText(cause)))
                       }
+                    />
+                  ) : null}
+                  <Button label="Android settings" onPress={() => void Linking.openSettings()} />
+                  <Button
+                    label={probe?.status === "running" ? "Testing…" : "Test connection"}
+                    disabled={
+                      !state.installed || !state.permissionGranted || probe?.status === "running"
+                    }
+                    onPress={() => perform(testTermuxConnection)}
+                  />
+                </View>
+                {probe ? <Text>{resultLabel(probe)}</Text> : null}
+              </View>
+            ) : null}
+            {error ? (
+              <Text accessibilityRole="alert" className="text-danger-foreground">
+                {error}
+              </Text>
+            ) : null}
+            {items.length === 0 ? (
+              <Text>No commands yet. Tap Edit to add your first command.</Text>
+            ) : null}
+            {items.map((command, index) => (
+              <View key={command.id} className="gap-3 rounded-xl border border-border p-4">
+                {editing ? (
+                  <>
+                    <Text>Name</Text>
+                    <TextInput
+                      accessibilityLabel="Command name"
+                      value={command.name}
+                      onChangeText={(name) => update(command.id, { name })}
+                      className="rounded-lg border border-border p-3 text-foreground"
+                    />
+                    <Text>Shell command</Text>
+                    <TextInput
+                      accessibilityLabel="Shell command"
+                      value={command.command}
+                      onChangeText={(value) => update(command.id, { command: value })}
+                      multiline
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      className="min-h-24 rounded-lg border border-border p-3 text-foreground"
+                    />
+                    <View className="flex-row flex-wrap gap-2">
+                      {DEVICE_COMMAND_ICONS.map((icon) => (
+                        <Pressable
+                          key={icon}
+                          accessibilityRole="button"
+                          accessibilityLabel={icon}
+                          accessibilityState={{ selected: command.icon === icon }}
+                          onPress={() => update(command.id, { icon })}
+                          className={
+                            command.icon === icon
+                              ? "rounded-lg bg-subtle-strong p-3"
+                              : "rounded-lg p-3"
+                          }
+                        >
+                          <SymbolView
+                            name={icons[icon]}
+                            size={24}
+                            tintColorClassName="accent-icon"
+                          />
+                        </Pressable>
+                      ))}
+                    </View>
+                    <View className="flex-row items-center justify-between">
+                      <Text>Ask before running</Text>
+                      <ThemedSwitch
+                        accessibilityLabel="Ask before running"
+                        value={command.confirm}
+                        onValueChange={(confirm) => update(command.id, { confirm })}
+                      />
+                    </View>
+                    <View className="flex-row flex-wrap gap-2">
+                      <Button
+                        label="Move up"
+                        disabled={index === 0}
+                        onPress={() => setDraft(reorderDeviceCommand(items, index, index - 1))}
+                      />
+                      <Button
+                        label="Move down"
+                        disabled={index === items.length - 1}
+                        onPress={() => setDraft(reorderDeviceCommand(items, index, index + 1))}
+                      />
+                      <Button
+                        label="Delete"
+                        tone="danger"
+                        onPress={() => setDraft(items.filter((item) => item.id !== command.id))}
+                      />
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() =>
+                        runs[command.id] ? setOutputId(runs[command.id]!.runId) : run(command)
+                      }
+                      className="flex-row items-center gap-3 py-2"
                     >
-                      <SymbolView name={icons[icon]} size={24} tintColorClassName="accent-icon" />
+                      <SymbolView
+                        name={icons[command.icon]}
+                        size={24}
+                        tintColorClassName="accent-icon"
+                      />
+                      <View className="flex-1">
+                        <Text className="font-t3-medium">{command.name}</Text>
+                        <Text className="text-foreground-muted">
+                          {resultLabel(runs[command.id])}
+                        </Text>
+                      </View>
                     </Pressable>
-                  ))}
-                </View>
-                <View className="flex-row items-center justify-between">
-                  <Text>Ask before running</Text>
-                  <ThemedSwitch
-                    accessibilityLabel="Ask before running"
-                    value={command.confirm}
-                    onValueChange={(confirm) => update(command.id, { confirm })}
-                  />
-                </View>
-                <View className="flex-row flex-wrap gap-2">
-                  <Button
-                    label="Move up"
-                    disabled={index === 0}
-                    onPress={() => setDraft(reorderDeviceCommand(items, index, index - 1))}
-                  />
-                  <Button
-                    label="Move down"
-                    disabled={index === items.length - 1}
-                    onPress={() => setDraft(reorderDeviceCommand(items, index, index + 1))}
-                  />
-                  <Button
-                    label="Delete"
-                    tone="danger"
-                    onPress={() => setDraft(items.filter((item) => item.id !== command.id))}
-                  />
-                </View>
-              </>
-            ) : (
-              <>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() =>
-                    runs[command.id] ? setOutputId(runs[command.id]!.runId) : run(command)
-                  }
-                  className="flex-row items-center gap-3 py-2"
-                >
-                  <SymbolView
-                    name={icons[command.icon]}
-                    size={24}
-                    tintColorClassName="accent-icon"
-                  />
-                  <View className="flex-1">
-                    <Text className="font-t3-medium">{command.name}</Text>
-                    <Text className="text-foreground-muted">{resultLabel(runs[command.id])}</Text>
-                  </View>
-                </Pressable>
+                    <Button
+                      label={runs[command.id]?.status === "running" ? "Running…" : "Run"}
+                      disabled={
+                        !state?.installed ||
+                        !state.permissionGranted ||
+                        runs[command.id]?.status === "running"
+                      }
+                      onPress={() => run(command)}
+                    />
+                  </>
+                )}
+              </View>
+            ))}
+            {editing ? (
+              <View className="flex-row flex-wrap gap-2">
                 <Button
-                  label={runs[command.id]?.status === "running" ? "Running…" : "Run"}
-                  disabled={
-                    !state?.installed ||
-                    !state.permissionGranted ||
-                    runs[command.id]?.status === "running"
-                  }
-                  onPress={() => run(command)}
+                  label="Add command"
+                  disabled={items.length >= DEVICE_COMMANDS_MAX_COUNT}
+                  onPress={() => setDraft([...items, createDeviceCommand(items)])}
                 />
-              </>
-            )}
+                <Button
+                  label="Discard changes"
+                  onPress={() => {
+                    setDraft(null);
+                    setEditing(false);
+                  }}
+                />
+              </View>
+            ) : null}
           </View>
-        ))}
-        {editing ? (
-          <View className="flex-row flex-wrap gap-2">
-            <Button
-              label="Add command"
-              disabled={items.length >= DEVICE_COMMANDS_MAX_COUNT}
-              onPress={() => setDraft([...items, createDeviceCommand(items)])}
-            />
-            <Button
-              label="Discard changes"
-              onPress={() => {
-                setDraft(null);
-                setEditing(false);
-              }}
-            />
-          </View>
-        ) : null}
+        </View>
       </ScrollView>
       <Modal visible={!!output} onRequestClose={() => setOutputId(null)} animationType="slide">
         <SafeAreaProvider style={{ flex: 1 }}>
           <View className="flex-1 bg-screen">
-            <SafeAreaView style={{ flex: 1 }}>
+            <SafeAreaView
+              style={{ flex: 1, paddingLeft: left, paddingRight: right }}
+              edges={["top", "bottom"]}
+            >
               <SheetHeader
                 presentation="inline"
                 title={output?.commandName ?? "Output"}
@@ -367,13 +410,5 @@ export function DeviceCommandsScreen(props: { readonly sidebar?: boolean }) {
         </SafeAreaProvider>
       </Modal>
     </View>
-  );
-}
-
-export function UtilitiesSidebar(props: { readonly context: ReturnType<typeof useWorkspaceTabs> }) {
-  return (
-    <WorkspaceTabsContext value={props.context}>
-      <DeviceCommandsScreen sidebar />
-    </WorkspaceTabsContext>
   );
 }

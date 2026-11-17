@@ -45,7 +45,7 @@ import {
 } from "./useSystemWorkspaceTabBar";
 import { openSettings } from "../../settings/settings-navigation";
 
-const TAB_TITLES = { ...WORKSPACE_TAB_LABELS, commands: "Utilities" };
+const TAB_TITLES = WORKSPACE_TAB_LABELS;
 
 function WorkspaceRootTitle(props: {
   readonly columnWidth: number;

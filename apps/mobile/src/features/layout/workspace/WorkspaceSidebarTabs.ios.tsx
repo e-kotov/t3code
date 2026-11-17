@@ -5,7 +5,6 @@ import { useControlTheme } from "../../../components/ui/useControlTheme";
 import { useNavigationTabOrder, useHiddenNavigationTabs } from "./navigation-tabs";
 import { useWorkspaceTabs } from "./WorkspaceTabsContext";
 import { useSelectWorkspaceTab } from "./useSelectWorkspaceTab";
-import { highlightUtilities } from "../../device-commands/utilitiesWorkspaceTab";
 import { useAdaptiveWorkspaceLayout } from "../adaptive-workspace-context";
 
 const NativeSidebarTabBar = requireNativeView<
@@ -39,7 +38,7 @@ export function WorkspaceSidebarTabs(props: {
     <NativeSidebarTabBar
       key={tabBarKey}
       tabs={tabs}
-      selectedTab={highlightUtilities(selectedNavigationTab)(
+      selectedTab={selectedNavigationTab(
         order,
         workspace.state.selectedTab,
         workspace.settingsOpen,

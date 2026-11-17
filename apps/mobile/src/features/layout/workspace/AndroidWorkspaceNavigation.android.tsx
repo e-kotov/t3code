@@ -26,7 +26,7 @@ import { useAdaptiveWorkspaceLayout } from "../adaptive-workspace-context";
 import { useAndroidWorkspaceRoot } from "./AndroidWorkspaceTabsProvider";
 import { useNavigationTabOrder, useHiddenNavigationTabs } from "./navigation-tabs";
 import { useWorkspaceTabs } from "./WorkspaceTabsContext";
-import { highlightUtilities } from "../../device-commands/utilitiesWorkspaceTab";
+import { openUtilities } from "../../device-commands/openUtilities";
 import {
   useUtilitiesNavigation,
   type UtilitiesNavigation,
@@ -54,7 +54,7 @@ interface NativeNavigationProps extends ViewProps, UtilitiesNavigation {
   readonly actionColor: number;
   readonly actionContentColor: number;
   readonly onTabSelected: (
-    event: NativeSyntheticEvent<{ readonly tab: AndroidWorkspaceNavigationTab }>,
+    event: NativeSyntheticEvent<{ readonly tab: AndroidWorkspaceNavigationTab | "commands" }>,
   ) => void;
   readonly onNewThread: () => void;
   readonly onOverlayChange: (event: NativeSyntheticEvent<{ readonly overlay: boolean }>) => void;
@@ -96,7 +96,7 @@ export function AndroidWorkspaceNavigation(props: {
   const tabs = [...visibleNavigationTabs(order, hidden, rail ? 5 : 4), "commands", "settings"];
   const { containerColor, indicatorColor, selectedColor, unselectedColor } =
     androidWorkspaceNavigationColors(colors, rail, floating);
-  const selectedTab = highlightUtilities(selectedNavigationTab)(
+  const selectedTab = selectedNavigationTab(
     order,
     workspace.state.selectedTab,
     root?.settingsOpen ?? false,
@@ -143,6 +143,10 @@ export function AndroidWorkspaceNavigation(props: {
         onTabSelected={(event) => {
           Keyboard.dismiss();
           const tab = event.nativeEvent.tab;
+          if (tab === "commands") {
+            openUtilities();
+            return;
+          }
           if (tab !== "settings") workspace.dispatch({ type: "select", tab });
           // Reset the root stack even when a nested settings navigator has focus.
           // The provider renders inside the root stack's layout, so the container's root state is

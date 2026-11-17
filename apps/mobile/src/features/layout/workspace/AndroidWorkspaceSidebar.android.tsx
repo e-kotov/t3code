@@ -18,7 +18,6 @@ import { useAdaptiveWorkspaceLayout } from "../adaptive-workspace-context";
 import { useAndroidWorkspaceRoot } from "./AndroidWorkspaceTabsProvider";
 import { WorkspaceTabsContext, useWorkspaceTabs } from "./WorkspaceTabsContext";
 import { WorkspaceTabPanes } from "./WorkspaceTabPanes";
-import { UtilitiesSidebar } from "../../device-commands/DeviceCommandsScreen";
 import { WorkspaceThreadSidebar } from "./WorkspaceThreadSidebar";
 import { WorkspaceAppBarScope } from "../../../components/ui/WorkspaceAppBar.android";
 
@@ -39,7 +38,6 @@ export function AndroidWorkspaceSidebar() {
     ? insets.bottom + FLOATING_TABS.bottom + FLOATING_TABS.edge + fabSize
     : 16;
   const context = { ...workspace, bottomClearance };
-  if (workspace.state.selectedTab === "commands") return <UtilitiesSidebar context={context} />;
   if (enabled.length === 0) return <WorkspaceNoTabs />;
   return (
     <WorkspaceAppBarScope>

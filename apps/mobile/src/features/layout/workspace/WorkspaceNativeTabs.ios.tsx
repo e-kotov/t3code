@@ -167,8 +167,7 @@ export function WorkspaceNativeTabs(props: {
   const floatingTabs = useFloatingWorkspaceTabs();
   const { width } = useWindowDimensions();
   const { colors } = useControlTheme();
-  const selectedTab =
-    workspace.state.selectedTab === "commands" ? "threads" : workspace.state.selectedTab;
+  const selectedTab = workspace.state.selectedTab;
   const selectedSlot = workspace.settingsOpen ? -1 : primaryTabs.indexOf(selectedTab);
   const selectedScreenKey =
     selectedSlot === -1 ? "settings" : NATIVE_WORKSPACE_TAB_SLOTS[selectedSlot]!;

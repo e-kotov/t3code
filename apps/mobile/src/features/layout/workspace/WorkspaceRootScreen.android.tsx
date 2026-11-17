@@ -28,7 +28,7 @@ import type { WorkspaceTab } from "./workspace-tabs-state";
 import { useSelectWorkspaceTab } from "./useSelectWorkspaceTab";
 import { useHardwareBack } from "../../../lib/backHandler";
 
-const TABS: readonly WorkspaceTab[] = [...NAVIGATION_TAB_ORDER, "commands"];
+const TABS: readonly WorkspaceTab[] = NAVIGATION_TAB_ORDER;
 
 export function WorkspaceRootScreen() {
   return usePaneRole() === "sidebar" ? <AndroidWorkspaceSidebar /> : <WorkspaceRoot />;
@@ -76,7 +76,7 @@ function WorkspaceRoot() {
             layout.usesSplitView
               ? insets
               : floatingTabsEnabled
-                ? tab === "usage" || tab === "commands"
+                ? tab === "usage"
                   ? { ...insets, bottom: context.bottomClearance }
                   : insets
                 : { ...insets, bottom: 0 }
@@ -89,14 +89,14 @@ function WorkspaceRoot() {
               <WorkspaceNoTabs />
             )
           ) : (
-            <WorkspaceAppBarScope enabled={!layout.usesSplitView && tab !== "commands"}>
+            <WorkspaceAppBarScope enabled={!layout.usesSplitView}>
               <WorkspaceTabPanes
                 tabs={TABS}
                 selected={tab}
                 renderTab={(tab) =>
                   tab === "threads" ? (
                     <HomeRouteScreen />
-                  ) : tab === "usage" || tab === "commands" ? (
+                  ) : tab === "usage" ? (
                     <WorkspacePageFrame width={workspacePageWidth ?? null}>
                       <WorkspaceExtraTab tab={tab} />
                     </WorkspacePageFrame>

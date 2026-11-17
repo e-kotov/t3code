@@ -4,7 +4,6 @@ import {
   resolveNavigationTabOrder,
   type NavigationTab,
 } from "./navigation-tab-order";
-import type { UtilitiesWorkspaceTab } from "../../device-commands/utilitiesWorkspaceTab";
 
 export function resolveWorkspaceTabOrder(saved: readonly unknown[] | undefined) {
   return navigationCustomizationAvailable()
@@ -12,14 +11,14 @@ export function resolveWorkspaceTabOrder(saved: readonly unknown[] | undefined) 
     : NAVIGATION_TAB_ORDER;
 }
 
-export type WorkspaceTab = NavigationTab | UtilitiesWorkspaceTab;
+export type WorkspaceTab = NavigationTab;
 /** Lists with their own search: the searchable tabs and the Settings list. */
 export type WorkspaceSearchTab = WorkspaceTab | "settings";
 export type WorkspaceSearchMode = "resting" | "active" | "expanded";
 
 /** Settings, Chats, pull requests and issues pair a list with a detail column; Usage is one page. */
 export function workspaceUsesColumns(tab: WorkspaceTab, settingsOpen = false) {
-  return settingsOpen || (tab !== "usage" && tab !== "commands");
+  return settingsOpen || tab !== "usage";
 }
 
 export interface WorkspaceTabState {
@@ -56,7 +55,6 @@ export function initialWorkspaceTabsState(
       pullRequests: emptyTab(),
       issues: emptyTab(),
       usage: emptyTab(),
-      commands: emptyTab(),
       settings: emptyTab(),
     },
   };
@@ -83,7 +81,7 @@ export function workspaceTabsReducer(
           selectionRevision: state.selectionRevision + 1,
         };
   const tab = action.tab ?? state.selectedTab;
-  if (tab === "usage" || tab === "commands") return state;
+  if (tab === "usage") return state;
   const current = state.tabs[tab];
   let next: WorkspaceTabState;
   switch (action.type) {
