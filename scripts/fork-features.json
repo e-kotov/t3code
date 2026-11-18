@@ -417,6 +417,7 @@
         "scripts/fork-process-helper-shutdown.test.py",
         "scripts/claude-sync.test.py",
         "scripts/fork-failed-tests.test.py",
+        "scripts/fork-vitest-batches.test.ts",
         "scripts/fork-footprint-budget.test.py",
         "scripts/fork-merge-upstream.test.py",
         "scripts/fork-sync-excerpt.test.py",
