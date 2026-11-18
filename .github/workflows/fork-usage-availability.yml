@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/fork-usage-availability.yml"
       - "apps/web/src/usageCompact/**"
+      - "scripts/fork-usage-baseline*"
       - "apps/web/src/components/usage/UsageLimitsPooled.tsx"
   workflow_dispatch:
 
@@ -39,6 +40,7 @@ jobs:
       - uses: ./.github/actions/setup-fork-chromium
       - name: Capture the previous usage displays
         run: |
+          python3 scripts/fork-usage-baseline.test.py
           mkdir -p .t3/usage-availability-evidence
           compact=apps/web/src/usageCompact/CompactUsageControl.tsx
           pooled=apps/web/src/components/usage/UsageLimitsPooled.tsx
@@ -47,6 +49,8 @@ jobs:
           trap 'cp "$RUNNER_TEMP/CompactUsageControl.tsx" "$compact"; cp "$RUNNER_TEMP/UsageLimitsPooled.tsx" "$pooled"' EXIT
           git show "origin/main:$compact" > "$compact"
           git show "origin/main:$pooled" > "$pooled"
+          # Preserve the historical UI body; adapt only helpers moved by upstream i18n.
+          python3 scripts/fork-usage-baseline.py "$compact" "$pooled"
           VITE_USAGE_AVAILABILITY_CAPTURE=before vp test run apps/web/src/usageCompact/UsageAvailability.app.browser.test.tsx
       - name: Check changed code
         run: vp run check:changed origin/main
