@@ -43,7 +43,8 @@ function thread(overrides: Partial<WarmThread> = {}): WarmThread {
   } as WarmThread;
 }
 
-const enabled = { nowMs: NOW, enabled: true } as const;
+// 55 minutes reproduces the former fixed one-hour Codex estimate these fixtures were written for.
+const enabled = { nowMs: NOW, enabled: true, codexWarmAfterMinutes: 55 } as const;
 const fingerprint = `${DateTime.toEpochMillis(userMessageAt)}|${NOW - 55 * 60_000}|codex:gpt-5.4|`;
 
 describe("cacheWarmingWindow", () => {
@@ -52,6 +53,22 @@ describe("cacheWarmingWindow", () => {
       fingerprint,
       marginMs: 5 * 60_000,
     });
+  });
+
+  it("warms Codex at the machine's warm-after time and gives up five minutes later", () => {
+    const idleFor = (minutes: number) =>
+      thread({
+        cacheHud: {
+          ...thread().cacheHud!,
+          usage: { ...thread().cacheHud!.usage, updatedAt: isoAt(NOW - minutes * 60_000) },
+        },
+      });
+    const atDefault = { ...enabled, codexWarmAfterMinutes: 115 };
+    expect(cacheWarmingWindow({ ...atDefault, thread: idleFor(55) })).toBeNull();
+    expect(cacheWarmingWindow({ ...atDefault, thread: idleFor(114) })).toBeNull();
+    expect(cacheWarmingWindow({ ...atDefault, thread: idleFor(115) })?.marginMs).toBe(5 * 60_000);
+    expect(cacheWarmingWindow({ ...atDefault, thread: idleFor(119) })).not.toBeNull();
+    expect(cacheWarmingWindow({ ...atDefault, thread: idleFor(120) })).toBeNull();
   });
 
   it("does not warm a thread explicitly settled by the user", () => {
@@ -184,6 +201,10 @@ describe("cacheWarmingWindow", () => {
       },
     });
     expect(cacheWarmingWindow({ ...enabled, thread: current })?.marginMs).toBe(60_000);
+    // The Codex setting does not stretch a reported Claude lifetime.
+    expect(
+      cacheWarmingWindow({ ...enabled, codexWarmAfterMinutes: 115, thread: current })?.marginMs,
+    ).toBe(60_000);
   });
 
   it("leaves other providers unsupported", () => {

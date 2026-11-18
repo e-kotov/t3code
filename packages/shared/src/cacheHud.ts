@@ -14,6 +14,52 @@ import { formatResetsIn } from "./usageLimitsCopy.ts";
 
 // A user-selected freshness estimate, not a provider-reported retention guarantee.
 const CODEX_BASELINE_MS = 60 * 60_000;
+export const CODEX_WARM_MARGIN_MS = 5 * 60_000;
+export const LEGACY_CODEX_CACHE_WARM_AFTER_MINUTES = 55;
+
+export interface CodexCacheWarmConfig {
+  readonly environment?:
+    | {
+        readonly capabilities?:
+          | {
+              readonly codexCacheWarmAfter?: boolean | undefined;
+            }
+          | null
+          | undefined;
+      }
+    | null
+    | undefined;
+  readonly settings?:
+    | {
+        readonly codexCacheWarmAfterMinutes: number;
+      }
+    | null
+    | undefined;
+}
+
+/** Whether a connected server honors `codexCacheWarmAfterMinutes` instead of 55 minutes. */
+export function supportsCodexCacheWarmAfter(
+  config: CodexCacheWarmConfig | null | undefined,
+): boolean {
+  return config?.environment?.capabilities?.codexCacheWarmAfter === true;
+}
+
+/** Effective Codex warm interval for a server, falling back to 55 min on older servers. */
+export function resolveCodexCacheWarmAfterMinutes(
+  config: CodexCacheWarmConfig | null | undefined,
+): number {
+  return supportsCodexCacheWarmAfter(config) && config?.settings
+    ? config.settings.codexCacheWarmAfterMinutes
+    : LEGACY_CODEX_CACHE_WARM_AFTER_MINUTES;
+}
+
+/** Window the warmer and Warm all act on. Codex reports no lifetime, so it ends a margin after
+ * the machine's warm-after setting instead of at the HUD's one-hour freshness estimate. */
+export function cacheWarmWindowMs(hud: OrchestrationV2CacheHud, codexWarmAfterMinutes: number) {
+  return hud.driver === "codex" && hud.basis === "estimated"
+    ? codexWarmAfterMinutes * 60_000 + CODEX_WARM_MARGIN_MS
+    : hud.ttlMs;
+}
 
 /** Derive one compact server-owned summary, not transcript data, for every client. */
 export function deriveCacheHud(
@@ -244,6 +290,28 @@ export function describeUsageWindows(
     });
 }
 
+function threadWarmWindowMs(
+  thread: {
+    readonly cacheHud?: OrchestrationV2CacheHud | null | undefined;
+    readonly archivedAt: string | null;
+  },
+  codexWarmAfterMinutes: number,
+): { readonly updatedAtMs: number; readonly windowMs: number } | null {
+  const hud = thread.cacheHud;
+  const windowMs = hud ? cacheWarmWindowMs(hud, codexWarmAfterMinutes) : undefined;
+  if (
+    thread.archivedAt !== null ||
+    !hud ||
+    (hud.driver !== "codex" && hud.driver !== "claudeAgent") ||
+    (hud.usage.cachedInputTokens ?? 0) + (hud.usage.cacheCreationTokens ?? 0) <= 0 ||
+    windowMs === undefined
+  ) {
+    return null;
+  }
+  const updatedAtMs = Date.parse(hud.usage.updatedAt);
+  return Number.isFinite(updatedAtMs) ? { updatedAtMs, windowMs } : null;
+}
+
 /** Conversations whose Claude/Codex prompt cache is still warm, so warming them can help. */
 export function hotCacheThreadIds(
   threads: ReadonlyArray<{
@@ -252,20 +320,35 @@ export function hotCacheThreadIds(
     readonly archivedAt: string | null;
   }>,
   nowMs: number,
+  codexWarmAfterMinutes: number,
 ): ThreadId[] {
   return threads
     .filter((thread) => {
-      const hud = thread.cacheHud;
-      return (
-        thread.archivedAt === null &&
-        hud &&
-        (hud.driver === "codex" || hud.driver === "claudeAgent") &&
-        (hud.usage.cachedInputTokens ?? 0) + (hud.usage.cacheCreationTokens ?? 0) > 0 &&
-        hud.ttlMs !== undefined &&
-        nowMs - Date.parse(hud.usage.updatedAt) < hud.ttlMs
-      );
+      const window = threadWarmWindowMs(thread, codexWarmAfterMinutes);
+      return window !== null && nowMs - window.updatedAtMs < window.windowMs;
     })
     .map((thread) => thread.id);
+}
+
+/** Earliest future cache-warm expiry (`> afterMs`) among eligible warm threads. */
+export function nextCacheWarmExpiry(
+  threads: ReadonlyArray<{
+    readonly cacheHud?: OrchestrationV2CacheHud | null | undefined;
+    readonly archivedAt: string | null;
+  }>,
+  afterMs: number,
+  codexWarmAfterMinutes: number,
+): number | null {
+  let earliest: number | null = null;
+  for (const thread of threads) {
+    const window = threadWarmWindowMs(thread, codexWarmAfterMinutes);
+    if (window === null) continue;
+    const expiry = window.updatedAtMs + window.windowMs;
+    if (Number.isFinite(expiry) && expiry > afterMs && (earliest === null || expiry < earliest)) {
+      earliest = expiry;
+    }
+  }
+  return earliest;
 }
 
 /** Whether warming is on for all, none or some of the given conversations. */

@@ -12,7 +12,10 @@ import { buildHomeListFilterMenuItems } from "./home-list-filter-menu";
 
 const harness = vi.hoisted(() => ({
   threads: [] as unknown[],
-  settings: {} as Record<string, unknown>,
+  serverConfig: {
+    environment: { capabilities: { codexCacheWarmAfter: true } as Record<string, unknown> },
+    settings: {} as Record<string, unknown>,
+  },
   update: vi.fn(),
   canWrite: true,
   listeners: new Set<() => void>(),
@@ -21,14 +24,14 @@ const harness = vi.hoisted(() => ({
 vi.mock("@effect/atom-react", () => ({
   useAtomValue: (atom: string) =>
     useSyncExternalStore(subscribe, () =>
-      atom === "threads" ? harness.threads : harness.settings,
+      atom === "threads" ? harness.threads : harness.serverConfig,
     ),
 }));
 vi.mock("../../state/threads", () => ({
   environmentThreadShells: { threadShellsAtom: "threads" },
 }));
 vi.mock("../../state/server", () => ({
-  serverEnvironment: { settingsValueAtom: () => "settings", updateSettings: "update" },
+  serverEnvironment: { configValueAtom: () => "config", updateSettings: "update" },
 }));
 vi.mock("../../state/use-atom-command", () => ({ useAtomCommand: () => harness.update }));
 vi.mock("../../state/session", () => ({
@@ -100,7 +103,10 @@ function setup(props?: {
 }) {
   harness.update.mockReset();
   harness.lastAppBarProps = null;
-  harness.settings = { cacheWarmingSessions: {} };
+  harness.serverConfig = {
+    environment: { capabilities: { codexCacheWarmAfter: true } },
+    settings: { codexCacheWarmAfterMinutes: 115, cacheWarmingSessions: {} },
+  };
   harness.canWrite = true;
   const environmentId = EnvironmentId.make("server-1");
   const hotId = ThreadId.make("hot");
@@ -111,6 +117,7 @@ function setup(props?: {
       archivedAt: null,
       cacheHud: {
         driver: "codex",
+        basis: "estimated",
         ttlMs: 3600000,
         usage: { updatedAt: "2026-10-23T10:00:00Z", cachedInputTokens: 100 },
       },
@@ -181,10 +188,27 @@ it("shows the Android sidebar's warm-all switch and updates only hot conversatio
     environmentId: screen.environmentId,
     input: { patch: { cacheWarmingSessions: { [screen.hotId]: true } } },
   });
-  harness.settings = { cacheWarmingSessions: { [screen.hotId]: true } };
+  harness.serverConfig = {
+    ...harness.serverConfig,
+    settings: { codexCacheWarmAfterMinutes: 115, cacheWarmingSessions: { [screen.hotId]: true } },
+  };
   screen.render();
   expect(screen.host.querySelector('[role="switch"]')?.getAttribute("aria-checked")).toBe("true");
   harness.canWrite = false;
+  screen.render();
+  expect(screen.host.querySelector<HTMLButtonElement>('[role="switch"]')?.disabled).toBe(true);
+});
+
+it("treats 90-minute-old Codex threads as expired on servers without codexCacheWarmAfter", () => {
+  using _clock = vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-23T11:30:00Z"));
+  using screen = setup();
+  screen.render();
+  expect(screen.host.querySelector<HTMLButtonElement>('[role="switch"]')?.disabled).toBe(false);
+
+  harness.serverConfig = {
+    ...harness.serverConfig,
+    environment: { capabilities: {} },
+  };
   screen.render();
   expect(screen.host.querySelector<HTMLButtonElement>('[role="switch"]')?.disabled).toBe(true);
 });

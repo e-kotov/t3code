@@ -15,7 +15,11 @@ import {
   describeCacheHud,
   describeUsageWindows,
   hotCacheThreadIds,
+  LEGACY_CODEX_CACHE_WARM_AFTER_MINUTES,
+  nextCacheWarmExpiry,
   presentCacheHud,
+  resolveCodexCacheWarmAfterMinutes,
+  supportsCodexCacheWarmAfter,
 } from "./cacheHud.ts";
 
 const updatedAt = "2026-10-13T08:00:00.000Z";
@@ -257,8 +261,54 @@ describe("hotCacheThreadIds", () => {
         thread("no-hud", null),
       ],
       now,
+      115,
     );
     expect(ids).toEqual(["claude", "codex"]);
+    // Idle 90 minutes: past the HUD's one-hour Codex estimate, before a 115-minute warm point.
+    const idleCodex = [
+      thread("codex", hud({ driver: ProviderDriverKind.make("codex"), basis: "estimated" })),
+    ];
+    expect(hotCacheThreadIds(idleCodex, start + 90 * 60_000, 115)).toEqual(["codex"]);
+    expect(hotCacheThreadIds(idleCodex, start + 90 * 60_000, 55)).toEqual([]);
+  });
+});
+
+describe("codex cache warm compatibility and expiry", () => {
+  it("falls back to the legacy 55-minute window when the server lacks codexCacheWarmAfter", () => {
+    expect(supportsCodexCacheWarmAfter(null)).toBe(false);
+    expect(supportsCodexCacheWarmAfter({ environment: { capabilities: {} } })).toBe(false);
+    expect(
+      resolveCodexCacheWarmAfterMinutes({
+        environment: { capabilities: {} },
+        settings: { codexCacheWarmAfterMinutes: 115 },
+      }),
+    ).toBe(LEGACY_CODEX_CACHE_WARM_AFTER_MINUTES);
+
+    expect(
+      supportsCodexCacheWarmAfter({ environment: { capabilities: { codexCacheWarmAfter: true } } }),
+    ).toBe(true);
+    expect(
+      resolveCodexCacheWarmAfterMinutes({
+        environment: { capabilities: { codexCacheWarmAfter: true } },
+        settings: { codexCacheWarmAfterMinutes: 175 },
+      }),
+    ).toBe(175);
+  });
+
+  it("computes the next future warm expiry and drops windows already past afterMs", () => {
+    const start = Date.parse("2026-10-13T10:00:00Z");
+    const codexThread = {
+      id: ThreadId.make("codex"),
+      archivedAt: null,
+      cacheHud: hud({
+        driver: ProviderDriverKind.make("codex"),
+        basis: "estimated",
+        ttlMs: 3_600_000,
+        usage: { usedTokens: 1000, cachedInputTokens: 500, updatedAt: "2026-10-13T10:00:00Z" },
+      }),
+    };
+    expect(nextCacheWarmExpiry([codexThread], start, 115)).toBe(start + 120 * 60_000);
+    expect(nextCacheWarmExpiry([codexThread], start + 90 * 60_000, 55)).toBeNull();
   });
 });
 
