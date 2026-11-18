@@ -26,7 +26,7 @@ export interface RenewalPolicy {
 
 const DAY_MILLIS = Duration.toMillis(Duration.days(1));
 
-export const DISABLED_POLICY: RenewalPolicy = {
+const DISABLED_POLICY: RenewalPolicy = {
   enabled: false,
   window: Duration.days(30),
   maxAge: Option.none(),
