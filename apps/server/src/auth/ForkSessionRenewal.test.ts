@@ -105,6 +105,57 @@ const rowExpiry = (sessionId: string) =>
   });
 
 it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("ForkSessionRenewal", (it) => {
+  it.effect.each([
+    {
+      name: "disabled",
+      renewalPolicy: { ...policy, enabled: false },
+      initialDays: 30,
+      finalDays: 30,
+    },
+    {
+      name: "bounded",
+      renewalPolicy: { ...policy, window: Duration.days(5), maxAge: Option.some(Duration.days(6)) },
+      initialDays: 5,
+      finalDays: 6,
+    },
+  ])("keeps DPoP proof refresh inside the $name pairing lifetime", (testCase) =>
+    Effect.gen(function* () {
+      const sessions = yield* SessionStore.SessionStore;
+      const proofKeyThumbprint = "pairing-key";
+      const ttl = Duration.hours(1);
+      const issued = yield* sessions.issue({
+        ...pairing,
+        method: "dpop-access-token",
+        proofKeyThumbprint,
+        ttl,
+        renewalWindow: ForkSessionRenewal.dpopInitialWindow(testCase.renewalPolicy),
+      });
+      const refresh = (token: string) =>
+        sessions.renew(token, {
+          proofKeyThumbprint,
+          ttl,
+          renewalWindow: testCase.renewalPolicy,
+          consumeProof: Effect.void,
+        });
+      expect(yield* rowExpiry(issued.sessionId)).toBe(day(testCase.initialDays));
+
+      yield* TestClock.adjust(Duration.days(testCase.initialDays - 1));
+      const first = yield* refresh(issued.token);
+      expect(first.sessionId).toBe(issued.sessionId);
+      expect(first.proofKeyThumbprint).toBe(proofKeyThumbprint);
+      expect(yield* rowExpiry(issued.sessionId)).toBe(day(testCase.finalDays));
+
+      yield* TestClock.adjust(
+        Duration.millis(day(testCase.finalDays - testCase.initialDays + 1) - hour(0.5)),
+      );
+      const last = yield* refresh(first.token);
+      expect(last.expiresAt.epochMilliseconds).toBe(day(testCase.finalDays));
+      expect(yield* rowExpiry(issued.sessionId)).toBe(day(testCase.finalDays));
+      yield* TestClock.adjust(Duration.millis(hour(0.5)));
+      expect((yield* Effect.flip(refresh(last.token)))._tag).toBe("SessionTokenExpiredError");
+    }).pipe(Effect.provide(Layer.merge(layerSessionStore, TestClock.layer()))),
+  );
+
   it.effect(
     "renews a paired bearer for the same session, while the old token keeps its own expiry",
     () =>

@@ -1,33 +1,49 @@
 # Connection renewal (fork)
 
-A device paired with a pairing link, and an agent link to another environment, normally
-stop working 30 days after pairing. In this fork they renew themselves while in use, so
-they only lapse after 30 days without any connection.
+Direct pairing links and agent links can renew while in use. By default a pairing
+can lapse after 30 days of inactivity or one year after it was first made.
 
 **What renews.** Direct pairings from desktop, web and mobile, including pairings made over
 SSH, and the links in **Settings → Labs → Linked environments**. T3 Connect, the browser
 that serves the web app itself, startup links and outside MCP clients are unchanged.
 
-**When.** A connected device asks its host about once every six hours, and the host extends
-the session at most once a day to 30 days from then (with a shorter window, in steps of a
-quarter of it). A host keeps its own agent links
-renewed in the background while it runs. Both ends need this fork version; with an older
-host or client nothing changes and pairings expire as before.
+**When.** A device paired with a proof-of-possession key refreshes its short access token
+with that key and extends the pairing within the host's renewal limits. Existing bearer
+pairings stay on the fork's renewal path: a connected device asks its host about once
+every six hours, and the host extends the session at most once a day (with a shorter
+window, in steps of a quarter of it). A host keeps its own agent links
+renewed in the background while it runs. Newly paired clients use proof-of-possession
+refresh when the host and client support it. Otherwise, they use the legacy bearer
+path if both ends support it; they do not need to re-pair just to keep that path.
 
 **Limits.** A renewal never revives an expired or revoked pairing, so a device unused for 30
 days must be paired again. Revoking a device in **Settings → Connections** ends every token
 it holds at once. A pairing stops renewing one year after it was first made; pair it again
-then. A device never renews over plain HTTP on a LAN or public address: use HTTPS, an SSH
-connection, or a Tailscale address.
+then. Legacy bearer renewal does not send credentials over plain HTTP on a LAN or public
+address: use HTTPS, an SSH connection, or a Tailscale address.
 
 **Host settings** (environment variables of the T3 Code server):
 
-| Variable                              | Default | Meaning                                                         |
-| ------------------------------------- | ------- | --------------------------------------------------------------- |
-| `T3CODE_SESSION_RENEWAL`              | `true`  | `false` turns renewal off; pairings expire after 30 days again. |
-| `T3CODE_SESSION_RENEWAL_WINDOW_DAYS`  | `30`    | How long a pairing lasts after its last renewal; at least `1`.  |
-| `T3CODE_SESSION_RENEWAL_MAX_AGE_DAYS` | `365`   | Cap from the first pairing; `0` removes the cap.                |
+| Variable                              | Default | Meaning                                                        |
+| ------------------------------------- | ------- | -------------------------------------------------------------- |
+| `T3CODE_SESSION_RENEWAL`              | `true`  | `false` stops extension; new pairings expire after 30 days.    |
+| `T3CODE_SESSION_RENEWAL_WINDOW_DAYS`  | `30`    | How long a pairing lasts after its last renewal; at least `1`. |
+| `T3CODE_SESSION_RENEWAL_MAX_AGE_DAYS` | `365`   | Cap from the first pairing; `0` removes the cap.               |
 
 A value out of range (a window under one day, a negative cap, or more than 100 years) turns
-renewal off and logs a warning. A managed policy that does not allow remote clients also stops
+renewal off and logs a warning. With extension off, a proof-of-possession device can
+still refresh its short access token until the pairing's fixed expiration; it cannot
+move that expiration. A managed policy that does not allow remote clients also stops
 renewal.
+
+**Migration.** Existing bearer pairings and agent links are not changed automatically.
+To try key-bound refresh, use a separate device or browser profile with its own
+T3 Code storage. Pair with one noncritical host via a standard one-time direct pairing
+link, using a distinct label for the test device. Do not reuse your usual client or
+another tab in the same browser profile: pairing with the same host there can replace
+the saved connection. Keep the original client and link unchanged. Verify that the test
+connection still works after the first short access token expires, then restart the test
+client and check that it reconnects without pairing again. If either check fails, remove only the test
+pairing from the client, revoke only its credential in **Settings → Connections**, and
+return to the existing link. Keep that fallback while you expand one connection at
+a time. Leave agent links untouched and validate them separately.

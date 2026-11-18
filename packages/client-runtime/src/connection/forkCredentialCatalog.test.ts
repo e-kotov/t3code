@@ -34,11 +34,22 @@ const sharedCatalog = (initial: ConnectionCatalogDocument) => {
     };
   });
   const open = ForkCredentialCatalog.makeFreshCatalogStore(openStore);
-  const tokens = () => stored.credentials.map((entry) => entry.credential.token);
+  const tokens = () =>
+    stored.credentials.map((entry) => {
+      if (entry.credential._tag !== "BearerConnectionCredential")
+        throw new Error("Expected Bearer fixture credential");
+      return entry.credential.token;
+    });
   return { open, tokens, stored: () => stored };
 };
 
-const tokenIn = (document: ConnectionCatalogDocument) => document.credentials[0]?.credential.token;
+const tokenIn = (document: ConnectionCatalogDocument) => {
+  const credential = document.credentials[0]?.credential;
+  if (credential === undefined) return undefined;
+  if (credential._tag !== "BearerConnectionCredential")
+    throw new Error("Expected Bearer fixture credential");
+  return credential.token;
+};
 const disable = (document: ConnectionCatalogDocument): ConnectionCatalogDocument => ({
   ...document,
   disabledEnvironmentIds: [EnvironmentId.make("environment-other")],

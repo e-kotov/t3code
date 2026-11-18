@@ -57,6 +57,81 @@ export const policyConfig: Config.Config<RenewalPolicy> = Config.all({
   })),
 );
 
+/** Invalid host settings disable extension rather than silently falling back to a longer policy. */
+export const readPolicy = policyConfig.pipe(
+  Effect.catch((error) =>
+    Effect.logWarning("Session renewal is off: its settings could not be read.", {
+      error: error.message,
+    }).pipe(Effect.as(DISABLED_POLICY)),
+  ),
+);
+
+/** DPoP access credentials rotate independently of the durable pairing lifetime. */
+export const dpopInitialWindow = (policy: RenewalPolicy) =>
+  policy.enabled
+    ? Option.match(policy.maxAge, {
+        onNone: () => policy.window,
+        onSome: (cap) => Duration.min(policy.window, cap),
+      })
+    : DISABLED_POLICY.window;
+
+export type DpopRenewalWindow = Duration.Duration | RenewalPolicy;
+
+const dpopRenewalExpiry = (
+  policy: DpopRenewalWindow,
+  row: Pick<AuthSessionRecord, "issuedAt" | "expiresAt">,
+  now: DateTime.Utc,
+): DateTime.Utc => {
+  if (Duration.isDuration(policy)) {
+    return DateTime.add(now, { milliseconds: Duration.toMillis(policy) });
+  }
+  if (!policy.enabled) return row.expiresAt;
+  const wanted = DateTime.add(now, { milliseconds: Duration.toMillis(policy.window) });
+  const extended =
+    wanted.epochMilliseconds > row.expiresAt.epochMilliseconds ? wanted : row.expiresAt;
+  return Option.match(policy.maxAge, {
+    onNone: () => extended,
+    onSome: (age) => {
+      const cap = DateTime.add(row.issuedAt, { milliseconds: Duration.toMillis(age) });
+      return cap.epochMilliseconds < extended.epochMilliseconds ? cap : extended;
+    },
+  });
+};
+
+const boundedDpopAccessExpiry = (
+  now: DateTime.Utc,
+  ttl: Duration.Duration,
+  session?: DateTime.Utc,
+) => {
+  const token = DateTime.add(now, { milliseconds: Duration.toMillis(ttl) });
+  return session && session.epochMilliseconds < token.epochMilliseconds ? session : token;
+};
+
+export const dpopInitialExpiries = (
+  now: DateTime.Utc,
+  ttl: Duration.Duration,
+  renewalWindow?: Duration.Duration,
+) => {
+  const deadline = renewalWindow
+    ? DateTime.add(now, { milliseconds: Duration.toMillis(renewalWindow) })
+    : undefined;
+  const expiresAt = boundedDpopAccessExpiry(now, ttl, deadline);
+  return { expiresAt, sessionExpiresAt: deadline ?? expiresAt };
+};
+
+export const dpopRefreshExpiries = (
+  row: Pick<AuthSessionRecord, "issuedAt" | "expiresAt">,
+  now: DateTime.Utc,
+  input: { ttl: Duration.Duration; renewalWindow: DpopRenewalWindow },
+) => {
+  const sessionExpiresAt = dpopRenewalExpiry(input.renewalWindow, row, now);
+  if (sessionExpiresAt.epochMilliseconds <= now.epochMilliseconds) return null;
+  return {
+    sessionExpiresAt,
+    expiresAt: boundedDpopAccessExpiry(now, input.ttl, sessionExpiresAt),
+  };
+};
+
 /**
  * A renewal that would move the expiry by less than this is not due: a day for
  * the default window, less for short ones, so a one-day window still renews on

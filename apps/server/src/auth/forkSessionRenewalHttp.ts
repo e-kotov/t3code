@@ -96,13 +96,7 @@ const handle = Effect.fn("ForkSessionRenewal.handle")(
 /** Fork: `POST /api/fork/auth/session/renew`; see ForkSessionRenewal.ts. */
 export const routeLayer = HttpRouter.use((router) =>
   Effect.gen(function* () {
-    const policy = yield* ForkSessionRenewal.policyConfig.pipe(
-      Effect.catch((error) =>
-        Effect.logWarning("Session renewal is off: its settings could not be read.", {
-          error: error.message,
-        }).pipe(Effect.as({ ...ForkSessionRenewal.DISABLED_POLICY })),
-      ),
-    );
+    const policy = yield* ForkSessionRenewal.readPolicy;
     const handler = handle({
       policy,
       sessions: yield* SessionStore.SessionStore,
