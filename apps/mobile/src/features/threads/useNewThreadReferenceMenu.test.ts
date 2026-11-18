@@ -5,8 +5,19 @@ import { useNewThreadReferenceMenu } from "./useNewThreadReferenceMenu";
 
 const state = vi.hoisted(() => ({
   select: vi.fn(),
+  translations: {} as Record<string, string>,
   projects: [] as { id: string; environmentId: string; isScratch?: true }[],
 }));
+// This unit harness invokes the menu hook directly and mocks its React-dependent
+// adapters. Keep GT's real ICU interpolation instead of returning source strings.
+vi.mock("gt-react-native", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("gt-react-native")>();
+  return {
+    ...actual,
+    useGT: () => (source: string, options?: Parameters<typeof actual.gtFallback>[1]) =>
+      actual.gtFallback(state.translations[source] ?? source, options),
+  };
+});
 vi.mock("../../state/atom-registry", () => ({
   appAtomRegistry: {
     get: (ref: { environmentId: string; projectId: string }) =>
@@ -20,6 +31,7 @@ vi.mock("../../state/projects", () => ({
 }));
 beforeEach(() => {
   state.projects = [];
+  state.translations = {};
   state.select.mockClear();
 });
 vi.mock("../layout/workspace/useSelectWorkspaceDetail", () => ({
@@ -168,4 +180,21 @@ it("opens a draft in the selected scope when its project is not in the client ca
     projectId: thread.projectId,
     worktreePath: "/old-folder",
   });
+});
+
+it("resolves localized menu copy and interpolates the branch without changing action IDs", () => {
+  state.translations = {
+    "New thread": "Neuer Thread",
+    "New thread with reference": "Neuer Thread mit Referenz",
+    "New thread on {value1} with reference": "Neuer Thread auf {value1} mit Referenz",
+  };
+  const withoutBranch = useNewThreadReferenceMenu(makeThreadShellFixture({ branch: null }));
+  expect(withoutBranch.actions.map((item) => [item.id, item.title])).toEqual([
+    ["new-thread-in-project", "Neuer Thread"],
+    ["new-thread-with-reference", "Neuer Thread mit Referenz"],
+  ]);
+  const withBranch = useNewThreadReferenceMenu(makeThreadShellFixture({ branch: "feature/test" }));
+  expect(withBranch.actions.map((item) => [item.id, item.title])).toEqual([
+    ["new-thread-with-reference", "Neuer Thread auf feature/test mit Referenz"],
+  ]);
 });
