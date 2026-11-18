@@ -1,3 +1,5 @@
+import { useGT } from "gt-react-native";
+import { useMessages } from "gt-react-native";
 import { useMemo, useSyncExternalStore } from "react";
 import type { SnoozePresetSetting } from "@t3tools/contracts/settings";
 import * as SecureStore from "expo-secure-store";
@@ -30,15 +32,17 @@ export function useSnoozePresets(
   minute: string,
   presets?: ReadonlyArray<SnoozePresetSetting>,
 ): ReadonlyArray<Choice> {
+  const gt = useGT();
+  const m = useMessages();
   const stored = useSyncExternalStore(history.subscribe, history.getSnapshot, history.getSnapshot);
   return useMemo(() => {
     if (!enabled) return [];
     const now = new Date(minute);
     return [
-      ...resolveSnoozePresets(now, presets ? { presets } : {}),
+      ...resolveSnoozePresets(now, presets ? { presets } : {}, m),
       ...recentCustomSnoozes(stored, now).map((snoozedUntil) => ({
         id: `recent:${snoozedUntil}`,
-        label: `Recent: ${new Date(snoozedUntil).toLocaleDateString()}`,
+        label: gt("Recent: {value1}", { value1: new Date(snoozedUntil).toLocaleDateString() }),
         whenLabel: new Date(snoozedUntil).toLocaleTimeString([], {
           hour: "numeric",
           minute: "2-digit",
@@ -46,7 +50,7 @@ export function useSnoozePresets(
         snoozedUntil,
       })),
     ];
-  }, [enabled, stored, minute, presets]);
+  }, [enabled, stored, minute, presets, m, gt]);
 }
 
 export function resolveThreadListV2SnoozeMenuSelection(input: {

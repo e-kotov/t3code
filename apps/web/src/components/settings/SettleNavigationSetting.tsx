@@ -3,7 +3,7 @@ import { msg, T, useGT, useMessages } from "gt-react";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { SettingResetButton, SettingsRow } from "./settingsLayout";
 import { useScopedSettings, useUpdateScopedSettings } from "./useScopedSettings";
-import { searchableSetting } from "./settingsSearch";
+import { useSearchableSetting } from "./settingsSearch";
 
 type SettleNavigation = ClientSettings["settleNavigation"];
 
@@ -16,6 +16,7 @@ const SETTLE_NAVIGATION_OPTIONS: readonly SettleNavigation[] = ["stay", "new-cha
 
 export function SettleNavigationSetting() {
   const gt = useGT();
+  const searchableSetting = useSearchableSetting();
   const m = useMessages();
   const setting = searchableSetting("settle-navigation");
   const settings = useScopedSettings();
@@ -23,7 +24,6 @@ export function SettleNavigationSetting() {
   return (
     <SettingsRow
       {...setting}
-      title={m(setting.title)}
       description={
         <T>
           Staying or opening a new chat leaves other threads unread. Settling a thread you are not
@@ -33,7 +33,7 @@ export function SettleNavigationSetting() {
       resetAction={
         settings.settleNavigation !== DEFAULT_CLIENT_SETTINGS.settleNavigation ? (
           <SettingResetButton
-            label={gt("after settling")}
+            ariaLabel={gt("Reset after settling to default")}
             onClick={() =>
               updateSettings({ settleNavigation: DEFAULT_CLIENT_SETTINGS.settleNavigation })
             }

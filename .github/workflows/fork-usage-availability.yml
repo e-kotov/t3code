@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/fork-usage-availability.yml"
       - "apps/web/src/usageCompact/**"
+      - "scripts/fork-usage-baseline*"
       - "apps/web/src/components/usage/UsageLimitsPooled.tsx"
   workflow_dispatch:
 
@@ -20,8 +21,10 @@ jobs:
   checks:
     if: github.repository == 'e-kotov/t3code'
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 45
     env:
+      # Keep full test coverage while limiting concurrent browser/worker memory.
+      VITEST_MAX_WORKERS: "1"
       NODE_OPTIONS: --max-old-space-size=6144
       ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
       CHECK_CHANGED_TIMEOUT: "1800"
@@ -39,6 +42,7 @@ jobs:
       - uses: ./.github/actions/setup-fork-chromium
       - name: Capture the previous usage displays
         run: |
+          python3 scripts/fork-usage-baseline.test.py
           mkdir -p .t3/usage-availability-evidence
           compact=apps/web/src/usageCompact/CompactUsageControl.tsx
           pooled=apps/web/src/components/usage/UsageLimitsPooled.tsx
@@ -47,6 +51,8 @@ jobs:
           trap 'cp "$RUNNER_TEMP/CompactUsageControl.tsx" "$compact"; cp "$RUNNER_TEMP/UsageLimitsPooled.tsx" "$pooled"' EXIT
           git show "origin/main:$compact" > "$compact"
           git show "origin/main:$pooled" > "$pooled"
+          # Preserve the historical UI body; adapt only helpers moved by upstream i18n.
+          python3 scripts/fork-usage-baseline.py "$compact" "$pooled"
           VITE_USAGE_AVAILABILITY_CAPTURE=before vp test run apps/web/src/usageCompact/UsageAvailability.app.browser.test.tsx
       - name: Check changed code
         run: vp run check:changed origin/main

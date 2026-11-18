@@ -1,3 +1,5 @@
+import { useNowAfter, useNowMinuteMs } from "../../lib/clock";
+import { useGT, T } from "gt-react-native";
 import type { EnvironmentId } from "@t3tools/contracts";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { serverEnvironment } from "../../state/server";
@@ -10,9 +12,6 @@ import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell
 import { cacheWarmingState, hotCacheThreadIds } from "@t3tools/shared/cacheHud";
 import { environmentThreadShells } from "../../state/threads";
 import { useSavedRemoteConnection } from "../../state/use-remote-environment-registry";
-
-const EXPLANATION =
-  "May send a short visible, billable cache-warm turn near cache expiry when enabled for this conversation.";
 
 export function CacheWarmingEnvironmentControl(props: {
   readonly environmentId: EnvironmentId | null;
@@ -31,6 +30,9 @@ function EnvironmentControl(props: {
   readonly environmentId: EnvironmentId;
   readonly threads: ReadonlyArray<EnvironmentThreadShell>;
 }) {
+  const gt = useGT();
+  const minute = useNowMinuteMs();
+  const now = useNowAfter(minute);
   const settings = useAtomValue(serverEnvironment.settingsValueAtom(props.environmentId));
   const updateSettings = useAtomCommand(serverEnvironment.updateSettings, {
     label: "prompt cache warming setting",
@@ -49,7 +51,7 @@ function EnvironmentControl(props: {
         (hud.driver === "codex" || hud.driver === "claudeAgent") &&
         (hud.usage.cachedInputTokens ?? 0) + (hud.usage.cacheCreationTokens ?? 0) > 0 &&
         hud.ttlMs !== undefined &&
-        Date.now() - Date.parse(hud.usage.updatedAt) < hud.ttlMs
+        now - Date.parse(hud.usage.updatedAt) < hud.ttlMs
       );
     })
     .map((thread) => thread.id);
@@ -59,15 +61,25 @@ function EnvironmentControl(props: {
   return (
     <View className="h-9 flex-row items-center gap-2 rounded-full px-2">
       <View className="min-w-0">
-        <Text className="text-xs">Warm cache</Text>
+        <Text className="text-xs">
+          <T>Warm cache</T>
+        </Text>
         <Text className="text-[9px] text-muted-foreground">
-          {machineLabel} · Codex/Claude · billable turns
+          {gt("{machine} · Codex/Claude · billable turns", { machine: machineLabel })}
         </Text>
       </View>
       <Pressable
         accessibilityRole="switch"
-        accessibilityLabel={`${enabled ? "Disable" : "Enable"} warming for all hot conversations on ${machineLabel}`}
-        accessibilityHint={`${EXPLANATION} Updates each hot conversation's toggle.`}
+        accessibilityLabel={
+          enabled
+            ? gt("Disable warming for all hot conversations on {machine}", {
+                machine: machineLabel,
+              })
+            : gt("Enable warming for all hot conversations on {machine}", { machine: machineLabel })
+        }
+        accessibilityHint={gt(
+          "May send a short visible, billable cache-warm turn near cache expiry when enabled for this conversation. Updates each hot conversation's toggle.",
+        )}
         accessibilityState={{ checked: enabled, disabled: !canWrite || hotThreadIds.length === 0 }}
         disabled={!canWrite || hotThreadIds.length === 0}
         onPress={() => {
@@ -84,7 +96,7 @@ function EnvironmentControl(props: {
         className={`rounded-full border px-3 py-1.5 ${enabled ? "border-primary bg-primary" : "border-border bg-surface"} ${!canWrite || hotThreadIds.length === 0 ? "opacity-40" : ""}`}
       >
         <Text className={`text-xs ${enabled ? "text-primary-foreground" : "text-foreground"}`}>
-          {enabled ? "Warm all: On" : "Warm all: Off"}
+          {enabled ? gt("Warm all: On") : gt("Warm all: Off")}
         </Text>
       </Pressable>
     </View>
@@ -94,7 +106,10 @@ function EnvironmentControl(props: {
 /** Machine-group header switch: warms or cools every warm conversation on that
  * machine. Hidden while the machine has none, like the per-conversation control. */
 export function CacheWarmingMachineControl(props: { readonly environmentId: EnvironmentId }) {
+  const gt = useGT();
   const threads = useAtomValue(environmentThreadShells.threadShellsAtom);
+  const minute = useNowMinuteMs();
+  const now = useNowAfter(minute);
   const settings = useAtomValue(serverEnvironment.settingsValueAtom(props.environmentId));
   const updateSettings = useAtomCommand(serverEnvironment.updateSettings, {
     label: "machine prompt cache warming setting",
@@ -102,7 +117,7 @@ export function CacheWarmingMachineControl(props: { readonly environmentId: Envi
   const canWrite = useEnvironmentScope(props.environmentId, AuthSettingsWriteScope);
   const hotThreadIds = hotCacheThreadIds(
     threads.filter((thread) => thread.environmentId === props.environmentId),
-    Date.now(),
+    now,
   );
   if (hotThreadIds.length === 0) return null;
   const state = cacheWarmingState(hotThreadIds, settings?.cacheWarmingSessions);
@@ -111,10 +126,14 @@ export function CacheWarmingMachineControl(props: { readonly environmentId: Envi
       accessibilityRole="switch"
       accessibilityLabel={
         state === "mixed"
-          ? "Warming is on for some warm conversations on this machine; enable it for all"
-          : `${state === "on" ? "Disable" : "Enable"} warming for all warm conversations on this machine`
+          ? gt("Warming is on for some warm conversations on this machine; enable it for all")
+          : state === "on"
+            ? gt("Disable warming for all warm conversations on this machine")
+            : gt("Enable warming for all warm conversations on this machine")
       }
-      accessibilityHint={EXPLANATION}
+      accessibilityHint={gt(
+        "May send a short visible, billable cache-warm turn near cache expiry when enabled for this conversation.",
+      )}
       accessibilityState={{
         checked: state === "mixed" ? "mixed" : state === "on",
         disabled: !canWrite,
@@ -137,7 +156,7 @@ export function CacheWarmingMachineControl(props: { readonly environmentId: Envi
       <Text
         className={`text-[11px] font-t3-medium ${state === "on" ? "text-primary-foreground" : "text-foreground-muted"}`}
       >
-        {state === "mixed" ? "Warm: Mixed" : state === "on" ? "Warm: On" : "Warm: Off"}
+        {state === "mixed" ? gt("Warm: Mixed") : state === "on" ? gt("Warm: On") : gt("Warm: Off")}
       </Text>
     </Pressable>
   );

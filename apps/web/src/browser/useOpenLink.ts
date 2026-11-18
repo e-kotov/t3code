@@ -14,6 +14,8 @@ import {
   resolveLinkTarget,
 } from "./browserLinkTarget";
 import { isBrowserSettingsReadError, openUrlInPreview } from "./openFileInPreview";
+import { msg } from "gt-react";
+import { m } from "~/i18n/messages";
 
 import { reportBrowserProxyFailure } from "./browserProxyFailure";
 
@@ -53,7 +55,7 @@ export function useOpenLink(threadRef: ScopedThreadRef | null | undefined): (
       if (reportBrowserProxyFailure(result.cause)) return;
     }
     const api = readLocalApi();
-    if (!api) throw new Error("Link opening is unavailable.");
+    if (!api) throw new Error(m(msg("Link opening is unavailable.")));
     await api.shell.openExternal(url);
   };
 }

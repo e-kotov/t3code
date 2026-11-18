@@ -1,3 +1,5 @@
+import { msg, T, useGT } from "gt-react";
+import { m } from "~/i18n/messages";
 import {
   utilityServiceObservation,
   utilityTime,
@@ -38,9 +40,14 @@ const statusClass = (status: string) =>
         ? "text-warning-foreground"
         : "text-muted-foreground";
 function Status({ status }: { status: string }) {
+  const gt = useGT();
   return (
     <span className={`text-xs capitalize ${statusClass(status)}`}>
-      {status === "unknown" || status === "stale" ? "?" : "●"} {status}
+      {status === "unknown" || status === "stale" ? "?" : "●"}{" "}
+      {gt(
+        "{status, select, healthy {healthy} warning {warning} down {down} unknown {unknown} inactive {inactive} stale {stale} mixed {mixed} other {{status}}}",
+        { status },
+      )}
     </span>
   );
 }
@@ -53,7 +60,17 @@ async function runAction(
   if (!bridge) return;
   if (action.confirm || action.scope === "shared") {
     const yes = await ensureLocalApi().dialogs.confirm(
-      `${action.name}?\nRun on this device → ${service.target}\nAffects: ${action.scope === "shared" ? "shared service (other devices may be affected)" : "this device"}\n${action.command}`,
+      m(
+        msg(
+          "{name}?\nRun on this device → {target}\nAffects: {scope, select, shared {shared service (other devices may be affected)} other {this device}}\n{command}",
+        ),
+        {
+          name: action.name,
+          target: service.target,
+          scope: action.scope,
+          command: action.command,
+        },
+      ),
     );
     if (!yes) return;
   }
@@ -73,6 +90,7 @@ function ServiceRow({
   snapshot: UtilitySnapshot;
   now: number;
 }) {
+  const gt = useGT();
   const observed = utilityServiceObservation(snapshot, service, now);
   const run = snapshot.checks.find((r) => r.serviceId === service.id);
   const actionRun = snapshot.actions.find((r) => r.serviceId === service.id);
@@ -86,22 +104,28 @@ function ServiceRow({
         <span className="flex shrink-0 flex-col items-end gap-1">
           <Status status={observed.status} />
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
-            Details <ChevronRightIcon className="size-3 group-open:rotate-90" />
+            <T>Details</T> <ChevronRightIcon className="size-3 group-open:rotate-90" />
           </span>
         </span>
       </summary>
       <div className="mt-3 space-y-3 text-xs">
         <p>{observed.reason}</p>
         <p className="text-muted-foreground">
-          Last check: {run ? new Date(run.startedAt).toLocaleString() : "Never"}
+          {gt("Last check: {time}", {
+            time: run ? new Date(run.startedAt).toLocaleString() : gt("Never"),
+          })}
         </p>
         <dl className="space-y-2">
           <div>
-            <dt className="text-muted-foreground">Last started</dt>
+            <dt className="text-muted-foreground">
+              <T>Last started</T>
+            </dt>
             <dd>{utilityTime(observed.result?.startedAt ?? null, now)}</dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">Last restarted</dt>
+            <dt className="text-muted-foreground">
+              <T>Last restarted</T>
+            </dt>
             <dd>{utilityTime(observed.result?.lastRestartedAt ?? null, now)}</dd>
           </div>
         </dl>
@@ -109,8 +133,7 @@ function ServiceRow({
           <div key={check.id} className="space-y-1">
             <div className="flex justify-between gap-2">
               <span>
-                {check.name}
-                {!check.required ? " · advisory" : ""}
+                {!check.required ? gt("{name} · advisory", { name: check.name }) : check.name}
               </span>
               <Status status={check.status} />
             </div>
@@ -135,21 +158,23 @@ function ServiceRow({
         ) : null}
         {actionRun ? (
           <p role="status">
-            Action:{" "}
             {actionRun.finishedAt === null
-              ? "running; awaiting fresh check"
-              : (actionRun.error ??
-                (actionRun.exitCode === 0
-                  ? "completed; health checked separately"
-                  : `failed (${actionRun.exitCode})`))}
+              ? gt("Action: running; awaiting fresh check")
+              : actionRun.error
+                ? gt("Action: {error}", { error: actionRun.error })
+                : actionRun.exitCode === 0
+                  ? gt("Action: completed; health checked separately")
+                  : gt("Action: failed ({code})", { code: actionRun.exitCode })}
           </p>
         ) : null}
         <details>
-          <summary>Check and action output</summary>
+          <summary>
+            <T>Check and action output</T>
+          </summary>
           <pre className="mt-2 max-h-52 overflow-auto whitespace-pre-wrap break-all font-mono">
             {[run?.stdout, run?.stderr, actionRun?.stdout, actionRun?.stderr]
               .filter(Boolean)
-              .join("\n") || "No output."}
+              .join("\n") || gt("No output.")}
           </pre>
         </details>
       </div>
@@ -157,6 +182,7 @@ function ServiceRow({
   );
 }
 function UtilitiesContent() {
+  const gt = useGT();
   const { snapshot, error, now, statuses } = useDeviceUtilities();
   const commands = useDeviceCommandsStore((s) => s.commands);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Read the desktop command file through IPC when its utility panel mounts.
@@ -164,12 +190,19 @@ function UtilitiesContent() {
     ensureDeviceCommandsLoaded();
   }, []);
   const counts = [...new Set(statuses)]
-    .map((s) => `${statuses.filter((value) => value === s).length} ${s}`)
+    .map((status) =>
+      gt(
+        "{count} {status, select, healthy {healthy} warning {warning} down {down} unknown {unknown} inactive {inactive} stale {stale} other {{status}}}",
+        { count: statuses.filter((value) => value === status).length, status },
+      ),
+    )
     .join(" · ");
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-medium">Utilities</h2>
+        <h2 className="text-sm font-medium">
+          <T>Utilities</T>
+        </h2>
         <Button
           size="sm"
           variant="outline"
@@ -179,7 +212,7 @@ function UtilitiesContent() {
             )
           }
         >
-          Check now
+          <T>Check now</T>
         </Button>
       </div>
       {counts ? (
@@ -202,11 +235,13 @@ function UtilitiesContent() {
       ))}
       {!snapshot?.config ? (
         <p className="text-xs text-muted-foreground">
-          Load your device’s dashboard configuration in Settings → Utilities.
+          <T>Load your device’s dashboard configuration in Settings → Utilities.</T>
         </p>
       ) : null}
       <div className="space-y-2 border-t pt-3">
-        <h3 className="text-xs font-medium">Commands</h3>
+        <h3 className="text-xs font-medium">
+          <T>Commands</T>
+        </h3>
         <div className="flex flex-wrap gap-2">
           {commands.map((command) => (
             <Button
@@ -220,20 +255,30 @@ function UtilitiesContent() {
           ))}
         </div>
         {!commands.length ? (
-          <p className="text-xs text-muted-foreground">Add commands in Settings → Utilities.</p>
+          <p className="text-xs text-muted-foreground">
+            <T>Add commands in Settings → Utilities.</T>
+          </p>
         ) : null}
       </div>
       <p className="text-xs text-muted-foreground">
-        Runs on this device, using its shell and credentials.
+        <T>Runs on this device, using its shell and credentials.</T>
       </p>
     </div>
   );
 }
 export function SidebarUtilitiesMenu() {
+  const gt = useGT();
   const navigate = useNavigate();
   const { aggregate, statuses } = useDeviceUtilities();
   if (!getUtilitiesBridge()) return null;
-  const label = `Utilities, ${aggregate}${statuses.length ? `, ${statuses.filter((s) => s === "down").length} down` : ""}`;
+  const label = gt(
+    "Utilities, {aggregate, select, healthy {healthy} warning {warning} down {down} unknown {unknown} inactive {inactive} stale {stale} mixed {mixed} other {{aggregate}}}{hasStatuses, select, yes {, {down} down} other {}}",
+    {
+      aggregate,
+      hasStatuses: statuses.length ? "yes" : "no",
+      down: statuses.filter((s) => s === "down").length,
+    },
+  );
   return (
     <SidebarMenuItem className="shrink-0">
       <Popover
@@ -264,7 +309,7 @@ export function SidebarUtilitiesMenu() {
               variant="ghost"
               onClick={() => void navigate({ to: "/settings/commands" })}
             >
-              Configure utilities…
+              <T>Configure utilities…</T>
             </Button>
           </div>
         </PopoverPopup>
@@ -274,27 +319,31 @@ export function SidebarUtilitiesMenu() {
   );
 }
 export function UtilitiesSettings() {
+  const gt = useGT();
   const { snapshot, error } = useDeviceUtilities();
   return (
     <>
       <SettingsPageContainer>
-        <SettingsSection title="Utilities" id="device-utilities">
+        <SettingsSection title={gt("Utilities")} id="device-utilities">
           <div className="space-y-3 text-sm">
             <p>
-              Dashboard configuration is managed on this device. Edit it in your dotfiles, apply it,
-              then reload here.
+              <T>
+                Dashboard configuration is managed on this device. Edit it in your dotfiles, apply
+                it, then reload here.
+              </T>
             </p>
             <p className="break-all font-mono text-xs">
               {snapshot?.configPath ?? "~/.config/t3-utilities/dashboard.json"}
             </p>
             <Button variant="outline" onClick={() => void reloadUtilities()}>
-              Reload configuration
+              <T>Reload configuration</T>
             </Button>
             {error || snapshot?.error ? <p role="alert">{error ?? snapshot?.error}</p> : null}
             <p>
-              {snapshot?.config?.services.length ?? 0} services loaded. Polling runs while the app
-              is visible; expired observations become unknown. Disabled or inactive services do not
-              affect overall health.
+              {gt(
+                "{count} services loaded. Polling runs while the app is visible; expired observations become unknown. Disabled or inactive services do not affect overall health.",
+                { count: snapshot?.config?.services.length ?? 0 },
+              )}
             </p>
           </div>
         </SettingsSection>

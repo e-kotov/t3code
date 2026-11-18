@@ -1,3 +1,4 @@
+import { useGT } from "gt-react";
 import { ChevronDownIcon, FolderIcon, SquarePenIcon } from "lucide-react";
 import { memo } from "react";
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/models";
@@ -17,6 +18,7 @@ export const SidebarMachineProjectFolderHeader = memo(
     readonly onToggle: () => void;
     readonly onNewThread?: (() => void) | undefined;
   }) {
+    const gt = useGT();
     const { project, projectDisplayName, collapsed, threadCount, onToggle, onNewThread } = props;
     const displayName = projectDisplayName ?? project?.title ?? "No project";
 
@@ -58,7 +60,7 @@ export const SidebarMachineProjectFolderHeader = memo(
             <Button
               size="icon-micro"
               variant="ghost-muted"
-              aria-label={`New thread in ${displayName}`}
+              aria-label={gt("New thread in {displayName}", { displayName: displayName })}
               onClick={(e) => {
                 e.stopPropagation();
                 onNewThread();

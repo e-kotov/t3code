@@ -1,3 +1,4 @@
+import { useGT, useMessages } from "gt-react-native";
 import { useAtomValue } from "@effect/atom-react";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import { canSnooze } from "@t3tools/client-runtime/state/thread-settled";
@@ -32,6 +33,8 @@ function selectSnoozeChoice(
 
 /** Settle, snooze and title actions for the open thread, matching its list row. */
 export function useThreadHeaderActionsMenu(thread: EnvironmentThreadShell) {
+  const gt = useGT();
+  const m = useMessages();
   const actions = useThreadListActions();
   const environments = useAtomValue(threadListEnvironmentsAtom);
   const threadKey = `${thread.environmentId}:${thread.id}`;
@@ -56,33 +59,36 @@ export function useThreadHeaderActionsMenu(thread: EnvironmentThreadShell) {
     canSnooze(thread, { now: new Date(snoozeGateNowMs).toISOString() });
   const snoozeChoices = useSnoozePresets(snoozable, now, presets);
 
-  const menu = buildThreadHeaderActionsMenu({
-    placement,
-    settlementSupported,
-    snoozeChoices: snoozable ? snoozeChoices : null,
-    titleRegeneration: !environments.titleRegenerationEnvironmentIds.has(thread.environmentId)
-      ? "unsupported"
-      : thread.titleRegeneration != null
-        ? "regenerating"
-        : "idle",
-    onSettle: () => void actions.settleThread(thread),
-    onUnsettle: () => void actions.unsettleThread(thread),
-    onWake: () => void actions.unsnoozeThread(thread),
-    onSnooze: (choiceId) => {
-      const selection = selectSnoozeChoice(choiceId, snoozeChoices, presets);
-      if (selection._tag === "selected") {
-        void actions.snoozeThread(thread, selection.preset.snoozedUntil);
-      } else if (selection._tag === "expired") {
-        Dialog.alert(
-          "Could not snooze thread",
-          "That snooze time has passed. Choose another time.",
-        );
-      }
+  const menu = buildThreadHeaderActionsMenu(
+    {
+      placement,
+      settlementSupported,
+      snoozeChoices: snoozable ? snoozeChoices : null,
+      titleRegeneration: !environments.titleRegenerationEnvironmentIds.has(thread.environmentId)
+        ? "unsupported"
+        : thread.titleRegeneration != null
+          ? "regenerating"
+          : "idle",
+      onSettle: () => void actions.settleThread(thread),
+      onUnsettle: () => void actions.unsettleThread(thread),
+      onWake: () => void actions.unsnoozeThread(thread),
+      onSnooze: (choiceId) => {
+        const selection = selectSnoozeChoice(choiceId, snoozeChoices, presets);
+        if (selection._tag === "selected") {
+          void actions.snoozeThread(thread, selection.preset.snoozedUntil);
+        } else if (selection._tag === "expired") {
+          Dialog.alert(
+            gt("Could not snooze thread"),
+            gt("That snooze time has passed. Choose another time."),
+          );
+        }
+      },
+      onCustomSnooze: () => setCustomSnoozeKey(threadKey),
+      onRename: () => actions.renameThread(thread),
+      onRegenerateTitle: () => void actions.regenerateThreadTitle(thread),
     },
-    onCustomSnooze: () => setCustomSnoozeKey(threadKey),
-    onRename: () => actions.renameThread(thread),
-    onRegenerateTitle: () => void actions.regenerateThreadTitle(thread),
-  });
+    m,
+  );
   const sheet =
     customSnoozeKey === threadKey ? (
       <CustomSnoozeSheet

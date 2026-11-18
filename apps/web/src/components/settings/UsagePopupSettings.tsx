@@ -1,3 +1,4 @@
+import { T, useGT } from "gt-react";
 import { useState } from "react";
 import { DEFAULT_CLIENT_SETTINGS } from "@t3tools/contracts/settings";
 import { useScopedSettings, useUpdateScopedSettings } from "./useScopedSettings";
@@ -10,6 +11,7 @@ import {
 } from "../../usageCompact/usagePopupConstants";
 
 export function UsagePopupSettings() {
+  const gt = useGT();
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
 
@@ -45,12 +47,14 @@ export function UsagePopupSettings() {
   return (
     <>
       <SettingsRow
-        title="Usage quota preview"
-        description="Show remaining model quota details when hovering over the header usage indicator."
+        title={gt("Usage quota preview")}
+        description={gt(
+          "Show remaining model quota details when hovering over the header usage indicator.",
+        )}
         resetAction={
           settings.usagePopupEnabled !== DEFAULT_CLIENT_SETTINGS.usagePopupEnabled ? (
             <SettingResetButton
-              label="usage quota preview"
+              ariaLabel={gt("Reset usage quota preview to default")}
               onClick={() =>
                 updateSettings({ usagePopupEnabled: DEFAULT_CLIENT_SETTINGS.usagePopupEnabled })
               }
@@ -61,18 +65,18 @@ export function UsagePopupSettings() {
           <Switch
             checked={settings.usagePopupEnabled}
             onCheckedChange={(checked) => updateSettings({ usagePopupEnabled: Boolean(checked) })}
-            aria-label="Usage quota preview"
+            aria-label={gt("Usage quota preview")}
           />
         }
       />
       <SettingsRow
-        title="Usage popup hover delay"
-        description="Delay in milliseconds before the quota details popup opens on hover."
+        title={gt("Usage popup hover delay")}
+        description={gt("Delay in milliseconds before the quota details popup opens on hover.")}
         resetAction={
           settings.usagePopupEnabled &&
           settings.usagePopupHoverDelayMs !== DEFAULT_CLIENT_SETTINGS.usagePopupHoverDelayMs ? (
             <SettingResetButton
-              label="usage popup hover delay"
+              ariaLabel={gt("Reset usage popup hover delay to default")}
               onClick={() =>
                 updateSettings({
                   usagePopupHoverDelayMs: DEFAULT_CLIENT_SETTINGS.usagePopupHoverDelayMs,
@@ -99,9 +103,11 @@ export function UsagePopupSettings() {
                   event.currentTarget.blur();
                 }
               }}
-              aria-label="Usage popup hover delay in milliseconds"
+              aria-label={gt("Usage popup hover delay in milliseconds")}
             />
-            <span className="text-xs text-muted-foreground">ms</span>
+            <span className="text-xs text-muted-foreground">
+              <T>ms</T>
+            </span>
           </div>
         }
       />

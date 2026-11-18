@@ -1,3 +1,4 @@
+import { T, useGT, msg, useMessages } from "gt-react";
 import { WorkingFirstMenuItem } from "./WorkingSidebarControls";
 import { ArrowDownWideNarrowIcon, CheckIcon, Layers2Icon } from "lucide-react";
 
@@ -18,9 +19,9 @@ import { Menu, MenuCheckboxItem, MenuGroup, MenuItem, MenuPopup, MenuTrigger } f
 import { SidebarHeaderIconButton } from "./SidebarThreadHeader";
 
 const SORT_CHOICES = [
-  ["updated_at", "Recent activity", "Newest first", "Oldest first"],
-  ["created_at", "Created", "Newest first", "Oldest first"],
-  ["cache_expiry", "Cache expiry", "Soonest first", "Latest first"],
+  ["updated_at", msg("Recent activity"), msg("Newest first"), msg("Oldest first")],
+  ["created_at", msg("Created"), msg("Newest first"), msg("Oldest first")],
+  ["cache_expiry", msg("Cache expiry"), msg("Soonest first"), msg("Latest first")],
 ] as const satisfies ReadonlyArray<
   readonly [SidebarConversationSortCriterion, string, string, string]
 >;
@@ -31,6 +32,8 @@ export interface SidebarThreadListControlsProps {
 }
 
 export function SidebarThreadListControls(props: SidebarThreadListControlsProps = {}) {
+  const gt = useGT();
+  const messages = useMessages();
   const sortOrder = useClientSettings((s) => s.sidebarConversationSortOrder);
   const grouping = useClientSettings((s) => s.sidebarConversationGrouping);
   return (
@@ -38,7 +41,7 @@ export function SidebarThreadListControls(props: SidebarThreadListControlsProps 
       <Menu>
         <MenuTrigger
           render={
-            <SidebarHeaderIconButton label="Sort conversations">
+            <SidebarHeaderIconButton label={gt("Sort conversations")}>
               <ArrowDownWideNarrowIcon />
             </SidebarHeaderIconButton>
           }
@@ -46,7 +49,7 @@ export function SidebarThreadListControls(props: SidebarThreadListControlsProps 
         <MenuPopup align="end" side="bottom">
           <MenuGroup>
             <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-              Sort conversations
+              <T>Sort conversations</T>
             </div>
             {SORT_CHOICES.map(([criterion, label, defaultDirection, reverseDirection]) => {
               const selected = getSidebarConversationSortCriterion(sortOrder) === criterion;
@@ -66,9 +69,9 @@ export function SidebarThreadListControls(props: SidebarThreadListControlsProps 
                   }
                 >
                   {selected ? <CheckIcon aria-hidden="true" /> : <span className="size-4" />}
-                  <span className="min-w-0 flex-1">{label}</span>
+                  <span className="min-w-0 flex-1">{messages(label)}</span>
                   <span className="shrink-0 text-xs text-muted-foreground">
-                    {reversed ? reverseDirection : defaultDirection}
+                    {messages(reversed ? reverseDirection : defaultDirection)}
                   </span>
                 </MenuItem>
               );
@@ -80,7 +83,7 @@ export function SidebarThreadListControls(props: SidebarThreadListControlsProps 
       <Menu>
         <MenuTrigger
           render={
-            <SidebarHeaderIconButton label="Group conversations">
+            <SidebarHeaderIconButton label={gt("Group conversations")}>
               <Layers2Icon />
             </SidebarHeaderIconButton>
           }
@@ -88,7 +91,7 @@ export function SidebarThreadListControls(props: SidebarThreadListControlsProps 
         <MenuPopup align="end" side="bottom">
           <MenuGroup>
             <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-              Group conversations
+              <T>Group conversations</T>
             </div>
             <MenuCheckboxItem
               checked={isSidebarMachineGrouping(grouping)}
@@ -99,7 +102,9 @@ export function SidebarThreadListControls(props: SidebarThreadListControlsProps 
               }
             >
               <span className="flex min-w-0 items-center justify-between gap-3 w-full">
-                <span className="min-w-0 truncate">By machine</span>
+                <span className="min-w-0 truncate">
+                  <T>By machine</T>
+                </span>
                 {props.machineSummary ? (
                   <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                     {props.machineSummary}
@@ -116,7 +121,9 @@ export function SidebarThreadListControls(props: SidebarThreadListControlsProps 
               }
             >
               <span className="flex min-w-0 items-center justify-between gap-3 w-full">
-                <span className="min-w-0 truncate">By project</span>
+                <span className="min-w-0 truncate">
+                  <T>By project</T>
+                </span>
                 {props.projectSummary ? (
                   <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                     {props.projectSummary}

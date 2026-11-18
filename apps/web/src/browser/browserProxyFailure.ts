@@ -1,3 +1,5 @@
+import { msg } from "gt-react";
+import { m } from "~/i18n/messages";
 import { BrowserProxyError } from "@t3tools/contracts";
 import { browserProxyTargetError } from "@t3tools/shared/browserProxy";
 import * as Cause from "effect/Cause";
@@ -13,7 +15,7 @@ export function reportBrowserProxyFailure(cause: Cause.Cause<unknown>): boolean 
   if (Option.isNone(failure) || !isProxyError(failure.value)) return false;
   toastManager.add({
     type: "error",
-    title: "Browser proxy unavailable",
+    title: m(msg("Browser proxy unavailable")),
     description: failure.value.message,
   });
   return true;

@@ -1,6 +1,10 @@
+import { LegendList } from "@legendapp/list/react-native";
+import { NativeScrollView } from "../../native/NativeScrollViewMarker";
+import { T } from "gt-react-native";
+import { useGT } from "gt-react-native";
 import { useAtomValue } from "@effect/atom-react";
 import { useRef, useState, useSyncExternalStore } from "react";
-import { FlatList, Pressable, View, type TextInputInstance } from "react-native";
+import { Pressable, View, type TextInputInstance } from "react-native";
 
 import { AppText } from "../../components/ui/AppText";
 import { ListActionRow } from "../../components/ui/ListActionRow";
@@ -15,6 +19,7 @@ import { sameForkShareDestination } from "./forkShareDestination";
 import { forkShareDestinations, forkShareThreadsAtom } from "./forkShareDestinations";
 
 function DestinationSheet({ snapshot }: { readonly snapshot: ForkShareDestinationSnapshot }) {
+  const gt = useGT();
   const threads = useAtomValue(forkShareThreadsAtom);
   const [query, setQuery] = useState("");
   const inputRef = useRef<TextInputInstance>(null);
@@ -27,8 +32,10 @@ function DestinationSheet({ snapshot }: { readonly snapshot: ForkShareDestinatio
   const summary =
     snapshot.share.attachments.map((attachment) => attachment.name).join(", ") || "Shared text";
   return (
-    <Sheet title="Share to conversation" onClose={() => controller.close(snapshot.share.id)}>
-      <FlatList
+    <Sheet title={gt("Share to conversation")} onClose={() => controller.close(snapshot.share.id)}>
+      <LegendList
+        renderScrollComponent={NativeScrollView}
+        extraData={gt}
         data={snapshot.busy || snapshot.loadingDrafts ? [] : matches}
         keyExtractor={(thread) => `${thread.environmentId}:${thread.threadId}`}
         keyboardShouldPersistTaps="handled"
@@ -39,7 +46,7 @@ function DestinationSheet({ snapshot }: { readonly snapshot: ForkShareDestinatio
               {summary}
             </AppText>
             <AppText textRole="footnote" className="text-foreground-muted">
-              Choose a draft. Nothing is sent automatically.
+              <T>Choose a draft. Nothing is sent automatically.</T>
             </AppText>
             {snapshot.error ? (
               <AppText className="text-danger-foreground">{snapshot.error}</AppText>
@@ -47,50 +54,55 @@ function DestinationSheet({ snapshot }: { readonly snapshot: ForkShareDestinatio
             {snapshot.busy ? (
               <ListActionRow
                 label={
-                  snapshot.loadingDrafts ? "Loading saved drafts…" : "Attaching shared content…"
+                  snapshot.loadingDrafts
+                    ? gt("Loading saved drafts…")
+                    : gt("Attaching shared content…")
                 }
                 loading
                 onPress={() => {}}
               />
             ) : snapshot.loadingDrafts ? (
               <ListActionRow
-                label="Retry loading saved drafts"
+                label={gt("Retry loading saved drafts")}
                 onPress={() => controller.reloadDrafts()}
               />
             ) : (
               <>
                 {snapshot.retryAvailable ? (
-                  <ListActionRow label="Retry import" onPress={() => void controller.retry()} />
+                  <ListActionRow
+                    label={gt("Retry import")}
+                    onPress={() => void controller.retry()}
+                  />
                 ) : null}
                 <ListSection>
                   {snapshot.current &&
                   (!reserved || sameForkShareDestination(reserved, snapshot.current)) ? (
                     <ListActionRow
-                      label="Current conversation"
+                      label={gt("Current conversation")}
                       description={snapshot.current.title}
                       onPress={() => void controller.choose(snapshot.current!)}
                     />
                   ) : null}
                   {!reserved ? (
                     <ListActionRow
-                      label="New conversation"
-                      description="Choose a project"
+                      label={gt("New conversation")}
+                      description={gt("Choose a project")}
                       onPress={() => controller.newConversation()}
                     />
                   ) : null}
                 </ListSection>
                 {reserved ? (
                   <AppText textRole="footnote" className="text-foreground-muted">
-                    This share is reserved for the conversation selected earlier.
+                    <T>This share is reserved for the conversation selected earlier.</T>
                   </AppText>
                 ) : null}
                 <View className="flex-row">
                   <SearchField
                     inputRef={inputRef}
                     autoFocus={false}
-                    accessibilityLabel="Find conversation"
-                    clearAccessibilityLabel="Clear search"
-                    placeholder="Find existing conversation"
+                    accessibilityLabel={gt("Find conversation")}
+                    clearAccessibilityLabel={gt("Clear search")}
+                    placeholder={gt("Find existing conversation")}
                     value={query}
                     onChangeText={setQuery}
                   />
@@ -101,7 +113,7 @@ function DestinationSheet({ snapshot }: { readonly snapshot: ForkShareDestinatio
         }
         renderItem={({ item }) => (
           <ListActionRow
-            label={item.title || "Untitled conversation"}
+            label={item.title || gt("Untitled conversation")}
             description={`${item.projectName} · ${item.environmentName}`}
             onPress={() => void controller.choose(item)}
           />
@@ -109,7 +121,7 @@ function DestinationSheet({ snapshot }: { readonly snapshot: ForkShareDestinatio
         ListEmptyComponent={
           snapshot.busy ? undefined : (
             <AppText textRole="footnote" className="text-foreground-muted">
-              No matching conversations. Connect to the server to load its conversations.
+              <T>No matching conversations. Connect to the server to load its conversations.</T>
             </AppText>
           )
         }
@@ -118,20 +130,20 @@ function DestinationSheet({ snapshot }: { readonly snapshot: ForkShareDestinatio
             <ListSection>
               {recovery.merged ? (
                 <ListActionRow
-                  label="Keep saved draft"
-                  description="Finish saving the content already added to this draft."
+                  label={gt("Keep saved draft")}
+                  description={gt("Finish saving the content already added to this draft.")}
                   onPress={() => void controller.keepDraft()}
                 />
               ) : (
                 <>
                   {recovery.destination ? (
                     <ListActionRow
-                      label="Choose another conversation"
+                      label={gt("Choose another conversation")}
                       onPress={() => void controller.changeDestination()}
                     />
                   ) : null}
                   <ListActionRow
-                    label="Discard share"
+                    label={gt("Discard share")}
                     tone="danger"
                     onPress={() => void controller.discard()}
                   />
@@ -146,6 +158,7 @@ function DestinationSheet({ snapshot }: { readonly snapshot: ForkShareDestinatio
 }
 
 export function ForkShareDestinationHost() {
+  const gt = useGT();
   const controller = forkShareDestinations!;
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
   if (!snapshot) return null;
@@ -155,12 +168,14 @@ export function ForkShareDestinationHost() {
     <View className="absolute bottom-8 left-4 right-4 rounded-xl bg-grouped-card">
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Resume shared content import"
+        accessibilityLabel={gt("Resume shared content import")}
         onPress={() => controller.reopen()}
         className="min-h-14 justify-center p-4"
       >
         <AppText>
-          {snapshot.busy ? "Importing shared content…" : "Shared content waiting. Tap to continue"}
+          {snapshot.busy
+            ? gt("Importing shared content…")
+            : gt("Shared content waiting. Tap to continue")}
         </AppText>
       </Pressable>
     </View>

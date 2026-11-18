@@ -1,3 +1,5 @@
+import { m, type MessageResolver } from "../../i18n/messages";
+import { msg } from "gt-react-native";
 import type { EnvironmentMachineKind } from "@t3tools/contracts";
 
 import {
@@ -12,6 +14,7 @@ export function withMobileMachineContext<T extends { readonly type: string }>(
   environments: ReadonlyArray<{ readonly environmentId: string; readonly label: string }>,
   machineKinds: ReadonlyMap<string, EnvironmentMachineKind>,
   preferredOrder: readonly string[],
+  resolve: MessageResolver = m,
 ): readonly (T | ThreadListV2MachineHeaderListItem)[] {
   const isHeader = (item: T): item is T & ThreadListV2MachineHeaderListItem =>
     item.type === "v2-machine-header";
@@ -41,7 +44,7 @@ export function withMobileMachineContext<T extends { readonly type: string }>(
     type: "v2-machine-header",
     key: `mobile-machine-context:${environmentId}`,
     environmentId,
-    label: labels.get(environmentId) ?? "Machine",
+    label: labels.get(environmentId) ?? resolve(msg("Machine")),
     machineKind: machineKinds.get(environmentId) ?? "server",
     position,
     count: ordered.length,

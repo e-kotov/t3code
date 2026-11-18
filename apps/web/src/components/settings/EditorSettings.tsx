@@ -1,3 +1,4 @@
+import { T, Var, msg, useGT, useMessages } from "gt-react";
 import { randomUUID } from "../../lib/utils";
 import { EDITORS, REMOTE_CAPABLE_EDITOR_IDS } from "@t3tools/contracts";
 import { useState } from "react";
@@ -39,10 +40,12 @@ function EditorSelect({
   choices: readonly { value: string; label: string }[];
   onChange: (value: string) => void;
 }) {
+  const messages = useMessages();
+  const translatedChoices = choices.map((choice) => ({ ...choice, label: messages(choice.label) }));
   return (
     <Select
       value={value}
-      items={choices}
+      items={translatedChoices}
       onValueChange={(next) => {
         if (next !== null) onChange(next);
       }}
@@ -53,7 +56,7 @@ function EditorSelect({
       <SelectPopup>
         {choices.map((choice) => (
           <SelectItem key={choice.value} value={choice.value}>
-            {choice.label}
+            {messages(choice.label)}
           </SelectItem>
         ))}
       </SelectPopup>
@@ -62,9 +65,9 @@ function EditorSelect({
 }
 
 const VISIBILITY_CHOICES = [
-  { value: "auto", label: "Automatic" },
-  { value: "show", label: "Always show" },
-  { value: "hide", label: "Hide" },
+  { value: "auto", label: msg("Automatic") },
+  { value: "show", label: msg("Always show") },
+  { value: "hide", label: msg("Hide") },
 ];
 
 export function EditorSettings() {
@@ -72,6 +75,8 @@ export function EditorSettings() {
 }
 
 function ClientEditorSettings() {
+  const gt = useGT();
+  const messages = useMessages();
   const { environments } = useEnvironments();
   const [scope, setScope] = useState("remote");
   const remote = scope === "remote";
@@ -86,21 +91,23 @@ function ClientEditorSettings() {
   const [editing, setEditing] = useState<CustomEditor | null>(null);
   const targetLabel = remote ? "this device" : (environment?.label ?? "the selected environment");
   const choices = [
-    { value: "remote", label: "Remote links on this device" },
+    { value: "remote", label: gt("Remote links on this device") },
     ...environments.map((entry) => ({
       value: entry.environmentId,
-      label: `Local commands on ${entry.label}`,
+      label: gt("Local commands on {value1}", { value1: entry.label }),
     })),
   ];
   return (
-    <SettingsSection id="editors" title="Editors">
+    <SettingsSection id="editors" title={gt("Editors")}>
       <SettingsRow
-        title="Open in editor"
-        description="Choose which editors appear in Open in. These preferences are saved in this app or browser profile; commands are kept separately for each environment."
+        title={gt("Open in editor")}
+        description={gt(
+          "Choose which editors appear in Open in. These preferences are saved in this app or browser profile; commands are kept separately for each environment.",
+        )}
       >
         <div className="space-y-4 py-3">
           <EditorSelect
-            label="Editor configuration target"
+            label={gt("Editor configuration target")}
             value={scope}
             choices={choices}
             onChange={(value) => {
@@ -110,25 +117,34 @@ function ClientEditorSettings() {
           />
           <p className="text-sm text-muted-foreground">
             {remote
-              ? "Links open an editor on this device and connect to the project over SSH. Browsers cannot detect installed editors; choose Always show for the ones you use. Automatic falls back to VS Code when detection is unavailable."
-              : `Used when opening projects locally on ${targetLabel}. Remote connections use this device’s editor links instead.`}
+              ? gt(
+                  "Links open an editor on this device and connect to the project over SSH. Browsers cannot detect installed editors; choose Always show for the ones you use. Automatic falls back to VS Code when detection is unavailable.",
+                )
+              : gt(
+                  "Used when opening projects locally on {targetLabel}. Remote connections use this device’s editor links instead.",
+                  { targetLabel: targetLabel },
+                )}
           </p>
           {!remote && !environment ? (
-            <p role="status">Select an available environment.</p>
+            <p role="status">
+              <T>Select an available environment.</T>
+            </p>
           ) : (
             <>
               <div className="flex flex-wrap items-center gap-3">
-                <span className="text-sm">Default editor</span>
+                <span className="text-sm">
+                  <T>Default editor</T>
+                </span>
                 <div className="min-w-48 flex-1">
                   <EditorSelect
-                    label="Default editor"
+                    label={gt("Default editor")}
                     value={
                       entries.some((entry) => entry.id === preferences.preferred)
                         ? preferences.preferred!
                         : "automatic"
                     }
                     choices={[
-                      { value: "automatic", label: "Automatic" },
+                      { value: "automatic", label: gt("Automatic") },
                       ...entries.map((entry) => ({ value: entry.id, label: entry.name })),
                     ]}
                     onChange={(value) =>
@@ -150,7 +166,7 @@ function ClientEditorSettings() {
                   return (
                     <div key={editor.id} className="flex items-center justify-between gap-3 py-2">
                       <span className="text-sm">
-                        {editorLabelForPlatform(editor.id, navigator.platform)}
+                        {editorLabelForPlatform(editor.id, navigator.platform, messages)}
                       </span>
                       <div className="w-40">
                         <EditorSelect
@@ -187,10 +203,10 @@ function ClientEditorSettings() {
                         }))
                       }
                     >
-                      {editor.enabled ? "Hide" : "Show"}
+                      {editor.enabled ? gt("Hide") : gt("Show")}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => setEditing(editor)}>
-                      Edit
+                      <T>Edit</T>
                     </Button>
                     <Button
                       size="sm"
@@ -203,7 +219,7 @@ function ClientEditorSettings() {
                         }))
                       }
                     >
-                      Remove
+                      <T>Remove</T>
                     </Button>
                   </div>
                 ))}
@@ -223,14 +239,14 @@ function ClientEditorSettings() {
                     })
                   }
                 >
-                  Add custom editor
+                  <T>Add custom editor</T>
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
                   onClick={() => setPreferences(EMPTY_EDITOR_PREFERENCES)}
                 >
-                  Reset editors
+                  <T>Reset editors</T>
                 </Button>
               </div>
             </>
@@ -272,6 +288,8 @@ function CustomEditorDialog({
   onSave: (editor: CustomEditor) => void;
   onClose: () => void;
 }) {
+  const gt = useGT();
+  const messages = useMessages();
   const [draft, setDraft] = useState(editor);
   const [argumentsText, setArgumentsText] = useState(editor.args.join("\n"));
   const parsed = {
@@ -281,7 +299,7 @@ function CustomEditorDialog({
     remoteUrl: draft.remoteUrl.trim(),
     args: argumentsText === "" ? [] : argumentsText.split("\n"),
   };
-  const error = validateCustomEditor(parsed, remote);
+  const error = validateCustomEditor(parsed, remote, messages);
   return (
     <Dialog
       open
@@ -300,17 +318,21 @@ function CustomEditorDialog({
         }
       >
         <DialogHeader>
-          <DialogTitle>Custom editor</DialogTitle>
+          <DialogTitle>
+            <T>Custom editor</T>
+          </DialogTitle>
           <DialogDescription>
             {remote
-              ? `Open an editor on ${targetLabel} over SSH.`
-              : `Run an editor command on ${targetLabel}.`}
+              ? gt("Open an editor on {targetLabel} over SSH.", { targetLabel: targetLabel })
+              : gt("Run an editor command on {targetLabel}.", { targetLabel: targetLabel })}
           </DialogDescription>
         </DialogHeader>
         <DialogPanel>
           <div className="space-y-4">
             <label className="block space-y-1.5 text-sm">
-              <span>Name</span>
+              <span>
+                <T>Name</T>
+              </span>
               <Input
                 required
                 autoFocus
@@ -320,7 +342,9 @@ function CustomEditorDialog({
             </label>
             {remote ? (
               <label className="block space-y-1.5 text-sm">
-                <span>Remote URL template</span>
+                <span>
+                  <T>Remote URL template</T>
+                </span>
                 <Input
                   required
                   value={draft.remoteUrl}
@@ -328,14 +352,19 @@ function CustomEditorDialog({
                   onChange={(event) => setDraft({ ...draft, remoteUrl: event.target.value })}
                 />
                 <span className="block text-xs text-muted-foreground">
-                  Use {"{host}"} and {"{path}"}. For a path in a query parameter, use{" "}
-                  {"{pathQuery}"}. Optional: {"{line}"} and {"{column}"}. Values are URL encoded.
+                  <T>
+                    Use <Var>{"{host}"}</Var> and <Var>{"{path}"}</Var>. For a path in a query
+                    parameter, use <Var>{"{pathQuery}"}</Var>. Optional: <Var>{"{line}"}</Var> and{" "}
+                    <Var>{"{column}"}</Var>. Values are URL encoded.
+                  </T>
                 </span>
               </label>
             ) : (
               <>
                 <label className="block space-y-1.5 text-sm">
-                  <span>Executable</span>
+                  <span>
+                    <T>Executable</T>
+                  </span>
                   <Input
                     required
                     value={draft.command}
@@ -344,14 +373,19 @@ function CustomEditorDialog({
                   />
                 </label>
                 <label className="block space-y-1.5 text-sm">
-                  <span>Arguments (one per line)</span>
+                  <span>
+                    <T>Arguments (one per line)</T>
+                  </span>
                   <Textarea
                     value={argumentsText}
                     onChange={(event) => setArgumentsText(event.target.value)}
                   />
                   <span className="block text-xs text-muted-foreground">
-                    Use {"{path}"}, {"{line}"}, and {"{column}"}. Do not add shell quotes around
-                    arguments. If {"{path}"} is omitted, it is appended.
+                    <T>
+                      Use <Var>{"{path}"}</Var>, <Var>{"{line}"}</Var>, and <Var>{"{column}"}</Var>.
+                      Do not add shell quotes around arguments. If <Var>{"{path}"}</Var> is omitted,
+                      it is appended.
+                    </T>
                   </span>
                 </label>
               </>
@@ -365,10 +399,10 @@ function CustomEditorDialog({
         </DialogPanel>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
+            <T>Cancel</T>
           </Button>
           <Button type="submit" disabled={error !== null}>
-            Save editor
+            <T>Save editor</T>
           </Button>
         </DialogFooter>
       </DialogPopup>

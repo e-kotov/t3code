@@ -1,3 +1,4 @@
+import { useGT, T } from "gt-react-native";
 import type { AssistantCitation } from "@t3tools/contracts";
 import { useState } from "react";
 import { KeyboardAvoidingView, Modal, Pressable, ScrollView, View } from "react-native";
@@ -11,6 +12,7 @@ export function AssistantCitationSheet(props: {
   readonly onSubmit: (comment: string) => string | null;
   readonly onRemove?: () => string | null;
 }) {
+  const gt = useGT();
   const [comment, setComment] = useState(
     props.mode === "edit" ? (props.citation.comment ?? "") : "",
   );
@@ -21,7 +23,7 @@ export function AssistantCitationSheet(props: {
     <Modal visible transparent animationType="slide" onRequestClose={props.onCancel}>
       <KeyboardAvoidingView className="flex-1 justify-end bg-backdrop" behavior="padding">
         <Pressable
-          accessibilityLabel="Close quote"
+          accessibilityLabel={gt("Close quote")}
           className="absolute inset-0"
           onPress={props.onCancel}
         />
@@ -32,7 +34,7 @@ export function AssistantCitationSheet(props: {
         >
           <View className="h-1 w-10 self-center rounded-full bg-border" />
           <AppText accessibilityRole="header" className="text-lg font-t3-semibold">
-            {props.mode === "edit" ? "Edit quote comment" : "Add quote to message"}
+            {props.mode === "edit" ? gt("Edit quote comment") : gt("Add quote to message")}
           </AppText>
           <View className="max-h-28 rounded-2xl bg-subtle px-3.5 py-3">
             <AppText className="text-sm text-foreground-secondary" numberOfLines={4}>
@@ -40,12 +42,12 @@ export function AssistantCitationSheet(props: {
             </AppText>
           </View>
           <AppTextInput
-            accessibilityLabel="Comment on quoted text"
-            accessibilityHint="Optional comment to send with this quote"
+            accessibilityLabel={gt("Comment on quoted text")}
+            accessibilityHint={gt("Optional comment to send with this quote")}
             className="min-h-24"
             multiline
             textAlignVertical="top"
-            placeholder="Add an optional comment…"
+            placeholder={gt("Add an optional comment…")}
             value={comment}
             onChangeText={(value) => {
               setComment(value);
@@ -62,7 +64,9 @@ export function AssistantCitationSheet(props: {
                 className="mr-auto min-h-11 justify-center rounded-xl px-4"
                 onPress={() => setSubmissionError(props.onRemove?.() ?? null)}
               >
-                <AppText className="font-t3-medium text-danger-foreground">Remove quote</AppText>
+                <AppText className="font-t3-medium text-danger-foreground">
+                  <T>Remove quote</T>
+                </AppText>
               </Pressable>
             ) : null}
             <Pressable
@@ -70,7 +74,9 @@ export function AssistantCitationSheet(props: {
               className="min-h-11 justify-center rounded-xl px-4"
               onPress={props.onCancel}
             >
-              <AppText className="font-t3-medium text-foreground-secondary">Cancel</AppText>
+              <AppText className="font-t3-medium text-foreground-secondary">
+                <T>Cancel</T>
+              </AppText>
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -80,7 +86,7 @@ export function AssistantCitationSheet(props: {
               onPress={() => setSubmissionError(props.onSubmit(comment))}
             >
               <AppText className="font-t3-semibold text-primary-foreground">
-                {props.mode === "edit" ? "Save" : "Add to prompt"}
+                {props.mode === "edit" ? gt("Save") : gt("Add to prompt")}
               </AppText>
             </Pressable>
           </View>

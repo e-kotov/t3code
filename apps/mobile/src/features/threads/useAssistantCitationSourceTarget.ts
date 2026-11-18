@@ -1,3 +1,4 @@
+import { useGT, useMessages } from "gt-react-native";
 import { AssistantCitationSynchronization } from "./AssistantCitationSynchronization";
 import {
   createAssistantCitationPassageActivation,
@@ -49,6 +50,8 @@ export function useAssistantCitationSourceTarget(input: {
   readonly topInset: number;
   readonly onExpandTurn: (runId: RunId) => void;
 }) {
+  const gt = useGT();
+  const m = useMessages();
   const synchronization = useContext(AssistantCitationSynchronization);
   const passageActivation = useRef(createAssistantCitationPassageActivation());
   const [historyCompletion, setHistoryCompletion] = useState(0);
@@ -105,7 +108,10 @@ export function useAssistantCitationSourceTarget(input: {
     if (current.scrolling) return;
     const fail = (reason: string) => {
       finishAssistantCitationNavigation(request.id);
-      Dialog.alert("Source response unavailable", `${reason}\n\nYour saved quote is unchanged.`);
+      Dialog.alert(
+        gt("Source response unavailable"),
+        gt("{value1}\n\nYour saved quote is unchanged.", { value1: reason }),
+      );
     };
     const step = assistantCitationSourceStep({
       presentation: input.contentPresentation,
@@ -128,6 +134,7 @@ export function useAssistantCitationSourceTarget(input: {
           input.latestRun,
           isWorking && input.runlessWorkActive,
           failedFeedRunIds(sourceFeed, input.latestRun),
+          m,
         );
         for (const fold of folds.values()) {
           if (fold.hiddenEntryIds.has(entryId)) return fold.runId;

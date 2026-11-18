@@ -1,3 +1,5 @@
+import { m } from "../i18n/messages";
+import { msg } from "gt-react-native";
 import * as Effect from "effect/Effect";
 import type { QueuedThreadMessage } from "./thread-outbox-model";
 import { appAtomRegistry } from "./atom-registry";
@@ -28,7 +30,7 @@ async function recoverCompactAction(
   if (!removed) return "deferred";
   setThreadComposerError(
     scopedThreadKey(queuedMessage.environmentId, queuedMessage.threadId),
-    `Compaction failed: ${message}`,
+    m(msg("Compaction failed: {value1}", { value1: message })),
     queuedMessage.messageId,
   );
   return "restored";

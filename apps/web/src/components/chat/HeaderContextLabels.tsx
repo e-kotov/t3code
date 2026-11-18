@@ -1,3 +1,4 @@
+import { useGT, useMessages, T, Var } from "gt-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useAtomValue } from "@effect/atom-react";
 import { connectionStatusText } from "@t3tools/client-runtime/connection";
@@ -41,6 +42,8 @@ export interface HeaderModelContext {
 }
 
 export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedThreadRef }) {
+  const gt = useGT();
+  const messages = useMessages();
   const { presentation } = useEnvironmentPresentation(threadRef.environmentId);
   const { startScratchThread } = useScratchProject();
   const navigate = useNavigate();
@@ -48,7 +51,7 @@ export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedTh
     presentation !== null && presentation.connection.phase !== "connected";
   if (!presentation) return null;
   const label = presentation.entry.target.label;
-  const status = connectionStatusText(presentation.connection);
+  const status = connectionStatusText(presentation.connection, messages);
   // Like the project crumb, the machine crumb starts a thread: a projectless one in the
   // machine's scratch workspace, offered only while the machine can create it.
   const canStartThread =
@@ -64,7 +67,7 @@ export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedTh
             render={
               <button
                 type="button"
-                aria-label={`Machine: ${label}. ${status}`}
+                aria-label={gt("Machine: {label}. {status}", { label: label, status: status })}
                 onClick={
                   canStartThread
                     ? () => void startScratchThread(threadRef.environmentId)
@@ -98,9 +101,17 @@ export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedTh
           <TooltipPopup>
             {label}: {status}
             {canStartThread ? (
-              <div>New thread on {label}</div>
+              <div>
+                <T>
+                  New thread on <Var>{label}</Var>
+                </T>
+              </div>
             ) : canInspectConnection ? (
-              <div>Open connection settings for {label}</div>
+              <div>
+                <T>
+                  Open connection settings for <Var>{label}</Var>
+                </T>
+              </div>
             ) : null}
           </TooltipPopup>
         </Tooltip>
@@ -129,6 +140,7 @@ export function HeaderModelLabel({
   readonly context?: HeaderModelContext | undefined;
   readonly isServerThread: boolean;
 }) {
+  const gt = useGT();
   const shell = useQuietThreadShell(context === undefined ? threadRef : null);
   const thread = context === undefined ? shell : context.thread;
   const projection = useQuietThreadProjection(thread && isServerThread ? threadRef : null);
@@ -190,7 +202,7 @@ export function HeaderModelLabel({
           <button
             type="button"
             data-header-model
-            aria-label={`Model: ${details}`}
+            aria-label={gt("Model: {details}", { details: details })}
             className="inline-flex max-w-24 min-w-0 shrink-0 cursor-help items-center gap-1.5 rounded-sm text-xs text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring @min-[28rem]/header-context:max-w-36"
           />
         }

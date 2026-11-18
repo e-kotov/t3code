@@ -1,9 +1,10 @@
+import { useGT, useMessages } from "gt-react-native";
 import { useCallback, useMemo, useSyncExternalStore, type ReactNode } from "react";
 import { useIsFocused } from "@react-navigation/native";
 import { AppState, View } from "react-native";
 import type { OrchestrationV2CacheHud, ServerProviderUsageWindow } from "@t3tools/contracts";
 import { createCacheHudClock, createCacheHudSnapshot } from "@t3tools/shared/cacheHud";
-import { formatResetsIn } from "@t3tools/shared/usageLimits";
+import { formatResetsIn } from "@t3tools/shared/usageLimitsCopy";
 import { formatModelSlugName } from "@t3tools/shared/model";
 import { useNowMinuteMs } from "../../lib/clock";
 import { AppText as Text } from "../../components/ui/AppText";
@@ -24,6 +25,8 @@ export function CacheHud(props: {
   effortLabel?: string | null;
   contextControl?: ReactNode;
 }) {
+  const gt = useGT();
+  const m = useMessages();
   const focused = useIsFocused();
   const now = useNowMinuteMs();
   const hud = props.hud;
@@ -64,11 +67,11 @@ export function CacheHud(props: {
       {usageWindows.map((window) => {
         const label =
           window.kind === "weekly"
-            ? "Week"
+            ? gt("Week", { $context: "weekly usage window" })
             : window.windowDurationMins === 300
               ? "5h"
               : window.label;
-        const reset = formatResetsIn(window, now)?.replace(/^resets in /, "↻");
+        const reset = formatResetsIn(window, now, m, "refill");
         return (
           <Text
             key={window.id}
@@ -98,7 +101,7 @@ export function CacheHud(props: {
               <Text
                 className="font-mono text-[10px] text-foreground-muted"
                 numberOfLines={1}
-                accessibilityLabel={`Model effort: ${props.effortLabel}`}
+                accessibilityLabel={gt("Model effort: {value1}", { value1: props.effortLabel })}
               >
                 {props.effortLabel}
               </Text>

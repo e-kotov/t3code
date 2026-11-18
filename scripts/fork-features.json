@@ -46,6 +46,7 @@
       "summary": "provider quota readouts in the chat header with 5-hour and weekly bars, model-aware switching and a compact popup",
       "tests": [
         "apps/web/src/usageCompact/UsageAvailability.app.browser.test.tsx",
+        "scripts/fork-usage-baseline.test.py",
         "apps/web/src/usageCompact/resetAvailability.logic.test.ts",
         "apps/web/src/usageCompact/CompactUsageControl.browser.test.tsx",
         "apps/web/src/usageCompact/HeaderUsageControl.browser.test.tsx",
@@ -416,6 +417,7 @@
         "scripts/fork-process-helper-shutdown.test.py",
         "scripts/claude-sync.test.py",
         "scripts/fork-failed-tests.test.py",
+        "scripts/fork-vitest-batches.test.ts",
         "scripts/fork-footprint-budget.test.py",
         "scripts/fork-merge-upstream.test.py",
         "scripts/fork-sync-excerpt.test.py",

@@ -1,20 +1,23 @@
+import { T, useGT } from "gt-react";
 import { DEFAULT_UNIFIED_SETTINGS } from "@t3tools/contracts/settings";
 import { useScopedSettings, useUpdateScopedSettings } from "./useScopedSettings";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { SettingResetButton, SettingsRow } from "./settingsLayout";
-import { searchableSetting } from "./settingsSearch";
+import { useSearchableSetting } from "./settingsSearch";
 
 export function TypeToCiteSetting() {
+  const gt = useGT();
+  const searchableSetting = useSearchableSetting();
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
   return (
     <SettingsRow
       {...searchableSetting("typing-with-selection")}
-      description="Choose what typing or pasting does while Cite is available."
+      description={gt("Choose what typing or pasting does while Cite is available.")}
       resetAction={
         settings.typingWithSelection !== DEFAULT_UNIFIED_SETTINGS.typingWithSelection ? (
           <SettingResetButton
-            label="typing with text selected"
+            ariaLabel={gt("Reset typing with text selected to default")}
             onClick={() =>
               updateSettings({
                 typingWithSelection: DEFAULT_UNIFIED_SETTINGS.typingWithSelection,
@@ -31,16 +34,20 @@ export function TypeToCiteSetting() {
               updateSettings({ typingWithSelection: value });
           }}
         >
-          <SelectTrigger size="sm" aria-label="Typing with text selected">
+          <SelectTrigger size="sm" aria-label={gt("Typing with text selected")}>
             <SelectValue>
               {settings.typingWithSelection === "cite"
-                ? "Cites the selection"
-                : "Goes to the composer"}
+                ? gt("Cites the selection")
+                : gt("Goes to the composer")}
             </SelectValue>
           </SelectTrigger>
           <SelectPopup>
-            <SelectItem value="composer">Goes to the composer</SelectItem>
-            <SelectItem value="cite">Cites the selection</SelectItem>
+            <SelectItem value="composer">
+              <T>Goes to the composer</T>
+            </SelectItem>
+            <SelectItem value="cite">
+              <T>Cites the selection</T>
+            </SelectItem>
           </SelectPopup>
         </Select>
       }

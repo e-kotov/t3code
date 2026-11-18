@@ -1,3 +1,5 @@
+import { m } from "../../i18n/messages";
+import { msg } from "gt-react-native";
 import {
   makeIncomingShareImports,
   type ShareImportDeps,
@@ -66,7 +68,10 @@ export function makeForkShareDestinationController(options: {
           ...snapshot,
           busy: false,
           visible: true,
-          error: error instanceof Error ? error.message : "The shared content could not be saved.",
+          error:
+            error instanceof Error
+              ? error.message
+              : m(msg("The shared content could not be saved.")),
         };
         notify();
       }
@@ -118,7 +123,7 @@ export function makeForkShareDestinationController(options: {
       snapshot = {
         ...snapshot!,
         busy: false,
-        error: error instanceof Error ? error.message : "Could not load saved drafts.",
+        error: error instanceof Error ? error.message : m(msg("Could not load saved drafts.")),
       };
     }
     notify();
@@ -165,7 +170,8 @@ export function makeForkShareDestinationController(options: {
         ...snapshot!,
         busy: false,
         visible: true,
-        error: error instanceof Error ? error.message : "The shared content could not be saved.",
+        error:
+          error instanceof Error ? error.message : m(msg("The shared content could not be saved.")),
       };
       notify();
     }
@@ -207,7 +213,7 @@ export function makeForkShareDestinationController(options: {
         snapshot = {
           ...snapshot!,
           busy: false,
-          error: error instanceof Error ? error.message : "Could not change destination.",
+          error: error instanceof Error ? error.message : m(msg("Could not change destination.")),
         };
       }
       notify();
@@ -257,7 +263,8 @@ export function makeForkShareDestinationController(options: {
       } catch (error) {
         snapshot = {
           ...snapshot,
-          error: error instanceof Error ? error.message : "That conversation is unavailable.",
+          error:
+            error instanceof Error ? error.message : m(msg("That conversation is unavailable.")),
         };
         notify();
         return;

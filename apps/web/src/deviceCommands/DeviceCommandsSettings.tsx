@@ -1,3 +1,4 @@
+import { useGT, useMessages, T } from "gt-react";
 import { DEVICE_COMMANDS_MAX_COUNT, type DeviceCommand } from "@t3tools/contracts";
 import { ArrowDownIcon, ArrowUpIcon, GripVerticalIcon, PlusIcon } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -20,6 +21,8 @@ import {
 } from "./deviceCommandsStore";
 
 export function DeviceCommandsSettings() {
+  const gt = useGT();
+  const m = useMessages();
   const commands = useDeviceCommandsStore((state) => state.commands);
   const loaded = useDeviceCommandsStore((state) => state.loaded);
   const loadError = useDeviceCommandsStore((state) => state.loadError);
@@ -56,23 +59,27 @@ export function DeviceCommandsSettings() {
   const valid = items.every((item) => item.name.trim() && item.command.trim());
   return (
     <SettingsPageContainer>
-      <SettingsSection title="Commands" id="device-commands">
+      <SettingsSection title={gt("Commands")} id="device-commands">
         {!getDeviceCommandsBridge() ? (
           <p>
-            Commands are available in the macOS and Linux desktop app. Android has its own Commands
-            tab using Termux.
+            <T>
+              Commands are available in the macOS and Linux desktop app. Android has its own
+              Commands tab using Termux.
+            </T>
           </p>
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Commands run in your login shell and stay on this device. Drag the handle or use the
-              arrows to reorder.
+              <T>
+                Commands run in your login shell and stay on this device. Drag the handle or use the
+                arrows to reorder.
+              </T>
             </p>
             {loadError ? (
               <div>
                 <p role="alert">{loadError}</p>
                 <Button variant="outline" onClick={() => void reloadDeviceCommands()}>
-                  Reload commands
+                  <T>Reload commands</T>
                 </Button>
               </div>
             ) : null}
@@ -93,7 +100,7 @@ export function DeviceCommandsSettings() {
                     draggable={!saving}
                     onDragStart={() => setDragId(item.id)}
                     onDragEnd={() => setDragId(null)}
-                    aria-label="Drag to reorder"
+                    aria-label={gt("Drag to reorder")}
                     className="cursor-grab"
                   >
                     <GripVerticalIcon className="size-4" />
@@ -101,17 +108,17 @@ export function DeviceCommandsSettings() {
                   <DeviceCommandGlyph icon={item.icon} />
                   <div className="flex-1">
                     <Input
-                      aria-label="Command name"
+                      aria-label={gt("Command name")}
                       value={item.name}
                       disabled={saving}
                       onChange={(event) => update(item.id, { name: event.target.value })}
-                      placeholder="Command name"
+                      placeholder={gt("Command name")}
                     />
                   </div>
                   <Button
                     size="icon-sm"
                     variant="ghost"
-                    aria-label={`Move ${item.name} up`}
+                    aria-label={gt("Move {value0} up", { value0: item.name })}
                     disabled={saving || index === 0}
                     onClick={() => setDraft(moveDeviceCommand(items, index, index - 1))}
                   >
@@ -120,7 +127,7 @@ export function DeviceCommandsSettings() {
                   <Button
                     size="icon-sm"
                     variant="ghost"
-                    aria-label={`Move ${item.name} down`}
+                    aria-label={gt("Move {value0} down", { value0: item.name })}
                     disabled={saving || index === items.length - 1}
                     onClick={() => setDraft(moveDeviceCommand(items, index, index + 1))}
                   >
@@ -128,21 +135,23 @@ export function DeviceCommandsSettings() {
                   </Button>
                 </div>
                 <label className="block space-y-1 text-sm">
-                  <span>Shell command</span>
+                  <span>
+                    <T>Shell command</T>
+                  </span>
                   <Textarea
                     value={item.command}
                     disabled={saving}
                     onChange={(event) => update(item.id, { command: event.target.value })}
-                    placeholder="Your shell command"
+                    placeholder={gt("Your shell command")}
                   />
                 </label>
-                <div className="flex flex-wrap gap-1" role="group" aria-label="Command icon">
+                <div className="flex flex-wrap gap-1" role="group" aria-label={gt("Command icon")}>
                   {DEVICE_COMMAND_ICON_OPTIONS.map(({ id, label, Icon }) => (
                     <Button
                       key={id}
                       size="icon-sm"
                       variant={item.icon === id ? "secondary" : "ghost"}
-                      aria-label={label}
+                      aria-label={m(label)}
                       aria-pressed={item.icon === id}
                       disabled={saving}
                       onClick={() => update(item.id, { icon: id })}
@@ -157,7 +166,7 @@ export function DeviceCommandsSettings() {
                     disabled={saving}
                     onCheckedChange={(confirm) => update(item.id, { confirm })}
                   />
-                  Ask before running
+                  <T>Ask before running</T>
                 </label>
                 <label className="flex items-center gap-2 text-sm">
                   <Switch
@@ -167,7 +176,7 @@ export function DeviceCommandsSettings() {
                       update(item.id, { showInCommandPalette })
                     }
                   />
-                  Show in command palette
+                  <T>Show in command palette</T>
                 </label>
                 <div className="flex gap-2">
                   <Button
@@ -180,7 +189,7 @@ export function DeviceCommandsSettings() {
                       })()
                     }
                   >
-                    Save and test run
+                    <T>Save and test run</T>
                   </Button>
                   <Button
                     size="sm"
@@ -219,23 +228,23 @@ export function DeviceCommandsSettings() {
                 }
               >
                 <PlusIcon />
-                Add command
+                <T>Add command</T>
               </Button>
               <Button
                 disabled={!draft || saving || !valid || !!loadError}
                 onClick={() => void persist()}
               >
-                {saving ? "Saving…" : "Save changes"}
+                {saving ? gt("Saving…") : gt("Save changes")}
               </Button>
               {draft ? (
                 <Button variant="ghost" disabled={saving} onClick={() => setDraft(null)}>
-                  Discard changes
+                  <T>Discard changes</T>
                 </Button>
               ) : null}
             </div>
             {storagePath ? (
               <p className="break-all text-xs text-muted-foreground">
-                Saved on this device: {storagePath}
+                {gt("Saved on this device: {storagePath}", { storagePath })}
               </p>
             ) : null}
           </div>

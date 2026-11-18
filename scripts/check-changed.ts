@@ -540,17 +540,10 @@ const checkChanged = Effect.fn("checkChanged")(function* (input: {
       : []),
     // From the repo root, the root vite.config.ts hands each file to its package's config.
     ...(vitestTests.length > 0
-      ? [
-          {
-            ...command(`test (${vitestTests.length} files)`, [
-              "test",
-              "run",
-              "--passWithNoTests",
-              ...vitestTests,
-            ]),
-            serial: true,
-          },
-        ]
+      ? (yield* Effect.promise(() => import("./fork-vitest-batches.ts"))).forkVitestSteps(
+          vitestTests,
+          command,
+        )
       : []),
     ...(nodeTests.length > 0
       ? [

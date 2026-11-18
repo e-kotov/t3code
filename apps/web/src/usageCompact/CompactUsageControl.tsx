@@ -1,5 +1,6 @@
+import { useGT, useLocale, useMessages, T } from "gt-react";
 import { ProviderDriverKind } from "@t3tools/contracts";
-import { formatDuration } from "@t3tools/shared/usageLimits";
+import { formatDuration } from "@t3tools/shared/usageLimitsCopy";
 import { useState } from "react";
 import { useClientSettings } from "../hooks/useSettings";
 import { ProviderInstanceIcon } from "../components/chat/ProviderInstanceIcon";
@@ -37,6 +38,9 @@ export function CompactUsageControl({
   hoverDelayMs?: number;
   onOpenFullView: () => void;
 }) {
+  const gt = useGT();
+  const m = useMessages();
+  const locale = useLocale();
   const [open, setOpen] = useState(false);
   const clientPopupEnabled = useClientSettings((s) => s.usagePopupEnabled);
   const clientHoverDelayMs = useClientSettings((s) => s.usagePopupHoverDelayMs);
@@ -74,7 +78,17 @@ export function CompactUsageControl({
         render={
           <button
             type="button"
-            aria-label={`Usage remaining: ${summary}${notices.length > 0 ? ". Partial report" : ""}${disconnected.length > 0 ? `. ${disconnectedNotice(disconnected)}` : ""}${authNotices.length > 0 ? ". Session sign-in unconfirmed" : ""}. Open full usage`}
+            aria-label={gt(
+              "Usage remaining: {summary}{partial, select, yes {. Partial report} other {}}{disconnected, select, yes {. {names} {count, plural, one {is} other {are}} not connected} other {}}{auth, select, yes {. Session sign-in unconfirmed} other {}}. Open full usage",
+              {
+                summary,
+                partial: notices.length > 0 ? "yes" : "no",
+                disconnected: disconnected.length > 0 ? "yes" : "no",
+                names: new Intl.ListFormat(locale, { type: "conjunction" }).format(disconnected),
+                count: disconnected.length,
+                auth: authNotices.length > 0 ? "yes" : "no",
+              },
+            )}
             data-header-usage
             className="relative flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 text-(--contrast-toolbar-foreground) outline-hidden [-webkit-app-region:no-drag] hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-popup-open:bg-accent"
             onClick={() => {
@@ -149,9 +163,11 @@ export function CompactUsageControl({
           finalFocus={false}
         >
           <div className="flex items-baseline gap-2">
-            <PopoverTitle>Quota remaining</PopoverTitle>
+            <PopoverTitle>
+              <T>Quota remaining</T>
+            </PopoverTitle>
             <span className="ms-auto text-3xs text-muted-foreground">
-              All authenticated harnesses · click opens Usage
+              <T>All authenticated harnesses · click opens Usage</T>
             </span>
           </div>
           {authNotices.length > 0 ? (
@@ -163,7 +179,9 @@ export function CompactUsageControl({
           ) : null}
           {notices.length > 0 ? (
             <div className="mt-1 text-3xs text-warning-foreground">
-              <p>Partial report. Some account limits are unavailable.</p>
+              <p>
+                <T>Partial report. Some account limits are unavailable.</T>
+              </p>
               <ul className="max-h-16 overflow-x-hidden overflow-y-auto wrap-anywhere">
                 {[...new Set(notices)].map((notice) => (
                   <li key={notice}>{notice}</li>
@@ -173,8 +191,13 @@ export function CompactUsageControl({
           ) : null}
           {disconnected.length > 0 ? (
             <p className="mt-1 text-3xs text-warning-foreground">
-              {disconnectedNotice(disconnected)}; {disconnected.length === 1 ? "its" : "their"}{" "}
-              values may be out of date.
+              {gt(
+                "{names} {count, plural, one {is not connected; its} other {are not connected; their}} values may be out of date.",
+                {
+                  names: new Intl.ListFormat(locale, { type: "conjunction" }).format(disconnected),
+                  count: disconnected.length,
+                },
+              )}
             </p>
           ) : null}
           <div
@@ -199,12 +222,14 @@ export function CompactUsageControl({
                 </div>
                 {provider.accounts.length > 1 ? (
                   <p className="text-3xs text-muted-foreground">
-                    {provider.accounts.length} accounts · pooled
+                    {gt("{count} accounts · pooled", { count: provider.accounts.length })}
                   </p>
                 ) : null}
                 <ResetAvailability accounts={provider.accounts} />
                 {provider.windows.length === 0 ? (
-                  <p className="mt-1 text-3xs text-muted-foreground">Limits unavailable</p>
+                  <p className="mt-1 text-3xs text-muted-foreground">
+                    <T>Limits unavailable</T>
+                  </p>
                 ) : (
                   groupUsageWindows(provider.windows).map((group) => (
                     <div
@@ -232,7 +257,7 @@ export function CompactUsageControl({
                                 {percent(window.remainingPercent)}
                               </span>
                               <span className="text-right whitespace-nowrap text-muted-foreground">
-                                {reset ? `↻ ${formatDuration(reset.at - now)}` : "n/a"}
+                                {reset ? `↻ ${formatDuration(reset.at - now, m)}` : "n/a"}
                               </span>
                             </div>
                             <div className="mt-0.5 h-0.5 overflow-hidden rounded-full bg-muted">
@@ -249,12 +274,15 @@ export function CompactUsageControl({
                 )}
                 {provider.accounts.length > 0 ? (
                   <p className="mt-1 text-3xs text-muted-foreground">
-                    Checked{" "}
-                    {new Date(
-                      Math.min(
-                        ...provider.accounts.map((account) => Date.parse(account.limits.checkedAt)),
-                      ),
-                    ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {gt("Checked {time}", {
+                      time: new Date(
+                        Math.min(
+                          ...provider.accounts.map((account) =>
+                            Date.parse(account.limits.checkedAt),
+                          ),
+                        ),
+                      ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                    })}
                   </p>
                 ) : null}
               </section>
@@ -264,11 +292,6 @@ export function CompactUsageControl({
       ) : null}
     </Popover>
   );
-}
-
-function disconnectedNotice(labels: readonly string[]) {
-  const names = new Intl.ListFormat("en", { type: "conjunction" }).format(labels);
-  return `${names} ${labels.length === 1 ? "is" : "are"} not connected`;
 }
 
 function percent(remaining: number | null) {

@@ -1,3 +1,5 @@
+import { T } from "gt-react-native";
+import { useGT } from "gt-react-native";
 import { settlePromise } from "@t3tools/client-runtime/state/runtime";
 import { AsyncResult } from "effect/reactivity";
 import { useState } from "react";
@@ -24,6 +26,7 @@ import { SettingsSwitchRow } from "./components/SettingsSwitchRow";
 
 /** Android notifications straight from paired servers, for builds without T3 Connect. */
 export function DirectSettingsNotificationsRouteScreen() {
+  const gt = useGT();
   const enabled = useDirectNotificationsEnabled();
   const notifySubagentCompletion = useNotifyOnSubagentCompletion();
   const [busy, setBusy] = useState(false);
@@ -40,51 +43,57 @@ export function DirectSettingsNotificationsRouteScreen() {
     });
     setBusy(false);
     if (AsyncResult.isFailure(result)) {
-      Dialog.alert("Couldn't change notifications", "Reopen T3 Code and try again.");
+      Dialog.alert(gt("Couldn't change notifications"), gt("Reopen T3 Code and try again."));
     } else if (!result.value) {
       Dialog.alert(
-        "Notifications are disabled",
-        "Allow notifications for T3 Code in Android Settings.",
+        gt("Notifications are disabled"),
+        gt("Allow notifications for T3 Code in Android Settings."),
       );
     }
   };
   return (
-    <SettingsScreen title="Notifications">
+    <SettingsScreen title={gt("Notifications")}>
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerClassName="gap-6 px-5 pt-4 pb-8"
       >
-        <SettingsSection title="Direct server notifications">
+        <SettingsSection title={gt("Direct server notifications")}>
           <SettingsSwitchRow
             icon="bell.badge"
-            label="Direct notifications"
+            label={gt("Direct notifications")}
             value={enabled}
             disabled={busy || !supportsDirectNotifications()}
-            subtitle="Completion, approval and input alerts from your paired servers. No cloud account."
+            subtitle={gt(
+              "Completion, approval and input alerts from your paired servers. No cloud account.",
+            )}
             onValueChange={(value) => {
               void toggle(value);
             }}
           />
           <SettingsSwitchRow
             icon="bell.badge"
-            label="Subagent completion alerts"
+            label={gt("Subagent completion alerts")}
             value={notifySubagentCompletion}
             disabled={!enabled || !supportsSubagentCompletionNotifications()}
-            subtitle="Get an alert when a subagent finishes. Input, approval and error alerts always come through."
+            subtitle={gt(
+              "Get an alert when a subagent finishes. Input, approval and error alerts always come through.",
+            )}
             onValueChange={setNotifyOnSubagentCompletion}
           />
           <SettingsRow
             icon="bolt.circle"
-            label="Android battery settings"
+            label={gt("Android battery settings")}
             onPress={openDirectNotificationBatterySettings}
           />
         </SettingsSection>
         <Text className="text-sm text-foreground-muted">{status}</Text>
         <Text className="text-sm text-foreground-muted">
-          Keeps a connection notification visible while listening. Keep your SSH tunnel running. For
-          screen-off delivery, exclude both T3 Code and your tunnel app from battery optimization.
-          Reopen T3 after Android stops it or after restarting your phone. Force stopping T3 stops
-          alerts.
+          <T>
+            Keeps a connection notification visible while listening. Keep your SSH tunnel running.
+            For screen-off delivery, exclude both T3 Code and your tunnel app from battery
+            optimization. Reopen T3 after Android stops it or after restarting your phone. Force
+            stopping T3 stops alerts.
+          </T>
         </Text>
       </ScrollView>
     </SettingsScreen>

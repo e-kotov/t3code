@@ -1,3 +1,4 @@
+import { useGT } from "gt-react-native";
 import { useId } from "react";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import type { MenuAction } from "@react-native-menu/menu";
@@ -59,6 +60,7 @@ export function useThreadCachePolicyMenu(thread: CacheThread) {
 }
 
 export function ThreadCachePolicyControl({ thread }: { readonly thread: CacheThread }) {
+  const gt = useGT();
   const menu = useThreadCachePolicyMenu(thread);
   const { themeVariables: colors } = useAppearancePreferences();
   const maskId = useId();
@@ -73,7 +75,7 @@ export function ThreadCachePolicyControl({ thread }: { readonly thread: CacheThr
   return (
     <Menu
       key={`${thread.environmentId}:${thread.id}`}
-      title="Idle cache policy"
+      title={gt("Idle cache policy")}
       actions={menu.actions}
       onPressAction={({ nativeEvent }) => {
         menu.handleAction(nativeEvent.event);
@@ -81,8 +83,8 @@ export function ThreadCachePolicyControl({ thread }: { readonly thread: CacheThr
     >
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Idle cache policy: ${label}`}
-        accessibilityHint="Choose Default, Keep warm, Compact before expiry (Claude), or Off."
+        accessibilityLabel={gt("Idle cache policy: {value1}", { value1: label })}
+        accessibilityHint={gt("Choose Default, Keep warm, Compact before expiry (Claude), or Off.")}
         disabled={!menu.canWrite}
         onTouchStart={(event) => event.stopPropagation()}
         className="ml-1 h-11 w-11 items-center justify-center"

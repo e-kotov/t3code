@@ -8,10 +8,13 @@ import {
   REMOTE_CAPABLE_EDITOR_IDS,
 } from "./editor.ts";
 
+const decodeEditorId = Schema.decodeUnknownSync(EditorId);
+const decodeLaunchEditorInput = Schema.decodeUnknownSync(LaunchEditorInput);
+
 describe("fork editor contracts", () => {
   it.each(["positron", "gram"])("accepts %s in editor RPC requests", (editor) => {
-    expect(Schema.decodeUnknownSync(EditorId)(editor)).toBe(editor);
-    expect(Schema.decodeUnknownSync(LaunchEditorInput)({ editor, cwd: "/my project" })).toEqual({
+    expect(decodeEditorId(editor)).toBe(editor);
+    expect(decodeLaunchEditorInput({ editor, cwd: "/my project" })).toEqual({
       editor,
       cwd: "/my project",
     });

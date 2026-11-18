@@ -1,3 +1,4 @@
+import { m, type MessageResolver } from "../../i18n/messages";
 import type { ForkThreadQuota } from "@t3tools/contracts";
 import { expect, it } from "vite-plus/test";
 import { quotaAmountText } from "./forkThreadQuotaText";
@@ -27,4 +28,18 @@ it("keeps zero, missing readings, partial values and percentages above 100 disti
   expect(quotaAmountText({ ...creditOnly, balanceCredits: "-1E-18" })).toBe(
     "-0.000000000000000001 credits",
   );
+});
+
+it("uses the caller's current-locale resolver for quota status and units", () => {
+  const resolve = ((message: string) => `translated:${m(message)}`) as MessageResolver;
+  const reading: ForkThreadQuota = {
+    status: "available",
+    checkedAt: "2026-10-31T12:00:00Z",
+    dataAsOf: null,
+    fiveHourPercent: 1,
+    weeklyPercent: null,
+    balanceCredits: null,
+  };
+  expect(quotaAmountText(reading, resolve)).toBe("translated:5h 1%");
+  expect(quotaAmountText({ ...reading, status: "error" }, resolve)).toBe("translated:Unavailable");
 });

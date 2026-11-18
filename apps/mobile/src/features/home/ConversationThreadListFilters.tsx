@@ -1,3 +1,4 @@
+import { useGT, useMessages } from "gt-react-native";
 import type { ComponentProps } from "react";
 import { ListFilterMenu } from "../layout/workspace/ListFilterMenu";
 import { ThreadListFilters } from "./ThreadListFilters";
@@ -15,6 +16,8 @@ export function ConversationThreadListFilters({
   readonly conversationList: ConversationListControls;
   readonly machineSummary?: string;
 }) {
+  const gt = useGT();
+  const m = useMessages();
   return (
     <ThreadListFilters
       {...props}
@@ -27,16 +30,20 @@ export function ConversationThreadListFilters({
           conversationList,
           undefined,
           machineSummary,
+          m,
         );
         const label =
           kind === "sort"
-            ? (actions.find((action) => action.state === "on")?.title ?? "Sort")
-            : (actions.find((action) => action.state === "on")?.title ?? "No grouping");
+            ? (actions.find((action) => action.state === "on")?.title ??
+              gt("Sort", { $context: "verb" }))
+            : (actions.find((action) => action.state === "on")?.title ?? gt("No grouping"));
         return (
           <ListFilterMenu
             key={kind}
             label={label}
-            accessibilityLabel={kind === "sort" ? "Sort conversations" : "Group conversations"}
+            accessibilityLabel={
+              kind === "sort" ? gt("Sort conversations") : gt("Group conversations")
+            }
             active={
               kind === "sort"
                 ? conversationList.conversationSortOrder !== "updated_at" ||

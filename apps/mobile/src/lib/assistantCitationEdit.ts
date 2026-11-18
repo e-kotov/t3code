@@ -1,3 +1,5 @@
+import { m } from "../i18n/messages";
+import { msg } from "gt-react-native";
 import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import {
   collectAssistantCitations,
@@ -63,11 +65,11 @@ function editTargetError(input: AssistantCitationEditInput): string | null {
     input.environmentId !== pending.environmentId ||
     input.threadId !== pending.threadId
   ) {
-    return "The composer is not ready. Return to an editable prompt and try again.";
+    return m(msg("The composer is not ready. Return to an editable prompt and try again."));
   }
   // Never guess which of two identical chips survived a background draft change.
   if (input.draft !== pending.draft) {
-    return "The draft changed. Close this sheet and tap the quote again.";
+    return m(msg("The draft changed. Close this sheet and tap the quote again."));
   }
   return null;
 }

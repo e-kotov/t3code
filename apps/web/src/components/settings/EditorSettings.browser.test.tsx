@@ -1,7 +1,6 @@
 import { EnvironmentId } from "@t3tools/contracts";
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { render } from "../../../test/render";
+import { expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
 import { editorPreferencesKey } from "../../forkEditorPreferences";
 
@@ -31,49 +30,29 @@ vi.mock(import("./settingsLayout"), async (original) => ({
 
 import { EditorSettings } from "./EditorSettings";
 
-let root: Root;
-let container: HTMLDivElement;
-beforeEach(() => {
-  localStorage.clear();
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
-});
-afterEach(async () => {
-  await act(async () => root.unmount());
-  container.remove();
-  localStorage.clear();
-  vi.unstubAllGlobals();
-});
-
 async function choose(label: string, option: string) {
-  await act(async () => userEvent.click(page.getByRole("combobox", { name: label, exact: true })));
-  await act(async () => userEvent.click(page.getByRole("option", { name: option, exact: true })));
+  await userEvent.click(page.getByRole("combobox", { name: label, exact: true }));
+  await userEvent.click(page.getByRole("option", { name: option, exact: true }));
 }
 
 it("persists remote visibility independently of local custom commands, defaults and deletion", async () => {
-  await act(async () => root.render(<EditorSettings />));
+  localStorage.clear();
+  using _storage = { [Symbol.dispose]: () => localStorage.clear() };
+  await using _screen = await render(<EditorSettings />);
   await choose("Gram visibility", "Always show");
   const remoteKey = editorPreferencesKey(null, true);
   expect(JSON.parse(localStorage.getItem(remoteKey)!)).toMatchObject({
     builtIns: [{ id: "gram", visibility: "show" }],
   });
   await choose("Editor configuration target", "Local commands on Mac");
-  await act(async () => userEvent.click(page.getByRole("button", { name: "Add custom editor" })));
-  await act(async () =>
-    userEvent.fill(page.getByRole("textbox", { name: "Name", exact: true }), "My editor"),
+  await userEvent.click(page.getByRole("button", { name: "Add custom editor" }));
+  await userEvent.fill(page.getByRole("textbox", { name: "Name", exact: true }), "My editor");
+  await userEvent.fill(
+    page.getByRole("textbox", { name: "Executable", exact: true }),
+    "/my tools/editor",
   );
-  await act(async () =>
-    userEvent.fill(
-      page.getByRole("textbox", { name: "Executable", exact: true }),
-      "/my tools/editor",
-    ),
-  );
-  await act(async () =>
-    userEvent.fill(document.querySelector("textarea")!, "--goto\n{path}:{line}"),
-  );
-  await act(async () => userEvent.click(page.getByRole("button", { name: "Save editor" })));
+  await userEvent.fill(document.querySelector("textarea")!, "--goto\n{path}:{line}");
+  await userEvent.click(page.getByRole("button", { name: "Save editor" }));
   const localKey = editorPreferencesKey(EnvironmentId.make("mac"), false);
   const saved = JSON.parse(localStorage.getItem(localKey)!);
   expect(saved.custom).toHaveLength(1);
@@ -84,7 +63,7 @@ it("persists remote visibility independently of local custom commands, defaults 
   });
   await choose("Default editor", "My editor");
   expect(JSON.parse(localStorage.getItem(localKey)!).preferred).toBe(saved.custom[0].id);
-  await act(async () => userEvent.click(page.getByRole("button", { name: "Remove", exact: true })));
+  await userEvent.click(page.getByRole("button", { name: "Remove", exact: true }));
   expect(JSON.parse(localStorage.getItem(localKey)!)).toMatchObject({
     custom: [],
     preferred: null,

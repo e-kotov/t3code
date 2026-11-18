@@ -1,6 +1,9 @@
+import { useGT, useMessages } from "gt-react";
 import { useSyncExternalStore } from "react";
 import type { OrchestrationV2CacheHud, ServerProviderUsageWindow } from "@t3tools/contracts";
-import { formatResetsIn } from "@t3tools/shared/usageLimits";
+import { formatResetsIn } from "@t3tools/shared/usageLimitsCopy";
+import { useNowMinute } from "../../hooks/useNowMinute";
+import { useNowAfter } from "../../hooks/useDeadline";
 import { createCacheHudClock, createCacheHudSnapshot } from "@t3tools/shared/cacheHud";
 import type { ReactNode } from "react";
 import { ComposerBanner } from "./ComposerBanner";
@@ -90,19 +93,25 @@ function useCacheHudView(hud: OrchestrationV2CacheHud | null | undefined) {
 }
 
 function UsageWindows({ windows }: { windows: readonly ServerProviderUsageWindow[] }) {
+  const gt = useGT();
+  const messages = useMessages();
+  const now = useNowAfter(Date.parse(useNowMinute()));
   if (windows.length === 0) return null;
-  const now = Date.now();
   return (
     <span className="flex shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-0.5 text-muted-foreground">
       {windows.map((window) => {
         const label = usageWindowLabel(window);
         const remaining = Math.max(0, 100 - Math.round(window.usedPercent));
-        const resetsIn = formatResetsIn(window, now);
+        const resetsIn = formatResetsIn(window, now, messages);
         return (
           <span
             key={window.id}
             className="whitespace-nowrap tabular-nums"
-            aria-label={`${window.label}: ${remaining}% left${resetsIn ? `, ${resetsIn}` : ""}`}
+            aria-label={gt("{value1}: {remaining}% left{value3}", {
+              value1: window.label,
+              remaining: remaining,
+              value3: resetsIn ? `, ${resetsIn}` : "",
+            })}
           >
             {label} {remaining}%{resetsIn ? ` ↻ ${resetsIn.replace(/^resets in /, "")}` : ""}
           </span>

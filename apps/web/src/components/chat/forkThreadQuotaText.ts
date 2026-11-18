@@ -1,3 +1,5 @@
+import { msg } from "gt-react";
+import { m, type MessageResolver } from "~/i18n/messages";
 import type { ForkThreadQuota } from "@t3tools/contracts";
 
 const ZERO_CREDITS = /^[+-]?(?:0+(?:\.0*)?|\.0+)(?:e[+-]?\d+)?$/i;
@@ -10,22 +12,26 @@ function creditAmountText(value: string): string {
     : value;
 }
 
-export function quotaAmountText(reading: ForkThreadQuota): string {
-  if (reading.status === "error") return "Unavailable";
-  if (reading.status === "unavailable") return "Not reported yet";
+export function quotaAmountText(reading: ForkThreadQuota, resolve: MessageResolver = m): string {
+  if (reading.status === "error") return resolve(msg("Unavailable"));
+  if (reading.status === "unavailable") return resolve(msg("Not reported yet"));
   const parts: string[] = [];
   const format = (value: number) =>
     value > 0 && value < 0.01
       ? "<0.01"
       : value.toLocaleString("en-US", { maximumFractionDigits: 2 });
-  if (reading.fiveHourPercent !== null) parts.push(`5h ${format(reading.fiveHourPercent)}%`);
-  if (reading.weeklyPercent !== null) parts.push(`Weekly ${format(reading.weeklyPercent)}%`);
+  if (reading.fiveHourPercent !== null)
+    parts.push(resolve(msg("5h {percent}%", { percent: format(reading.fiveHourPercent) })));
+  if (reading.weeklyPercent !== null)
+    parts.push(resolve(msg("Weekly {percent}%", { percent: format(reading.weeklyPercent) })));
   if (
     reading.balanceCredits !== null &&
     (parts.length === 0 || !ZERO_CREDITS.test(reading.balanceCredits))
   )
-    parts.push(`${creditAmountText(reading.balanceCredits)} credits`);
+    parts.push(
+      resolve(msg("{credits} credits", { credits: creditAmountText(reading.balanceCredits) })),
+    );
   return parts.length
     ? `${reading.status === "partial" ? "~" : ""}${parts.join(" · ")}`
-    : "Not reported yet";
+    : resolve(msg("Not reported yet"));
 }

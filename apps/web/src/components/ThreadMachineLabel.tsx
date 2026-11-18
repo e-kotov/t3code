@@ -1,3 +1,4 @@
+import { T, useGT } from "gt-react";
 import { resolveEnvironmentMachineKind, type EnvironmentId } from "@t3tools/contracts";
 import { BotIcon, CircleDashedIcon } from "lucide-react";
 
@@ -9,8 +10,9 @@ export function ThreadMachineLabel(props: {
   readonly environmentId: EnvironmentId;
   readonly shell: Pick<EnvironmentThreadShell, "lineage"> | null;
 }) {
+  const gt = useGT();
   const { presentation: environment } = useEnvironmentPresentation(props.environmentId);
-  const label = environment?.entry.target.label.trim() || "Unknown machine";
+  const label = environment?.entry.target.label.trim() || gt("Unknown machine");
   return (
     <>
       <span className="inline-flex min-w-0 items-center gap-[0.2em] rounded-sm px-0.5 [:is(button:enabled,a):hover>&]:bg-foreground/10">
@@ -27,7 +29,9 @@ export function ThreadMachineLabel(props: {
       {props.shell?.lineage?.relationshipToParent === "subagent" ? (
         <span className="inline-flex shrink-0 items-center gap-0.5 self-baseline text-muted-foreground">
           <BotIcon aria-hidden="true" />
-          <span>Subagent</span>
+          <span>
+            <T>Subagent</T>
+          </span>
         </span>
       ) : null}
     </>
@@ -36,17 +40,21 @@ export function ThreadMachineLabel(props: {
 
 // An unknown machine keeps upstream's exact link name, which upstream tests assert.
 export function useThreadLinkName(environmentId: EnvironmentId, title: string) {
+  const gt = useGT();
   const { presentation } = useEnvironmentPresentation(environmentId);
   const label = presentation?.entry.target.label.trim();
-  return label ? { "aria-label": `Thread, ${title}, on ${label}` } : {};
+  return label
+    ? { "aria-label": gt("Thread, {title}, on {label}", { title: title, label: label }) }
+    : {};
 }
 
 export function ThreadMachineDetails(props: { readonly environmentId: EnvironmentId }) {
+  const gt = useGT();
   const { presentation: environment } = useEnvironmentPresentation(props.environmentId);
   const label = environment?.entry.target.label.trim();
   return (
     <div>
-      <div>{label || "Unknown machine"}</div>
+      <div>{label || gt("Unknown machine")}</div>
       {!label ? <div className="font-mono">{props.environmentId}</div> : null}
     </div>
   );

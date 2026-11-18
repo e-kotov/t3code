@@ -1,3 +1,4 @@
+import { useMessages } from "gt-react-native";
 import { arrangeWorkingSidebarList } from "./workingSidebarList";
 import { useThreadListV2 } from "./useThreadListV2";
 import { arrangeMobileConversationList } from "./machineGroupedThreadList";
@@ -12,6 +13,7 @@ export function useConversationThreadListV2(
     };
   },
 ) {
+  const m = useMessages();
   const { conversation, ...listInput } = input;
   const { collapsedMachineGroups } = useMachineGroupCollapse();
   const workingOnly = conversation.view.workingOnly === true;
@@ -36,6 +38,7 @@ export function useConversationThreadListV2(
         searchQuery: input.searchQuery,
         grouping: conversation.view.conversationGrouping ?? "none",
       },
+      m,
     ),
   };
 }

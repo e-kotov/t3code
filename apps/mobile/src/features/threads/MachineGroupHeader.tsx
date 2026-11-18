@@ -1,3 +1,4 @@
+import { useGT } from "gt-react-native";
 import { EnvironmentId, type EnvironmentMachineKind } from "@t3tools/contracts";
 import { memo } from "react";
 import { Pressable, View } from "react-native";
@@ -51,6 +52,7 @@ const ThreadListV2MachineHeader = memo(function ThreadListV2MachineHeader(props:
   readonly collapsible?: boolean;
   readonly section?: MachineGroupSection;
 }) {
+  const gt = useGT();
   const { environmentId, position, count, onMove } = props;
   const { collapsedMachineGroups, toggleMachineGroup } = useMachineGroupCollapse();
   const collapsed =
@@ -95,7 +97,11 @@ const ThreadListV2MachineHeader = memo(function ThreadListV2MachineHeader(props:
                       <Pressable
                         key={delta}
                         accessibilityRole="button"
-                        accessibilityLabel={`Move ${props.label} machine group ${delta < 0 ? "up" : "down"}`}
+                        accessibilityLabel={
+                          delta < 0
+                            ? gt("Move {machine} machine group up", { machine: props.label })
+                            : gt("Move {machine} machine group down", { machine: props.label })
+                        }
                         accessibilityState={{ disabled }}
                         disabled={disabled}
                         className="size-7 items-center justify-center"
@@ -114,7 +120,11 @@ const ThreadListV2MachineHeader = memo(function ThreadListV2MachineHeader(props:
               {environmentId && props.collapsible ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`${collapsed ? "Expand" : "Collapse"} ${props.label} machine group`}
+                  accessibilityLabel={
+                    collapsed
+                      ? gt("Expand {machine} machine group", { machine: props.label })
+                      : gt("Collapse {machine} machine group", { machine: props.label })
+                  }
                   accessibilityState={{ expanded: !collapsed }}
                   className="size-7 items-center justify-center"
                   onPress={() => toggleMachineGroup(environmentId, props.section)}

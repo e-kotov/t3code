@@ -1,3 +1,5 @@
+import { msg } from "gt-react-native";
+import { m } from "../../i18n/messages";
 // The embedded node forwards connections without occupying Android's VPN slot.
 import type { BuiltInTailnet } from "@t3tools/client-runtime/connection";
 import { requireOptionalNativeModule } from "expo";
@@ -58,7 +60,7 @@ function parse<T>(json: string): Reply<T> {
   try {
     return JSON.parse(json) as Reply<T>;
   } catch {
-    return { ok: false, error: "Unreadable reply from built-in Tailscale." };
+    return { ok: false, error: m(msg("Unreadable reply from built-in Tailscale.")) };
   }
 }
 

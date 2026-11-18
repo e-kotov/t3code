@@ -1,3 +1,4 @@
+import { useGT } from "gt-react-native";
 import { processColor } from "react-native";
 import { useDeviceUtilities } from "./utilitiesStore";
 import { utilityColor } from "./utilityColors";
@@ -8,15 +9,15 @@ export interface UtilitiesNavigation {
   readonly utilitiesColor: number;
 }
 
-function utilitiesNavigationLabel(aggregate: string, statuses: readonly string[]) {
-  return `Utilities, ${aggregate}, ${statuses.filter((status) => status === "down").length} down`;
-}
-
 export function useUtilitiesNavigation(dark: boolean): UtilitiesNavigation {
+  const gt = useGT();
   const utilities = useDeviceUtilities();
   const color = processColor(utilityColor(utilities.aggregate, dark));
   return {
-    utilitiesLabel: utilitiesNavigationLabel(utilities.aggregate, utilities.statuses),
+    utilitiesLabel: gt("Utilities, {aggregate}, {count} down", {
+      aggregate: utilities.aggregate,
+      count: utilities.statuses.filter((status) => status === "down").length,
+    }),
     utilitiesColor: typeof color === "number" ? color : 0,
   };
 }

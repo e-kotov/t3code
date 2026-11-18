@@ -1,3 +1,4 @@
+import { T, useGT } from "gt-react-native";
 import { UtilitiesSection } from "../device-utilities/UtilitiesSection";
 import { StackActions, useNavigation, usePreventRemove } from "@react-navigation/native";
 import { WindowHingeContext } from "../../native/window-hinge-context";
@@ -68,6 +69,7 @@ function readSnapshot(): {
 }
 
 export function DeviceCommandsScreen() {
+  const gt = useGT();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const hinge = use(WindowHingeContext);
@@ -87,9 +89,13 @@ export function DeviceCommandsScreen() {
   const [editBaseline, setEditBaseline] = useState<ReadonlyArray<DeviceCommand>>([]);
   const dirty = editing && draft !== null && !sameDeviceCommands(draft, editBaseline);
   usePreventRemove(dirty, ({ data }) => {
-    Alert.alert("Discard command changes?", "Your unsaved command edits will be lost.", [
-      { text: "Keep editing", style: "cancel" },
-      { text: "Discard", style: "destructive", onPress: () => navigation.dispatch(data.action) },
+    Alert.alert(gt("Discard command changes?"), gt("Your unsaved command edits will be lost."), [
+      { text: gt("Keep editing"), style: "cancel" },
+      {
+        text: gt("Discard"),
+        style: "destructive",
+        onPress: () => navigation.dispatch(data.action),
+      },
     ]);
   });
   const [outputId, setOutputId] = useState<string | null>(null);
@@ -126,9 +132,9 @@ export function DeviceCommandsScreen() {
   function run(command: DeviceCommand) {
     const execute = () => perform(() => runTermuxCommand(command.id));
     if (command.confirm)
-      Alert.alert(`Run ${command.name}?`, command.command, [
-        { text: "Cancel", style: "cancel" },
-        { text: "Run", onPress: execute },
+      Alert.alert(gt("Run {name}?", { name: command.name }), command.command, [
+        { text: gt("Cancel"), style: "cancel" },
+        { text: gt("Run"), onPress: execute },
       ]);
     else execute();
   }
@@ -152,23 +158,26 @@ export function DeviceCommandsScreen() {
     }
   }
   function resultLabel(run: DeviceCommandRun | undefined) {
-    if (!run) return "Ready";
-    if (run.status === "running") return "Running · waiting for Termux result";
-    if (run.status === "succeeded") return "Finished";
-    return run.error ?? `Failed${run.exitCode === null ? "" : ` · exit ${run.exitCode}`}`;
+    if (!run) return gt("Ready");
+    if (run.status === "running") return gt("Running · waiting for Termux result");
+    if (run.status === "succeeded") return gt("Finished");
+    return (
+      run.error ??
+      (run.exitCode === null ? gt("Failed") : gt("Failed · exit {code}", { code: run.exitCode }))
+    );
   }
   return (
     <View className="flex-1 bg-screen" style={{ paddingLeft: left, paddingRight: right }}>
       <AppBar
         onClose={close}
-        closeAccessibilityLabel="Close utilities"
-        title="Utilities"
+        closeAccessibilityLabel={gt("Close utilities")}
+        title={gt("Utilities")}
         actions={
           state
             ? [
                 {
                   icon: editing ? "checkmark" : "pencil",
-                  accessibilityLabel: editing ? "Save commands" : "Edit commands",
+                  accessibilityLabel: editing ? gt("Save commands") : gt("Edit commands"),
                   onPress: edit,
                   disabled:
                     editing && items.some((item) => !item.name.trim() || !item.command.trim()),
@@ -192,29 +201,39 @@ export function DeviceCommandsScreen() {
             <UtilitiesSection />
           </View>
           <View style={{ flex: wide ? 1 : undefined, minWidth: 0, gap: 16 }}>
-            <Text className="font-t3-medium">Commands</Text>
+            <Text className="font-t3-medium">
+              <T>Commands</T>
+            </Text>
             <Text className="text-foreground-muted">
-              Commands run locally in Termux, using this phone’s setup. Output arrives when the
-              command finishes.
+              <T>
+                Commands run locally in Termux, using this phone’s setup. Output arrives when the
+                command finishes.
+              </T>
             </Text>
             {!termuxCommandsAvailable ? (
-              <Text>Install an updated Android build to use Termux commands.</Text>
+              <Text>
+                <T>Install an updated Android build to use Termux commands.</T>
+              </Text>
             ) : null}
             {state ? (
               <View className="gap-3 rounded-xl border border-border p-4">
-                <Text className="font-t3-medium">Termux setup</Text>
+                <Text className="font-t3-medium">
+                  <T>Termux setup</T>
+                </Text>
                 <Text>
-                  {state.installed ? "Termux installed" : "Install Termux first"} ·{" "}
-                  {state.permissionGranted ? "Permission granted" : "Permission needed"}
+                  {state.installed ? gt("Termux installed") : gt("Install Termux first")} ·{" "}
+                  {state.permissionGranted ? gt("Permission granted") : gt("Permission needed")}
                 </Text>
                 <Text className="text-foreground-muted">
-                  Enable allow-external-apps = true in ~/.termux/termux.properties. Test the
-                  connection to verify it.
+                  <T>
+                    Enable allow-external-apps = true in ~/.termux/termux.properties. Test the
+                    connection to verify it.
+                  </T>
                 </Text>
                 <View className="flex-row flex-wrap gap-2">
                   {!state.permissionGranted && state.installed ? (
                     <Button
-                      label="Grant permission"
+                      label={gt("Grant permission")}
                       onPress={() =>
                         void requestTermuxPermission()
                           .then(refresh)
@@ -222,9 +241,12 @@ export function DeviceCommandsScreen() {
                       }
                     />
                   ) : null}
-                  <Button label="Android settings" onPress={() => void Linking.openSettings()} />
                   <Button
-                    label={probe?.status === "running" ? "Testing…" : "Test connection"}
+                    label={gt("Android settings")}
+                    onPress={() => void Linking.openSettings()}
+                  />
+                  <Button
+                    label={probe?.status === "running" ? gt("Testing…") : gt("Test connection")}
                     disabled={
                       !state.installed || !state.permissionGranted || probe?.status === "running"
                     }
@@ -240,22 +262,28 @@ export function DeviceCommandsScreen() {
               </Text>
             ) : null}
             {items.length === 0 ? (
-              <Text>No commands yet. Tap Edit to add your first command.</Text>
+              <Text>
+                <T>No commands yet. Tap Edit to add your first command.</T>
+              </Text>
             ) : null}
             {items.map((command, index) => (
               <View key={command.id} className="gap-3 rounded-xl border border-border p-4">
                 {editing ? (
                   <>
-                    <Text>Name</Text>
+                    <Text>
+                      <T>Name</T>
+                    </Text>
                     <TextInput
-                      accessibilityLabel="Command name"
+                      accessibilityLabel={gt("Command name")}
                       value={command.name}
                       onChangeText={(name) => update(command.id, { name })}
                       className="rounded-lg border border-border p-3 text-foreground"
                     />
-                    <Text>Shell command</Text>
+                    <Text>
+                      <T>Shell command</T>
+                    </Text>
                     <TextInput
-                      accessibilityLabel="Shell command"
+                      accessibilityLabel={gt("Shell command")}
                       value={command.command}
                       onChangeText={(value) => update(command.id, { command: value })}
                       multiline
@@ -286,26 +314,28 @@ export function DeviceCommandsScreen() {
                       ))}
                     </View>
                     <View className="flex-row items-center justify-between">
-                      <Text>Ask before running</Text>
+                      <Text>
+                        <T>Ask before running</T>
+                      </Text>
                       <ThemedSwitch
-                        accessibilityLabel="Ask before running"
+                        accessibilityLabel={gt("Ask before running")}
                         value={command.confirm}
                         onValueChange={(confirm) => update(command.id, { confirm })}
                       />
                     </View>
                     <View className="flex-row flex-wrap gap-2">
                       <Button
-                        label="Move up"
+                        label={gt("Move up")}
                         disabled={index === 0}
                         onPress={() => setDraft(reorderDeviceCommand(items, index, index - 1))}
                       />
                       <Button
-                        label="Move down"
+                        label={gt("Move down")}
                         disabled={index === items.length - 1}
                         onPress={() => setDraft(reorderDeviceCommand(items, index, index + 1))}
                       />
                       <Button
-                        label="Delete"
+                        label={gt("Delete", { $context: "verb, deletes a command" })}
                         tone="danger"
                         onPress={() => setDraft(items.filter((item) => item.id !== command.id))}
                       />
@@ -333,7 +363,11 @@ export function DeviceCommandsScreen() {
                       </View>
                     </Pressable>
                     <Button
-                      label={runs[command.id]?.status === "running" ? "Running…" : "Run"}
+                      label={
+                        runs[command.id]?.status === "running"
+                          ? gt("Running…")
+                          : gt("Run", { $context: "verb, executes a shell command" })
+                      }
                       disabled={
                         !state?.installed ||
                         !state.permissionGranted ||
@@ -348,12 +382,12 @@ export function DeviceCommandsScreen() {
             {editing ? (
               <View className="flex-row flex-wrap gap-2">
                 <Button
-                  label="Add command"
+                  label={gt("Add command")}
                   disabled={items.length >= DEVICE_COMMANDS_MAX_COUNT}
                   onPress={() => setDraft([...items, createDeviceCommand(items)])}
                 />
                 <Button
-                  label="Discard changes"
+                  label={gt("Discard changes")}
                   onPress={() => {
                     setDraft(null);
                     setEditing(false);
@@ -373,30 +407,38 @@ export function DeviceCommandsScreen() {
             >
               <SheetHeader
                 presentation="inline"
-                title={output?.commandName ?? "Output"}
+                title={output?.commandName ?? gt("Output")}
                 onClose={() => setOutputId(null)}
-                accessibilityLabel="Close output"
+                accessibilityLabel={gt("Close output")}
               />
               <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
                 <Text>{resultLabel(output)}</Text>
-                {output?.outputTruncated ? <Text>Showing the latest output only.</Text> : null}
+                {output?.outputTruncated ? (
+                  <Text>
+                    <T>Showing the latest output only.</T>
+                  </Text>
+                ) : null}
                 <Text selectable>
                   {output?.output ||
                     (output?.status === "running"
-                      ? "Termux returns output when the command finishes. Closing T3 does not stop it."
-                      : "No output.")}
+                      ? gt(
+                          "Termux returns output when the command finishes. Closing T3 does not stop it.",
+                        )
+                      : gt("No output."))}
                 </Text>
                 {output?.status === "running" ? (
                   <Button
-                    label="Clear waiting status"
+                    label={gt("Clear waiting status")}
                     onPress={() =>
                       Alert.alert(
-                        "Clear waiting status?",
-                        "This does not stop the Termux command. Confirm it has stopped before running it again.",
+                        gt("Clear waiting status?"),
+                        gt(
+                          "This does not stop the Termux command. Confirm it has stopped before running it again.",
+                        ),
                         [
-                          { text: "Cancel", style: "cancel" },
+                          { text: gt("Cancel"), style: "cancel" },
                           {
-                            text: "Clear status",
+                            text: gt("Clear status"),
                             onPress: () => perform(() => clearTermuxWaitingStatus(output.runId)),
                           },
                         ],
