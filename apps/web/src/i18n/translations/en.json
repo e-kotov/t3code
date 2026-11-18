@@ -7932,6 +7932,7 @@
   "f2d967e7e3a1f724": "For conversations set to Keep warm. Codex does not report how long its prompt cache lasts, so the warm turn is sent after this much idle time and skipped once five more minutes pass. Claude uses its reported cache lifetime.",
   "11457908284789d4": "Reset Codex warm time to default",
   "8e350c21788560fa": "Warm Codex after",
+  "d3ad545e7b45d509": "Upgrade T3 Code on {environments} to change this setting; older servers still warm Codex after 55 minutes.",
   "cd67d110c09bfdf4": "Toggle account email visibility",
   "6b2ce50ea6a13f57": "Click to reveal email",
   "34ce8910007bfaf1": "Click to hide email",

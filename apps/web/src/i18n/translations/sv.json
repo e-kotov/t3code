@@ -7930,6 +7930,7 @@
   "f2d967e7e3a1f724": "För konversationer inställda på Keep warm. Codex rapporterar inte hur länge dess promptcache varar, så uppvärmningsturen skickas efter så här lång inaktivitet och hoppas över när ytterligare fem minuter har gått. Claude använder sin rapporterade cachelivslängd.",
   "11457908284789d4": "Återställ uppvärmningstid för Codex till standard",
   "8e350c21788560fa": "Värm Codex efter",
+  "d3ad545e7b45d509": "Uppdatera T3 Code på {environments} för att ändra den här inställningen; äldre servrar värmer fortfarande Codex efter 55 minuter.",
   "cd67d110c09bfdf4": "Växla synlighet för kontots e-postadress",
   "6b2ce50ea6a13f57": "Klicka för att visa e-postadressen",
   "34ce8910007bfaf1": "Klicka för att dölja e-postadressen",

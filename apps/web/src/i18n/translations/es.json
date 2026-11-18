@@ -7924,6 +7924,7 @@
   "f2d967e7e3a1f724": "Para conversaciones configuradas como Keep warm. Codex no informa cuánto dura su caché de prompts, así que el turno de calentamiento se envía tras este tiempo de inactividad y se omite cuando pasan cinco minutos más. Claude usa la duración de caché que informa.",
   "11457908284789d4": "Restablecer el tiempo de calentamiento de Codex al valor predeterminado",
   "8e350c21788560fa": "Calentar Codex después de",
+  "d3ad545e7b45d509": "Actualiza T3 Code en {environments} para cambiar este ajuste; los servidores antiguos siguen precalentando Codex tras 55 minutos.",
   "cd67d110c09bfdf4": "Mostrar u ocultar el correo de la cuenta",
   "6b2ce50ea6a13f57": "Clic para mostrar el correo",
   "34ce8910007bfaf1": "Clic para ocultar el correo",

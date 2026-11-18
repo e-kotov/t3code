@@ -7925,6 +7925,7 @@
   "f2d967e7e3a1f724": "Pour les conversations réglées sur Keep warm. Codex n’indique pas combien de temps dure son cache de prompt : le tour de préchauffage est donc envoyé après ce temps d’inactivité, puis ignoré une fois cinq minutes de plus écoulées. Claude utilise la durée de cache qu’il indique.",
   "11457908284789d4": "Réinitialiser le délai de préchauffage de Codex à la valeur par défaut",
   "8e350c21788560fa": "Préchauffer Codex après",
+  "d3ad545e7b45d509": "Mettez à jour T3 Code sur {environments} pour modifier ce réglage ; les serveurs plus anciens préchauffent toujours Codex après 55 minutes.",
   "cd67d110c09bfdf4": "Afficher/masquer l’adresse e-mail du compte",
   "6b2ce50ea6a13f57": "Cliquez pour afficher l’adresse e-mail",
   "34ce8910007bfaf1": "Cliquez pour masquer l’adresse e-mail",

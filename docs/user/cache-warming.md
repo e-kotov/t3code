@@ -33,6 +33,8 @@ provider’s cache lifetime beyond what that provider supports.
 The server checks every 30 seconds. Codex reports no cache lifetime, so Codex
 conversations are warmed once they have been idle for **Settings → Providers →
 Warm Codex after** (default 1 h 55 min) and skipped once five more minutes pass.
+Older un-upgraded servers still warm Codex after 55 minutes; Settings identifies
+servers that need an upgrade.
 Claude conversations are warmed within one minute of their reported expiry. The
 Codex time is a choice, not a retention guarantee. Only a new usage report can
 confirm reuse. The conversation HUD keeps its one-hour Codex estimate, so it can

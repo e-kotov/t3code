@@ -1,13 +1,22 @@
-import { T, Var, useGT, msg } from "gt-react";
-import { useEffect, useState } from "react";
+import { useAtomValue } from "@effect/atom-react";
+import { deadlineStore } from "@t3tools/client-runtime/clock";
 import { AuthSettingsWriteScope, type EnvironmentId } from "@t3tools/contracts";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
+import {
+  cacheWarmingState,
+  hotCacheThreadIds,
+  nextCacheWarmExpiry,
+  resolveCodexCacheWarmAfterMinutes,
+} from "@t3tools/shared/cacheHud";
+import { T, Var, msg, useGT } from "gt-react";
+import { useState } from "react";
 import { useEnvironmentSettings, useUpdateEnvironmentSettings } from "~/hooks/useSettings";
-import { cacheWarmWindowMs, cacheWarmingState, hotCacheThreadIds } from "@t3tools/shared/cacheHud";
 import { useComposerDraftStore } from "../composerDraftStore";
+import { useDeadlinePassed } from "../hooks/useDeadline";
 import { useThreadRouteTarget } from "../hooks/useThreadRouteTarget";
 import { useThreadShells } from "../state/entities";
 import { useEnvironment, usePrimaryEnvironmentId } from "../state/environments";
+import { serverEnvironment } from "../state/server";
 import { useEnvironmentScope } from "../state/session";
 import { resolveActiveThreadRouteRef } from "../threadRoutes";
 import { Button } from "./ui/button";
@@ -20,49 +29,41 @@ type CacheThread = Pick<EnvironmentThreadShell, "id" | "cacheHud" | "archivedAt"
 
 /** Shared state for switching every warm conversation on one environment. */
 function useEnvironmentWarming(environmentId: EnvironmentId, threads: readonly CacheThread[]) {
-  const [now, setNow] = useState(() => Date.now());
-  const codexWarmAfterMinutes = useEnvironmentSettings(
+  const serverConfig = useAtomValue(serverEnvironment.configValueAtom(environmentId));
+  const codexWarmAfterMinutes = resolveCodexCacheWarmAfterMinutes(serverConfig);
+  // Re-sample the clock when threads or the warm interval change, as well as when the
+  // next expiry deadline passes, so shortening the interval drops expired chats at once.
+  const readClock = () => ({ threads, codexWarmAfterMinutes, nowMs: Date.now() });
+  const [clock, setClock] = useState(readClock);
+  const nextExpiry = nextCacheWarmExpiry(threads, clock.nowMs, codexWarmAfterMinutes);
+  const expired = useDeadlinePassed(nextExpiry);
+  if (clock.threads !== threads || clock.codexWarmAfterMinutes !== codexWarmAfterMinutes) {
+    setClock(readClock);
+  } else if (expired && nextExpiry !== null) {
+    setClock(() => ({
+      threads,
+      codexWarmAfterMinutes,
+      nowMs: Math.max(nextExpiry, Date.now()),
+    }));
+  }
+  const activeIds = hotCacheThreadIds(threads, clock.nowMs, codexWarmAfterMinutes);
+  const cacheWarmingSessions = useEnvironmentSettings(
     environmentId,
-    (settings) => settings.codexCacheWarmAfterMinutes,
+    (settings) => settings.cacheWarmingSessions,
   );
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Schedule a redraw at the next provider cache-expiry boundary.
-  useEffect(() => {
-    const nextExpiry = threads
-      .flatMap((thread) => {
-        const hud = thread.cacheHud;
-        const windowMs = hud ? cacheWarmWindowMs(hud, codexWarmAfterMinutes) : undefined;
-        if (
-          thread.archivedAt !== null ||
-          !hud ||
-          (hud.driver !== "codex" && hud.driver !== "claudeAgent") ||
-          (hud.usage.cachedInputTokens ?? 0) + (hud.usage.cacheCreationTokens ?? 0) <= 0 ||
-          windowMs === undefined
-        )
-          return [];
-        const expiry = Date.parse(hud.usage.updatedAt) + windowMs;
-        return Number.isFinite(expiry) && expiry > now ? [expiry] : [];
-      })
-      .reduce<number | null>(
-        (earliest, expiry) => (earliest === null || expiry < earliest ? expiry : earliest),
-        null,
-      );
-    if (nextExpiry === null) return;
-    const timer = window.setTimeout(
-      () => setNow(Date.now()),
-      Math.min(nextExpiry - now + 1, 2_147_483_647),
-    );
-    return () => window.clearTimeout(timer);
-  }, [now, threads, codexWarmAfterMinutes]);
-  const activeIds = hotCacheThreadIds(threads, now, codexWarmAfterMinutes);
-  const enabled = useEnvironmentSettings(environmentId, (settings) =>
-    cacheWarmingState(activeIds, settings.cacheWarmingSessions),
-  );
+  const enabled = cacheWarmingState(activeIds, cacheWarmingSessions);
   const update = useUpdateEnvironmentSettings(environmentId);
   const canWrite = useEnvironmentScope(environmentId, AuthSettingsWriteScope);
   const toggleAll = () => {
-    const value = enabled !== "on";
+    const currentNow = Date.now();
+    const currentIds = hotCacheThreadIds(threads, currentNow, codexWarmAfterMinutes);
+    if (nextExpiry !== null && currentNow >= nextExpiry) {
+      deadlineStore(nextExpiry).refresh();
+    }
+    if (currentIds.length === 0) return;
+    const value = cacheWarmingState(currentIds, cacheWarmingSessions) !== "on";
     void update({
-      cacheWarmingSessions: Object.fromEntries(activeIds.map((id) => [id, value])),
+      cacheWarmingSessions: Object.fromEntries(currentIds.map((id) => [id, value])),
     });
   };
   return { activeIds, enabled, canWrite, toggleAll };

@@ -7925,6 +7925,7 @@
   "f2d967e7e3a1f724": "Für Unterhaltungen mit „Keep warm“. Codex meldet nicht, wie lange sein Prompt-Cache hält. Deshalb wird der Aufwärm-Turn nach dieser Leerlaufzeit gesendet und übersprungen, sobald fünf weitere Minuten vergangen sind. Claude nutzt seine gemeldete Cache-Lebensdauer.",
   "11457908284789d4": "Codex-Aufwärmzeit auf Standard zurücksetzen",
   "8e350c21788560fa": "Codex aufwärmen nach",
+  "d3ad545e7b45d509": "Aktualisieren Sie T3 Code auf {environments}, um diese Einstellung zu ändern; ältere Server wärmen Codex weiterhin nach 55 Minuten auf.",
   "cd67d110c09bfdf4": "Sichtbarkeit der Konto-E-Mail umschalten",
   "6b2ce50ea6a13f57": "Klicken, um die E-Mail anzuzeigen",
   "34ce8910007bfaf1": "Klicken, um die E-Mail auszublenden",

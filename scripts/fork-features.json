@@ -16,7 +16,9 @@
         "apps/web/src/components/ThreadCachePolicyControl.browser.test.tsx",
         "apps/web/src/components/threadCachePolicyContextMenu.test.ts",
         "apps/mobile/src/features/threads/cacheWarmingTarget.test.ts",
-        "apps/mobile/src/features/home/ThreadListToolbar.cacheWarming.test.tsx"
+        "apps/mobile/src/features/home/ThreadListToolbar.cacheWarming.test.tsx",
+        "apps/web/src/components/CacheWarmingToggle.browser.test.tsx",
+        "apps/web/src/components/settings/CodexCacheWarmAfterSetting.browser.test.tsx"
       ]
     },
     {

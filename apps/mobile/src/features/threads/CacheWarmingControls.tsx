@@ -6,10 +6,14 @@ import { serverEnvironment } from "../../state/server";
 import { AppText as Text } from "../../components/ui/AppText";
 import { Pressable, View } from "react-native";
 import { useAtomValue } from "@effect/atom-react";
-import { AuthSettingsWriteScope, DEFAULT_SERVER_SETTINGS } from "@t3tools/contracts";
+import { AuthSettingsWriteScope } from "@t3tools/contracts";
 import { useEnvironmentScope } from "../../state/session";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
-import { cacheWarmingState, hotCacheThreadIds } from "@t3tools/shared/cacheHud";
+import {
+  cacheWarmingState,
+  hotCacheThreadIds,
+  resolveCodexCacheWarmAfterMinutes,
+} from "@t3tools/shared/cacheHud";
 import { environmentThreadShells } from "../../state/threads";
 import { useSavedRemoteConnection } from "../../state/use-remote-environment-registry";
 
@@ -33,7 +37,8 @@ function EnvironmentControl(props: {
   const gt = useGT();
   const minute = useNowMinuteMs();
   const now = useNowAfter(minute);
-  const settings = useAtomValue(serverEnvironment.settingsValueAtom(props.environmentId));
+  const serverConfig = useAtomValue(serverEnvironment.configValueAtom(props.environmentId));
+  const settings = serverConfig?.settings;
   const updateSettings = useAtomCommand(serverEnvironment.updateSettings, {
     label: "prompt cache warming setting",
   });
@@ -44,7 +49,7 @@ function EnvironmentControl(props: {
   const hotThreadIds = hotCacheThreadIds(
     props.threads.filter((thread) => thread.environmentId === props.environmentId),
     now,
-    (settings ?? DEFAULT_SERVER_SETTINGS).codexCacheWarmAfterMinutes,
+    resolveCodexCacheWarmAfterMinutes(serverConfig),
   );
   const enabled =
     hotThreadIds.length > 0 &&
@@ -101,7 +106,8 @@ export function CacheWarmingMachineControl(props: { readonly environmentId: Envi
   const threads = useAtomValue(environmentThreadShells.threadShellsAtom);
   const minute = useNowMinuteMs();
   const now = useNowAfter(minute);
-  const settings = useAtomValue(serverEnvironment.settingsValueAtom(props.environmentId));
+  const serverConfig = useAtomValue(serverEnvironment.configValueAtom(props.environmentId));
+  const settings = serverConfig?.settings;
   const updateSettings = useAtomCommand(serverEnvironment.updateSettings, {
     label: "machine prompt cache warming setting",
   });
@@ -109,7 +115,7 @@ export function CacheWarmingMachineControl(props: { readonly environmentId: Envi
   const hotThreadIds = hotCacheThreadIds(
     threads.filter((thread) => thread.environmentId === props.environmentId),
     now,
-    (settings ?? DEFAULT_SERVER_SETTINGS).codexCacheWarmAfterMinutes,
+    resolveCodexCacheWarmAfterMinutes(serverConfig),
   );
   if (hotThreadIds.length === 0) return null;
   const state = cacheWarmingState(hotThreadIds, settings?.cacheWarmingSessions);
