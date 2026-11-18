@@ -23,8 +23,10 @@ jobs:
   checks:
     if: github.repository == 'e-kotov/t3code'
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 45
     env:
+      # Keep full test coverage while limiting concurrent browser/worker memory.
+      VITEST_MAX_WORKERS: "1"
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - name: Checkout without vendored gitlinks
