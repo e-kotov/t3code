@@ -1,3 +1,5 @@
+import { m, type MessageResolver } from "../i18n/messages";
+import { msg } from "gt-react-native";
 import type { AssistantCitation } from "@t3tools/contracts";
 import type { ThreadContentPresentation } from "../features/threads/threadContentPresentation";
 
@@ -15,6 +17,7 @@ export function assistantCitationSourceReadiness(
   status: string,
   connection: string | undefined,
   error: string | null,
+  resolve: MessageResolver = m,
 ) {
   if (status === "deleted" || (status === "live" && connection === "connected")) {
     return { kind: "ready" } as const;
@@ -25,7 +28,7 @@ export function assistantCitationSourceReadiness(
   }
   return {
     kind: "unavailable",
-    detail: "Reconnect this environment to load the cited response.",
+    detail: resolve(msg("Reconnect this environment to load the cited response.")),
   } as const;
 }
 

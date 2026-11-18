@@ -10,7 +10,7 @@ import type {
 } from "@t3tools/contracts";
 import * as DateTime from "effect/DateTime";
 
-import { formatResetsIn } from "./usageLimits.ts";
+import { formatResetsIn } from "./usageLimitsCopy.ts";
 
 // A user-selected freshness estimate, not a provider-reported retention guarantee.
 const CODEX_BASELINE_MS = 60 * 60_000;

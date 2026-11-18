@@ -1,3 +1,5 @@
+import { m, type MessageResolver } from "../../i18n/messages";
+import { T, useGT, msg, useMessages } from "gt-react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { settlePromise, squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
 import { AsyncResult } from "effect/reactivity";
@@ -33,50 +35,63 @@ const POSITIONS: ReadonlyArray<{
 }> = [
   {
     value: "first",
-    label: "First",
-    description: "Try built-in Tailscale before every saved route.",
+    label: msg("First"),
+    description: msg("Try built-in Tailscale before every saved route."),
   },
   {
     value: "before-tailscale",
-    label: "Before the Tailscale app route",
-    description: "For example: SSH tunnel, then built-in Tailscale, then the Tailscale app.",
+    label: msg("Before the Tailscale app route"),
+    description: msg("For example: SSH tunnel, then built-in Tailscale, then the Tailscale app."),
   },
   {
     value: "after-tailscale",
-    label: "After the Tailscale app route",
-    description: "For example: Tailscale app, then built-in Tailscale, then SSH tunnel.",
+    label: msg("After the Tailscale app route"),
+    description: msg("For example: Tailscale app, then built-in Tailscale, then SSH tunnel."),
   },
   {
     value: "last",
-    label: "Last",
-    description: "Only when no saved route connects.",
+    label: msg("Last"),
+    description: msg("Only when no saved route connects."),
   },
 ];
 
-function describeStatus(status: BuiltInTailnetStatus | null, signedIn: boolean): string {
+function describeStatus(
+  status: BuiltInTailnetStatus | null,
+  signedIn: boolean,
+  resolve: MessageResolver = m,
+): string {
   switch (status?.state) {
     case undefined:
     case "stopped":
       return signedIn
-        ? "Signed in, not running. It starts when a connection needs it."
-        : "Not signed in. Built-in Tailscale is used only after you sign in.";
+        ? resolve(msg("Signed in, not running. It starts when a connection needs it."))
+        : resolve(msg("Not signed in. Built-in Tailscale is used only after you sign in."));
     case "starting":
-      return "Connecting to Tailscale…";
+      return resolve(msg("Connecting to Tailscale…"));
     case "needs-login":
-      return "Not signed in.";
+      return resolve(msg("Not signed in."));
     case "needs-approval":
-      return "Waiting for approval in the Tailscale admin console.";
+      return resolve(msg("Waiting for approval in the Tailscale admin console."));
     case "running": {
       const address = status.addresses?.[0];
       const forwards = status.forwards.reduce((sum, forward) => sum + forward.active, 0);
-      return `Connected as ${status.name ?? "this phone"}${address ? ` (${address})` : ""}. ${
-        forwards === 1 ? "1 open connection" : `${forwards} open connections`
-      }.`;
+      return resolve(
+        msg(
+          "Connected as {name}{address}. {count, plural, one {{count} open connection} other {{count} open connections}}.",
+        ),
+        {
+          name: status.name ?? resolve(msg("this phone")),
+          address: address ? ` (${address})` : "",
+          count: forwards,
+        },
+      );
     }
   }
 }
 
 export function SettingsBuiltInTailscaleRouteScreen() {
+  const gt = useGT();
+  const m = useMessages();
   const focused = useIsFocused();
   const { enabled, position, signedIn, status, error, phoneShare } = useBuiltInTailnet();
   const [busy, setBusy] = useState(false);
@@ -95,7 +110,7 @@ export function SettingsBuiltInTailscaleRouteScreen() {
     setBusy(false);
     if (AsyncResult.isFailure(result)) {
       const cause = squashAtomCommandFailure(result);
-      Alert.alert("Built-in Tailscale", cause instanceof Error ? cause.message : String(cause));
+      Alert.alert(gt("Built-in Tailscale"), cause instanceof Error ? cause.message : String(cause));
     }
   };
   const signIn = () =>
@@ -106,13 +121,13 @@ export function SettingsBuiltInTailscaleRouteScreen() {
 
   if (!builtInTailnetAvailable()) {
     return (
-      <SettingsScreen title="Built-in Tailscale">
+      <SettingsScreen title={gt("Built-in Tailscale")}>
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           contentContainerClassName="px-5 pt-4"
         >
           <Text className="text-base text-foreground-muted">
-            Built-in Tailscale is not part of this app build.
+            <T>Built-in Tailscale is not part of this app build.</T>
           </Text>
         </ScrollView>
       </SettingsScreen>
@@ -121,7 +136,7 @@ export function SettingsBuiltInTailscaleRouteScreen() {
 
   const running = status?.state === "running";
   return (
-    <SettingsScreen title="Built-in Tailscale">
+    <SettingsScreen title={gt("Built-in Tailscale")}>
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerClassName="gap-6 px-5 pt-4 pb-8"
@@ -129,33 +144,37 @@ export function SettingsBuiltInTailscaleRouteScreen() {
         <SettingsSection>
           <SettingsSwitchRow
             icon="point.3.connected.trianglepath.dotted"
-            label="Built-in Tailscale"
+            label={gt("Built-in Tailscale")}
             value={enabled}
-            subtitle="Reach servers on your tailnet without the Tailscale app. Other apps and VPNs are not affected."
+            subtitle={gt(
+              "Reach servers on your tailnet without the Tailscale app. Other apps and VPNs are not affected.",
+            )}
             onValueChange={(value) => setBuiltInTailnetConfig(value, position)}
           />
         </SettingsSection>
 
-        <SettingsSection title="Remote access to this phone">
+        <SettingsSection title={gt("Remote access to this phone")}>
           <SettingsSwitchRow
             icon="point.3.connected.trianglepath.dotted"
-            label="Share this phone on Tailscale"
+            label={gt("Share this phone on Tailscale")}
             value={phoneShare.enabled}
-            subtitle={`${phoneShare.status}. Starts the phone T3 server and stays on until stopped.`}
+            subtitle={gt("{status}. Starts the phone T3 server and stays on until stopped.", {
+              status: phoneShare.status,
+            })}
             disabled={!phoneShare.enabled && (!enabled || !signedIn)}
             onValueChange={(value) => void run(async () => setPhoneSharing(value))}
           />
         </SettingsSection>
 
         <SettingsSection
-          title="Position among saved routes"
+          title={gt("Position among saved routes")}
           footer="Order the saved routes, such as your SSH tunnel and the Tailscale app address, under Environments."
         >
           {POSITIONS.map((option, index) => (
             <SettingsChoiceRow
               key={option.value}
-              label={option.label}
-              description={option.description}
+              label={m(option.label)}
+              description={m(option.description)}
               selected={position === option.value}
               separated={index > 0}
               disabled={!enabled}
@@ -164,18 +183,18 @@ export function SettingsBuiltInTailscaleRouteScreen() {
           ))}
         </SettingsSection>
 
-        <SettingsSection title="Tailscale account" footer={error ?? undefined}>
+        <SettingsSection title={gt("Tailscale account")} footer={error ?? undefined}>
           {running ? (
             <>
               <SettingsActionRow
                 icon="stop.fill"
-                label="Disconnect now"
+                label={gt("Disconnect now")}
                 disabled={busy}
                 onPress={() => void run(stopBuiltInTailnet)}
               />
               <SettingsActionRow
                 icon="person.fill.xmark"
-                label="Sign out"
+                label={gt("Sign out")}
                 tone="danger"
                 disabled={busy}
                 onPress={() => void run(signOutBuiltInTailnet)}
@@ -185,7 +204,9 @@ export function SettingsBuiltInTailscaleRouteScreen() {
             <SettingsActionRow
               icon="person.crop.circle"
               label={
-                status?.state === "needs-login" ? "Sign in to Tailscale" : "Connect or sign in"
+                status?.state === "needs-login"
+                  ? gt("Sign in to Tailscale")
+                  : gt("Connect or sign in")
               }
               loading={busy}
               disabled={busy || !enabled}
@@ -194,23 +215,25 @@ export function SettingsBuiltInTailscaleRouteScreen() {
           )}
           <SettingsActionRow
             icon="doc.text"
-            label={logs === null ? "Show recent log" : "Hide log"}
+            label={logs === null ? gt("Show recent log") : gt("Hide log")}
             onPress={() =>
               logs === null ? void builtInTailnetLogs().then(setLogs) : setLogs(null)
             }
           />
         </SettingsSection>
 
-        <Text className="text-sm text-foreground-muted">{describeStatus(status, signedIn)}</Text>
+        <Text className="text-sm text-foreground-muted">{describeStatus(status, signedIn, m)}</Text>
         <Text className="text-sm text-foreground-muted">
-          Built-in Tailscale signs in as its own device. It stays active for phone sharing and
-          direct notifications; otherwise it stops when T3 is in the background or after five idle
-          minutes. Phone sharing exposes only this phone's T3 server to your tailnet and requires T3
-          pairing.
+          <T>
+            Built-in Tailscale signs in as its own device. It stays active for phone sharing and
+            direct notifications; otherwise it stops when T3 is in the background or after five idle
+            minutes. Phone sharing exposes only this phone's T3 server to your tailnet and requires
+            T3 pairing.
+          </T>
         </Text>
         {logs === null ? null : (
           <Text selectable className="font-mono text-xs text-foreground-muted">
-            {logs.slice(-60).join("\n") || "No log lines yet."}
+            {logs.slice(-60).join("\n") || gt("No log lines yet.")}
           </Text>
         )}
       </ScrollView>

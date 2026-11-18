@@ -1,3 +1,5 @@
+import { msg } from "gt-react";
+import { m } from "~/i18n/messages";
 import { applyRunUpdate, type RunsByCommandId } from "./deviceCommands.logic";
 export { newDeviceCommandId, moveDeviceCommand } from "./deviceCommands.logic";
 import type { DeviceCommand, DeviceCommandRun, DeviceCommandsBridge } from "@t3tools/contracts";
@@ -46,14 +48,17 @@ function onRunUpdate(run: DeviceCommandRun): void {
     type: run.status === "succeeded" ? "success" : run.status === "stopped" ? "info" : "error",
     title:
       run.status === "succeeded"
-        ? `${run.commandName} finished`
+        ? m(msg("{name} finished"), { name: run.commandName })
         : run.status === "stopped"
-          ? `${run.commandName} stopped`
-          : `${run.commandName} failed`,
+          ? m(msg("{name} stopped"), { name: run.commandName })
+          : m(msg("{name} failed"), { name: run.commandName }),
     description:
-      run.error ?? (run.exitCode !== null && run.exitCode !== 0 ? `Exit code ${run.exitCode}` : ""),
+      run.error ??
+      (run.exitCode !== null && run.exitCode !== 0
+        ? m(msg("Exit code {value0}"), { value0: run.exitCode })
+        : ""),
     actionProps: {
-      children: "Show output",
+      children: m(msg("Show output")),
       onClick: () => {
         toastManager.close(toastId);
         openDeviceCommandOutput(run.runId);
@@ -98,7 +103,7 @@ export async function reloadDeviceCommands(): Promise<void> {
 /** Saves the whole list; throws so the editor can keep the user's input on failure. */
 export async function saveDeviceCommands(commands: ReadonlyArray<DeviceCommand>): Promise<void> {
   const bridge = getDeviceCommandsBridge();
-  if (!bridge) throw new Error("Commands run only in the desktop app.");
+  if (!bridge) throw new Error(m(msg("Commands run only in the desktop app.")));
   const state = await bridge.save({ commands });
   useDeviceCommandsStore.setState({
     commands: state.commands,
@@ -112,7 +117,7 @@ export async function runDeviceCommand(command: DeviceCommand): Promise<void> {
   if (!bridge) return;
   if (command.confirm) {
     const confirmed = await ensureLocalApi().dialogs.confirm(
-      `Run "${command.name}"?\n${command.command}`,
+      m(msg('Run "{value0}"?\n{value1}'), { value0: command.name, value1: command.command }),
     );
     if (!confirmed) return;
   }
@@ -126,7 +131,7 @@ export async function runDeviceCommand(command: DeviceCommand): Promise<void> {
   } catch (cause) {
     toastManager.add({
       type: "error",
-      title: `Could not run ${command.name}`,
+      title: m(msg("Could not run {value0}"), { value0: command.name }),
       description: errorText(cause),
     });
   }

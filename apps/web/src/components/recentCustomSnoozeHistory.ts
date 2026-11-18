@@ -1,3 +1,5 @@
+import { msg } from "gt-react";
+import { m, type MessageResolver } from "~/i18n/messages";
 import {
   resolveCustomSnooze as resolveUpstreamCustomSnooze,
   type CustomSnoozeInput,
@@ -48,10 +50,19 @@ export function resolveCustomSnooze(input: CustomSnoozeInput, now: Date) {
 export function recentSnoozePresets(
   now: Date,
   timestampFormat: TimestampFormat,
+  resolve: MessageResolver = m,
 ): ReadonlyArray<ForkSnoozePreset> {
   return readHistory(now).map((snoozedUntil) => ({
     id: `recent:${snoozedUntil}`,
-    label: `Recent: ${new Date(snoozedUntil).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`,
+    label: resolve(
+      msg("Recent: {date}", {
+        date: new Date(snoozedUntil).toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        }),
+      }),
+    ),
     whenLabel: formatShortTimestamp(snoozedUntil, timestampFormat),
     snoozedUntil,
   }));

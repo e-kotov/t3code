@@ -1,3 +1,4 @@
+import { useGT } from "gt-react-native";
 import {
   createSlurmCountdownClock,
   slurmJobCountdownLabel,
@@ -18,6 +19,7 @@ const subscribe = createSlurmCountdownClock(
 );
 
 export function MachineGroupSlurmTime(props: { readonly environmentId?: string }) {
+  const gt = useGT();
   const { presentation } = useEnvironmentPresentation(
     props.environmentId ? EnvironmentId.make(props.environmentId) : null,
   );
@@ -35,7 +37,10 @@ export function MachineGroupSlurmTime(props: { readonly environmentId?: string }
   if (!label) return null;
   return (
     <AppText
-      accessibilityLabel={`Slurm job ${status!.jobId}: ${label}. Scheduled walltime remaining.`}
+      accessibilityLabel={gt("Slurm job {value1}: {value2}. Scheduled walltime remaining.", {
+        value1: status!.jobId,
+        value2: label,
+      })}
     >{` ${label}`}</AppText>
   );
 }

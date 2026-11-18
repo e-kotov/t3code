@@ -1,3 +1,5 @@
+import { T } from "gt-react-native";
+import { useGT } from "gt-react-native";
 import type { AssistantCitation } from "@t3tools/contracts";
 import {
   assistantCitationLabel,
@@ -22,6 +24,7 @@ import type { MarkdownFileContextMenu } from "../../native/SelectableMarkdownTex
 const CitationPreviewContext = createContext<((citation: AssistantCitation) => void) | null>(null);
 
 function AssistantCitationPreviewProvider(props: { readonly children: ReactNode }) {
+  const gt = useGT();
   const [selected, setSelected] = useState<AssistantCitation | null>(null);
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -33,7 +36,7 @@ function AssistantCitationPreviewProvider(props: { readonly children: ReactNode 
           <View className="flex-1 justify-end bg-backdrop">
             <Pressable
               className="absolute inset-0"
-              accessibilityLabel="Close quote preview"
+              accessibilityLabel={gt("Close quote preview")}
               onPress={() => setSelected(null)}
             />
             <View
@@ -41,7 +44,7 @@ function AssistantCitationPreviewProvider(props: { readonly children: ReactNode 
               style={{ maxHeight: "85%", paddingBottom: Math.max(insets.bottom, 20) }}
             >
               <AppText accessibilityRole="header" className="text-lg font-t3-semibold">
-                Quoted assistant text
+                <T>Quoted assistant text</T>
               </AppText>
               <ScrollView
                 style={{ flexShrink: 1 }}
@@ -60,7 +63,7 @@ function AssistantCitationPreviewProvider(props: { readonly children: ReactNode 
                 ) : null}
               </ScrollView>
               <Button
-                label="Go to source"
+                label={gt("Go to source")}
                 icon="arrow.up.right"
                 tone="secondary"
                 onPress={() => {
@@ -101,6 +104,7 @@ export function AssistantCitationPresentationSource(
 }
 
 export function useAssistantCitationMessagePreview() {
+  const gt = useGT();
   const select = useContext(CitationPreviewContext);
   const open = (href: string) => {
     const citation = parseAssistantCitationHref(href);
@@ -126,10 +130,10 @@ export function useAssistantCitationMessagePreview() {
     contextMenu: (href: string): MarkdownFileContextMenu | undefined =>
       parseAssistantCitationHref(href)
         ? {
-            title: "Assistant quote",
+            title: gt("Assistant quote"),
             actions: [
-              { id: "view-assistant-quote", title: "View quote" },
-              { id: "copy-assistant-quote", title: "Copy quote text" },
+              { id: "view-assistant-quote", title: gt("View quote") },
+              { id: "copy-assistant-quote", title: gt("Copy quote text") },
             ],
           }
         : undefined,
@@ -139,7 +143,7 @@ export function useAssistantCitationMessagePreview() {
       if (actionId === "view-assistant-quote") return open(href);
       if (actionId !== "copy-assistant-quote") return false;
       void tryCopyTextWithHaptic(citation.text, { target: "quote" }).then((copied) => {
-        if (!copied) Dialog.alert("Could not copy quote", "Try copying the quote again.");
+        if (!copied) Dialog.alert(gt("Could not copy quote"), gt("Try copying the quote again."));
       });
       return true;
     },

@@ -1,3 +1,5 @@
+import { m } from "../i18n/messages";
+import { msg } from "gt-react-native";
 import { ASSISTANT_CITATION_MAX_TEXT_LENGTH } from "@t3tools/contracts";
 export interface AssistantCitationSource {
   readonly environmentId: string;
@@ -33,9 +35,13 @@ export function emitAssistantCitationSelection(
   selection: { readonly start: number; readonly end: number },
   context?: { readonly prefix: string; readonly suffix: string },
 ): string | null {
-  if (text.trim().length === 0) return "Select some assistant text to quote.";
+  if (text.trim().length === 0) return m(msg("Select some assistant text to quote."));
   if (text.length > ASSISTANT_CITATION_MAX_TEXT_LENGTH) {
-    return `Select at most ${ASSISTANT_CITATION_MAX_TEXT_LENGTH.toLocaleString("en-US")} characters to quote.`;
+    return m(
+      msg("Select at most {value1} characters to quote.", {
+        value1: ASSISTANT_CITATION_MAX_TEXT_LENGTH.toLocaleString("en-US"),
+      }),
+    );
   }
   const start = Math.max(0, Math.min(selection.start, selection.end));
   const end = Math.max(start + text.length, selection.end);

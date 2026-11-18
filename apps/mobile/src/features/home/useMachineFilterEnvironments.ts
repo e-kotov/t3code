@@ -1,3 +1,4 @@
+import { useMessages } from "gt-react-native";
 import { useAtomValue } from "@effect/atom-react";
 import {
   createSlurmCountdownClock,
@@ -30,6 +31,7 @@ export function useMachineFilterEnvironments<
     readonly connectionState?: EnvironmentConnectionPhase;
   },
 >(environments: readonly T[]): (T & MachineFilterDetails)[] {
+  const m = useMessages();
   const presentations = useAtomValue(environmentPresentations.presentationsAtom);
   const { themeVariables } = useAppearancePreferences();
   const snapshot = useCallback(
@@ -45,7 +47,7 @@ export function useMachineFilterEnvironments<
   return environments.map((environment, index) => {
     const presentation = presentations.get(environment.environmentId);
     const phase = presentation?.connection.phase ?? environment.connectionState;
-    const status = machineGroupConnectionStatus(environment.label, phase);
+    const status = machineGroupConnectionStatus(environment.label, phase, m);
     const color =
       phase === "connecting" || phase === "reconnecting"
         ? themeVariables["--color-warning-foreground"]

@@ -1,3 +1,5 @@
+import { m } from "~/i18n/messages";
+import { T, useGT, msg } from "gt-react";
 import {
   AuthPreviewOperateScope,
   type BetterWrightViewerFallbackAvailability,
@@ -37,7 +39,7 @@ type SshFallbackNoticeView =
 const remoteMessage = (cause: unknown) =>
   cause instanceof Error
     ? cause.message.replace(/^Error invoking remote method '[^']+': (?:\w+: )?/, "")
-    : "The SSH viewer could not be opened.";
+    : m(msg("The SSH viewer could not be opened."));
 
 function SshFallbackNotice(props: {
   readonly view: SshFallbackNoticeView;
@@ -46,36 +48,37 @@ function SshFallbackNotice(props: {
   readonly onClose: () => void;
   readonly onDismiss: () => void;
 }) {
+  const gt = useGT();
   const { view } = props;
   const actions = (() => {
     switch (view._tag) {
       case "Offer":
         return (
           <Button size="xs" disabled={view.opening} onClick={props.onOpen}>
-            Open over SSH
+            <T>Open over SSH</T>
           </Button>
         );
       case "Connecting":
         return (
           <Button variant="outline" size="xs" onClick={props.onClose}>
-            Cancel
+            <T>Cancel</T>
           </Button>
         );
       case "Open":
         return (
           <>
             <Button size="xs" onClick={props.onComplete}>
-              Done, release to agent
+              <T>Done, release to agent</T>
             </Button>
             <Button variant="outline" size="xs" onClick={props.onClose}>
-              Close window
+              <T>Close window</T>
             </Button>
           </>
         );
       case "Problem":
         return (
           <Button variant="outline" size="xs" onClick={props.onDismiss}>
-            Dismiss
+            <T>Dismiss</T>
           </Button>
         );
       case "Unavailable":
@@ -85,13 +88,23 @@ function SshFallbackNotice(props: {
   const text = (() => {
     switch (view._tag) {
       case "Offer":
-        return `The browser stream is not arriving. If this is an agent browser handoff, you can open it in a separate window over SSH through ${view.sshHost}.`;
+        return gt(
+          "The browser stream is not arriving. If this is an agent browser handoff, you can open it in a separate window over SSH through {value0}.",
+          { value0: view.sshHost },
+        );
       case "Unavailable":
-        return `The browser stream is not arriving. ${view.reason}`;
+        return gt("The browser stream is not arriving. {value0}", { value0: view.reason });
       case "Connecting":
-        return "Opening the browser handoff over SSH…";
+        return gt("Opening the browser handoff over SSH…");
       case "Open":
-        return `The handoff is open in a separate window${view.sshHost ? ` over SSH through ${view.sshHost}` : " over SSH"}. Stay on the requested page, then release it to the agent here.`;
+        return view.sshHost
+          ? gt(
+              "The handoff is open in a separate window over SSH through {host}. Stay on the requested page, then release it to the agent here.",
+              { host: view.sshHost },
+            )
+          : gt(
+              "The handoff is open in a separate window over SSH. Stay on the requested page, then release it to the agent here.",
+            );
       case "Problem":
         return view.message;
     }
@@ -214,7 +227,11 @@ export function useSshViewerFallback(input: {
       .then((leaseUrl) => {
         if (leaseUrl === null) {
           setProblem(
-            "T3 could not authorize the SSH viewer over this connection. Reconnect to the environment and try again.",
+            m(
+              msg(
+                "T3 could not authorize the SSH viewer over this connection. Reconnect to the environment and try again.",
+              ),
+            ),
           );
           return;
         }

@@ -1,3 +1,4 @@
+import { useGT } from "gt-react-native";
 import { AuthOrchestrationOperateScope, CommandId, MessageId } from "@t3tools/contracts";
 import type { OrchestrationV2CacheHud } from "@t3tools/contracts";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
@@ -19,6 +20,7 @@ export function MobileContextControl({
   readonly hud: OrchestrationV2CacheHud | null | undefined;
   readonly thread: Pick<EnvironmentThreadShell, "environmentId" | "id" | "modelSelection">;
 }) {
+  const gt = useGT();
   const canOperate = useEnvironmentScope(thread.environmentId, AuthOrchestrationOperateScope);
   const { themeVariables: colors } = useAppearancePreferences();
   if (!hud) return null;
@@ -44,20 +46,20 @@ export function MobileContextControl({
       });
     } catch (error) {
       Dialog.alert(
-        "Could not queue compaction",
-        error instanceof Error ? error.message : "Please try again.",
+        gt("Could not queue compaction"),
+        error instanceof Error ? error.message : gt("Please try again."),
       );
     }
   };
   return (
     <Menu
-      title="Context window"
+      title={gt("Context window")}
       actions={[
         { id: "usage", title: count, attributes: { disabled: true } },
         {
           id: "compact",
-          title: "Compact now",
-          subtitle: "Summarize this conversation to free context",
+          title: gt("Compact now"),
+          subtitle: gt("Summarize this conversation to free context"),
           attributes: { disabled: !canOperate },
         },
       ]}
@@ -67,8 +69,8 @@ export function MobileContextControl({
     >
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Context: ${count}`}
-        accessibilityHint="Show context details and compaction options"
+        accessibilityLabel={gt("Context: {value1}", { value1: count })}
+        accessibilityHint={gt("Show context details and compaction options")}
         className="flex-row items-center gap-1 rounded-md px-1 py-2"
       >
         <Svg width={16} height={16} viewBox="0 0 16 16">

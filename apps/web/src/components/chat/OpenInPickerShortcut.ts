@@ -1,9 +1,11 @@
 import type { EditorId, EnvironmentId, ResolvedKeybindingsConfig } from "@t3tools/contracts";
+import { msg } from "gt-react";
 import { useEffect } from "react";
 
 import { configuredEditorLabel } from "../../forkEditorLabels";
 import { useConfiguredEditors } from "../../useConfiguredEditors";
 import { isOpenFavoriteEditorShortcut } from "../../keybindings";
+import { m } from "../../i18n/messages";
 import { announce } from "../../lib/announce";
 import { registerCommands } from "../../shortcuts/dispatcher";
 
@@ -62,7 +64,7 @@ export function useOpenFavoriteEditorShortcut({
       event.preventDefault();
       const label = configuredEditorLabel(preferredEditor, navigator.platform);
       void open(openInCwd).then((result) => {
-        if (result._tag === "Success") announce(`Opened in ${label}`);
+        if (result._tag === "Success") announce(m(msg("Opened in {editor}", { editor: label })));
       });
     };
     window.addEventListener("keydown", handler);

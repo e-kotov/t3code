@@ -1,3 +1,5 @@
+import { msg } from "gt-react";
+import { m } from "~/i18n/messages";
 import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import type { ContextMenuItem } from "@t3tools/contracts";
@@ -28,14 +30,14 @@ export async function showThreadReferenceContextMenu<T extends string>(
   const referenceItem: ContextMenuItem<string> = {
     id: NEW_THREAD_WITH_REFERENCE,
     label: thread.branch
-      ? `New thread on ${thread.branch} with reference`
-      : "New thread with reference",
+      ? m(msg("New thread on {value1} with reference", { value1: thread.branch }))
+      : m(msg("New thread with reference")),
     icon: "message-square-plus",
   };
   const menu: ContextMenuItem<string>[] = thread.branch
     ? items.flatMap((item) => (item.id === "new-thread-on-branch" ? [item, referenceItem] : [item]))
     : [
-        { id: NEW_THREAD_IN_PROJECT, label: "New thread", icon: "message-square-plus" },
+        { id: NEW_THREAD_IN_PROJECT, label: m(msg("New thread")), icon: "message-square-plus" },
         referenceItem,
         ...items,
       ];
@@ -54,8 +56,8 @@ export async function showThreadReferenceContextMenu<T extends string>(
     toastManager.add(
       stackedThreadToast({
         type: "error",
-        title: "Could not create thread",
-        description: error instanceof Error ? error.message : "An error occurred.",
+        title: m(msg("Could not create thread")),
+        description: error instanceof Error ? error.message : m(msg("An error occurred.")),
       }),
     );
     return null;

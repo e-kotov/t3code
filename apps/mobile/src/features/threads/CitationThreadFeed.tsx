@@ -1,3 +1,4 @@
+import { useMessages } from "gt-react-native";
 import * as Option from "effect/Option";
 import { createContext, useContext, useMemo, type ComponentProps } from "react";
 import { View } from "react-native";
@@ -23,13 +24,14 @@ export function CitationThreadDetailView({
 }
 
 export function ThreadFeed(props: ThreadFeedProps) {
+  const m = useMessages();
   const canCiteAssistantText = useContext(CitationComposerReady);
   const detail = useEnvironmentThread(props.environmentId, props.threadId);
   const runtime = useRemoteEnvironmentRuntime(props.environmentId);
   const error = Option.getOrNull(detail.error);
   const synchronization = useMemo(
-    () => assistantCitationSourceReadiness(detail.status, runtime?.connectionState, error),
-    [detail.status, runtime?.connectionState, error],
+    () => assistantCitationSourceReadiness(detail.status, runtime?.connectionState, error, m),
+    [detail.status, runtime?.connectionState, error, m],
   );
   return (
     <AssistantCitationSynchronization value={synchronization}>

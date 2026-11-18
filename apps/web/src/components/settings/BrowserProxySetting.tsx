@@ -1,3 +1,4 @@
+import { useGT } from "gt-react";
 import { normalizeBrowserProxyUrl } from "@t3tools/contracts";
 import { useState } from "react";
 
@@ -10,9 +11,11 @@ import {
   useScopedSettingsWriteAllowed,
 } from "./useScopedSettings";
 import { SettingsRow } from "./settingsLayout";
-import { searchableSetting } from "./settingsSearch";
+import { useSearchableSetting } from "./settingsSearch";
 
 export function BrowserProxySetting() {
+  const gt = useGT();
+  const searchableSetting = useSearchableSetting();
   const settings = useScopedSettings((value) => value.browserProxy);
   const context = useSettingsScope();
   const update = useUpdateScopedSettings();
@@ -35,12 +38,14 @@ export function BrowserProxySetting() {
       settingKeys={["browserProxy"]}
       description={
         supported
-          ? "Default route for this environment's agents and new external tabs. Existing tabs keep their route. Local and app resources stay direct."
-          : "Update the selected environment's T3 Code server to configure its browser proxy."
+          ? gt(
+              "Default route for this environment's agents and new external tabs. Existing tabs keep their route. Local and app resources stay direct.",
+            )
+          : gt("Update the selected environment's T3 Code server to configure its browser proxy.")
       }
       control={
         <Switch
-          aria-label="Use browser proxy"
+          aria-label={gt("Use browser proxy")}
           checked={settings.enabled}
           disabled={disabled || (!settings.enabled && (!settings.url || error !== null))}
           onCheckedChange={(enabled) => update({ browserProxy: { ...settings, enabled } })}
@@ -49,7 +54,7 @@ export function BrowserProxySetting() {
     >
       <div className="mt-2 max-w-lg">
         <DraftInput
-          aria-label="Browser proxy URL"
+          aria-label={gt("Browser proxy URL")}
           aria-invalid={error !== null}
           disabled={disabled}
           placeholder="socks5://127.0.0.1:1080"
@@ -60,7 +65,7 @@ export function BrowserProxySetting() {
               setError(null);
               update({ browserProxy: { enabled: settings.enabled && url !== "", url } });
             } catch (cause) {
-              setError(cause instanceof Error ? cause.message : "Invalid proxy URL.");
+              setError(cause instanceof Error ? cause.message : gt("Invalid proxy URL."));
             }
           }}
         />

@@ -1,3 +1,5 @@
+import { m, type MessageResolver } from "../../i18n/messages";
+import { msg } from "gt-react-native";
 import { hasWorkingDivider, placeWorkingMainDivider } from "./workingSidebarList";
 import {
   machineGroupThreadVisible,
@@ -38,6 +40,7 @@ export function groupThreadListV2ItemsByMachine<T extends { readonly type: strin
   labels: ReadonlyMap<string, string>,
   preferredOrder: readonly string[] = [],
   machineKinds: ReadonlyMap<string, EnvironmentMachineKind> = new Map(),
+  resolve: MessageResolver = m,
 ): (T | ThreadListV2MachineHeaderListItem)[] {
   const environmentIds = [
     ...new Set(
@@ -85,7 +88,7 @@ export function groupThreadListV2ItemsByMachine<T extends { readonly type: strin
       grouped.push({
         type: "v2-machine-header",
         key: `v2-machine:${index++}:${environmentId}`,
-        label: labels.get(environmentId) ?? "Machine",
+        label: labels.get(environmentId) ?? resolve(msg("Machine")),
         environmentId,
         position,
         count: segmentEnvironmentIds.length,
@@ -117,6 +120,7 @@ export function arrangeMobileConversationList<T extends { readonly type: string 
     readonly selectedThreadKey?: string | null;
     readonly searchQuery?: string;
   },
+  resolve: MessageResolver = m,
 ): (T | ThreadListV2MachineHeaderListItem)[] {
   const arranged = isSidebarMachineGrouping(options.grouping)
     ? groupThreadListV2ItemsByMachine(
@@ -129,6 +133,7 @@ export function arrangeMobileConversationList<T extends { readonly type: string 
         ),
         options.machineOrder,
         options.machineKinds,
+        resolve,
       )
     : items;
   const withContext = withMobileMachineContext(
@@ -136,6 +141,7 @@ export function arrangeMobileConversationList<T extends { readonly type: string 
     options.environments,
     options.machineKinds,
     options.machineOrder,
+    resolve,
   );
   let section: MachineGroupSection = "active";
   return placeWorkingMainDivider(

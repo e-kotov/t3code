@@ -29,8 +29,10 @@ export function editorPreferencesKey(environmentId: string | null, remote: boole
   return `t3code:editors:${remote ? "remote-device" : `environment:${environmentId ?? "none"}`}`;
 }
 
+const isEditorPreferences = Schema.is(EditorPreferences);
+
 export function resolveEditorPreferences(value: unknown): EditorPreferences {
-  return Schema.is(EditorPreferences)(value) ? value : EMPTY_EDITOR_PREFERENCES;
+  return isEditorPreferences(value) ? value : EMPTY_EDITOR_PREFERENCES;
 }
 
 export function useEditorPreferences(environmentId: string | null, remote: boolean) {

@@ -1,3 +1,4 @@
+import { T, Var } from "gt-react";
 import {
   createSlurmCountdownClock,
   slurmJobCountdownLabel,
@@ -44,7 +45,9 @@ export function MachineGroupSlurmTime(props: {
         {label}
       </TooltipTrigger>
       <TooltipPopup side="top">
-        Slurm job {status!.jobId}: {label}. Scheduled walltime remaining.
+        <T>
+          Slurm job <Var>{status!.jobId}</Var>: <Var>{label}</Var>. Scheduled walltime remaining.
+        </T>
       </TooltipPopup>
     </Tooltip>
   );

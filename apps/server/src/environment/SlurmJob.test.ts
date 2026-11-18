@@ -96,24 +96,19 @@ describe("Slurm allocation status", () => {
     }).pipe(Effect.provide(h.layer), Effect.scoped);
   });
 
-  for (const options of [
+  it.effect.each([
     { job: "" },
     { job: "1; touch /tmp/no" },
     { cgroup: "0::/user.slice/session.scope" },
     { platform: "darwin" as const },
-  ]) {
-    it.effect(
-      `does no polling outside a validated Linux Slurm context: ${JSON.stringify(options)}`,
-      () => {
-        const h = harness(options);
-        return Effect.gen(function* () {
-          const service = yield* SlurmJob.SlurmJob;
-          expect(yield* service.current).toBeNull();
-          expect(h.calls).toEqual([]);
-        }).pipe(Effect.provide(h.layer), Effect.scoped);
-      },
-    );
-  }
+  ])("does no polling outside a validated Linux Slurm context: %j", (options) => {
+    const h = harness(options);
+    return Effect.gen(function* () {
+      const service = yield* SlurmJob.SlurmJob;
+      expect(yield* service.current).toBeNull();
+      expect(h.calls).toEqual([]);
+    }).pipe(Effect.provide(h.layer), Effect.scoped);
+  });
 
   it.effect("picks up extensions and suspension without restarting the server", () => {
     const h = harness();
@@ -130,26 +125,24 @@ describe("Slurm allocation status", () => {
     }).pipe(Effect.provide(h.layer), Effect.scoped);
   });
 
-  for (const output of [
+  it.effect.each([
     "",
     "16656532|RUNNING|NOT_SET|14190",
     "16656532|RUNNING|01:99:00|14190",
     "16656532|RUNNING|09:00:00|999",
     "123|RUNNING|09:00:00|14190",
-  ]) {
-    it.effect(`does not renew an observation on invalid scheduler output: ${output}`, () => {
-      const h = harness();
-      return Effect.gen(function* () {
-        const service = yield* SlurmJob.SlurmJob;
-        const initial = yield* ready(service);
-        h.setOutput(output);
-        yield* TestClock.adjust("2 minutes");
-        const status = yield* service.current;
-        expect(status?.observedAt).toBe(initial?.observedAt);
-        expect(status!.serverNow - status!.observedAt).toBe(120000);
-      }).pipe(Effect.provide(h.layer), Effect.scoped);
-    });
-  }
+  ])("does not renew an observation on invalid scheduler output: %s", (output) => {
+    const h = harness();
+    return Effect.gen(function* () {
+      const service = yield* SlurmJob.SlurmJob;
+      const initial = yield* ready(service);
+      h.setOutput(output);
+      yield* TestClock.adjust("2 minutes");
+      const status = yield* service.current;
+      expect(status?.observedAt).toBe(initial?.observedAt);
+      expect(status!.serverNow - status!.observedAt).toBe(120000);
+    }).pipe(Effect.provide(h.layer), Effect.scoped);
+  });
 
   it.effect("backs off scheduler failures while keeping the last success stale", () => {
     const h = harness();
@@ -165,18 +158,16 @@ describe("Slurm allocation status", () => {
     }).pipe(Effect.provide(h.layer), Effect.scoped);
   });
 
-  for (const [output, state, seconds] of [
+  it.effect.each([
     ["RUNNING|UNLIMITED", "running", null],
     ["RUNNING|02:31", "running", 151],
     ["TIMEOUT|00:00", "ended", 0],
-  ] as const) {
-    it.effect(`handles ${output}`, () => {
-      const h = harness();
-      h.setOutput(`16656532|${output}|14190`);
-      return Effect.gen(function* () {
-        const service = yield* SlurmJob.SlurmJob;
-        expect(yield* ready(service)).toMatchObject({ state, remainingSeconds: seconds });
-      }).pipe(Effect.provide(h.layer), Effect.scoped);
-    });
-  }
+  ] as const)("handles %s", ([output, state, seconds]) => {
+    const h = harness();
+    h.setOutput(`16656532|${output}|14190`);
+    return Effect.gen(function* () {
+      const service = yield* SlurmJob.SlurmJob;
+      expect(yield* ready(service)).toMatchObject({ state, remainingSeconds: seconds });
+    }).pipe(Effect.provide(h.layer), Effect.scoped);
+  });
 });

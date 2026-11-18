@@ -7,6 +7,8 @@ import * as NodePath from "node:path";
 import { chromium } from "playwright-core";
 import { describe, expect, it, vi } from "vite-plus/test";
 
+import * as PreviewBrowser from "./PreviewBrowser.ts";
+
 import { BrowserProxyContexts } from "./BrowserProxyContexts.ts";
 
 vi.mock("node:fs/promises", { spy: true });
@@ -98,6 +100,7 @@ describe("browser proxy routes", () => {
       profilesDir: NodePath.join(root, "profiles"),
       env: { ...process.env, T3CODE_SERVER_BROWSER_SANDBOX: "0" },
       executable: async () => chromium.executablePath(),
+      chrome: { version: PreviewBrowser.VERSION, platform: "linux" as NodeJS.Platform },
     });
     try {
       const localPort = await listen(local);
@@ -180,6 +183,7 @@ describe("browser proxy routes", () => {
       profilesDir,
       env: { ...process.env, T3CODE_SERVER_BROWSER_SANDBOX: "0" },
       executable: async () => chromium.executablePath(),
+      chrome: { version: PreviewBrowser.VERSION, platform: "linux" as NodeJS.Platform },
     };
     const pool = new BrowserProxyContexts(options);
     const route = "http://127.0.0.1:1";
@@ -219,6 +223,7 @@ it("waits for all route deletion before reopening a profile", async () => {
     profilesDir,
     env: { ...process.env, T3CODE_SERVER_BROWSER_SANDBOX: "0" },
     executable: async () => chromium.executablePath(),
+    chrome: { version: PreviewBrowser.VERSION, platform: "linux" as NodeJS.Platform },
   });
   const route = "http://127.0.0.1:1";
   try {
@@ -263,6 +268,7 @@ it("releases idle route browsers before a proxy is used again", async () => {
     profilesDir: NodePath.join(root, "profiles"),
     env: { ...process.env, T3CODE_SERVER_BROWSER_SANDBOX: "0" },
     executable: async () => chromium.executablePath(),
+    chrome: { version: PreviewBrowser.VERSION, platform: "linux" as NodeJS.Platform },
   });
   try {
     const first = await pool.contextFor("default", "agent", "socks5://127.0.0.1:1");
@@ -284,6 +290,7 @@ it("keeps a new page lease alive when the previous last page closes", async () =
     profilesDir: NodePath.join(root, "profiles"),
     env: { ...process.env, T3CODE_SERVER_BROWSER_SANDBOX: "0" },
     executable: async () => chromium.executablePath(),
+    chrome: { version: PreviewBrowser.VERSION, platform: "linux" as NodeJS.Platform },
   });
   try {
     const route = "socks5://127.0.0.1:1";

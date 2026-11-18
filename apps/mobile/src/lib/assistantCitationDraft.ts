@@ -1,3 +1,5 @@
+import { m } from "../i18n/messages";
+import { msg } from "gt-react-native";
 import {
   ASSISTANT_CITATION_MAX_COMMENT_LENGTH,
   PROVIDER_SEND_TURN_MAX_INPUT_CHARS,
@@ -21,14 +23,23 @@ export interface PendingAssistantCitation {
 
 export function assistantCitationCommentError(comment: string): string | null {
   return comment.trim().length > ASSISTANT_CITATION_MAX_COMMENT_LENGTH
-    ? `Keep the comment within ${ASSISTANT_CITATION_MAX_COMMENT_LENGTH.toLocaleString("en-US")} characters.`
+    ? m(
+        msg("Keep the comment within {value1} characters.", {
+          value1: ASSISTANT_CITATION_MAX_COMMENT_LENGTH.toLocaleString("en-US"),
+        }),
+      )
     : null;
 }
 
 export function assistantCitationPromptLengthError(prompt: string): string | null {
   const length = Math.max(prompt.length, expandAssistantCitationsForProvider(prompt).length);
   return length > PROVIDER_SEND_TURN_MAX_INPUT_CHARS
-    ? `The prompt exceeds the ${PROVIDER_SEND_TURN_MAX_INPUT_CHARS.toLocaleString("en-US")}-character limit. Shorten the quote, comment or prompt and try again.`
+    ? m(
+        msg(
+          "The prompt exceeds the {value1}-character limit. Shorten the quote, comment or prompt and try again.",
+          { value1: PROVIDER_SEND_TURN_MAX_INPUT_CHARS.toLocaleString("en-US") },
+        ),
+      )
     : null;
 }
 
@@ -38,7 +49,7 @@ export function rejectOversizedAssistantCitationPrompt(
 ): boolean {
   const error = assistantCitationPromptLengthError(prompt);
   if (error === null) return false;
-  alert("Prompt too long", error);
+  alert(m(msg("Prompt too long")), error);
   return true;
 }
 
@@ -84,7 +95,9 @@ export function prepareAssistantCitationInsertion(input: {
     input.environmentId !== input.pending.citation.environmentId ||
     input.threadId !== input.pending.citation.threadId
   ) {
-    return { error: "The composer is not ready. Return to an editable prompt and try again." };
+    return {
+      error: m(msg("The composer is not ready. Return to an editable prompt and try again.")),
+    };
   }
   const commentError = assistantCitationCommentError(input.comment);
   if (commentError) return { error: commentError };

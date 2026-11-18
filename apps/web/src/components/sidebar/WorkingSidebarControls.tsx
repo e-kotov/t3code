@@ -1,3 +1,4 @@
+import { T } from "gt-react";
 import type { ComponentProps } from "react";
 import { workingSidebarFilterActive } from "@t3tools/client-runtime/state/working-sidebar-view";
 import { Checkbox } from "../ui/checkbox";
@@ -10,8 +11,10 @@ export function WorkingOnlyFilter() {
   return (
     <div className="my-1 border-y border-border px-2 py-2">
       <label className="flex cursor-pointer items-center gap-2 text-sm">
-        <Checkbox checked={workingOnly} onCheckedChange={(checked) => setWorkingOnly(checked)} />
-        Working only
+        <T>
+          <Checkbox checked={workingOnly} onCheckedChange={(checked) => setWorkingOnly(checked)} />
+          Working only
+        </T>
       </label>
     </div>
   );
@@ -23,7 +26,7 @@ export function WorkingFirstMenuItem() {
     <>
       <MenuSeparator />
       <MenuCheckboxItem checked={workingFirst} onCheckedChange={setWorkingFirst}>
-        Show Working above main list
+        <T>Show Working above main list</T>
       </MenuCheckboxItem>
     </>
   );

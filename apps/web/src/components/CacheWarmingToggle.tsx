@@ -1,3 +1,4 @@
+import { T, Var, useGT, msg } from "gt-react";
 import { useEffect, useState } from "react";
 import { AuthSettingsWriteScope, type EnvironmentId } from "@t3tools/contracts";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
@@ -11,8 +12,9 @@ import { useEnvironmentScope } from "../state/session";
 import { resolveActiveThreadRouteRef } from "../threadRoutes";
 import { Button } from "./ui/button";
 
-export const CACHE_WARMING_EXPLANATION =
-  "Keep warm may send a short visible, billable turn near cache expiry for this conversation.";
+export const CACHE_WARMING_EXPLANATION = msg(
+  "Keep warm may send a short visible, billable turn near cache expiry for this conversation.",
+);
 
 type CacheThread = Pick<EnvironmentThreadShell, "id" | "cacheHud" | "archivedAt">;
 
@@ -88,6 +90,7 @@ export function CacheWarmingMachineToggle(props: {
   /** All sidebar threads; only this machine's are considered. */
   threads: readonly (CacheThread & Pick<EnvironmentThreadShell, "environmentId">)[];
 }) {
+  const gt = useGT();
   const machineThreads = props.threads.filter(
     (thread) => thread.environmentId === props.environmentId,
   );
@@ -105,8 +108,12 @@ export function CacheWarmingMachineToggle(props: {
         disabled={!canWrite}
         aria-label={
           enabled === "mixed"
-            ? "Warming is enabled for some warm conversations on this machine; enable it for all"
-            : `${enabled === "on" ? "Disable" : "Enable"} warming for all warm conversations on this machine`
+            ? gt(
+                "Warming is enabled for some warm conversations on this machine; enable it for all",
+              )
+            : enabled === "on"
+              ? gt("Disable warming for all warm conversations on this machine")
+              : gt("Enable warming for all warm conversations on this machine")
         }
         aria-pressed={enabled === "mixed" ? "mixed" : enabled === "on"}
         onPointerDown={(event) => event.stopPropagation()}
@@ -116,7 +123,11 @@ export function CacheWarmingMachineToggle(props: {
           toggleAll();
         }}
       >
-        {enabled === "mixed" ? "Warm: Mixed" : enabled === "on" ? "Warm: On" : "Warm: Off"}
+        {enabled === "mixed"
+          ? gt("Warm: Mixed")
+          : enabled === "on"
+            ? gt("Warm: On")
+            : gt("Warm: Off")}
       </Button>
     </span>
   );
@@ -126,6 +137,7 @@ function EnvironmentToggle(props: {
   environmentId: EnvironmentId;
   threads: readonly CacheThread[];
 }) {
+  const gt = useGT();
   const { activeIds, enabled, canWrite, toggleAll } = useEnvironmentWarming(
     props.environmentId,
     props.threads,
@@ -133,13 +145,17 @@ function EnvironmentToggle(props: {
   const isOn = enabled === "on";
   const isMixed = enabled === "mixed";
   // Name the machine: with several connected, "this server" does not say which one it is.
-  const machineLabel = useEnvironment(props.environmentId)?.label ?? "this server";
+  const machineLabel = useEnvironment(props.environmentId)?.label ?? gt("this server");
   return (
     <div className="flex min-h-8 items-center gap-2 px-2 text-2xs text-sidebar-muted-foreground">
       <span className="min-w-0 flex-1 truncate">
-        <span className="block">Warm prompt cache</span>
+        <span className="block">
+          <T>Warm prompt cache</T>
+        </span>
         <span className="block text-3xs opacity-75">
-          {machineLabel} · Codex/Claude · billable turns
+          <T>
+            <Var>{machineLabel}</Var> · Codex/Claude · billable turns
+          </T>
         </span>
       </span>
       <Button
@@ -148,14 +164,19 @@ function EnvironmentToggle(props: {
         disabled={!canWrite || activeIds.length === 0}
         aria-label={
           isMixed
-            ? `Warming is enabled for some hot conversations on ${machineLabel}; enable it for all`
-            : `${isOn ? "Disable" : "Enable"} warming for all hot conversations on ${machineLabel}`
+            ? gt(
+                "Warming is enabled for some hot conversations on {machineLabel}; enable it for all",
+                { machineLabel: machineLabel },
+              )
+            : isOn
+              ? gt("Disable warming for all hot conversations on {machineLabel}", { machineLabel })
+              : gt("Enable warming for all hot conversations on {machineLabel}", { machineLabel })
         }
         aria-pressed={isMixed ? "mixed" : isOn}
         onClick={toggleAll}
       >
         {isMixed ? <span aria-hidden>−</span> : null}
-        {isMixed ? "Warm all: Mixed" : isOn ? "Warm all: On" : "Warm all: Off"}
+        {isMixed ? gt("Warm all: Mixed") : isOn ? gt("Warm all: On") : gt("Warm all: Off")}
       </Button>
     </div>
   );

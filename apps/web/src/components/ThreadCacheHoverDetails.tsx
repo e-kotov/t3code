@@ -1,3 +1,4 @@
+import { useGT, useMessages } from "gt-react";
 import { useState } from "react";
 import { useAtomValue } from "@effect/atom-react";
 import { serverEnvironment } from "~/state/server";
@@ -24,6 +25,8 @@ export function ThreadCacheHoverDetails(props: {
   usageWindows?: ReadonlyArray<ServerProviderUsageWindow> | undefined;
   providerInstanceId?: string;
 }) {
+  const gt = useGT();
+  const messages = useMessages();
   const { environmentId, id: threadId, cacheHud: hud } = props.thread;
   const warming = useEnvironmentSettings(
     environmentId,
@@ -56,8 +59,10 @@ export function ThreadCacheHoverDetails(props: {
         <div className="flex min-w-0 items-start gap-2">
           <FlameIcon className="mt-0.5 size-3 shrink-0 stroke-muted-foreground" />
           <div className="min-w-0 flex-1 leading-4">
-            <div className="text-foreground/75">{warming ? "Warming on" : "Warming off"}</div>
-            <div className="text-2xs">{CACHE_WARMING_EXPLANATION}</div>
+            <div className="text-foreground/75">
+              {warming ? gt("Warming on") : gt("Warming off")}
+            </div>
+            <div className="text-2xs">{messages(CACHE_WARMING_EXPLANATION)}</div>
           </div>
         </div>
       ) : null}

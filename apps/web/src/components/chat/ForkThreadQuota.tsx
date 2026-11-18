@@ -1,3 +1,4 @@
+import { T, useGT, useMessages } from "gt-react";
 import { useAtomValue } from "@effect/atom-react";
 import { createForkThreadQuotaAtoms } from "@t3tools/client-runtime/state/fork-thread-quota";
 import type { EnvironmentId, ThreadId, ForkThreadQuota as Reading } from "@t3tools/contracts";
@@ -51,6 +52,8 @@ function CodexTaskQuota({
   threadId: ThreadId;
   accountKey: string;
 }) {
+  const gt = useGT();
+  const messages = useMessages();
   const projection = useQuietThreadProjection({ environmentId, threadId })?.projection;
   const native = projection?.providerThreads.find(
     (row) => row.id === projection.thread.activeProviderThreadId,
@@ -71,7 +74,7 @@ function CodexTaskQuota({
   return (
     <ThreadDetailsSection
       headingId="thread-quota-heading"
-      title="Codex task usage"
+      title={gt("Codex task usage")}
       showHeading={false}
     >
       <Tooltip>
@@ -83,32 +86,48 @@ function CodexTaskQuota({
             />
           }
         >
-          <span className="text-muted-foreground">Codex quota used</span>
+          <span className="text-muted-foreground">
+            <T>Codex quota used</T>
+          </span>
           <span className="text-end font-medium tabular-nums">
             {reading
-              ? quotaAmountText(reading)
+              ? quotaAmountText(reading, messages)
               : result._tag === "Failure"
-                ? "Unavailable"
-                : "Loading…"}
+                ? gt("Unavailable")
+                : gt("Loading…")}
           </span>
         </TooltipTrigger>
         <TooltipPopup side="left" sideOffset={16}>
           <div className="flex max-w-72 flex-col gap-1">
             <span>
-              Percentages compare OpenAI-reported lifetime consumption for the current Codex task
-              and its subagents with a current full allowance. Balance credits show debits or
-              adjustments.
+              <T>
+                Percentages compare OpenAI-reported lifetime consumption for the current Codex task
+                and its subagents with a current full allowance. Balance credits show debits or
+                adjustments.
+              </T>
             </span>
             <span className="text-muted-foreground">
-              Estimates can arrive late. This is not usage during only the current week.
+              <T>Estimates can arrive late. This is not usage during only the current week.</T>
             </span>
             {reading ? (
               <span className="text-muted-foreground">
-                {reading.status === "partial" ? "Partial reading. " : ""}Checked{" "}
-                {new Date(reading.checkedAt).toLocaleString()}
-                {reading.dataAsOf
-                  ? ` · Data as of ${new Date(reading.dataAsOf).toLocaleString()}`
-                  : ""}
+                {reading.status === "partial"
+                  ? reading.dataAsOf
+                    ? gt("Partial reading. Checked {checkedAt} · Data as of {dataAsOf}", {
+                        checkedAt: new Date(reading.checkedAt).toLocaleString(),
+                        dataAsOf: new Date(reading.dataAsOf).toLocaleString(),
+                      })
+                    : gt("Partial reading. Checked {checkedAt}", {
+                        checkedAt: new Date(reading.checkedAt).toLocaleString(),
+                      })
+                  : reading.dataAsOf
+                    ? gt("Checked {checkedAt} · Data as of {dataAsOf}", {
+                        checkedAt: new Date(reading.checkedAt).toLocaleString(),
+                        dataAsOf: new Date(reading.dataAsOf).toLocaleString(),
+                      })
+                    : gt("Checked {checkedAt}", {
+                        checkedAt: new Date(reading.checkedAt).toLocaleString(),
+                      })}
               </span>
             ) : null}
           </div>

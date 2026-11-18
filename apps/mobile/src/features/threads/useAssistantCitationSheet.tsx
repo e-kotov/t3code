@@ -1,3 +1,4 @@
+import { useGT } from "gt-react-native";
 import { MessageId, type AssistantCitation, type EnvironmentId } from "@t3tools/contracts";
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { Platform } from "react-native";
@@ -40,6 +41,7 @@ export function useAssistantCitationSheet(input: {
   readonly onChangeDraftMessage: (value: string) => void;
   readonly composerEditorRef: RefObject<ComposerEditorHandle | null>;
 }) {
+  const gt = useGT();
   const { environmentId, threadId, composerDraftKey, canInsert } = input;
   const latestInput = useRef(input);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keep native citation callbacks on the latest committed composer target.
@@ -55,8 +57,8 @@ export function useAssistantCitationSheet(input: {
       if (selection.environmentId !== environmentId || selection.threadId !== threadId) return;
       if (!canInsert || composerDraftKey === null) {
         Dialog.alert(
-          "Cannot add quote",
-          "The composer is not ready. Return to an editable prompt and try again.",
+          gt("Cannot add quote"),
+          gt("The composer is not ready. Return to an editable prompt and try again."),
         );
         return;
       }
@@ -91,7 +93,7 @@ export function useAssistantCitationSheet(input: {
               selection,
             });
             if (edit === null) {
-              Dialog.alert("Cannot edit quote", "The draft changed. Tap the quote again.");
+              Dialog.alert(gt("Cannot edit quote"), gt("The draft changed. Tap the quote again."));
               return;
             }
             setPending({ ...edit, mode: "edit", id: nextPendingId.current++ });
@@ -101,7 +103,7 @@ export function useAssistantCitationSheet(input: {
       subscription.remove();
       editSubscription?.remove();
     };
-  }, [environmentId, threadId, composerDraftKey, canInsert]);
+  }, [environmentId, threadId, composerDraftKey, canInsert, gt]);
 
   if (pending === null) return null;
   if (

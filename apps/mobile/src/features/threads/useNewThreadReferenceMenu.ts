@@ -1,3 +1,4 @@
+import { useGT } from "gt-react-native";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import type { MenuAction } from "@react-native-menu/menu";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
@@ -11,16 +12,17 @@ const NEW_THREAD_IN_PROJECT = "new-thread-in-project";
 const ACTION = "new-thread-with-reference";
 
 export function useNewThreadReferenceMenu(thread: EnvironmentThreadShell) {
+  const gt = useGT();
   const selectDetail = useSelectWorkspaceDetail();
   const actions: MenuAction[] = [
     ...(!thread.branch
-      ? [{ id: NEW_THREAD_IN_PROJECT, title: "New thread", image: "square.and.pencil" }]
+      ? [{ id: NEW_THREAD_IN_PROJECT, title: gt("New thread"), image: "square.and.pencil" }]
       : []),
     {
       id: ACTION,
       title: thread.branch
-        ? `New thread on ${thread.branch} with reference`
-        : "New thread with reference",
+        ? gt("New thread on {value1} with reference", { value1: thread.branch })
+        : gt("New thread with reference"),
       image: "square.and.pencil",
     },
   ];

@@ -16,12 +16,15 @@ import {
   threadCachePolicy,
 } from "./threadCachePolicy.ts";
 
+const decodeSettings = Schema.decodeSync(ServerSettings);
+const decodePatch = Schema.decodeUnknownSync(ServerSettingsPatch);
+
 const id = ThreadId.make("first");
 const other = ThreadId.make("other");
 const instanceId = ProviderInstanceId.make("claudeAgent");
 
 it("decodes old settings, preserves warming opt-ins and leaves previously off threads inheriting defaults", () => {
-  const settings = Schema.decodeSync(ServerSettings)({
+  const settings = decodeSettings({
     cacheWarmingSessions: { [id]: true, [other]: false },
   });
   expect(settings.threadCachePolicies).toEqual({});
@@ -49,7 +52,7 @@ it.each(["onReturn", "beforeCacheExpires", "off"] as const)(
 );
 
 it("inherits Claude instance overrides and restores them after clearing a thread override", () => {
-  const base = Schema.decodeSync(ServerSettings)({
+  const base = decodeSettings({
     idleCompaction: "off",
     providerInstances: {
       [instanceId]: { driver: "claudeAgent", config: { idleCompaction: "beforeCacheExpires" } },
@@ -85,9 +88,7 @@ it("keeps legacy clients and bulk switches coherent with the new choices, with e
 });
 
 it("rejects unknown policies and does not offer Claude compaction to Codex", () => {
-  expect(() =>
-    Schema.decodeUnknownSync(ServerSettingsPatch)({ threadCachePolicies: { [id]: "always" } }),
-  ).toThrow();
+  expect(() => decodePatch({ threadCachePolicies: { [id]: "always" } })).toThrow();
   expect(cachePolicyChoices("codex").map((choice) => choice.value)).toEqual([
     "default",
     "warm",

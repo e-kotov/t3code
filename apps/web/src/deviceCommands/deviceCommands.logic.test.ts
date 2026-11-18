@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vite-plus/test";
+import { mFallback } from "gt-react";
+import type { MessageResolver } from "~/i18n/messages";
+import { describe, expect, it, vi } from "vite-plus/test";
 import {
   applyRunUpdate,
   findRun,
@@ -48,6 +50,19 @@ describe("device command presentation", () => {
     expect(newDeviceCommandId("GWDG up", [other])).toBe("gwdg-up-2");
     expect(moveDeviceCommand([command, other], 1, 0)).toEqual([other, command]);
     expect(moveDeviceCommand([command, other], -1, 0)).toEqual([command, other]);
+  });
+  it("passes translatable outcome and age variables to the active resolver", () => {
+    const called = vi.fn();
+    const resolve: MessageResolver = (message, options) => {
+      called(message, options);
+      return mFallback(message, options);
+    };
+    expect(describeRunOutcome({ status: "failed", exitCode: 7 }, resolve)).toBe(
+      "Failed with exit code 7",
+    );
+    expect(called).toHaveBeenLastCalledWith(expect.any(String), { exitCode: 7 });
+    expect(formatRunAge(0, 120_000, resolve)).toBe("2m");
+    expect(called).toHaveBeenLastCalledWith(expect.any(String), { minutes: 2 });
   });
   it("reports failures and compact ages", () => {
     expect(describeRunOutcome({ status: "failed", exitCode: 7 })).toBe("Failed with exit code 7");

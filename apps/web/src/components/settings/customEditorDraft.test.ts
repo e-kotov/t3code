@@ -1,3 +1,4 @@
+import { m, type MessageResolver } from "../../i18n/messages";
 import { expect, it } from "vite-plus/test";
 import { validateCustomEditor } from "./customEditorDraft";
 const editor = {
@@ -16,4 +17,17 @@ it("validates commands separately from remote links", () => {
   expect(validateCustomEditor({ ...editor, args: ["{unknown}"] }, false)).toBeTruthy();
   expect(validateCustomEditor({ ...editor, args: ["\0"] }, false)).toBeTruthy();
   expect(validateCustomEditor({ ...editor, remoteUrl: "file://{host}{path}" }, true)).toBeTruthy();
+});
+
+it("resolves validation copy at render time and preserves literal URL placeholders", () => {
+  const resolve = ((message: string) => `translated:${m(message)}`) as MessageResolver;
+  expect(validateCustomEditor({ ...editor, name: "" }, false, resolve)).toBe(
+    "translated:Enter an editor name.",
+  );
+  expect(validateCustomEditor({ ...editor, remoteUrl: "" }, true)).toBe(
+    "Use an app URL with {host} and {path} (or {pathQuery}), for example myeditor://ssh/{host}{path}.",
+  );
+  expect(validateCustomEditor({ ...editor, args: ["{unknown}"] }, false)).toBe(
+    "Supported argument placeholders: {path}, {line}, {column}.",
+  );
 });

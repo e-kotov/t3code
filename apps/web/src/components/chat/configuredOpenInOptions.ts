@@ -1,3 +1,5 @@
+import { msg } from "gt-react";
+import { m } from "~/i18n/messages";
 import * as Cause from "effect/Cause";
 import { SquareTerminalIcon } from "lucide-react";
 import type { Icon } from "../Icons";
@@ -43,7 +45,7 @@ export async function reportEditorOpenFailure(
   const error = Cause.squash(result.cause);
   toastManager.add({
     type: "error",
-    title: "Could not open editor",
+    title: m(msg("Could not open editor")),
     description: error instanceof Error ? error.message : undefined,
   });
   return false;

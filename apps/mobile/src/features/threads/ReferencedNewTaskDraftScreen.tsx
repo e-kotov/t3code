@@ -1,3 +1,4 @@
+import { useGT } from "gt-react-native";
 import type { ThreadContextRecord } from "@t3tools/contracts";
 import { useEffect, useRef, type ComponentProps } from "react";
 import * as Dialog from "../../components/ui/Dialog";
@@ -14,6 +15,7 @@ export function ReferencedNewTaskDraftScreen({
 }: ComponentProps<typeof NewTaskDraftScreen> & {
   readonly referenceThread?: ThreadContextRecord | undefined;
 }) {
+  const gt = useGT();
   const { draftKey, selectedProject, setProject } = useNewTaskFlow();
   const applied = useRef(false);
   const projectId = props.initialProjectRef?.projectId;
@@ -60,9 +62,9 @@ export function ReferencedNewTaskDraftScreen({
     applied.current = true;
     if (result === "failed")
       Dialog.alert(
-        "Could not add thread reference",
-        "Remove some context from the draft and try again.",
+        gt("Could not add thread reference"),
+        gt("Remove some context from the draft and try again."),
       );
-  }, [draftKey, projectId, referenceThread]);
+  }, [draftKey, projectId, referenceThread, gt]);
   return <NewTaskDraftScreen {...props} />;
 }

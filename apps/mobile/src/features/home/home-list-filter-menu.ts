@@ -11,7 +11,10 @@ import {
   machineFilterOptionPresentation,
   type MachineFilterDetails,
 } from "./machineFilterPresentation";
+import { msg } from "gt-react-native";
+
 import type { AppBarMenuItem } from "../../components/ui/AppBar.types";
+import { m, type MessageResolver } from "../../i18n/messages";
 import type { WorkspaceEnvironment } from "../../state/workspaceModel";
 
 export interface HomeListFilterMenuEnvironment extends MachineFilterDetails {
@@ -49,16 +52,17 @@ export function buildHomeListFilterMenuItems(
     readonly onProjectChange: (projectKey: string | null) => void;
     readonly machineSummary?: string;
   } & Partial<ConversationListControls>,
+  resolve: MessageResolver = m,
 ): AppBarMenuItem[] {
   const items: AppBarMenuItem[] = [
     {
       id: "environment",
-      title: "Environment",
+      title: resolve(msg("Environment", { $context: "filter menu heading" })),
       items: [
         {
           id: "environment:all",
-          title: "All environments",
-          subtitle: "Show threads from every environment",
+          title: resolve(msg("All environments")),
+          subtitle: resolve(msg("Show threads from every environment")),
           selected: props.selectedEnvironmentId === null,
           onPress: () => props.onEnvironmentChange(null),
         },
@@ -75,12 +79,12 @@ export function buildHomeListFilterMenuItems(
   if (props.projects.length > 0) {
     items.push({
       id: "project",
-      title: "Project",
+      title: resolve(msg("Project", { $context: "filter menu heading" })),
       items: [
         {
           id: "project:all",
-          title: "All projects",
-          subtitle: "Show threads from every project",
+          title: resolve(msg("All projects")),
+          subtitle: resolve(msg("Show threads from every project")),
           selected: props.selectedProjectKey === null,
           onPress: () => props.onProjectChange(null),
         },
@@ -99,12 +103,12 @@ export function buildHomeListFilterMenuItems(
   if (props.onWorkingOnlyChange) {
     items.push({
       id: "working:only",
-      title: "Working only",
+      title: resolve(msg("Working only")),
       selected: props.workingOnly ?? false,
       onPress: () => props.onWorkingOnlyChange?.(!props.workingOnly),
     });
   }
-  items.push(...buildConversationListFilterSubmenus(props));
+  items.push(...buildConversationListFilterSubmenus(props, resolve));
 
   return items;
 }

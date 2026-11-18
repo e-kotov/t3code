@@ -1,3 +1,5 @@
+import { m, type MessageResolver } from "../../i18n/messages";
+import { msg } from "gt-react-native";
 import type { MenuAction } from "@react-native-menu/menu";
 import type { AppBarMenuItem } from "../../components/ui/AppBar.types";
 import {
@@ -36,9 +38,9 @@ export const DEFAULT_CONVERSATION_LIST_OPTIONS: ConversationListOptions = {
 };
 
 const SORT_CHOICES = [
-  ["updated_at", "Recent activity"],
-  ["created_at", "Created"],
-  ["cache_expiry", "Cache expiry"],
+  ["updated_at", msg("Recent activity")],
+  ["created_at", msg("Created")],
+  ["cache_expiry", msg("Cache expiry")],
 ] as const satisfies ReadonlyArray<readonly [SidebarConversationSortCriterion, string]>;
 
 export function conversationListControls(
@@ -88,27 +90,30 @@ export function conversationChoiceActions(
   options: ConversationListOptions,
   offState: "off" | undefined,
   machineSummary?: string,
+  resolve: MessageResolver = m,
 ): MenuAction[] {
   if (kind === "sort") {
     return [
       ...SORT_CHOICES.map(([value, title]) => {
         const isSelected =
           getSidebarConversationSortCriterion(options.conversationSortOrder) === value;
-        const direction = directionLabel(value, options.conversationSortOrder);
+        const direction = directionLabel(value, options.conversationSortOrder, resolve);
         return {
           id: `sort:${value}`,
-          title: direction ? `${title} · ${direction}` : title,
+          title: direction ? `${resolve(title)} · ${direction}` : resolve(title),
           state: isSelected ? ("on" as const) : offState,
         };
       }),
       {
         id: "working:first",
-        title: "Working above main list",
+        title: resolve(msg("Working above main list")),
         state: options.workingFirst ? "on" : offState,
       },
     ];
   }
-  const machineTitle = machineSummary ? `By machine · ${machineSummary}` : "By machine";
+  const machineTitle = machineSummary
+    ? resolve(msg("By machine · {summary}"), { summary: machineSummary })
+    : resolve(msg("By machine"));
   return [
     {
       id: "grouping:machine",
@@ -145,17 +150,18 @@ export function applyConversationListMenuEvent(
 /** Sort and grouping submenus for `buildHomeListFilterMenuItems`, present only with handlers. */
 export function buildConversationListFilterSubmenus(
   props: Partial<ConversationListControls> & { readonly machineSummary?: string },
+  resolve: MessageResolver = m,
 ): AppBarMenuItem[] {
   const submenus: AppBarMenuItem[] = [];
   const onSortOrderChange = props.onConversationSortOrderChange;
   if (onSortOrderChange) {
     submenus.push({
       id: "sort",
-      title: "Sort conversations",
+      title: resolve(msg("Sort conversations")),
       items: [
         ...SORT_CHOICES.map(([value, title]) => ({
           id: `sort:${value}`,
-          title: `${title} · ${directionLabel(value, props.conversationSortOrder ?? "updated_at")}`,
+          title: `${resolve(title)} · ${directionLabel(value, props.conversationSortOrder ?? "updated_at", resolve)}`,
           selected:
             getSidebarConversationSortCriterion(props.conversationSortOrder ?? "updated_at") ===
             value,
@@ -165,7 +171,7 @@ export function buildConversationListFilterSubmenus(
           ? [
               {
                 id: "working:first",
-                title: "Working above main list",
+                title: resolve(msg("Working above main list")),
                 selected: props.workingFirst ?? false,
                 onPress: () => props.onWorkingFirstChange?.(!props.workingFirst),
               },
@@ -178,11 +184,11 @@ export function buildConversationListFilterSubmenus(
   if (onGroupingChange) {
     const current = props.conversationGrouping ?? "none";
     const machineTitle = props.machineSummary
-      ? `By machine · ${props.machineSummary}`
-      : "By machine";
+      ? resolve(msg("By machine · {summary}"), { summary: props.machineSummary })
+      : resolve(msg("By machine"));
     submenus.push({
       id: "grouping",
-      title: "Group conversations",
+      title: resolve(msg("Group conversations")),
       items: [
         {
           id: "grouping:machine",
@@ -199,21 +205,32 @@ export function buildConversationListFilterSubmenus(
 function directionLabel(
   criterion: SidebarConversationSortCriterion,
   order: SidebarConversationSortOrder,
+  resolve: MessageResolver = m,
 ): string {
   const reversed =
     getSidebarConversationSortCriterion(order) === criterion &&
     isSidebarConversationSortReversed(order);
-  if (criterion === "cache_expiry") return reversed ? "Latest first" : "Soonest first";
-  return reversed ? "Oldest first" : "Newest first";
+  if (criterion === "cache_expiry")
+    return reversed ? resolve(msg("Latest first")) : resolve(msg("Soonest first"));
+  return reversed ? resolve(msg("Oldest first")) : resolve(msg("Newest first"));
 }
 
 export type WorkingStatusFilterControls = Partial<
   Pick<ConversationListControls, "workingOnly" | "onWorkingOnlyChange">
 >;
 
-export function workingStatusActions(controls: WorkingStatusFilterControls): MenuAction[] {
+export function workingStatusActions(
+  controls: WorkingStatusFilterControls,
+  resolve: MessageResolver = m,
+): MenuAction[] {
   return controls.onWorkingOnlyChange
-    ? [{ id: "working:only", title: "Working only", state: controls.workingOnly ? "on" : "off" }]
+    ? [
+        {
+          id: "working:only",
+          title: resolve(msg("Working only")),
+          state: controls.workingOnly ? "on" : "off",
+        },
+      ]
     : [];
 }
 

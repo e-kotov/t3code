@@ -1,3 +1,4 @@
+import { useGT } from "gt-react";
 import { sidebarListItemId } from "../Sidebar.logic";
 import { SortableSidebarMarker } from "./SidebarListMarkers";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
@@ -52,6 +53,7 @@ export function SidebarMachineGroupHeader(props: {
   /** All sidebar threads: moving a machine reorders every machine that has rows. */
   readonly threads: readonly EnvironmentThreadShell[];
 }) {
+  const gt = useGT();
   const { environmentId, groupPosition, groupCount, section } = props.item;
   const view = useSidebarConversationView();
   const { collapsedMachineGroups, toggleMachineGroup } = useMachineGroupCollapse();
@@ -74,7 +76,7 @@ export function SidebarMachineGroupHeader(props: {
     <div className="mx-2 mt-2 flex items-center gap-1 border-t border-sidebar-border/60 pt-2 text-3xs font-medium uppercase tracking-wide text-sidebar-muted-foreground/70">
       {environmentId ? <MachineGroupConnectionStatus environmentId={environmentId} /> : null}
       {section === "pinned" ? (
-        <PinIcon role="img" aria-label="Pinned" className="size-3 shrink-0" />
+        <PinIcon role="img" aria-label={gt("Pinned")} className="size-3 shrink-0" />
       ) : null}
       {environmentId ? (
         <EnvironmentMachineIcon
@@ -93,7 +95,7 @@ export function SidebarMachineGroupHeader(props: {
         <span className="flex shrink-0">
           <button
             type="button"
-            aria-label="Move machine group up"
+            aria-label={gt("Move machine group up")}
             disabled={groupPosition === 0}
             className="rounded p-1 hover:bg-accent disabled:opacity-30"
             onClick={(event) => {
@@ -105,7 +107,7 @@ export function SidebarMachineGroupHeader(props: {
           </button>
           <button
             type="button"
-            aria-label="Move machine group down"
+            aria-label={gt("Move machine group down")}
             disabled={groupPosition === groupCount - 1}
             className="rounded p-1 hover:bg-accent disabled:opacity-30"
             onClick={(event) => {
@@ -117,7 +119,11 @@ export function SidebarMachineGroupHeader(props: {
           </button>
           <button
             type="button"
-            aria-label={`${collapsed ? "Expand" : "Collapse"} ${label} machine group`}
+            aria-label={
+              collapsed
+                ? gt("Expand {label} machine group", { label })
+                : gt("Collapse {label} machine group", { label })
+            }
             aria-expanded={!collapsed}
             className="rounded p-1 hover:bg-accent"
             onClick={(event) => {

@@ -1,3 +1,5 @@
+import { msg } from "gt-react";
+import { m } from "~/i18n/messages";
 import {
   showThreadReferenceContextMenu,
   type ReferenceThread,
@@ -47,7 +49,7 @@ async function showCachePolicyMenu<T extends string>(
       ...items,
       {
         id: "cache-policy",
-        label: "Idle cache policy",
+        label: m(msg("Idle cache policy")),
         icon: "memory-stick",
         children: choices.map((choice) => ({
           id: `cache-policy:${choice.value}`,

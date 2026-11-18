@@ -1,3 +1,4 @@
+import { useGT, T, Var } from "gt-react";
 import { useId, useState } from "react";
 import {
   AuthSettingsWriteScope,
@@ -63,6 +64,7 @@ export function ThreadCachePolicyMenu(props: {
   readonly onChange: (policy: ThreadCachePolicy) => void;
   readonly reveal?: boolean | undefined;
 }) {
+  const gt = useGT();
   const [open, setOpen] = useState(false);
   if (props.driver !== "codex" && props.driver !== "claudeAgent") return null;
   const label =
@@ -78,7 +80,7 @@ export function ThreadCachePolicyMenu(props: {
                 <button
                   type="button"
                   disabled={!props.canWrite}
-                  aria-label={`Idle cache policy: ${label}`}
+                  aria-label={gt("Idle cache policy: {label}", { label: label })}
                   className={`inline-flex shrink-0 cursor-pointer items-center justify-center rounded-md p-1 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-default disabled:opacity-40 ${props.policy === "warm" ? "text-warning-foreground" : "text-muted-foreground"} ${props.reveal && props.policy === "default" && !open ? "opacity-0 group-any-hover/sidebar-row:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100" : ""}`}
                   onPointerDown={(event) => event.stopPropagation()}
                   onKeyDown={(event) => event.stopPropagation()}
@@ -96,7 +98,11 @@ export function ThreadCachePolicyMenu(props: {
         >
           <CacheChip policy={props.policy} />
         </TooltipTrigger>
-        <TooltipPopup>Idle cache policy: {label}</TooltipPopup>
+        <TooltipPopup>
+          <T>
+            Idle cache policy: <Var>{label}</Var>
+          </T>
+        </TooltipPopup>
       </Tooltip>
       <MenuPopup align="end" onClick={(event) => event.stopPropagation()}>
         <MenuRadioGroup
@@ -106,7 +112,9 @@ export function ThreadCachePolicyMenu(props: {
             setOpen(false);
           }}
         >
-          <MenuGroupLabel>Idle cache policy</MenuGroupLabel>
+          <MenuGroupLabel>
+            <T>Idle cache policy</T>
+          </MenuGroupLabel>
           {cachePolicyChoices(props.driver).map((choice) => (
             <MenuRadioItem key={choice.value} value={choice.value} onClick={() => setOpen(false)}>
               <span className="flex max-w-72 flex-col">

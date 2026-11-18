@@ -6,6 +6,6 @@ export const UTILITIES_SCREENS = {
   [UTILITIES_ROUTE]: createNativeStackScreen({
     screen: DeviceCommandsScreen,
     linking: "utilities",
-    options: { ...UTILITIES_PRESENTATION, title: "Utilities" },
+    options: { ...UTILITIES_PRESENTATION },
   }),
 };
