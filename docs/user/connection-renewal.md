@@ -41,9 +41,16 @@ To try key-bound refresh, use a separate device or browser profile with its own
 T3 Code storage. Pair with one noncritical host via a standard one-time direct pairing
 link, using a distinct label for the test device. Do not reuse your usual client or
 another tab in the same browser profile: pairing with the same host there can replace
-the saved connection. Keep the original client and link unchanged. Verify that the test
-connection still works after the first short access token expires, then restart the test
-client and check that it reconnects without pairing again. If either check fails, remove only the test
-pairing from the client, revoke only its credential in **Settings → Connections**, and
-return to the existing link. Keep that fallback while you expand one connection at
-a time. Leave agent links untouched and validate them separately.
+the saved connection. Keep the original client and link unchanged.
+
+In the test browser profile, use the Network panel to confirm a successful
+`POST /oauth/token` refresh after the initial pairing exchange. Request timing and
+status are enough; do not inspect or share token values. Staying connected alone is
+not proof: a legacy bearer pairing can also stay connected. Check that the test
+connection works after its first short access token expires, then restart the test
+client and check that it reconnects without pairing again.
+
+If a check fails, remove only the test pairing from its client, revoke only that
+device in **Settings → Connections**, and return to the existing link. Keep that
+fallback while you expand one connection at a time. Leave agent links untouched
+and validate them separately.
