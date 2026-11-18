@@ -36,4 +36,5 @@ runs:
         df -h "${TMPDIR:-/tmp}" /dev/shm "$GITHUB_WORKSPACE"
         free -h
         # Distinguish browser crashes, tester teardown, and GC pressure without changing tests.
-        printf 'DEBUG=%s\n' "${DEBUG:+${DEBUG},}vitest:browser:api,vitest:browser:playwright,vitest:browser:pool,vitest:browser:gc" >> "$GITHUB_ENV"
+        printf 'DEBUG=%s\n' "${DEBUG:+${DEBUG},}vitest:browser:api,vitest:browser:playwright,vitest:browser:pool,vitest:browser:gc,pw:browser" >> "$GITHUB_ENV"
+        printf 'VITEST_BROWSER_DEBUG=1\n' >> "$GITHUB_ENV"
