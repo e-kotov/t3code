@@ -29,3 +29,11 @@ runs:
         if ldd "$shell_bin" "$chrome_bin" | grep '=> not found' >/dev/null; then
           node apps/web/node_modules/playwright/cli.js install-deps chromium
         fi
+
+    - name: Diagnose browser test resources and connections
+      shell: bash
+      run: |
+        df -h "${TMPDIR:-/tmp}" /dev/shm "$GITHUB_WORKSPACE"
+        free -h
+        # Distinguish browser crashes, tester teardown, and GC pressure without changing tests.
+        printf 'DEBUG=%s\n' "${DEBUG:+${DEBUG},}vitest:browser:api,vitest:browser:playwright,vitest:browser:pool,vitest:browser:gc" >> "$GITHUB_ENV"
