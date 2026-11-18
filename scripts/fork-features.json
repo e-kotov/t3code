@@ -3,7 +3,7 @@
     {
       "id": "cache-warming",
       "group": "Cache and context",
-      "summary": "per-thread cache warming and idle compaction policies, shared across clients",
+      "summary": "per-thread cache warming with a configurable Codex warm time, and idle compaction policies, shared across clients",
       "docs": "docs/user/cache-warming.md",
       "tests": [
         "apps/server/src/orchestration-v2/CacheWarmingService.test.ts",

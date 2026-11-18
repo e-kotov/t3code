@@ -7,7 +7,7 @@ Slurm and workflows across multiple machines.
 
 <!-- fork-features:start -->
 
-- **Cache and context:** [per-thread cache warming and idle compaction policies, shared across clients](docs/user/cache-warming.md); Claude/Codex context and cache HUDs with cache-expiry sorting; context usage and a compact action on mobile.
+- **Cache and context:** [per-thread cache warming with a configurable Codex warm time, and idle compaction policies, shared across clients](docs/user/cache-warming.md); Claude/Codex context and cache HUDs with cache-expiry sorting; context usage and a compact action on mobile.
 - **Usage and quotas:** provider quota readouts in the chat header with 5-hour and weekly bars, model-aware switching and a compact popup; official Codex task quota consumption on each thread.
 - **Machines and HPC:** Slurm job status and time left in the header and filter menu; sidebar machine shelves with folding, machine filters, project grouping and open-thread counts; conversation sorting and grouping on web and mobile, reversed by selecting a sort again; the active machine and model in the thread header; machine names on thread links with subagent markers, and server label overrides; Working-only filters with an active filter indicator, visible section dividers and optional Working-first order.
 - **Browser:** togglable browser proxy defaults and per-request routes; BetterWright pages handed to T3 clients, with an SSH viewer when the desktop stream fails.

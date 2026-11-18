@@ -7921,6 +7921,15 @@
       "v": "v"
     }
   ],
+  "de10759174782dbf": "25 min",
+  "643abc2615bd3793": "55 min (tidigare standard)",
+  "b9a3e253570344ed": "1 h 25 min",
+  "2a2f29feeb46867f": "1 h 55 min (rekommenderas)",
+  "51ec42ead7ba1ab2": "2 h 55 min",
+  "874249a1962865f1": "{minutes} min",
+  "f2d967e7e3a1f724": "För konversationer inställda på Keep warm. Codex rapporterar inte hur länge dess promptcache varar, så uppvärmningsturen skickas efter så här lång inaktivitet och hoppas över när ytterligare fem minuter har gått. Claude använder sin rapporterade cachelivslängd.",
+  "11457908284789d4": "Återställ uppvärmningstid för Codex till standard",
+  "8e350c21788560fa": "Värm Codex efter",
   "cd67d110c09bfdf4": "Växla synlighet för kontots e-postadress",
   "6b2ce50ea6a13f57": "Klicka för att visa e-postadressen",
   "34ce8910007bfaf1": "Klicka för att dölja e-postadressen",
@@ -11551,6 +11560,7 @@
   "10e3b1efa85ed4b3": "Grenar",
   "eb61b42f989896b8": "{domains} och {last}",
   "fa338b04cd05c0cf": "{count, plural, one {{domains} och {count} till} other {{domains} och {count} till}}",
+  "4db9c8ec02419bbd": "håll varm promptcache codex inaktiv intervall minuter timmar utgång debiteras keep warm",
   "5e36e75d522dfb82": "Enter an editor name.",
   "04a3eb3179d20a0e": "Use an app URL with {host} and {path} (or {pathQuery}), for example myeditor://ssh/{host}{path}.",
   "47b688ea40815c8d": "Enter an executable name or absolute path.",

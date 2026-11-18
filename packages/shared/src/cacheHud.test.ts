@@ -257,8 +257,15 @@ describe("hotCacheThreadIds", () => {
         thread("no-hud", null),
       ],
       now,
+      115,
     );
     expect(ids).toEqual(["claude", "codex"]);
+    // Idle 90 minutes: past the HUD's one-hour Codex estimate, before a 115-minute warm point.
+    const idleCodex = [
+      thread("codex", hud({ driver: ProviderDriverKind.make("codex"), basis: "estimated" })),
+    ];
+    expect(hotCacheThreadIds(idleCodex, start + 90 * 60_000, 115)).toEqual(["codex"]);
+    expect(hotCacheThreadIds(idleCodex, start + 90 * 60_000, 55)).toEqual([]);
   });
 });
 

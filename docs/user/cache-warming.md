@@ -30,11 +30,13 @@ Warming sends a short, visible **billable** agent turn: it asks for exactly
 conversation and model. It does not guarantee a provider cache hit or extend a
 provider’s cache lifetime beyond what that provider supports.
 
-The server checks every 30 seconds. Codex uses an assumed one-hour cache window
-and can warm within its final five minutes; Claude conversations within one minute
-of their reported expiry. The Codex estimate does not guarantee retention. Only a
-new usage report can confirm reuse; once the estimate passes, Codex shows unknown
-cache status and keeps the last-request counters visible. Only a
+The server checks every 30 seconds. Codex reports no cache lifetime, so Codex
+conversations are warmed once they have been idle for **Settings → Providers →
+Warm Codex after** (default 1 h 55 min) and skipped once five more minutes pass.
+Claude conversations are warmed within one minute of their reported expiry. The
+Codex time is a choice, not a retention guarantee. Only a new usage report can
+confirm reuse. The conversation HUD keeps its one-hour Codex estimate, so it can
+show unknown cache status before the warm turn is due. Only a
 fresh cache with observed cached or cache-creation tokens qualifies. Unsupported
 providers, expired or unknown caches, subagents, archived conversations, active
 work, pending approvals or background work, failures and usage-limit recovery

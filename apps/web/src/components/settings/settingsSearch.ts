@@ -17,6 +17,7 @@ import type { MessageResolver } from "../../i18n/messages";
 import { commandLabel } from "./KeybindingsSettings.logic";
 import type { ResolvedSettingsScope } from "./settingsScope";
 import { SETTLE_NAVIGATION_SEARCH_ITEMS } from "./settleNavigationSearch";
+import { CODEX_CACHE_WARM_AFTER_SEARCH_ITEMS } from "./codexCacheWarmAfterSearch";
 
 export type SettingsPath =
   | "/settings/projects"
@@ -245,6 +246,7 @@ const SOURCE_CONTROL_HOST_TERMS = sourceControlClients.definitions
 
 export const SETTINGS_SEARCH_ITEMS = [
   ...SETTLE_NAVIGATION_SEARCH_ITEMS,
+  ...CODEX_CACHE_WARM_AFTER_SEARCH_ITEMS,
   {
     id: "device-commands",
     title: msg("Device commands"),

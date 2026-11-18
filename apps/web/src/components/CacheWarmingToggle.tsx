@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { AuthSettingsWriteScope, type EnvironmentId } from "@t3tools/contracts";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import { useEnvironmentSettings, useUpdateEnvironmentSettings } from "~/hooks/useSettings";
-import { cacheWarmingState, hotCacheThreadIds } from "@t3tools/shared/cacheHud";
+import { cacheWarmWindowMs, cacheWarmingState, hotCacheThreadIds } from "@t3tools/shared/cacheHud";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { useThreadRouteTarget } from "../hooks/useThreadRouteTarget";
 import { useThreadShells } from "../state/entities";
@@ -21,20 +21,25 @@ type CacheThread = Pick<EnvironmentThreadShell, "id" | "cacheHud" | "archivedAt"
 /** Shared state for switching every warm conversation on one environment. */
 function useEnvironmentWarming(environmentId: EnvironmentId, threads: readonly CacheThread[]) {
   const [now, setNow] = useState(() => Date.now());
+  const codexWarmAfterMinutes = useEnvironmentSettings(
+    environmentId,
+    (settings) => settings.codexCacheWarmAfterMinutes,
+  );
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Schedule a redraw at the next provider cache-expiry boundary.
   useEffect(() => {
     const nextExpiry = threads
       .flatMap((thread) => {
         const hud = thread.cacheHud;
+        const windowMs = hud ? cacheWarmWindowMs(hud, codexWarmAfterMinutes) : undefined;
         if (
           thread.archivedAt !== null ||
           !hud ||
           (hud.driver !== "codex" && hud.driver !== "claudeAgent") ||
           (hud.usage.cachedInputTokens ?? 0) + (hud.usage.cacheCreationTokens ?? 0) <= 0 ||
-          hud.ttlMs === undefined
+          windowMs === undefined
         )
           return [];
-        const expiry = Date.parse(hud.usage.updatedAt) + hud.ttlMs;
+        const expiry = Date.parse(hud.usage.updatedAt) + windowMs;
         return Number.isFinite(expiry) && expiry > now ? [expiry] : [];
       })
       .reduce<number | null>(
@@ -47,8 +52,8 @@ function useEnvironmentWarming(environmentId: EnvironmentId, threads: readonly C
       Math.min(nextExpiry - now + 1, 2_147_483_647),
     );
     return () => window.clearTimeout(timer);
-  }, [now, threads]);
-  const activeIds = hotCacheThreadIds(threads, now);
+  }, [now, threads, codexWarmAfterMinutes]);
+  const activeIds = hotCacheThreadIds(threads, now, codexWarmAfterMinutes);
   const enabled = useEnvironmentSettings(environmentId, (settings) =>
     cacheWarmingState(activeIds, settings.cacheWarmingSessions),
   );

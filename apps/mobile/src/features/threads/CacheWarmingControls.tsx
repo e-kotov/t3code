@@ -6,7 +6,7 @@ import { serverEnvironment } from "../../state/server";
 import { AppText as Text } from "../../components/ui/AppText";
 import { Pressable, View } from "react-native";
 import { useAtomValue } from "@effect/atom-react";
-import { AuthSettingsWriteScope } from "@t3tools/contracts";
+import { AuthSettingsWriteScope, DEFAULT_SERVER_SETTINGS } from "@t3tools/contracts";
 import { useEnvironmentScope } from "../../state/session";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import { cacheWarmingState, hotCacheThreadIds } from "@t3tools/shared/cacheHud";
@@ -41,20 +41,11 @@ function EnvironmentControl(props: {
   // Name the machine: with several connected, "this server" does not say which one it is.
   const machineLabel =
     useSavedRemoteConnection(props.environmentId)?.environmentLabel ?? "this server";
-  const hotThreadIds = props.threads
-    .filter((thread) => {
-      const hud = thread.cacheHud;
-      return (
-        thread.environmentId === props.environmentId &&
-        thread.archivedAt === null &&
-        hud &&
-        (hud.driver === "codex" || hud.driver === "claudeAgent") &&
-        (hud.usage.cachedInputTokens ?? 0) + (hud.usage.cacheCreationTokens ?? 0) > 0 &&
-        hud.ttlMs !== undefined &&
-        now - Date.parse(hud.usage.updatedAt) < hud.ttlMs
-      );
-    })
-    .map((thread) => thread.id);
+  const hotThreadIds = hotCacheThreadIds(
+    props.threads.filter((thread) => thread.environmentId === props.environmentId),
+    now,
+    (settings ?? DEFAULT_SERVER_SETTINGS).codexCacheWarmAfterMinutes,
+  );
   const enabled =
     hotThreadIds.length > 0 &&
     hotThreadIds.every((id) => settings?.cacheWarmingSessions?.[id] === true);
@@ -118,6 +109,7 @@ export function CacheWarmingMachineControl(props: { readonly environmentId: Envi
   const hotThreadIds = hotCacheThreadIds(
     threads.filter((thread) => thread.environmentId === props.environmentId),
     now,
+    (settings ?? DEFAULT_SERVER_SETTINGS).codexCacheWarmAfterMinutes,
   );
   if (hotThreadIds.length === 0) return null;
   const state = cacheWarmingState(hotThreadIds, settings?.cacheWarmingSessions);

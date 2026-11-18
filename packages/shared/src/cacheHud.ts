@@ -14,6 +14,15 @@ import { formatResetsIn } from "./usageLimitsCopy.ts";
 
 // A user-selected freshness estimate, not a provider-reported retention guarantee.
 const CODEX_BASELINE_MS = 60 * 60_000;
+export const CODEX_WARM_MARGIN_MS = 5 * 60_000;
+
+/** Window the warmer and Warm all act on. Codex reports no lifetime, so it ends a margin after
+ * the machine's warm-after setting instead of at the HUD's one-hour freshness estimate. */
+export function cacheWarmWindowMs(hud: OrchestrationV2CacheHud, codexWarmAfterMinutes: number) {
+  return hud.driver === "codex" && hud.basis === "estimated"
+    ? codexWarmAfterMinutes * 60_000 + CODEX_WARM_MARGIN_MS
+    : hud.ttlMs;
+}
 
 /** Derive one compact server-owned summary, not transcript data, for every client. */
 export function deriveCacheHud(
@@ -252,17 +261,19 @@ export function hotCacheThreadIds(
     readonly archivedAt: string | null;
   }>,
   nowMs: number,
+  codexWarmAfterMinutes: number,
 ): ThreadId[] {
   return threads
     .filter((thread) => {
       const hud = thread.cacheHud;
+      const windowMs = hud ? cacheWarmWindowMs(hud, codexWarmAfterMinutes) : undefined;
       return (
         thread.archivedAt === null &&
         hud &&
         (hud.driver === "codex" || hud.driver === "claudeAgent") &&
         (hud.usage.cachedInputTokens ?? 0) + (hud.usage.cacheCreationTokens ?? 0) > 0 &&
-        hud.ttlMs !== undefined &&
-        nowMs - Date.parse(hud.usage.updatedAt) < hud.ttlMs
+        windowMs !== undefined &&
+        nowMs - Date.parse(hud.usage.updatedAt) < windowMs
       );
     })
     .map((thread) => thread.id);

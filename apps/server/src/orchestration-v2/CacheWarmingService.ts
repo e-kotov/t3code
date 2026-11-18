@@ -1,6 +1,6 @@
 import { CommandId, MessageId, type OrchestrationV2ThreadShell } from "@t3tools/contracts";
 import { threadCachePolicy, legacyCacheWarmingMigration } from "@t3tools/shared/threadCachePolicy";
-import { presentCacheHud } from "@t3tools/shared/cacheHud";
+import { CODEX_WARM_MARGIN_MS, cacheWarmWindowMs, presentCacheHud } from "@t3tools/shared/cacheHud";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -11,7 +11,6 @@ import * as ServerSettings from "../serverSettings.ts";
 import { cacheWarmingRetired } from "./CacheWarmingDispatchGuard.ts";
 import * as ThreadManagement from "./ThreadManagementService.ts";
 
-const CODEX_WARM_MARGIN_MS = 5 * 60_000;
 const CLAUDE_WARM_MARGIN_MS = 60_000;
 const CHECK_INTERVAL = "30 seconds";
 const WARM_PROMPT =
@@ -39,6 +38,7 @@ export interface CacheWarmingCandidate {
   >;
   readonly nowMs: number;
   readonly enabled: boolean;
+  readonly codexWarmAfterMinutes: number;
   readonly alreadyWarmedWindow?: string;
 }
 
@@ -76,7 +76,9 @@ export function cacheWarmingWindow(input: CacheWarmingCandidate): CacheWarmingWi
     return null;
   }
 
-  const view = presentCacheHud(hud, input.nowMs);
+  const windowMs = cacheWarmWindowMs(hud, input.codexWarmAfterMinutes);
+  if (windowMs === undefined) return null;
+  const view = presentCacheHud({ ...hud, ttlMs: windowMs }, input.nowMs);
   if (view.remainingMs === null || view.remainingMs <= 0) return null;
   const marginMs = hud.driver === "codex" ? CODEX_WARM_MARGIN_MS : CLAUDE_WARM_MARGIN_MS;
   if (view.remainingMs > marginMs) return null;
@@ -126,6 +128,7 @@ export const make = Effect.gen(function* () {
         thread,
         nowMs: now,
         enabled,
+        codexWarmAfterMinutes: latestSettings.codexCacheWarmAfterMinutes,
         ...(latestSettings.cacheWarmingLastWindows[thread.id] === undefined
           ? {}
           : { alreadyWarmedWindow: latestSettings.cacheWarmingLastWindows[thread.id] }),
