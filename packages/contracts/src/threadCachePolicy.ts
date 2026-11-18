@@ -4,7 +4,7 @@ import { ThreadId } from "./baseSchemas.ts";
 
 const ThreadCachePolicy = Schema.Literals(["default", "warm", "compact", "off"]);
 
-/** Idle minutes before a Keep-warm Codex conversation is warmed; Codex reports no cache lifetime. */
+/** Idle minutes before a Keep-warm Codex thread is warmed; Codex reports no cache lifetime. */
 const DEFAULT_CODEX_CACHE_WARM_AFTER_MINUTES = 115;
 const CodexCacheWarmAfterMinutes = Schema.Int.check(Schema.isBetween({ minimum: 5, maximum: 720 }));
 
