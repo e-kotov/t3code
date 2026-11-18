@@ -137,7 +137,7 @@ describe("CodexCacheWarmAfterSetting", () => {
       .toHaveAttribute("data-mixed", "true");
     await expect.element(trigger).toHaveTextContent("Mixed");
     await expect.element(trigger).toBeDisabled();
-    await expect.element(screen.getByTestId("codex-warm-status")).toHaveTextContent("GWDG HPC");
+    await expect.element(screen.getByTestId("codex-warm-status")).toHaveTextContent(/GWDG HPC/);
   });
 
   it("allows editing and resetting when all connected servers support codexCacheWarmAfter", async () => {

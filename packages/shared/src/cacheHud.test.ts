@@ -301,7 +301,7 @@ describe("codex cache warm compatibility and expiry", () => {
       id: ThreadId.make("codex"),
       archivedAt: null,
       cacheHud: hud({
-        driver: "codex",
+        driver: ProviderDriverKind.make("codex"),
         basis: "estimated",
         ttlMs: 3_600_000,
         usage: { usedTokens: 1000, cachedInputTokens: 500, updatedAt: "2026-10-13T10:00:00Z" },

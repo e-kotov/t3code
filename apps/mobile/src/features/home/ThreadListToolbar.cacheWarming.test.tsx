@@ -12,8 +12,10 @@ import { buildHomeListFilterMenuItems } from "./home-list-filter-menu";
 
 const harness = vi.hoisted(() => ({
   threads: [] as unknown[],
-  capabilities: { codexCacheWarmAfter: true } as Record<string, unknown>,
-  settings: {} as Record<string, unknown>,
+  serverConfig: {
+    environment: { capabilities: { codexCacheWarmAfter: true } as Record<string, unknown> },
+    settings: {} as Record<string, unknown>,
+  },
   update: vi.fn(),
   canWrite: true,
   listeners: new Set<() => void>(),
@@ -22,12 +24,7 @@ const harness = vi.hoisted(() => ({
 vi.mock("@effect/atom-react", () => ({
   useAtomValue: (atom: string) =>
     useSyncExternalStore(subscribe, () =>
-      atom === "threads"
-        ? harness.threads
-        : {
-            environment: { capabilities: harness.capabilities },
-            settings: harness.settings,
-          },
+      atom === "threads" ? harness.threads : harness.serverConfig,
     ),
 }));
 vi.mock("../../state/threads", () => ({
@@ -106,8 +103,10 @@ function setup(props?: {
 }) {
   harness.update.mockReset();
   harness.lastAppBarProps = null;
-  harness.capabilities = { codexCacheWarmAfter: true };
-  harness.settings = { codexCacheWarmAfterMinutes: 115, cacheWarmingSessions: {} };
+  harness.serverConfig = {
+    environment: { capabilities: { codexCacheWarmAfter: true } },
+    settings: { codexCacheWarmAfterMinutes: 115, cacheWarmingSessions: {} },
+  };
   harness.canWrite = true;
   const environmentId = EnvironmentId.make("server-1");
   const hotId = ThreadId.make("hot");
@@ -189,9 +188,9 @@ it("shows the Android sidebar's warm-all switch and updates only hot conversatio
     environmentId: screen.environmentId,
     input: { patch: { cacheWarmingSessions: { [screen.hotId]: true } } },
   });
-  harness.settings = {
-    codexCacheWarmAfterMinutes: 115,
-    cacheWarmingSessions: { [screen.hotId]: true },
+  harness.serverConfig = {
+    ...harness.serverConfig,
+    settings: { codexCacheWarmAfterMinutes: 115, cacheWarmingSessions: { [screen.hotId]: true } },
   };
   screen.render();
   expect(screen.host.querySelector('[role="switch"]')?.getAttribute("aria-checked")).toBe("true");
@@ -206,7 +205,10 @@ it("treats 90-minute-old Codex threads as expired on servers without codexCacheW
   screen.render();
   expect(screen.host.querySelector<HTMLButtonElement>('[role="switch"]')?.disabled).toBe(false);
 
-  harness.capabilities = {};
+  harness.serverConfig = {
+    ...harness.serverConfig,
+    environment: { capabilities: {} },
+  };
   screen.render();
   expect(screen.host.querySelector<HTMLButtonElement>('[role="switch"]')?.disabled).toBe(true);
 });
