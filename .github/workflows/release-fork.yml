@@ -286,7 +286,14 @@ jobs:
       - name: Install the native compiler cache
         id: ccache_install
         run: |
-          sudo apt-get update && sudo apt-get install -y ccache
+          if ! command -v ccache >/dev/null 2>&1; then
+            if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+              sudo apt-get update -o Dir::Etc::sourcelist="sources.list.d/ubuntu.sources" -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0"
+            else
+              sudo apt-get update
+            fi
+            sudo apt-get install -y --no-install-recommends ccache
+          fi
           echo "CCACHE_DIR=$RUNNER_TEMP/t3-android-ccache" >> "$GITHUB_ENV"
       - name: Restore native compiler results
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -300,25 +307,16 @@ jobs:
       - uses: ./.github/actions/setup-ci-deps
         with:
           install-args: --filter=@t3tools/mobile...
-      - name: Check standalone startup without an Expo project
-        working-directory: apps/mobile
-        run: vp test run fork-app-identity.test.ts src/features/observability/forkObserve.test.ts
-      - run: vp run --filter @t3tools/mobile typecheck
       - run: vp exec --filter @t3tools/mobile -- expo prebuild --clean --platform android --no-install
-      # One Gradle run checks the release runtime classpath, runs native unit
-      # tests, and builds the release APK; a failing check stops the build.
-      - name: Verify native classpath, test modules, and build a standalone release APK
+      # Keep Debug unit tests in parallel android_checks so this job only builds and verifies the release APK.
+      - name: Verify release classpath and build a standalone release APK
         working-directory: apps/mobile/android
         run: >-
           ./gradlew --init-script ../../../scripts/fork-sharing-tests.gradle
           -Dorg.gradle.jvmargs="-Xmx8g -XX:MaxMetaspaceSize=1024m -XX:+UseParallelGC"
-          :app:verifyNoForkObserve
-          :expo-sharing:testDebugUnitTest
-          :t3-agent-notifications:testDebugUnitTest
-          :t3-citation-passage:testDebugUnitTest
-          :t3-tailnet:testDebugUnitTest
+          :app:verifyPatchedNativeSharing
           assembleRelease
-          -PreactNativeArchitectures=arm64-v8a --build-cache --max-workers=4
+          -PreactNativeArchitectures=arm64-v8a --build-cache --parallel --max-workers=4
       - name: Report native compiler cache hits
         if: always() && steps.ccache_install.outcome == 'success'
         run: ccache --show-stats | tee -a "$GITHUB_STEP_SUMMARY"
@@ -357,11 +355,60 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
+  android_checks:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      APP_VARIANT: production
+      T3CODE_FORK_BUILD: "1"
+    steps:
+      - name: Checkout release commit without vendored gitlinks
+        env:
+          RELEASE_REF: ${{ needs.prepare.outputs.sha }}
+          GIT_TERMINAL_PROMPT: "0"
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          git fetch --no-tags --depth=1 origin "$RELEASE_REF"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git checkout --detach FETCH_HEAD
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: ./.github/actions/build-fork-tailnet
+      - name: Restore Gradle cache
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+        with:
+          cache-read-only: true
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          install-args: --filter=@t3tools/mobile...
+          save-pnpm-store: false
+      - name: Check standalone startup without an Expo project
+        working-directory: apps/mobile
+        run: vp test run fork-app-identity.test.ts src/features/observability/forkObserve.test.ts
+      - run: vp run --filter @t3tools/mobile typecheck
+      - run: vp exec --filter @t3tools/mobile -- expo prebuild --clean --platform android --no-install
+      - name: Run Android module unit tests
+        working-directory: apps/mobile/android
+        run: >-
+          ./gradlew --init-script ../../../scripts/fork-sharing-tests.gradle
+          -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1024m -XX:+UseParallelGC"
+          :expo-sharing:testDebugUnitTest
+          :t3-agent-notifications:testDebugUnitTest
+          :t3-citation-passage:testDebugUnitTest
+          :t3-tailnet:testDebugUnitTest
+          --build-cache --parallel --max-workers=4
+
   release:
-    needs: [prepare, mac_signed, linux_server, android]
+    needs: [prepare, mac_signed, linux_server, android, android_checks]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+      actions: write
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
@@ -408,6 +455,81 @@ jobs:
           gh release create "$RELEASE_TAG" assets/* --repo "$GITHUB_REPOSITORY" \
             --verify-tag --title "$title" \
             --notes-file "$RUNNER_TEMP/release-notes.md" --prerelease --latest=false
+      - name: Prune superseded Actions caches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY' || echo '::warning::Cache pruning skipped'
+          import json, os, re, subprocess
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+
+          def api_pages(endpoint):
+              out = subprocess.check_output(["gh", "api", "--paginate", endpoint], text=True).strip()
+              dec = json.JSONDecoder()
+              pos, items = 0, []
+              while pos < len(out):
+                  obj, end = dec.raw_decode(out, pos)
+                  if isinstance(obj, dict) and "actions_caches" in obj:
+                      items.extend(obj["actions_caches"])
+                  elif isinstance(obj, list):
+                      items.extend(obj)
+                  pos = end
+                  while pos < len(out) and out[pos].isspace():
+                      pos += 1
+              return items
+
+          caches = api_pages(f"repos/{repo}/actions/caches")
+          open_prs = {str(p["number"]) for p in api_pages(f"repos/{repo}/pulls?state=open&per_page=100")}
+
+          GROUP_RULES = [
+              (re.compile(r"^(android-ccache-v1-[^-]+-[^-]+-)"), 1),
+              (re.compile(r"^(fork-tailnet-so-v1-[^-]+-[^-]+-)"), 1),
+              (re.compile(r"^(gradle-home-v1\|[^|]+\|(?:android|checks))"), 1),
+              (re.compile(r"^(gradle-dependencies-v1-)"), 2),
+              (re.compile(r"^(gradle-transforms-v1-)"), 2),
+              (re.compile(r"^(gradle-groovy-dsl-v1-)"), 2),
+              (re.compile(r"^(gradle-instrumented-jars-v1-)"), 2),
+              (re.compile(r"^(gradle-generated-gradle-jars-v1-)"), 1),
+              (re.compile(r"^(gradle-kotlin-dsl-v1-)"), 1),
+              (re.compile(r"^(gradle-wrapper-zips-v1-)"), 1),
+              (re.compile(r"^(pnpm-full-v1-[^-]+-[^-]+-)"), 1),
+              (re.compile(r"^(pnpm-filtered-[0-9]+-v1-[^-]+-[^-]+-)"), 1),
+              (re.compile(r"^(pnpm-verified-v1-)"), 1),
+              (re.compile(r"^(vite-plus-home-v2-[^-]+-[^-]+-)"), 1),
+              (re.compile(r"^(rust-resource-monitor-v1-[^-]+-[^-]+-)"), 1),
+              (re.compile(r"^(desktop-stage-pnpm-v2-[^-]+-[^-]+-)"), 1),
+          ]
+
+          by_group = {}
+          delete_ids = []
+          for c in caches:
+              key = c.get("key", "")
+              ref = c.get("ref", "")
+              if key.startswith("setup-go-"):
+                  delete_ids.append((c["id"], key))
+                  continue
+              m_pr = re.fullmatch(r"refs/pull/([0-9]+)/merge", ref)
+              if m_pr and m_pr.group(1) not in open_prs:
+                  delete_ids.append((c["id"], f"{ref}:{key}"))
+                  continue
+              if ref != "refs/heads/main":
+                  continue
+              for pat, keep in GROUP_RULES:
+                  m = pat.match(key)
+                  if m:
+                      by_group.setdefault((m.group(1), keep), []).append(c)
+                      break
+
+          for (group, keep), items in by_group.items():
+              items.sort(key=lambda x: (x.get("last_accessed_at", ""), x.get("created_at", "")), reverse=True)
+              for stale in items[keep:]:
+                  delete_ids.append((stale["id"], stale.get("key", "")))
+
+          for cid, label in delete_ids:
+              res = subprocess.run(["gh", "api", "-X", "DELETE", f"repos/{repo}/actions/caches/{cid}"], capture_output=True, text=True)
+              print(f"prune {cid} ({res.returncode}): {label[:80]}")
+          PY
 
   homebrew_tap:
     # Points e-kotov/tap's t3-code-ek cask at the release just published, so

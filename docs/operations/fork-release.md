@@ -198,9 +198,14 @@ and the local task-output build cache. `--build-cache` enables reuse of cacheabl
 task outputs. A separate 3 GB ccache retains C/C++ compiler results across `:app`
 and every CMake native library (`scripts/fork-sharing-tests.gradle` injects CMake
 `ccache` compiler launchers across all Android CMake modules, checks the release
-runtime classpath inside the single Gradle run, and skips release vital lint so R8
-gets full CPU and an 8 GB heap). Each build prints ccache hit/miss statistics in
-its job summary. Compiler contents and source inputs are validated by ccache,
+runtime classpath inside the release Gradle run, and skips release vital lint so R8
+gets full CPU and an 8 GB heap). Debug module unit tests run in parallel in
+`android_checks` with a read-only Gradle cache so `android` stays focused on
+`assembleRelease` and avoids caching Debug test dependencies. `.github/actions/build-fork-tailnet`
+disables `setup-go` caching (relying on `fork-tailnet-so-v1` instead), PR checks
+keep Gradle caches read-only, and `release` / `upstream-sync` prune superseded
+caches so `android-ccache` and `fork-tailnet-so` are not evicted by the 10 GiB limit.
+Each build prints ccache hit/miss statistics in its job summary. Compiler contents and source inputs are validated by ccache,
 including when a fallback key restores an older entry.
 
 The first cache-enabled run is still cold. For the most reusable cache, dispatch
