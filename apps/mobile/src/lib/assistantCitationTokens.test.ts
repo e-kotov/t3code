@@ -28,8 +28,8 @@ describe("mobile citation tokens", () => {
     );
     expect(tokens).toEqual([
       {
-        type: "assistantCitation",
-        value: citation.text,
+        type: "citation",
+        value: citation.comment,
         source: marker,
         start: 5,
         end: 5 + marker.length,

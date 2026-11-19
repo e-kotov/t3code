@@ -261,7 +261,10 @@ export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
     const files = markdownWithFileEmbeds(content, fileEmbedLabel);
     return { ...files, markdown: markdownWithTableBreaks(files.markdown) };
   }, [props.markdown, fileEmbedLabel]);
-  const contextMenuItems = useAssistantCitationMenu(props.assistantCitationSource);
+  const contextMenuItems = useAssistantCitationMenu(
+    props.assistantCitationSource,
+    props.onCiteText,
+  );
   const [parsedLinkUrls, setParsedLinkUrls] = useState<ReadonlyArray<string>>([]);
   const onLinksChange = (links: MarkdownLinkOccurrence[]) => {
     const urls = [...new Set(links.map((link) => link.url))];
@@ -449,6 +452,7 @@ export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
           containerStyle={{ flexShrink: 1, minWidth: 0 }}
           flavor="github"
           selectable
+          contextMenuItems={contextMenuItems}
           selectionClipboard={selectionClipboard}
           selectionColor={props.textStyle.selectionColor}
           selectionHandleColor={props.textStyle.selectionHandleColor}
@@ -466,7 +470,6 @@ export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
             props.onLinkPress || props.onImagePress ? ({ url }) => onLinkPress(url) : undefined
           }
           onLinkLongPress={onLinkLongPress}
-          contextMenuItems={contextMenuItems}
           linkContextMenuItems={linkContextMenuItems}
           linkPillContent={linkPillContent}
           accessibilityLabels={accessibilityLabels}

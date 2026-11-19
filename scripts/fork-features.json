@@ -290,6 +290,7 @@
         "apps/mobile/src/native/assistantCitationEditing.test.ts",
         "apps/mobile/src/native/assistantCitationSelection.test.ts",
         "apps/mobile/src/features/threads/AssistantCitationPassage.test.tsx",
+        "apps/mobile/src/native/assistantCitationLinkOwnership.test.tsx",
         "apps/mobile/modules/t3-citation-passage/android/src/test/java/expo/modules/t3citationpassage/CitationPassageHighlighterTest.kt",
         "apps/mobile/modules/t3-citation-passage/android/src/test/java/expo/modules/t3citationpassage/CitationPassageObservationTest.kt",
         "apps/mobile/modules/t3-citation-passage/android/src/test/java/expo/modules/t3citationpassage/CitationPassageTextTest.kt",

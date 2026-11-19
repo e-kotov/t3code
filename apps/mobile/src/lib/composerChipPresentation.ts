@@ -34,6 +34,7 @@ const CONTEXT_CHIP_PRESENTATIONS = {
     icon: "mouse-pointer-click",
   },
   "review-comment": { accent: "#8a70dd", icon: "message-circle" },
+  citation: { accent: "#8a70dd", icon: "message-circle" },
   "pull-request": {
     accent: "#7079e4",
     icon: "git-pull-request-arrow",
@@ -117,7 +118,8 @@ export function contextChipPresentation(
     };
   },
 ): ContextChipPresentation {
-  if (kind === "assistantCitation") return CONTEXT_CHIP_PRESENTATIONS["review-comment"];
+  if (kind === "assistantCitation" || kind === "citation")
+    return CONTEXT_CHIP_PRESENTATIONS["review-comment"];
   const presentationKind =
     kind === "file" &&
     videoMimeType({

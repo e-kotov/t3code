@@ -15,6 +15,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import {
   assistantCitationPromptLengthError,
   assistantCitationComposerReady,
+  assistantCitationCaptureAvailable,
   prepareAssistantCitationInsertion,
   rejectOversizedAssistantCitationPrompt,
 } from "./assistantCitationDraft";
@@ -58,6 +59,13 @@ describe("citation composer readiness", () => {
         voiceInput: { isBusy: true, ownerKey: "another-draft" },
       }),
     ).toBe(true);
+  });
+
+  it("allows a visible iOS quote action independently of the Android menu", () => {
+    expect(assistantCitationCaptureAvailable("ios", undefined, "ios")).toBe(true);
+    expect(assistantCitationCaptureAvailable("ios", false, "ios")).toBe(false);
+    expect(assistantCitationCaptureAvailable("android", true, "ios")).toBe(false);
+    expect(assistantCitationCaptureAvailable("ios", true, "android")).toBe(false);
   });
 
   it.each([

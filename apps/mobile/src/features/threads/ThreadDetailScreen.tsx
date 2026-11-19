@@ -1,3 +1,4 @@
+import { assistantCitationCaptureAvailable } from "../../lib/assistantCitationDraft";
 import { ChildThreadApprovals } from "./ChildThreadApprovals";
 import { errorDisplayMessage } from "@t3tools/client-runtime/errors";
 import { useOpenThreadInspector } from "./thread-inspector-navigation";
@@ -132,7 +133,16 @@ import type { ComposerEditorHandle } from "../../components/ComposerEditor";
 import { useAssistantCitationSheet } from "./useAssistantCitationSheet";
 import { useAssistantCitationComposerReady } from "./useAssistantCitationComposerReady";
 import type { StatusTone } from "../../components/StatusPill";
-import { getComposerDraftSnapshot, setFreshSessionPending } from "../../state/use-composer-drafts";
+import {
+  captureComposerDraftInsertion,
+  getComposerDraftSnapshot,
+  setFreshSessionPending,
+  insertComposerDraftText,
+} from "../../state/use-composer-drafts";
+import { assistantCitationDraftWithinLimit } from "../../lib/composerContext";
+import { serializeAssistantCitation } from "@t3tools/shared/assistantCitations";
+import type { AssistantCitation } from "@t3tools/contracts";
+import { voiceInputBlocksSubmission } from "@t3tools/client-runtime/voice-input";
 import { RenderErrorBoundary, RenderFailureView } from "../../components/RenderErrorBoundary";
 import {
   ANDROID_READING_MAX_WIDTH,
@@ -1369,6 +1379,36 @@ function ThreadDetailBody(
     composerEditorRef.current?.blur();
   };
 
+  const canCiteAssistantText =
+    assistantCitationCaptureAvailable(Platform.OS, props.showContent, "ios") &&
+    props.composerDraftKey !== null &&
+    !isProviderSubagent &&
+    !composerSlotHidden &&
+    !props.isSavingQueuedEdit &&
+    !props.draftMode?.interactionLocked &&
+    !(
+      voiceInputSession.ownerKey === props.composerDraftKey &&
+      voiceInputBlocksSubmission(voiceInputSession.controller.currentState)
+    );
+  const handleCiteAssistantText = (citation: AssistantCitation) => {
+    if (!canCiteAssistantText || props.composerDraftKey === null) return;
+    const target = captureComposerDraftInsertion(props.composerDraftKey);
+    const prefix = target.start > 0 && !/\s/.test(target.text[target.start - 1]!) ? " " : "";
+    const value = `${prefix}${serializeAssistantCitation(citation)} `;
+    const text = target.text.slice(0, target.start) + value + target.text.slice(target.end);
+    if (!assistantCitationDraftWithinLimit(text)) {
+      Dialog.alert(
+        gt("Could not add quote"),
+        gt(
+          "This quote would make the message too long to send. Shorten the draft or select less text.",
+        ),
+      );
+      return;
+    }
+    insertComposerDraftText(props.composerDraftKey, value, target);
+    composerEditorRef.current?.focus();
+  };
+
   const handleUseArtifactTemplate = (template: CodexArtifactTemplate) => {
     const draftMessage =
       props.composerDraftKey === null ? "" : getComposerDraftSnapshot(props.composerDraftKey).text;
@@ -1515,6 +1555,7 @@ function ThreadDetailBody(
                   onHeaderMaterialVisibilityChange={props.onHeaderMaterialVisibilityChange}
                   onIsAtEndChange={setIsAtEnd}
                   skills={selectedProviderSkills}
+                  onCiteAssistantText={canCiteAssistantText ? handleCiteAssistantText : undefined}
                   onUseArtifactTemplate={handleUseArtifactTemplate}
                 />
               </ColumnWidth>

@@ -53,6 +53,15 @@ export function rejectOversizedAssistantCitationPrompt(
   return true;
 }
 
+/** Each platform offers exactly one quote capture action, only for a visible composer. */
+export function assistantCitationCaptureAvailable(
+  platform: string,
+  showContent: boolean | undefined,
+  target: "android" | "ios",
+): boolean {
+  return platform === target && showContent !== false;
+}
+
 export function assistantCitationComposerReady(
   props: {
     readonly showContent?: boolean;
@@ -68,8 +77,7 @@ export function assistantCitationComposerReady(
   },
 ): boolean {
   return (
-    state.platform === "android" &&
-    props.showContent !== false &&
+    assistantCitationCaptureAvailable(state.platform, props.showContent, "android") &&
     !state.isProviderSubagent &&
     !state.composerSlotHidden &&
     props.composerDraftKey !== null &&

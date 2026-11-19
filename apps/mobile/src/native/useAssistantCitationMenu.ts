@@ -5,7 +5,10 @@ import * as Dialog from "../components/ui/Dialog";
 import type { AssistantCitationSource } from "./assistantCitationSelection";
 import { emitAssistantCitationSelection } from "./assistantCitationSelection";
 
-export function useAssistantCitationMenu(source: AssistantCitationSource | undefined) {
+export function useAssistantCitationMenu(
+  source: AssistantCitationSource | undefined,
+  onCiteText?: (text: string) => void,
+) {
   const gt = useGT();
   return useMemo(
     () =>
@@ -28,7 +31,15 @@ export function useAssistantCitationMenu(source: AssistantCitationSource | undef
               },
             },
           ]
-        : undefined,
-    [source, gt],
+        : Platform.OS === "ios" && onCiteText
+          ? [
+              {
+                text: gt("Cite", { $context: "verb, quote selected text" }),
+                icon: "quote.bubble",
+                onPress: ({ text }: { text: string }) => onCiteText(text),
+              },
+            ]
+          : undefined,
+    [source, onCiteText, gt],
   );
 }
