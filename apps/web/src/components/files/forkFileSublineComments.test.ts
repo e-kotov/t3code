@@ -11,6 +11,8 @@ import {
   matchesFileReviewComment,
 } from "./forkFileSublineComments";
 
+const isReviewCommentContext = Schema.is(ReviewCommentContextSchema);
+
 describe("forkFileSublineComments", () => {
   it("formats quoted range labels with and without line numbers", () => {
     expect(formatQuotedRangeLabel({ quoteText: "  retry\n  limit  " })).toBe('"retry limit"');
@@ -27,10 +29,10 @@ describe("forkFileSublineComments", () => {
         startLine: 4,
         endLine: 5,
       }),
-    ).toBe('L4 to L5 · "a phrase that is quite a bit lo…"');
+    ).toBe('L4 to L5 · "a phrase that is quite a bit lon…"');
   });
 
-  it("infers unique source line ranges from rendered Markdown quotes and skips ambiguous ones", () => {
+  it("infers unique Markdown source line ranges and skips ambiguous quotes", () => {
     const markdown = [
       "# Guide",
       "",
@@ -80,7 +82,7 @@ describe("forkFileSublineComments", () => {
       endLine: 2,
     });
 
-    expect(Schema.is(ReviewCommentContextSchema)(sublineComment)).toBe(true);
+    expect(isReviewCommentContext(sublineComment)).toBe(true);
     expect(sublineComment).toMatchObject({
       sectionId: "file:src/config.ts",
       startIndex: 1,
@@ -91,9 +93,8 @@ describe("forkFileSublineComments", () => {
       quote,
     });
     expect(matchesFileReviewComment(sublineComment, contents)).toBe(true);
-    expect(
-      matchesFileReviewComment(sublineComment, "const first = 1;\nconst other = 9;\nconst last = 4;\n"),
-    ).toBe(false);
+    const edited = "const first = 1;\nconst other = 9;\nconst last = 4;\n";
+    expect(matchesFileReviewComment(sublineComment, edited)).toBe(false);
 
     const lineComment = buildEditableReviewComment({
       id: "comment-line-1",

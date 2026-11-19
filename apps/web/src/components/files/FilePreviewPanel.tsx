@@ -871,10 +871,8 @@ function EditableFileSurface({
   const messages = useMessages();
   const addReviewComment = useComposerDraftStore((store) => store.addReviewComment);
   const removeReviewComment = useComposerDraftStore((store) => store.removeReviewComment);
-  const reviewComments = useComposerDraftStore(
-    (store) =>
-      store.getComposerDraft(composerDraftTarget)?.reviewComments ?? EMPTY_REVIEW_COMMENTS,
-  );
+  const draft = useComposerDraftStore((store) => store.getComposerDraft(composerDraftTarget));
+  const reviewComments = draft?.reviewComments ?? EMPTY_REVIEW_COMMENTS;
   const fileReviewComments = reviewComments.filter(
     (comment) =>
       comment.sectionId === rawFileSectionId(relativePath) &&
@@ -894,7 +892,12 @@ function EditableFileSurface({
   };
   const [surfaceEl, setSurfaceEl] = useState<HTMLDivElement | null>(null);
   const syncEditableHighlights = useForkEditableSourceHighlights({
-    surfaceKey: JSON.stringify(["editable-source", environmentId, composerDraftTarget, relativePath]),
+    surfaceKey: JSON.stringify([
+      "editable-source",
+      environmentId,
+      composerDraftTarget,
+      relativePath,
+    ]),
     surfaceEl,
     contents,
     comments: fileReviewComments,
@@ -1107,8 +1110,7 @@ function EditableFileSurface({
               theme: resolveDiffThemeName(resolvedTheme),
               preferredHighlighter: PREFERRED_HIGHLIGHTER,
               themeType: resolvedTheme,
-              unsafeCSS: `${FILE_LINK_REVEAL_UNSAFE_CSS}
-${FORK_SOURCE_SUBLINE_UNSAFE_CSS}`,
+              unsafeCSS: `${FILE_LINK_REVEAL_UNSAFE_CSS}\n${FORK_SOURCE_SUBLINE_UNSAFE_CSS}`,
               onPostRender: handlePostRender,
             }}
             selectedLines={selectedRange}

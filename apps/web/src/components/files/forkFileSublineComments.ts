@@ -7,7 +7,11 @@ import * as Schema from "effect/Schema";
 import { useEffect, useState } from "react";
 
 import { mathWrapperOf } from "~/markdown-clipboard";
-import { buildFileReviewComment, inferReviewCommentFenceLanguage, type ReviewCommentContext } from "~/reviewCommentContext";
+import {
+  buildFileReviewComment,
+  inferReviewCommentFenceLanguage,
+  type ReviewCommentContext,
+} from "~/reviewCommentContext";
 import {
   type FileCommentAnnotationEntry,
   type FileCommentLineAnnotation,
@@ -68,7 +72,6 @@ export function formatQuotedRangeLabel(input: {
   if (input.startLine === undefined) return snippet;
   const startLine = Math.max(1, input.startLine);
   const endLine = Math.max(startLine, input.endLine ?? startLine);
-  // oxlint-disable-next-line t3code/no-untranslated-copy -- stored in the review comment record sent to the agent
   const linePart = endLine === startLine ? `L${startLine}` : `L${startLine} to L${endLine}`;
   return `${linePart} · ${snippet}`;
 }
@@ -197,10 +200,7 @@ export function buildSublineFileReviewComment(input: {
   };
 }
 
-export function matchesFileReviewComment(
-  comment: ReviewCommentContext,
-  contents: string,
-): boolean {
+export function matchesFileReviewComment(comment: ReviewCommentContext, contents: string): boolean {
   const lines = contents.split("\n");
   const slice = lines.slice(comment.startIndex, comment.endIndex + 1).join("\n");
   if (!comment.quote) {
@@ -400,7 +400,8 @@ function resolveShadowLinePoint(
     const column = Math.min(lineLength(line), Math.max(0, columnWithinRow(row, node, offset)));
     return { line, column };
   }
-  const probe = node.ownerDocument.createRange();
+  const probe = node.ownerDocument?.createRange();
+  if (!probe) return null;
   probe.setStart(node, offset);
   if (side === "start") {
     const near = rows.find((candidate) => probe.comparePoint(candidate, 0) >= 0);
@@ -408,7 +409,9 @@ function resolveShadowLinePoint(
     const line = Number(near.dataset.line);
     return Number.isFinite(line) && line >= 1 ? { line, column: 0 } : null;
   }
-  const near = rows.findLast((candidate) => probe.comparePoint(candidate, candidate.childNodes.length) <= 0);
+  const near = rows.findLast(
+    (candidate) => probe.comparePoint(candidate, candidate.childNodes.length) <= 0,
+  );
   if (!near) return null;
   const line = Number(near.dataset.line);
   return Number.isFinite(line) && line >= 1 ? { line, column: lineLength(line) } : null;
@@ -425,11 +428,12 @@ export function captureShadowSourceTextSelection(
   readonly rect: DOMRect;
   readonly lastRect: DOMRect;
 } | null {
-  if (!selection || selection.isCollapsed) return null;
+  if (!selection) return null;
   let staticRange: StaticRange | undefined;
   try {
     staticRange = selection.getComposedRanges({ shadowRoots: [shadowRoot] })[0];
   } catch {
+    if (selection.isCollapsed) return null;
     staticRange = selection.rangeCount === 1 ? selection.getRangeAt(0) : undefined;
   }
   if (!staticRange || staticRange.collapsed) return null;
@@ -571,7 +575,10 @@ function resolveShadowQuoteRange(
   const clampedEndCol =
     clampedEndLine === endLine
       ? endColumn
-      : Math.max(0, lineEndOf(contents, starts, clampedEndLine - 1) - (starts[clampedEndLine - 1] ?? 0));
+      : Math.max(
+          0,
+          lineEndOf(contents, starts, clampedEndLine - 1) - (starts[clampedEndLine - 1] ?? 0),
+        );
 
   const startPoint = pointWithinShadowRow(startRow, clampedStartCol);
   const endPoint = pointWithinShadowRow(endRow, clampedEndCol);
@@ -611,7 +618,10 @@ export function syncShadowSourceSublineHighlights(input: {
   readonly shadowRoot: ShadowRoot | null | undefined;
   readonly contents: string;
   readonly comments: ReadonlyArray<ReviewCommentContext>;
-  readonly draft?: { readonly startLine: number; readonly endLine: number; readonly quote: FileTextQuote } | null | undefined;
+  readonly draft?:
+    | { readonly startLine: number; readonly endLine: number; readonly quote: FileTextQuote }
+    | null
+    | undefined;
 }): void {
   const { surfaceKey, shadowRoot, contents, comments, draft } = input;
   if (!shadowRoot) {
@@ -787,7 +797,15 @@ export function useForkEditableSourceHighlights(input: {
           : null,
     });
     return () => clearShadowSourceSublineHighlights(input.surfaceKey);
-  }, [draftEndLine, draftQuote, draftStartLine, input.comments, input.contents, input.surfaceEl, input.surfaceKey]);
+  }, [
+    draftEndLine,
+    draftQuote,
+    draftStartLine,
+    input.comments,
+    input.contents,
+    input.surfaceEl,
+    input.surfaceKey,
+  ]);
 
   return sync;
 }

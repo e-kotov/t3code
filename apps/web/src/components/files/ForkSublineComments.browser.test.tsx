@@ -49,6 +49,7 @@ vi.mock(import("~/remoteOpen"), async (original) => ({
 vi.mock(import("~/hooks/useTheme"), async (original) => ({
   ...(await original()),
   useTheme: () => ({ resolvedTheme: "dark" }) as never,
+  useRenderedAppearance: () => "dark" as const,
 }));
 vi.mock(import("~/hooks/useWorkspaceMutationRefresh"), () => ({
   useWorkspaceMutationRefresh: vi.fn(),
@@ -134,13 +135,20 @@ function preview(relativePath: string, contents: string) {
   );
 }
 
-async function selectDomRange(target: HTMLElement, startNode: Node, startOffset: number, endNode: Node, endOffset: number) {
+async function selectDomRange(
+  target: HTMLElement,
+  startNode: Node,
+  startOffset: number,
+  endNode: Node,
+  endOffset: number,
+) {
   await act(async () => {
     target.dispatchEvent(
       new PointerEvent("pointerdown", {
         bubbles: true,
         composed: true,
         isPrimary: true,
+        pointerType: "mouse",
         button: 0,
       }),
     );
@@ -150,6 +158,7 @@ async function selectDomRange(target: HTMLElement, startNode: Node, startOffset:
         bubbles: true,
         composed: true,
         isPrimary: true,
+        pointerType: "mouse",
         button: 0,
       }),
     );
@@ -183,8 +192,9 @@ it("creates, highlights, views, and deletes a subline comment in rendered Markdo
   const markdown = "# Guide\n\nPlease **clarify the retry limit** before shipping.\n";
   await using screen = await render(preview("docs/guide.md", markdown));
 
-  const phraseElement = screen.getByText("clarify the retry limit", { exact: true }).element() as HTMLElement;
-  await expect.element(screen.getByText("clarify the retry limit", { exact: true })).toBeVisible();
+  const phraseLocator = screen.getByText("clarify the retry limit", { exact: true });
+  await expect.element(phraseLocator).toBeVisible();
+  const phraseElement = phraseLocator.element() as HTMLElement;
   const surface = screen.container.querySelector<HTMLElement>("[data-markdown-comment-surface]")!;
   const found = findTextNode(phraseElement, "clarify the retry limit");
   await selectDomRange(
@@ -195,7 +205,7 @@ it("creates, highlights, views, and deletes a subline comment in rendered Markdo
     found.index + "clarify the retry limit".length,
   );
 
-  const commentButton = page.getByRole("button", { name: "Comment on selected text" });
+  const commentButton = page.getByRole("button", { name: "Add a comment" });
   await expect.element(commentButton).toBeVisible();
   await userEvent.click(commentButton);
 
@@ -209,7 +219,8 @@ it("creates, highlights, views, and deletes a subline comment in rendered Markdo
   await input.fill("Explain exponential backoff.");
   await userEvent.click(page.getByRole("button", { name: "Comment", exact: true }));
 
-  const comments = useComposerDraftStore.getState().getComposerDraft(threadRef)?.reviewComments ?? [];
+  const comments =
+    useComposerDraftStore.getState().getComposerDraft(threadRef)?.reviewComments ?? [];
   expect(comments).toHaveLength(1);
   expect(comments[0]).toMatchObject({
     filePath: "docs/guide.md",
@@ -228,10 +239,14 @@ it("creates, highlights, views, and deletes a subline comment in rendered Markdo
   const pill = screen.getByRole("button", { name: 'L3 · "clarify the retry limit"' });
   await expect.element(pill).toBeVisible();
   await userEvent.click(pill);
-  await expect.element(page.getByText("Explain exponential backoff.", { exact: true })).toBeVisible();
+  await expect
+    .element(page.getByText("Explain exponential backoff.", { exact: true }))
+    .toBeVisible();
 
   await userEvent.click(page.getByRole("button", { name: "Delete comment" }));
-  expect(useComposerDraftStore.getState().getComposerDraft(threadRef)?.reviewComments ?? []).toHaveLength(0);
+  expect(
+    useComposerDraftStore.getState().getComposerDraft(threadRef)?.reviewComments ?? [],
+  ).toHaveLength(0);
   expect(state.writeFile).not.toHaveBeenCalled();
 });
 
@@ -243,9 +258,9 @@ it("creates and restores subline comments from text selections in read-only exte
   const contents = "Title\nFirst sentence. Keep the second sentence short.\n";
   await using screen = await render(preview(path, contents));
 
-  await vi.waitFor(() =>
-    expect(shadow(screen)?.querySelector('[data-line="2"]')?.textContent).toContain("second sentence"),
-  );
+  await expect
+    .element(screen.getByText("First sentence. Keep the second sentence short.", { exact: true }))
+    .toBeVisible();
   const row = shadow(screen)!.querySelector<HTMLElement>('[data-line="2"]')!;
   const found = findTextNode(row, "second sentence");
   await selectDomRange(
@@ -256,7 +271,7 @@ it("creates and restores subline comments from text selections in read-only exte
     found.index + "second sentence".length,
   );
 
-  const commentButton = page.getByRole("button", { name: "Comment on selected text" });
+  const commentButton = page.getByRole("button", { name: "Add a comment" });
   await expect.element(commentButton).toBeVisible();
   await userEvent.click(commentButton);
 
@@ -267,7 +282,8 @@ it("creates and restores subline comments from text selections in read-only exte
   await input.fill("Split this clause.");
   await userEvent.click(screen.getByRole("button", { name: "Comment", exact: true }));
 
-  const comments = useComposerDraftStore.getState().getComposerDraft(threadRef)?.reviewComments ?? [];
+  const comments =
+    useComposerDraftStore.getState().getComposerDraft(threadRef)?.reviewComments ?? [];
   expect(comments).toHaveLength(1);
   expect(comments[0]).toMatchObject({
     filePath: path,
@@ -296,21 +312,17 @@ it("creates subline comments from text selections in editable workspace source f
   const contents = "const retryCount = 3;\nconst timeoutMs = 5000;\n";
   await using screen = await render(preview("src/config.ts", contents));
 
+  const editor = screen.getByRole("textbox", { name: "src/config.ts" });
+  await expect.element(editor).toBeVisible();
   await vi.waitFor(() =>
-    expect(shadow(screen)?.querySelector('[data-content][contenteditable]')).toBeTruthy();
-    expect(shadow(screen)?.querySelector('[data-line="1"]')?.textContent).toContain("retryCount");
+    expect(shadow(screen)?.querySelector('[data-line="1"]')?.textContent).toContain("retryCount"),
   );
+  await userEvent.click(editor);
   const row = shadow(screen)!.querySelector<HTMLElement>('[data-line="1"]')!;
   const found = findTextNode(row, "retryCount");
-  await selectDomRange(
-    row,
-    found.node,
-    found.index,
-    found.node,
-    found.index + "retryCount".length,
-  );
+  await selectDomRange(row, found.node, found.index, found.node, found.index + "retryCount".length);
 
-  const commentButton = screen.getByRole("button", { name: "Comment on selected text" });
+  const commentButton = page.getByRole("button", { name: "Add a comment" });
   await expect.element(commentButton).toBeVisible();
   await userEvent.click(commentButton);
 
@@ -321,7 +333,8 @@ it("creates subline comments from text selections in editable workspace source f
   await input.fill("Rename to maxRetries.");
   await userEvent.click(screen.getByRole("button", { name: "Comment", exact: true }));
 
-  const comments = useComposerDraftStore.getState().getComposerDraft(threadRef)?.reviewComments ?? [];
+  const comments =
+    useComposerDraftStore.getState().getComposerDraft(threadRef)?.reviewComments ?? [];
   expect(comments).toHaveLength(1);
   expect(comments[0]).toMatchObject({
     filePath: "src/config.ts",

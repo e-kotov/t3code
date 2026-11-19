@@ -187,7 +187,10 @@ function CommentableSource({ commentTarget, ...props }: Props & { commentTarget:
                     shadowRoot: fileContainer.shadowRoot,
                     contents: props.text,
                     comments: fileComments,
-                    draft: draftStartLine !== undefined && draftEndLine !== undefined && draftQuote ? { startLine: draftStartLine, endLine: draftEndLine, quote: draftQuote } : null,
+                    draft:
+                      draftStartLine !== undefined && draftEndLine !== undefined && draftQuote
+                        ? { startLine: draftStartLine, endLine: draftEndLine, quote: draftQuote }
+                        : null,
                   });
                 }
                 props.onPostRender?.(fileContainer, instance, phase);

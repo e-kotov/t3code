@@ -1,7 +1,13 @@
 import type { EnvironmentId, ProjectId, ScopedThreadRef } from "@t3tools/contracts";
 import { useGT } from "gt-react";
 import { MessageCircle, QuoteIcon, X } from "lucide-react";
-import { type MouseEvent as ReactMouseEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  type MouseEvent as ReactMouseEvent,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 
 import { DiffCommentAnnotation } from "~/components/diffs/DiffCommentAnnotation";
@@ -263,7 +269,8 @@ export function ForkCommentableMarkdownPreview({
         const anchorRange = activeDraftQuote
           ? (draftRanges[0] ?? resolveContainerTextQuoteRange(surfaceEl, activeDraftQuote))
           : activeRanges[0];
-        const anchorRect = anchorRange?.getBoundingClientRect() ?? scrollContainer.getBoundingClientRect();
+        const anchorRect =
+          anchorRange?.getBoundingClientRect() ?? scrollContainer.getBoundingClientRect();
         positionPopoverNearAnchor(popover, anchorRect);
       }
     };
@@ -345,7 +352,8 @@ export function ForkCommentableMarkdownPreview({
     const range = resolveContainerTextQuoteRange(surfaceEl, comment.quote);
     if (!range) return;
     const scrollContainer =
-      surfaceEl.closest<HTMLElement>("[data-slot='scroll-area-viewport']") ?? surfaceEl.parentElement;
+      surfaceEl.closest<HTMLElement>("[data-slot='scroll-area-viewport']") ??
+      surfaceEl.parentElement;
     if (!scrollContainer) return;
     const rect = range.getBoundingClientRect();
     const containerRect = scrollContainer.getBoundingClientRect();
@@ -362,7 +370,9 @@ export function ForkCommentableMarkdownPreview({
     if (nativeSelection && !nativeSelection.isCollapsed) return;
     if (
       event.target instanceof Element &&
-      event.target.closest("a, button, input, textarea, select, [role='button'], [data-file-comment-ui]")
+      event.target.closest(
+        "a, button, input, textarea, select, [role='button'], [data-file-comment-ui]",
+      )
     ) {
       return;
     }
@@ -443,7 +453,7 @@ export function ForkCommentableMarkdownPreview({
               variant="glass"
               disabled={tooLong}
               data-file-comment-ui
-              aria-label={tooLong ? gt("Shorten selection") : gt("Comment on selected text")}
+              aria-label={tooLong ? gt("Shorten selection") : gt("Add a comment")}
               className="fixed z-50 max-w-[calc(100vw-1rem)]"
               style={{ left: selection.position.x, top: selection.position.y }}
               onPointerDown={(event) => event.preventDefault()}
@@ -537,7 +547,11 @@ export function ForkCommentableMarkdownPreview({
                 <DiffCommentAnnotation
                   environmentId={environmentId}
                   projectId={projectId}
-                  ownerKey={JSON.stringify([composerDraftTarget, relativePath, inspectedComment.id])}
+                  ownerKey={JSON.stringify([
+                    composerDraftTarget,
+                    relativePath,
+                    inspectedComment.id,
+                  ])}
                   kind="comment"
                   rangeLabel={inspectedComment.rangeLabel}
                   text={inspectedComment.text}

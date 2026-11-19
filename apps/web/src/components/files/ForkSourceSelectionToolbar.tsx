@@ -140,7 +140,7 @@ export function ForkSourceSelectionToolbar({
       variant="glass"
       disabled={tooLong}
       data-file-comment-ui
-      aria-label={tooLong ? gt("Shorten selection") : gt("Comment on selected text")}
+      aria-label={tooLong ? gt("Shorten selection") : gt("Add a comment")}
       className="fixed z-50 max-w-[calc(100vw-1rem)]"
       style={{ left: selection.position.x, top: selection.position.y }}
       onPointerDown={(event) => event.preventDefault()}
