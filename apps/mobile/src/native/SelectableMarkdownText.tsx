@@ -25,8 +25,7 @@ export type {
 export function SelectableMarkdownText(props: SelectableMarkdownTextProps) {
   const [citation, setCitation] = useState<AssistantCitation | null>(null);
   const gt = useGT();
-  const hasCitations =
-    !props.handlesAssistantCitationLinks && props.markdown.includes("t3-citation:");
+  const hasCitations = props.markdown.includes("t3-citation:");
   const theme = useUniwindTheme();
   const selectionColor = themeColorWithAlpha(theme["--color-focus"], 0.32);
   const selectionHandleColor = theme["--color-focus"];

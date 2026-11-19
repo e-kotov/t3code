@@ -144,21 +144,14 @@ delete it like other inline context. Copying, reloading, and restoring a
 with its quote, and sending tells the agent which words were quoted and which comment you wrote.
 The quoted text and comment count toward the message limit.
 
-On Android, select assistant text and choose **Cite**. Add an optional comment in
-the sheet, then insert the quote. The chip previews the comment or the quote. Tap
-the draft chip to edit its comment without changing the quote, or choose **Remove
-quote**. If the draft changes while the sheet is open, close it and tap the chip again.
-Selection and prompt length are checked on insert, and prompt length again on send.
+On iOS and Android, select assistant text and choose **Cite** to insert a quote.
+If the passage repeats, choose its occurrence or select more surrounding text.
+Tap the draft chip to add or edit a comment, or choose **Remove from draft**.
 
-Tap a sent quote to see its full text and comment. **Go to source** loads earlier
-turns, expands folded turns, and highlights the passage. If the source changed, the
-match is ambiguous, or math or code headers render differently, Android can show
-the whole response instead. The saved quote stays readable if the source is missing.
-On web and desktop, repeated text and identical context can prevent passage matching.
-
-On iOS, long-press an assistant response, adjust the selection, and choose **Cite**
-to insert a quote at the composer cursor. If the passage repeats, choose its
-occurrence or select more surrounding text.
+Tap a sent quote to see its text and comment. **Go to message** opens the source
+response. Android also tries to highlight the passage; changed text, collapsed
+sections, or ambiguous repeats may prevent an exact match. If the source is
+unavailable, the saved quote and comment remain readable.
 
 ## Recall a sent prompt
 

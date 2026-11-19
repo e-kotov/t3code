@@ -23,7 +23,7 @@ vi.mock("./EnrichedMarkdownText", () => ({
 
 import { SelectableMarkdownText } from "./SelectableMarkdownText";
 
-it("only defers citation menus when the parent explicitly owns quote links", () => {
+it("keeps the upstream citation menu ahead of ordinary parent link handlers", () => {
   const marker = serializeAssistantCitation({
     version: 1,
     environmentId: EnvironmentId.make("environment"),
@@ -42,7 +42,4 @@ it("only defers citation menus when the parent explicitly owns quote links", () 
     fileContextMenu: () => ({ title: "Fork passage", actions: [] }),
   };
   expect(renderToStaticMarkup(<SelectableMarkdownText {...props} />)).toContain("Assistant quote");
-  expect(
-    renderToStaticMarkup(<SelectableMarkdownText {...props} handlesAssistantCitationLinks />),
-  ).toContain("Fork passage");
 });

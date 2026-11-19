@@ -4,6 +4,7 @@ import { useState } from "react";
 import { T, useGT } from "gt-react-native";
 import { Platform, ScrollView, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAssistantCitationPassageJump } from "../features/threads/useAssistantCitationPassageJump";
 import { useOpenLinkedThread } from "../features/threads/useOpenLinkedThread";
 import { requestThreadMessageJump } from "../features/threads/threadMessageJump";
 import { copyTextWithHaptic } from "../lib/copyTextWithHaptic";
@@ -37,6 +38,7 @@ export function AssistantCitationSheet(props: {
 }) {
   const gt = useGT();
   const openLinkedThread = useOpenLinkedThread();
+  const jumpToPassage = useAssistantCitationPassageJump();
   const insets = useSafeAreaInsets();
   const citation = props.citation;
   const [comment, setComment] = useState(citation.comment ?? "");
@@ -107,6 +109,7 @@ export function AssistantCitationSheet(props: {
             onPress={() => {
               if (commentTooLong) return;
               close();
+              if (jumpToPassage(citation)) return;
               requestThreadMessageJump(scopedThreadKey(citation), citation.messageId);
               openLinkedThread(citation);
             }}

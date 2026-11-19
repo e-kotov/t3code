@@ -1,4 +1,3 @@
-import { assistantCitationCaptureAvailable } from "../../lib/assistantCitationDraft";
 import { ChildThreadApprovals } from "./ChildThreadApprovals";
 import { errorDisplayMessage } from "@t3tools/client-runtime/errors";
 import { useOpenThreadInspector } from "./thread-inspector-navigation";
@@ -130,8 +129,6 @@ import { useDeviceType, useNativeColumnLayoutMetrics } from "../../native/native
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { collectProviderUsageLimits } from "@t3tools/shared/usageLimits";
 import type { ComposerEditorHandle } from "../../components/ComposerEditor";
-import { useAssistantCitationSheet } from "./useAssistantCitationSheet";
-import { useAssistantCitationComposerReady } from "./useAssistantCitationComposerReady";
 import type { StatusTone } from "../../components/StatusPill";
 import {
   captureComposerDraftInsertion,
@@ -139,10 +136,10 @@ import {
   setFreshSessionPending,
   insertComposerDraftText,
 } from "../../state/use-composer-drafts";
+import { citationCaretAfterSelection } from "../../lib/assistantCitationDraft";
 import { assistantCitationDraftWithinLimit } from "../../lib/composerContext";
 import { serializeAssistantCitation } from "@t3tools/shared/assistantCitations";
 import type { AssistantCitation } from "@t3tools/contracts";
-import { voiceInputBlocksSubmission } from "@t3tools/client-runtime/voice-input";
 import { RenderErrorBoundary, RenderFailureView } from "../../components/RenderErrorBoundary";
 import {
   ANDROID_READING_MAX_WIDTH,
@@ -211,11 +208,7 @@ import {
   type ThreadComposerProps,
 } from "./ThreadComposer";
 import { ComposerPopoverHost } from "./ComposerPopoverHost";
-import {
-  ThreadFeed,
-  CitationThreadDetailView,
-  type ThreadFeedHistoryControls,
-} from "./CitationThreadFeed";
+import { ThreadFeed, type ThreadFeedHistoryControls } from "./CitationThreadFeed";
 import { WorkspaceMutationIdProvider } from "./WorkspaceMutationIdProvider";
 import { useThreadTurnSubagents } from "./ThreadAgentsSheet";
 import { ComposerQueuedEditBanner } from "./ComposerQueuedEdit";
@@ -227,6 +220,7 @@ import { resolveThreadFeedSubmissionAnchor } from "./thread-feed-scroll-position
 import { useOpenLinkedThread } from "./useOpenLinkedThread";
 import { useGlobalVoiceInput } from "../voice-input/VoiceInputProvider";
 import type { OrchestrationV2ProviderSession } from "@t3tools/contracts";
+import { voiceInputBlocksSubmission } from "@t3tools/client-runtime/voice-input";
 
 export interface ThreadDetailScreenProps {
   readonly header?: React.ReactNode;
@@ -951,18 +945,6 @@ function ThreadDetailBody(
   const questionInFlow = Platform.OS === "android" && activeUserInputRequestId !== null;
   const composerSlotHidden =
     activeUserInputRequestId !== null || props.creationState?.kind === "failed";
-  const canInsertAssistantCitation = useAssistantCitationComposerReady(props, {
-    isProviderSubagent,
-    composerSlotHidden,
-  });
-  const assistantCitationSheet = useAssistantCitationSheet({
-    environmentId: props.environmentId,
-    threadId: props.selectedThread.id,
-    composerDraftKey: props.composerDraftKey,
-    canInsert: canInsertAssistantCitation,
-    onChangeDraftMessage: props.onChangeDraftMessage,
-    composerEditorRef,
-  });
   const pendingMessageEditBlocked =
     queuedRunEditBlockedReason(
       { openQuestionCount: activeUserInputRequestId === null ? 0 : 1 },
@@ -1380,7 +1362,6 @@ function ThreadDetailBody(
   };
 
   const canCiteAssistantText =
-    assistantCitationCaptureAvailable(Platform.OS, props.showContent, "ios") &&
     props.composerDraftKey !== null &&
     !isProviderSubagent &&
     !composerSlotHidden &&
@@ -1392,7 +1373,9 @@ function ThreadDetailBody(
     );
   const handleCiteAssistantText = (citation: AssistantCitation) => {
     if (!canCiteAssistantText || props.composerDraftKey === null) return;
-    const target = captureComposerDraftInsertion(props.composerDraftKey);
+    const target = citationCaretAfterSelection(
+      captureComposerDraftInsertion(props.composerDraftKey),
+    );
     const prefix = target.start > 0 && !/\s/.test(target.text[target.start - 1]!) ? " " : "";
     const value = `${prefix}${serializeAssistantCitation(citation)} `;
     const text = target.text.slice(0, target.start) + value + target.text.slice(target.end);
@@ -1462,11 +1445,7 @@ function ThreadDetailBody(
   };
 
   return (
-    <CitationThreadDetailView
-      className="flex-1"
-      onLayout={handleScreenLayout}
-      canCiteAssistantText={canInsertAssistantCitation}
-    >
+    <View className="flex-1" onLayout={handleScreenLayout}>
       {!usesNativeWorkspaceColumns ? <NativeLayoutObserver onChange={setScreenMetrics} /> : null}
       {props.draftMode ? (
         props.draftMode.content(
@@ -1969,7 +1948,6 @@ function ThreadDetailBody(
           </ComposerPopoverHost>
         </KeyboardStickyView>
       ) : null}
-      {assistantCitationSheet}
-    </CitationThreadDetailView>
+    </View>
   );
 }

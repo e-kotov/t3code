@@ -88,11 +88,6 @@ import {
   type ScopedThreadRef,
 } from "@t3tools/contracts";
 import type { ToolCallVisibility } from "@t3tools/contracts/settings";
-import { renderAssistantCitationsAsText } from "@t3tools/shared/assistantCitations";
-import {
-  AssistantCitationPresentationSource,
-  useAssistantCitationMessagePreview,
-} from "./AssistantCitationMessage";
 import { useAssistantCitationSourceTarget } from "./useAssistantCitationSourceTarget";
 import { encodeComposerContextFragment } from "@t3tools/shared/composerContextClipboard";
 import { hostedThreadLink, parseThreadLinkHref } from "@t3tools/shared/threadLinks";
@@ -200,7 +195,6 @@ import { downloadAndShareAttachment } from "../../lib/attachmentDownload";
 import { splitMarkdownDetails } from "../../lib/markdownDetails";
 import { markdownReferenceDefinitions, withReferenceDefinitions } from "../../lib/markdownDocument";
 import { hasWideMarkdownBlock } from "../../lib/wideMarkdownBlocks";
-import { useAssistantCitationSource } from "../../native/useAssistantCitationSource";
 import {
   SelectableMarkdownText,
   type MarkdownFileContextMenu,
@@ -374,7 +368,6 @@ export interface ThreadFeedHistoryControls {
 }
 
 export interface ThreadFeedProps {
-  readonly canCiteAssistantText?: boolean;
   readonly onCiteAssistantText?: (citation: AssistantCitation) => void;
   readonly toolCallVisibility?: ToolCallVisibility;
   readonly worktreeSetup?: WorktreeSetupCardProps | null;
@@ -1330,8 +1323,6 @@ function ArtifactTemplateCard(props: {
 const AssistantMarkdownContent = memo(function AssistantMarkdownContent(props: {
   readonly markdown: string;
   readonly environmentId: EnvironmentId;
-  readonly citationThreadId?: ThreadId;
-  readonly citationMessageId?: MessageId;
   readonly citationSource?: Pick<AssistantCitation, "threadId" | "messageId">;
   readonly onCiteAssistantText?: (citation: AssistantCitation) => void;
   readonly markdownStyles: MarkdownStyleSet;
@@ -1343,11 +1334,6 @@ const AssistantMarkdownContent = memo(function AssistantMarkdownContent(props: {
 }) {
   const gt = useGT();
   const liveMarkdown = useLiveThreadLinkLabels(props.markdown, props.environmentId);
-  const assistantCitationSource = useAssistantCitationSource(
-    props.environmentId,
-    props.citationThreadId,
-    props.citationMessageId,
-  );
   const [quoteSelection, setQuoteSelection] = useState<{
     markdown: string;
     selectors: ReturnType<typeof collectMobileAssistantTextSelectors>;
@@ -1382,7 +1368,6 @@ const AssistantMarkdownContent = memo(function AssistantMarkdownContent(props: {
     <>
       <AssistantMarkdownBlocks
         markdown={liveMarkdown}
-        assistantCitationSource={assistantCitationSource}
         onCiteText={
           props.onCiteAssistantText && props.citationSource
             ? (text, path) => {
@@ -1447,7 +1432,6 @@ const AssistantMarkdownContent = memo(function AssistantMarkdownContent(props: {
 // Folds split first, so an artifact card inside a fold stays inside it.
 function AssistantMarkdownBlocks(props: {
   readonly markdown: string;
-  readonly assistantCitationSource: ReturnType<typeof useAssistantCitationSource>;
   readonly citationPath?: string;
   readonly onCiteText?: (text: string, path: string) => void;
   /** The reply's reference definitions, passed down by the enclosing fold. */
@@ -1509,7 +1493,6 @@ function AssistantMarkdownBlocks(props: {
           markdown={renderCodexInlineDirectivesAsMarkdown(
             withReferenceDefinitions(segment.markdown, definitions),
           )}
-          assistantCitationSource={props.assistantCitationSource}
           skills={props.skills}
           models={props.models}
           textStyle={props.markdownStyles.nativeTextStyle}
@@ -1989,7 +1972,6 @@ function renderFeedEntry(
   props: Pick<
     ThreadFeedProps,
     | "environmentId"
-    | "canCiteAssistantText"
     | "onCiteAssistantText"
     | "onUseArtifactTemplate"
     | "skills"
@@ -2285,9 +2267,7 @@ function renderFeedEntry(
     const { message } = entry;
     const isUser = message.role === "user";
     const presentation = resolveUserMessagePresentation(message);
-    const renderedText = isUser
-      ? presentation.text
-      : renderAssistantCitationsAsText(presentation.text);
+    const renderedText = presentation.text;
     const styles = isUser ? markdownStyles.user : markdownStyles.assistant;
     const timestampLabel = props.formatMessageTime(isUser ? message.createdAt : message.updatedAt);
     const attachments = message.attachments ?? [];
@@ -2693,10 +2673,8 @@ function renderFeedEntry(
             <AssistantMarkdownContent
               markdown={renderedText}
               environmentId={props.environmentId}
-              citationThreadId={props.threadId}
-              citationMessageId={props.canCiteAssistantText ? message.id : undefined}
               citationSource={{ threadId: props.threadId, messageId: message.id }}
-              onCiteAssistantText={Platform.OS === "ios" ? props.onCiteAssistantText : undefined}
+              onCiteAssistantText={props.onCiteAssistantText}
               markdownStyles={styles}
               linkHandlers={props.markdownLinkHandlers}
               reply={message.projectedItem}
@@ -2808,7 +2786,6 @@ type UserMessageContentProps = {
 };
 
 function UserMessageContent(props: UserMessageContentProps) {
-  const citationPreview = useAssistantCitationMessagePreview();
   const gt = useGT();
   const [selected, setSelected] = useState<{ contextId: string; label: string } | null>(null);
   const navigation = useNavigation();
@@ -2822,7 +2799,6 @@ function UserMessageContent(props: UserMessageContentProps) {
     return `[${label}](t3-context://v1/${ref.kind}/${ref.contextId})`;
   });
   const onLinkPress = (href: string) => {
-    if (citationPreview.open(href)) return;
     const reference = parseComposerContextHref(href);
     if (!reference) return props.linkHandlers.onLinkPress?.(href);
     const record = props.context?.records.find(
@@ -2865,8 +2841,6 @@ function UserMessageContent(props: UserMessageContentProps) {
           ...props.linkHandlers,
           onLinkPress,
           fileContextMenu: (href) => {
-            const citationMenu = citationPreview.contextMenu(href);
-            if (citationMenu) return citationMenu;
             const reference = parseComposerContextHref(href);
             if (!reference) return props.linkHandlers.fileContextMenu(href);
             const record = props.context?.records.find(
@@ -2881,7 +2855,6 @@ function UserMessageContent(props: UserMessageContentProps) {
             };
           },
           onFileContextMenuAction: (href, actionId) => {
-            if (citationPreview.onMenuAction(href, actionId)) return;
             const reference = parseComposerContextHref(href);
             if (!reference) return props.linkHandlers.onFileContextMenuAction(href, actionId);
             if (actionId === "open-context") return onLinkPress(href);
@@ -2907,7 +2880,6 @@ function UserMessageContent(props: UserMessageContentProps) {
             }
           },
           linkCustomization: (href) =>
-            citationPreview.linkCustomization(href) ??
             withChipIcon(
               enrichedContextLinkCustomization(href, props.context?.records ?? []) ??
                 props.linkHandlers.linkCustomization?.(href),
@@ -2950,7 +2922,6 @@ function UserMessageMarkdownContent(props: UserMessageContentProps) {
         models={models}
         textStyle={props.markdownStyles.nativeTextStyle}
         preserveSoftBreaks
-        handlesAssistantCitationLinks
         {...props.linkHandlers}
         renderImage={props.renderImage}
       />
@@ -2984,7 +2955,6 @@ function UserMessageMarkdownContent(props: UserMessageContentProps) {
             models={models}
             textStyle={props.markdownStyles.nativeTextStyle}
             preserveSoftBreaks
-            handlesAssistantCitationLinks
             {...props.linkHandlers}
             renderImage={props.renderImage}
           />
@@ -3808,7 +3778,6 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   const setupDetailsOpen = setupDetailsThreadId === props.threadId && !!props.worktreeSetup;
   const openSetupDetails = () => setSetupDetailsThreadId(props.threadId);
   const listAppearanceData = {
-    canCiteAssistantText: props.canCiteAssistantText,
     onCiteAssistantText: props.onCiteAssistantText,
     gt,
     setupDetailsOpen,
@@ -4305,7 +4274,6 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
             userMessageGrouping: info.item.userMessageGrouping,
             formatMessageTime,
             environmentId: props.environmentId,
-            canCiteAssistantText: props.canCiteAssistantText,
             onCiteAssistantText: props.onCiteAssistantText,
             dispatchingMessageId: props.dispatchingMessageId,
             pendingFoldMessageId,
@@ -4382,7 +4350,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   }
 
   return (
-    <AssistantCitationPresentationSource identifier={fileShareSourceIdentifier} style={{ flex: 1 }}>
+    <PresentationSource identifier={fileShareSourceIdentifier} style={{ flex: 1 }}>
       <View className="flex-1" onLayout={handleViewportLayout}>
         {/* In a split, rows only re-wrap in the render that hands the list its new width. A native
             column resize would re-wrap them first, and the list would place the taller or shorter
@@ -4537,7 +4505,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
         ) : null}
         <FilePreviewModal source={expandedFile} onRequestClose={closeFilePreview} />
       </View>
-    </AssistantCitationPresentationSource>
+    </PresentationSource>
   );
 });
 

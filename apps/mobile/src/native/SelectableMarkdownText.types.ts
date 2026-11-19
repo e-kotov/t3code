@@ -1,5 +1,3 @@
-import type { AssistantCitationSource } from "./assistantCitationSelection";
-
 export interface NativeMarkdownTextStyle {
   readonly selectionColor?: string;
   readonly selectionHandleColor?: string;
@@ -74,8 +72,6 @@ export interface MarkdownLinkCustomization {
 
 export interface SelectableMarkdownTextProps {
   readonly markdown: string;
-  readonly assistantCitationSource?: AssistantCitationSource;
-  readonly handlesAssistantCitationLinks?: boolean;
   readonly textStyle: NativeMarkdownTextStyle;
   readonly skills?: ReadonlyArray<SelectableMarkdownSkill>;
   readonly models?: ReadonlyArray<SelectableMarkdownModel>;
