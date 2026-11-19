@@ -31,7 +31,6 @@ import { useAppearancePreferences } from "../features/settings/appearance/Appear
 import { Menu } from "../components/ui/Menu";
 import { useEnrichedLinkVariants } from "./useEnrichedLinkVariants";
 import { useRetryingImageSource } from "./useRetryingImageSource";
-import { useAssistantCitationMenu } from "./useAssistantCitationMenu";
 import * as Dialog from "../components/ui/Dialog";
 import { copyTextWithHaptic } from "../lib/copyTextWithHaptic";
 import type { HighlightScheme } from "../lib/highlights";
@@ -261,7 +260,6 @@ export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
     const files = markdownWithFileEmbeds(content, fileEmbedLabel);
     return { ...files, markdown: markdownWithTableBreaks(files.markdown) };
   }, [props.markdown, fileEmbedLabel]);
-  const contextMenuItems = useAssistantCitationMenu(props.assistantCitationSource);
   const [parsedLinkUrls, setParsedLinkUrls] = useState<ReadonlyArray<string>>([]);
   const onLinksChange = (links: MarkdownLinkOccurrence[]) => {
     const urls = [...new Set(links.map((link) => link.url))];
@@ -449,6 +447,17 @@ export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
           containerStyle={{ flexShrink: 1, minWidth: 0 }}
           flavor="github"
           selectable
+          contextMenuItems={
+            props.onCiteText
+              ? [
+                  {
+                    text: gt("Cite", { $context: "verb, quote selected text" }),
+                    icon: "quote.bubble",
+                    onPress: ({ text }) => props.onCiteText?.(text),
+                  },
+                ]
+              : undefined
+          }
           selectionClipboard={selectionClipboard}
           selectionColor={props.textStyle.selectionColor}
           selectionHandleColor={props.textStyle.selectionHandleColor}
@@ -466,7 +475,6 @@ export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
             props.onLinkPress || props.onImagePress ? ({ url }) => onLinkPress(url) : undefined
           }
           onLinkLongPress={onLinkLongPress}
-          contextMenuItems={contextMenuItems}
           linkContextMenuItems={linkContextMenuItems}
           linkPillContent={linkPillContent}
           accessibilityLabels={accessibilityLabels}

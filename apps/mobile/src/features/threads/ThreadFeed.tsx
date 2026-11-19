@@ -1,3 +1,8 @@
+import { ASSISTANT_CITATION_MAX_TEXT_LENGTH, type AssistantCitation } from "@t3tools/contracts";
+import { collectMobileAssistantTextSelectors } from "../../lib/assistantCitationSelection";
+import { ListSection } from "../../components/ui/ListSection";
+import { ListActionRow } from "../../components/ui/ListActionRow";
+import { Sheet } from "../../components/ui/Sheet";
 import { withAssistantCitationPassage } from "./AssistantCitationPassage";
 import { msg, T, useGT, useLocale, useMessages } from "gt-react-native";
 import { m } from "../../i18n/messages";
@@ -83,11 +88,6 @@ import {
   type ScopedThreadRef,
 } from "@t3tools/contracts";
 import type { ToolCallVisibility } from "@t3tools/contracts/settings";
-import { renderAssistantCitationsAsText } from "@t3tools/shared/assistantCitations";
-import {
-  AssistantCitationPresentationSource,
-  useAssistantCitationMessagePreview,
-} from "./AssistantCitationMessage";
 import { useAssistantCitationSourceTarget } from "./useAssistantCitationSourceTarget";
 import { encodeComposerContextFragment } from "@t3tools/shared/composerContextClipboard";
 import { hostedThreadLink, parseThreadLinkHref } from "@t3tools/shared/threadLinks";
@@ -150,6 +150,7 @@ import {
 } from "react";
 import {
   Image,
+  ScrollView,
   Platform,
   type LayoutChangeEvent,
   type NativeScrollEvent,
@@ -194,7 +195,6 @@ import { downloadAndShareAttachment } from "../../lib/attachmentDownload";
 import { splitMarkdownDetails } from "../../lib/markdownDetails";
 import { markdownReferenceDefinitions, withReferenceDefinitions } from "../../lib/markdownDocument";
 import { hasWideMarkdownBlock } from "../../lib/wideMarkdownBlocks";
-import { useAssistantCitationSource } from "../../native/useAssistantCitationSource";
 import {
   SelectableMarkdownText,
   type MarkdownFileContextMenu,
@@ -334,6 +334,8 @@ import {
 } from "./ThreadMarkdownImage";
 import { ZoomableImagePressable } from "./ZoomableImagePressable";
 import { openSettings } from "../settings/settings-navigation";
+import { loopbackUrlForDevice } from "../browser/browserTabs";
+import { useOpenLocalPreview } from "../browser/useOpenLocalPreview";
 import { useSelectWorkspaceDetail } from "../layout/workspace/useSelectWorkspaceDetail";
 import { useMessageTimeFormatter } from "./useMessageTimeFormatter";
 
@@ -366,7 +368,7 @@ export interface ThreadFeedHistoryControls {
 }
 
 export interface ThreadFeedProps {
-  readonly canCiteAssistantText?: boolean;
+  readonly onCiteAssistantText?: (citation: AssistantCitation) => void;
   readonly toolCallVisibility?: ToolCallVisibility;
   readonly worktreeSetup?: WorktreeSetupCardProps | null;
   readonly preparingWorktree?: boolean;
@@ -1321,22 +1323,34 @@ function ArtifactTemplateCard(props: {
 const AssistantMarkdownContent = memo(function AssistantMarkdownContent(props: {
   readonly markdown: string;
   readonly environmentId: EnvironmentId;
+  readonly citationSource?: Pick<AssistantCitation, "threadId" | "messageId">;
+  readonly onCiteAssistantText?: (citation: AssistantCitation) => void;
   readonly markdownStyles: MarkdownStyleSet;
   readonly linkHandlers: MarkdownLinkHandlers;
-  readonly citationThreadId?: ThreadId;
-  readonly citationMessageId?: MessageId;
   readonly reply?: MarkdownLinkReply | undefined;
   readonly onUseArtifactTemplate?: ((template: CodexArtifactTemplate) => void) | undefined;
   readonly renderImage: MarkdownImageRenderer;
   readonly skills?: ReadonlyArray<SelectableMarkdownSkill> | undefined;
 }) {
-  const models = useModelMentions(props.environmentId, props.markdown);
+  const gt = useGT();
   const liveMarkdown = useLiveThreadLinkLabels(props.markdown, props.environmentId);
-  const assistantCitationSource = useAssistantCitationSource(
-    props.environmentId,
-    props.citationThreadId,
-    props.citationMessageId,
-  );
+  const [quoteSelection, setQuoteSelection] = useState<{
+    markdown: string;
+    selectors: ReturnType<typeof collectMobileAssistantTextSelectors>;
+  } | null>(null);
+  if (quoteSelection !== null && quoteSelection.markdown !== liveMarkdown) setQuoteSelection(null);
+  const quoteChoices = quoteSelection?.selectors ?? [];
+  const cite = ({ selector }: (typeof quoteChoices)[number]) => {
+    if (!props.citationSource || !props.onCiteAssistantText) return;
+    setQuoteSelection(null);
+    props.onCiteAssistantText({
+      version: 1,
+      environmentId: props.environmentId,
+      ...props.citationSource,
+      ...selector,
+    });
+  };
+  const models = useModelMentions(props.environmentId, props.markdown);
   const threadIcons = useThreadChipIcons(props.environmentId, liveMarkdown);
   const withGallery = useFilePreviewGallery();
   const onImagePress = props.linkHandlers.onImagePress;
@@ -1351,23 +1365,75 @@ const AssistantMarkdownContent = memo(function AssistantMarkdownContent(props: {
   };
 
   return (
-    <AssistantMarkdownBlocks
-      markdown={liveMarkdown}
-      assistantCitationSource={assistantCitationSource}
-      markdownStyles={props.markdownStyles}
-      linkHandlers={linkHandlers}
-      onUseArtifactTemplate={props.onUseArtifactTemplate}
-      renderImage={props.renderImage}
-      skills={props.skills}
-      models={models}
-    />
+    <>
+      <AssistantMarkdownBlocks
+        markdown={liveMarkdown}
+        onCiteText={
+          props.onCiteAssistantText && props.citationSource
+            ? (text, path) => {
+                if (!text.trim()) return;
+                if (text.length > ASSISTANT_CITATION_MAX_TEXT_LENGTH) {
+                  Dialog.alert(
+                    gt("Quote is too long"),
+                    gt("Select up to {max} characters to cite.", {
+                      max: ASSISTANT_CITATION_MAX_TEXT_LENGTH.toLocaleString(),
+                    }),
+                  );
+                  return;
+                }
+                const selectors = collectMobileAssistantTextSelectors(liveMarkdown, path, text);
+                if (selectors.length === 0) {
+                  Dialog.alert(
+                    gt("Unable to locate quote"),
+                    gt("Select more surrounding text to cite its source accurately."),
+                  );
+                  return;
+                }
+                if (selectors.length === 1) cite(selectors[0]!);
+                else setQuoteSelection({ markdown: liveMarkdown, selectors });
+              }
+            : undefined
+        }
+        markdownStyles={props.markdownStyles}
+        linkHandlers={linkHandlers}
+        onUseArtifactTemplate={props.onUseArtifactTemplate}
+        renderImage={props.renderImage}
+        skills={props.skills}
+        models={models}
+      />
+      {quoteChoices.length > 0 && props.onCiteAssistantText ? (
+        <Sheet title={gt("Choose quote source")} onClose={() => setQuoteSelection(null)}>
+          <ScrollView
+            contentInsetAdjustmentBehavior="automatic"
+            contentContainerStyle={{ padding: 20 }}
+          >
+            <ListSection
+              title={gt("This text appears more than once. Choose the passage you selected.")}
+            >
+              {quoteChoices.map((choice) => (
+                <ListActionRow
+                  key={choice.selector.start}
+                  label={gt("Occurrence {index} of {count}", {
+                    index: choice.index + 1,
+                    count: choice.count,
+                  })}
+                  description={`${choice.selector.prefix}${choice.selector.text}${choice.selector.suffix}`}
+                  onPress={() => cite(choice)}
+                />
+              ))}
+            </ListSection>
+          </ScrollView>
+        </Sheet>
+      ) : null}
+    </>
   );
 });
 
 // Folds split first, so an artifact card inside a fold stays inside it.
 function AssistantMarkdownBlocks(props: {
-  readonly assistantCitationSource: ReturnType<typeof useAssistantCitationSource>;
   readonly markdown: string;
+  readonly citationPath?: string;
+  readonly onCiteText?: (text: string, path: string) => void;
   /** The reply's reference definitions, passed down by the enclosing fold. */
   readonly definitions?: ReadonlyArray<string> | undefined;
   readonly markdownStyles: MarkdownStyleSet;
@@ -1392,7 +1458,7 @@ function AssistantMarkdownBlocks(props: {
       definitions: props.definitions ?? (whole ? [] : markdownReferenceDefinitions(props.markdown)),
     };
   }, [m, props.markdown, props.definitions]);
-  return blocks.map((block) => {
+  return blocks.map((block, blockIndex) => {
     if (block.kind === "details") {
       return (
         <MarkdownDetailsFold
@@ -1400,11 +1466,16 @@ function AssistantMarkdownBlocks(props: {
           summary={block.summary}
           initiallyOpen={block.open}
         >
-          <AssistantMarkdownBlocks {...props} markdown={block.body} definitions={definitions} />
+          <AssistantMarkdownBlocks
+            {...props}
+            markdown={block.body}
+            definitions={definitions}
+            citationPath={`${props.citationPath ?? ""}${blockIndex}/`}
+          />
         </MarkdownDetailsFold>
       );
     }
-    return block.segments.map((segment) => {
+    return block.segments.map((segment, segmentIndex) => {
       const offset = block.sourceOffset + segment.sourceOffset;
       if (segment.kind === "artifact-template") {
         return (
@@ -1422,10 +1493,18 @@ function AssistantMarkdownBlocks(props: {
           markdown={renderCodexInlineDirectivesAsMarkdown(
             withReferenceDefinitions(segment.markdown, definitions),
           )}
-          assistantCitationSource={props.assistantCitationSource}
           skills={props.skills}
           models={props.models}
           textStyle={props.markdownStyles.nativeTextStyle}
+          onCiteText={
+            props.onCiteText
+              ? (text) =>
+                  props.onCiteText?.(
+                    text,
+                    `${props.citationPath ?? ""}${blockIndex}:${segmentIndex}`,
+                  )
+              : undefined
+          }
           {...props.linkHandlers}
           renderImage={props.renderImage}
         />
@@ -1893,7 +1972,7 @@ function renderFeedEntry(
   props: Pick<
     ThreadFeedProps,
     | "environmentId"
-    | "canCiteAssistantText"
+    | "onCiteAssistantText"
     | "onUseArtifactTemplate"
     | "skills"
     | "dispatchingMessageId"
@@ -2188,9 +2267,7 @@ function renderFeedEntry(
     const { message } = entry;
     const isUser = message.role === "user";
     const presentation = resolveUserMessagePresentation(message);
-    const renderedText = isUser
-      ? presentation.text
-      : renderAssistantCitationsAsText(presentation.text);
+    const renderedText = presentation.text;
     const styles = isUser ? markdownStyles.user : markdownStyles.assistant;
     const timestampLabel = props.formatMessageTime(isUser ? message.createdAt : message.updatedAt);
     const attachments = message.attachments ?? [];
@@ -2596,8 +2673,8 @@ function renderFeedEntry(
             <AssistantMarkdownContent
               markdown={renderedText}
               environmentId={props.environmentId}
-              citationThreadId={props.threadId}
-              citationMessageId={props.canCiteAssistantText ? message.id : undefined}
+              citationSource={{ threadId: props.threadId, messageId: message.id }}
+              onCiteAssistantText={props.onCiteAssistantText}
               markdownStyles={styles}
               linkHandlers={props.markdownLinkHandlers}
               reply={message.projectedItem}
@@ -2709,7 +2786,6 @@ type UserMessageContentProps = {
 };
 
 function UserMessageContent(props: UserMessageContentProps) {
-  const citationPreview = useAssistantCitationMessagePreview();
   const gt = useGT();
   const [selected, setSelected] = useState<{ contextId: string; label: string } | null>(null);
   const navigation = useNavigation();
@@ -2723,7 +2799,6 @@ function UserMessageContent(props: UserMessageContentProps) {
     return `[${label}](t3-context://v1/${ref.kind}/${ref.contextId})`;
   });
   const onLinkPress = (href: string) => {
-    if (citationPreview.open(href)) return;
     const reference = parseComposerContextHref(href);
     if (!reference) return props.linkHandlers.onLinkPress?.(href);
     const record = props.context?.records.find(
@@ -2766,8 +2841,6 @@ function UserMessageContent(props: UserMessageContentProps) {
           ...props.linkHandlers,
           onLinkPress,
           fileContextMenu: (href) => {
-            const citationMenu = citationPreview.contextMenu(href);
-            if (citationMenu) return citationMenu;
             const reference = parseComposerContextHref(href);
             if (!reference) return props.linkHandlers.fileContextMenu(href);
             const record = props.context?.records.find(
@@ -2782,7 +2855,6 @@ function UserMessageContent(props: UserMessageContentProps) {
             };
           },
           onFileContextMenuAction: (href, actionId) => {
-            if (citationPreview.onMenuAction(href, actionId)) return;
             const reference = parseComposerContextHref(href);
             if (!reference) return props.linkHandlers.onFileContextMenuAction(href, actionId);
             if (actionId === "open-context") return onLinkPress(href);
@@ -2808,7 +2880,6 @@ function UserMessageContent(props: UserMessageContentProps) {
             }
           },
           linkCustomization: (href) =>
-            citationPreview.linkCustomization(href) ??
             withChipIcon(
               enrichedContextLinkCustomization(href, props.context?.records ?? []) ??
                 props.linkHandlers.linkCustomization?.(href),
@@ -3063,6 +3134,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   const openPullRequest = useOpenPullRequest();
   const navigation = useNavigation();
   const openLinkedThread = useOpenLinkedThread();
+  const openLocalPreview = useOpenLocalPreview();
   // Recycling a row disposes its native audio player, so a started clip's row stays rendered.
   const [retainedMediaRowId, setRetainedMediaRowId] = useState<string | null>(null);
   const focused = useIsFocused();
@@ -3344,6 +3416,15 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
       if (instructionsPath) openSkillInstructions(instructionsPath);
       return;
     }
+    // Safari would open the phone's own localhost, so these open on the device by default.
+    const deviceUrl = loopbackUrlForDevice(href);
+    if (deviceUrl) {
+      openLocalPreview(
+        { environmentId: String(props.environmentId), threadId: String(props.threadId) },
+        deviceUrl,
+      );
+      return;
+    }
     if (parseThreadLinkHref(href)) {
       const target = resolveLinkedThread(href);
       if (target) {
@@ -3473,6 +3554,16 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
           ],
         };
       }
+      // The environment's localhost, which this device can only reach through the tunnel.
+      if (loopbackUrlForDevice(href)) {
+        return {
+          title: href,
+          actions: [
+            { id: "open-on-device", title: gt("Open on this device") },
+            { id: "copy-link", title: gt("Copy link") },
+          ],
+        };
+      }
       const target = resolveFileChipTarget(href, props.workspaceRoot);
       return target ? fileChipMenu(target) : undefined;
     },
@@ -3488,6 +3579,17 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
       if (thread) {
         if (actionId === "open-thread") onMarkdownLinkPress(href);
         else if (actionId === "copy-thread-link") copyTextWithHaptic(hostedThreadLink(thread));
+        return;
+      }
+      const deviceUrl = loopbackUrlForDevice(href);
+      if (deviceUrl) {
+        if (actionId === "open-on-device") {
+          markdownLinkRequest.current?.abort();
+          openLocalPreview(
+            { environmentId: String(props.environmentId), threadId: String(props.threadId) },
+            deviceUrl,
+          );
+        } else if (actionId === "copy-link") copyTextWithHaptic(href);
         return;
       }
       const target = resolveFileChipTarget(href, props.workspaceRoot);
@@ -3676,7 +3778,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   const setupDetailsOpen = setupDetailsThreadId === props.threadId && !!props.worktreeSetup;
   const openSetupDetails = () => setSetupDetailsThreadId(props.threadId);
   const listAppearanceData = {
-    canCiteAssistantText: props.canCiteAssistantText,
+    onCiteAssistantText: props.onCiteAssistantText,
     gt,
     setupDetailsOpen,
     disclosureLayout,
@@ -4172,7 +4274,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
             userMessageGrouping: info.item.userMessageGrouping,
             formatMessageTime,
             environmentId: props.environmentId,
-            canCiteAssistantText: props.canCiteAssistantText,
+            onCiteAssistantText: props.onCiteAssistantText,
             dispatchingMessageId: props.dispatchingMessageId,
             pendingFoldMessageId,
             setupFoldRowId,
@@ -4248,7 +4350,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   }
 
   return (
-    <AssistantCitationPresentationSource identifier={fileShareSourceIdentifier} style={{ flex: 1 }}>
+    <PresentationSource identifier={fileShareSourceIdentifier} style={{ flex: 1 }}>
       <View className="flex-1" onLayout={handleViewportLayout}>
         {/* In a split, rows only re-wrap in the render that hands the list its new width. A native
             column resize would re-wrap them first, and the list would place the taller or shorter
@@ -4403,7 +4505,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
         ) : null}
         <FilePreviewModal source={expandedFile} onRequestClose={closeFilePreview} />
       </View>
-    </AssistantCitationPresentationSource>
+    </PresentationSource>
   );
 });
 

@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main, "sync/android-citation-context-*"]
-    paths:
+    paths: &citation_paths
       - ".github/workflows/fork-android-citations.yml"
       - "patches/react-native-enriched-markdown@*.patch"
       - "apps/mobile/deps/react-native-enriched-markdown-*.tgz"
@@ -13,13 +13,21 @@ on:
       - "apps/mobile/src/features/threads/AssistantCitationPassage.tsx"
       - "apps/mobile/src/features/threads/useAssistantCitationSourceTarget.ts"
       - "apps/mobile/src/lib/assistantCitationPassage*"
-      - "apps/mobile/src/native/useAssistantCitationMenu.ts"
+      - "apps/mobile/src/components/AssistantCitationSheet.tsx"
+      - "apps/mobile/src/components/ComposerEditor.tsx"
+      - "apps/mobile/src/features/threads/useAssistantCitationPassageJump.ts"
+      - "apps/mobile/src/lib/assistantCitationDraft*"
+      - "apps/mobile/src/components/forkComposerCitationSafety.test.tsx"
+      - "scripts/fork-footprint-budget.json"
+  pull_request:
+    branches: [main]
+    paths: *citation_paths
 
 permissions:
   contents: read
 
 concurrency:
-  group: android-citations-${{ github.ref }}
+  group: android-citations-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -35,36 +43,48 @@ jobs:
     steps:
       - name: Checkout without vendored gitlinks
         env:
-          CHECKOUT_REF: ${{ github.sha }}
+          CHECKOUT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           git init .
           git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
           git sparse-checkout set --no-cone '/*' '!/.repos/'
           git fetch --no-tags origin main "$CHECKOUT_REF"
           git checkout --detach "$CHECKOUT_REF"
+          git fetch -q --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
+      - name: Check fork footprint
+        run: python3 scripts/fork-footprint-budget.py
       - uses: ./.github/actions/setup-ci-deps
-      - name: Prove the context regression on the old implementation
+      - name: Prove the draft safety regressions on the upstream editor
         run: |
-          source=apps/mobile/src/native/assistantCitationSelection.ts
-          old=$(git log --format=%H -S 'context?.prefix' -- "$source" | head -1)
-          test -n "$old"
-          cp "$source" "$RUNNER_TEMP/citation-selection.ts"
-          trap 'cp "$RUNNER_TEMP/citation-selection.ts" "$source"' EXIT
-          git show "$old^:$source" > "$source"
-          if vp test run apps/mobile/src/native/assistantCitationSelection.test.ts -t 'keeps native surrounding context' > "$RUNNER_TEMP/citation-regression.log" 2>&1; then
-            cat "$RUNNER_TEMP/citation-regression.log"
-            echo 'The regression must fail without native context support.'
+          source=apps/mobile/src/components/ComposerEditor.tsx
+          upstream=066be300053f47889e1f076c363297832633e760
+          backup="$RUNNER_TEMP/composer-editor-current.tsx"
+          log="$RUNNER_TEMP/citation-draft-regression.log"
+          cp "$source" "$backup"
+          trap 'cp "$backup" "$source"' EXIT
+          git show "$upstream:$source" > "$source"
+          if vp test run apps/mobile/src/components/forkComposerCitationSafety.test.tsx > "$log" 2>&1; then
+            cat "$log"
+            echo 'The draft safety regressions must fail on the unguarded upstream editor.'
             exit 1
           fi
-          cat "$RUNNER_TEMP/citation-regression.log"
-          python3 -c 'import os, pathlib; assert "AssertionError" in (pathlib.Path(os.environ["RUNNER_TEMP"]) / "citation-regression.log").read_text()'
+          cat "$log"
+          python3 - "$log" <<'PYTHON'
+          import pathlib, sys
+          log = pathlib.Path(sys.argv[1]).read_text()
+          assert log.count("AssertionError:") == 4, "Expected all four behavior assertions to fail"
+          assert "closes a quote editor when a new draft has the same marker" in log
+          assert "rejects save and removal if an import starts" in log
+          assert "rejects save and removal after a rerender" in log
+          assert "rejects save and removal when the live draft changes" in log
+          PYTHON
       - uses: ./.github/actions/setup-fork-chromium
       - name: Check changed code and citation behavior
         run: |
           base=$(git merge-base refs/remotes/origin/main HEAD)
           if [ "$base" = "$(git rev-parse HEAD)" ]; then base=HEAD^; fi
           vp run check:changed "$base"
-          vp test run apps/mobile/src/native/assistantCitationSelection.test.ts apps/mobile/src/lib/assistantCitationPassage.test.ts packages/shared/src/assistantCitations.test.ts
+          vp test run apps/mobile/src/components/forkComposerCitationSafety.test.tsx apps/mobile/src/lib/assistantCitationDraft.test.ts apps/mobile/src/lib/assistantCitationSelection.test.ts apps/mobile/src/lib/assistantCitationPassage.test.ts apps/mobile/src/lib/assistantCitationPassageBridge.test.ts packages/shared/src/assistantCitations.test.ts
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

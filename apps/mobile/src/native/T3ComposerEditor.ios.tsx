@@ -1,4 +1,3 @@
-import { assistantCitationEditorToken } from "../lib/assistantCitationEditorToken";
 import { PASTED_TEXT_ATTACHMENT_THRESHOLD_BYTES } from "@t3tools/client-runtime/text-paste";
 import { PROVIDER_SEND_TURN_MAX_INPUT_CHARS } from "@t3tools/contracts";
 import { collectComposerInlineTokens } from "@t3tools/shared/composerInlineTokens";
@@ -202,8 +201,8 @@ export function ComposerEditor({
           presentation,
           token.type === "mention" ? token.value : contextRecordFileName(record),
         );
-        return assistantCitationEditorToken(token, {
-          type: token.type,
+        return {
+          type: token.type === "citation" ? "context" : token.type,
           source: token.source,
           start: token.start,
           end: token.end,
@@ -219,11 +218,13 @@ export function ComposerEditor({
                 ? model.label
                 : token.type === "context"
                   ? `${token.label}${props.context?.records.some((record) => record.contextId === token.contextId) ? "" : " · unavailable"}`
-                  : basename(token.value),
+                  : token.type === "citation"
+                    ? token.value
+                    : basename(token.value),
           detail: token.type === "context" ? composerChipSizeSuffix(record) : "",
           iconUri: model ? modelChipIconUri(model) : contextChipIconUri(icon),
           tintsIcon: model ? modelChipIcon(model).tintsIcon : icon.kind === "chip",
-        });
+        };
       }),
     );
   }, [

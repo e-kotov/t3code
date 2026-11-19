@@ -144,26 +144,14 @@ delete it like other inline context. Copying, reloading, and restoring a
 with its quote, and sending tells the agent which words were quoted and which comment you wrote.
 The quoted text and comment count toward the message limit.
 
-On Android, select assistant text and choose **Cite** in the native selection menu.
-Add an optional comment in the sheet to insert the quote chip into the prompt.
-The chip shows a preview of your comment, or of the quote when no comment was added.
-Tap a quote chip in the editable prompt to change its comment, then save, or choose
-**Remove quote** to delete that chip. The original quoted text stays unchanged when
-editing a comment. If the draft changes while the sheet is open, close the
-sheet and tap the quote again before editing. Adding a quote is refused with an explanation if the selection
-is too long or the resulting prompt would exceed the message limit. The limit is
-checked again when sending, including text added after inserting the quote.
-Tap a quote chip in a sent message to preview its full text and comment. Choose
-**Go to source** to open the original assistant response. Earlier turns load and
-folded turns expand when needed. Android scrolls to and highlights the quoted passage;
-if the passage is ambiguous or has changed, it shows the whole response instead.
-If the source cannot be loaded, your saved quote
-remains readable in the preview.
-On web or desktop, an Android quote may still be unable to locate the exact passage
-when both the quoted words and their surrounding context occur more than once.
-Math and code headers can render differently between desktop and Android; if that
-prevents an unambiguous match, Android shows the response without a passage highlight.
-iOS displays saved quotes and comments but does not create citations or edit their comments yet.
+On iOS and Android, select assistant text and choose **Cite** to insert a quote.
+If the passage repeats, choose its occurrence or select more surrounding text.
+Tap the draft chip to add or edit a comment, or choose **Remove from draft**.
+
+Tap a sent quote to see its text and comment. **Go to message** opens the source
+response. Android also tries to highlight the passage; changed text, collapsed
+sections, or ambiguous repeats may prevent an exact match. If the source is
+unavailable, the saved quote and comment remain readable.
 
 ## Recall a sent prompt
 

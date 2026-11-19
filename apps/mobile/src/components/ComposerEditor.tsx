@@ -1,6 +1,5 @@
 import { errorDisplayMessage } from "@t3tools/client-runtime/errors";
 import * as Dialog from "./ui/Dialog";
-import { requestAssistantCitationEdit } from "../native/assistantCitationEditing";
 import { ComposerContextId } from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/reactivity";
@@ -10,6 +9,12 @@ import { useEffect, useState } from "react";
 import type { EnvironmentId } from "@t3tools/contracts";
 import { encodeComposerContextFragment } from "@t3tools/shared/composerContextClipboard";
 import { collectComposerContextReferences } from "@t3tools/shared/composerContextReferences";
+import {
+  collectAssistantCitations,
+  serializeAssistantCitation,
+  withAssistantCitationComment,
+} from "@t3tools/shared/assistantCitations";
+import { AssistantCitationSheet } from "./AssistantCitationSheet";
 import { ComposerEditor as NativeComposerEditor } from "../native/T3ComposerEditor";
 import type { ComposerEditorProps as NativeComposerEditorProps } from "../native/T3ComposerEditor";
 import {
@@ -37,6 +42,7 @@ import { useLinkedEnvironments } from "../state/peerLinks";
 import { ComposerContextSheet } from "./ComposerContextSheet";
 import { AppText as Text } from "./ui/AppText";
 import {
+  assistantCitationDraftWithinLimit,
   composerDocumentAttachment,
   composerMentionPath,
   type ComposerDocumentAttachment,
@@ -84,9 +90,21 @@ export function ComposerEditor({
       appendComposerDraftAttachments(draftKey, restored.attachments, { restore: true });
     }
   };
-  const [selected, setSelected] = useState<{ source: string; start: number; end: number } | null>(
-    null,
-  );
+  const [selection, setSelected] = useState<{
+    source: string;
+    start: number;
+    end: number;
+    draftKey: typeof draftKey;
+    environmentId: typeof environmentId;
+    draftText: string;
+    draftStoreText: string | undefined;
+  } | null>(null);
+  const selected =
+    selection?.draftKey === draftKey && selection?.environmentId === environmentId
+      ? selection
+      : null;
+  // The same editor instance can move between queued drafts containing the same marker.
+  if (selection && !selected) setSelected(null);
   const linkedEnvironments = useLinkedEnvironments(environmentId ?? null);
   const models = useModelMentions(environmentId ?? draft.project?.environmentId, props.value);
   const contextImports = useAtomValue(composerContextImportsAtom);
@@ -184,6 +202,9 @@ export function ComposerEditor({
   const selectedReference = selected
     ? collectComposerContextReferences(selected.source)[0]
     : undefined;
+  const selectedCitation = selected
+    ? collectAssistantCitations(selected.source)[0]?.citation
+    : undefined;
   const selectedSkillName = selected?.source.match(/^\p{Sc}(.+)$/u)?.[1];
   const selectedSkill = selectedSkillName
     ? props.skills?.find((skill) => skill.name === selectedSkillName)
@@ -191,6 +212,53 @@ export function ComposerEditor({
   const record = draft.context?.records.find(
     (entry) => entry.contextId === selectedReference?.contextId,
   );
+  const draftMutationBlocked = props.readOnly || props.editable === false || importing;
+  const importInProgress = () =>
+    draftKey != null && appAtomRegistry.get(composerContextImportsAtom)[draftKey] === true;
+  const citationEditIsCurrent = () =>
+    selected !== null &&
+    selected.draftText === props.value &&
+    (draftKey == null || getComposerDraftSnapshot(draftKey).text === selected.draftStoreText);
+  const removeSelected = draftMutationBlocked
+    ? undefined
+    : () => {
+        if (!selected || importInProgress() || (selectedCitation && !citationEditIsCurrent()))
+          return;
+        if (props.value.slice(selected.start, selected.end) === selected.source) {
+          changeText(props.value.slice(0, selected.start) + props.value.slice(selected.end));
+          props.onSelectionChange?.({ start: selected.start, end: selected.start });
+        }
+        setSelected(null);
+      };
+  const commentSelectedCitation =
+    draftMutationBlocked || !selected || !selectedCitation
+      ? undefined
+      : (comment: string) => {
+          if (
+            importInProgress() ||
+            !citationEditIsCurrent() ||
+            props.value.slice(selected.start, selected.end) !== selected.source
+          )
+            return;
+          const next = serializeAssistantCitation(
+            withAssistantCitationComment(selectedCitation, comment),
+          );
+          const text =
+            props.value.slice(0, selected.start) + next + props.value.slice(selected.end);
+          if (!assistantCitationDraftWithinLimit(text)) {
+            Dialog.alert(
+              gt("Could not update quote"),
+              gt(
+                "This comment would make the message too long to send. Shorten the comment or draft.",
+              ),
+            );
+            return;
+          }
+          const cursor = selected.start + next.length;
+          if (draftKey)
+            rememberComposerDraftSelection(draftKey, text, { start: cursor, end: cursor });
+          changeText(text);
+        };
   return (
     <>
       {/* Reset revision history with the recreated iOS view without aborting context imports. */}
@@ -211,7 +279,6 @@ export function ComposerEditor({
             onInertChipPress?.();
             return;
           }
-          if (requestAssistantCitationEdit(draftKey, selection, props, importing)) return;
           const path = composerMentionPath(selection.source, draft.context);
           if (path && onOpenMention) {
             onOpenMention(path);
@@ -227,7 +294,14 @@ export function ComposerEditor({
             onOpenAttachment(document);
             return;
           }
-          setSelected(selection);
+          if (importInProgress() && collectAssistantCitations(selection.source).length > 0) return;
+          setSelected({
+            ...selection,
+            draftKey,
+            environmentId,
+            draftText: props.value,
+            draftStoreText: draftKey == null ? undefined : getComposerDraftSnapshot(draftKey).text,
+          });
         }}
         onSelectionChange={(selection) => {
           if (draftKey)
@@ -243,6 +317,26 @@ export function ComposerEditor({
         <Text className="py-2 text-xs text-foreground-muted">
           <T>Copying context…</T>
         </Text>
+      ) : null}
+      {selectedCitation ? (
+        <AssistantCitationSheet
+          citation={selectedCitation}
+          onClose={() => setSelected(null)}
+          onRemove={removeSelected}
+          onCommentChange={commentSelectedCitation}
+          canChangeComment={
+            selected && commentSelectedCitation
+              ? (comment) =>
+                  assistantCitationDraftWithinLimit(
+                    props.value.slice(0, selected.start) +
+                      serializeAssistantCitation(
+                        withAssistantCitationComment(selectedCitation, comment),
+                      ) +
+                      props.value.slice(selected.end),
+                  )
+              : undefined
+          }
+        />
       ) : null}
       {selected && (selectedReference || selectedSkill) ? (
         <ComposerContextSheet
@@ -285,19 +379,7 @@ export function ComposerEditor({
           records={draft.context?.records}
           attachments={draft.attachments}
           onClose={() => setSelected(null)}
-          onRemove={
-            props.readOnly || props.editable === false
-              ? undefined
-              : () => {
-                  if (props.value.slice(selected.start, selected.end) === selected.source) {
-                    changeText(
-                      props.value.slice(0, selected.start) + props.value.slice(selected.end),
-                    );
-                    props.onSelectionChange?.({ start: selected.start, end: selected.start });
-                  }
-                  setSelected(null);
-                }
-          }
+          onRemove={removeSelected}
         />
       ) : null}
     </>
