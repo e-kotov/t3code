@@ -287,7 +287,7 @@ jobs:
               case "$name" in fork-*.yml) continue ;; esac
               case "$keep" in *" $name "*) ;; *) gh workflow disable "$name" -R "$GITHUB_REPOSITORY" && echo "Disabled $name" ;; esac
             done
-      - name: Prune superseded Actions caches
+      - name: Prune known obsolete Actions caches
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -314,49 +314,16 @@ jobs:
           caches = api_pages(f"repos/{repo}/actions/caches")
           open_prs = {str(p["number"]) for p in api_pages(f"repos/{repo}/pulls?state=open&per_page=100")}
 
-          GROUP_RULES = [
-              (re.compile(r"^(android-ccache-v1-[^-]+-[^-]+-)"), 1),
-              (re.compile(r"^(fork-tailnet-so-v1-[^-]+-[^-]+-)"), 1),
-              (re.compile(r"^(gradle-home-v1\|[^|]+\|(?:android|checks))"), 1),
-              (re.compile(r"^(gradle-dependencies-v1-)"), 2),
-              (re.compile(r"^(gradle-transforms-v1-)"), 2),
-              (re.compile(r"^(gradle-groovy-dsl-v1-)"), 2),
-              (re.compile(r"^(gradle-instrumented-jars-v1-)"), 2),
-              (re.compile(r"^(gradle-generated-gradle-jars-v1-)"), 1),
-              (re.compile(r"^(gradle-kotlin-dsl-v1-)"), 1),
-              (re.compile(r"^(gradle-wrapper-zips-v1-)"), 1),
-              (re.compile(r"^(pnpm-full-v1-[^-]+-[^-]+-)"), 1),
-              (re.compile(r"^(pnpm-filtered-[0-9]+-v1-[^-]+-[^-]+-)"), 1),
-              (re.compile(r"^(pnpm-verified-v1-)"), 1),
-              (re.compile(r"^(vite-plus-home-v2-[^-]+-[^-]+-)"), 1),
-              (re.compile(r"^(rust-resource-monitor-v1-[^-]+-[^-]+-)"), 1),
-              (re.compile(r"^(desktop-stage-pnpm-v2-[^-]+-[^-]+-)"), 1),
-          ]
-
-          by_group = {}
           delete_ids = []
           for c in caches:
               key = c.get("key", "")
               ref = c.get("ref", "")
               if key.startswith("setup-go-"):
-                  delete_ids.append((c["id"], key))
+                  delete_ids.append((c["id"], f"legacy-go:{ref}:{key}"))
                   continue
               m_pr = re.fullmatch(r"refs/pull/([0-9]+)/merge", ref)
               if m_pr and m_pr.group(1) not in open_prs:
-                  delete_ids.append((c["id"], f"{ref}:{key}"))
-                  continue
-              if ref != "refs/heads/main":
-                  continue
-              for pat, keep in GROUP_RULES:
-                  m = pat.match(key)
-                  if m:
-                      by_group.setdefault((m.group(1), keep), []).append(c)
-                      break
-
-          for (group, keep), items in by_group.items():
-              items.sort(key=lambda x: (x.get("last_accessed_at", ""), x.get("created_at", "")), reverse=True)
-              for stale in items[keep:]:
-                  delete_ids.append((stale["id"], stale.get("key", "")))
+                  delete_ids.append((c["id"], f"closed-pr:{ref}:{key}"))
 
           for cid, label in delete_ids:
               res = subprocess.run(["gh", "api", "-X", "DELETE", f"repos/{repo}/actions/caches/{cid}"], capture_output=True, text=True)

@@ -22,6 +22,10 @@ on:
         description: "Label this prerelease as a nightly build"
         default: false
         type: boolean
+      prune_caches:
+        description: "Delete known obsolete Actions caches (setup-go, closed PRs); false runs dry-run"
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -408,7 +412,6 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
-      actions: write
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
@@ -455,14 +458,25 @@ jobs:
           gh release create "$RELEASE_TAG" assets/* --repo "$GITHUB_REPOSITORY" \
             --verify-tag --title "$title" \
             --notes-file "$RUNNER_TEMP/release-notes.md" --prerelease --latest=false
-      - name: Prune superseded Actions caches
+
+  cache_cleanup:
+    needs: [prepare, release]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Prune known obsolete Actions caches
         env:
           GH_TOKEN: ${{ github.token }}
+          DELETE_CACHES: ${{ inputs.prune_caches && github.ref == 'refs/heads/main' }}
         run: |
           python3 - <<'PY' || echo '::warning::Cache pruning skipped'
           import json, os, re, subprocess
 
           repo = os.environ["GITHUB_REPOSITORY"]
+          delete_mode = os.environ.get("DELETE_CACHES", "false").lower() == "true"
 
           def api_pages(endpoint):
               out = subprocess.check_output(["gh", "api", "--paginate", endpoint], text=True).strip()
@@ -482,53 +496,42 @@ jobs:
           caches = api_pages(f"repos/{repo}/actions/caches")
           open_prs = {str(p["number"]) for p in api_pages(f"repos/{repo}/pulls?state=open&per_page=100")}
 
-          GROUP_RULES = [
-              (re.compile(r"^(android-ccache-v1-[^-]+-[^-]+-)"), 1),
-              (re.compile(r"^(fork-tailnet-so-v1-[^-]+-[^-]+-)"), 1),
-              (re.compile(r"^(gradle-home-v1\|[^|]+\|(?:android|checks))"), 1),
-              (re.compile(r"^(gradle-dependencies-v1-)"), 2),
-              (re.compile(r"^(gradle-transforms-v1-)"), 2),
-              (re.compile(r"^(gradle-groovy-dsl-v1-)"), 2),
-              (re.compile(r"^(gradle-instrumented-jars-v1-)"), 2),
-              (re.compile(r"^(gradle-generated-gradle-jars-v1-)"), 1),
-              (re.compile(r"^(gradle-kotlin-dsl-v1-)"), 1),
-              (re.compile(r"^(gradle-wrapper-zips-v1-)"), 1),
-              (re.compile(r"^(pnpm-full-v1-[^-]+-[^-]+-)"), 1),
-              (re.compile(r"^(pnpm-filtered-[0-9]+-v1-[^-]+-[^-]+-)"), 1),
-              (re.compile(r"^(pnpm-verified-v1-)"), 1),
-              (re.compile(r"^(vite-plus-home-v2-[^-]+-[^-]+-)"), 1),
-              (re.compile(r"^(rust-resource-monitor-v1-[^-]+-[^-]+-)"), 1),
-              (re.compile(r"^(desktop-stage-pnpm-v2-[^-]+-[^-]+-)"), 1),
-          ]
-
-          by_group = {}
-          delete_ids = []
+          candidates = []
           for c in caches:
               key = c.get("key", "")
               ref = c.get("ref", "")
               if key.startswith("setup-go-"):
-                  delete_ids.append((c["id"], key))
+                  candidates.append((c["id"], c.get("size_in_bytes", 0), f"legacy-go:{ref}:{key}"))
                   continue
               m_pr = re.fullmatch(r"refs/pull/([0-9]+)/merge", ref)
               if m_pr and m_pr.group(1) not in open_prs:
-                  delete_ids.append((c["id"], f"{ref}:{key}"))
-                  continue
-              if ref != "refs/heads/main":
-                  continue
-              for pat, keep in GROUP_RULES:
-                  m = pat.match(key)
-                  if m:
-                      by_group.setdefault((m.group(1), keep), []).append(c)
-                      break
+                  candidates.append((c["id"], c.get("size_in_bytes", 0), f"closed-pr:{ref}:{key}"))
 
-          for (group, keep), items in by_group.items():
-              items.sort(key=lambda x: (x.get("last_accessed_at", ""), x.get("created_at", "")), reverse=True)
-              for stale in items[keep:]:
-                  delete_ids.append((stale["id"], stale.get("key", "")))
+          total_mib = sum(c.get("size_in_bytes", 0) for c in caches) / (1024 * 1024)
+          cand_mib = sum(sz for _, sz, _ in candidates) / (1024 * 1024)
+          mode_label = "live" if delete_mode else "dry-run"
+          print(f"Cache inventory: {len(caches)} entries ({total_mib:.1f} MiB); obsolete candidates ({mode_label}): {len(candidates)} ({cand_mib:.1f} MiB)")
 
-          for cid, label in delete_ids:
-              res = subprocess.run(["gh", "api", "-X", "DELETE", f"repos/{repo}/actions/caches/{cid}"], capture_output=True, text=True)
-              print(f"prune {cid} ({res.returncode}): {label[:80]}")
+          deleted = 0
+          for cid, sz, label in candidates:
+              mib = sz / (1024 * 1024)
+              if delete_mode:
+                  res = subprocess.run(["gh", "api", "-X", "DELETE", f"repos/{repo}/actions/caches/{cid}"], capture_output=True, text=True)
+                  if res.returncode == 0:
+                      deleted += 1
+                  print(f"delete {cid} ({mib:.1f} MiB, rc={res.returncode}): {label[:80]}")
+              else:
+                  print(f"dry-run {cid} ({mib:.1f} MiB): {label[:80]}")
+
+          summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary:
+              with open(summary, "a", encoding="utf-8") as fh:
+                  fh.write(
+                      f"### Obsolete cache cleanup ({mode_label})\n"
+                      f"- Total caches before cleanup: {len(caches)} ({total_mib:.1f} MiB)\n"
+                      f"- Obsolete candidates (`setup-go-*` and closed PRs): {len(candidates)} ({cand_mib:.1f} MiB)\n"
+                      f"- Deleted: {deleted if delete_mode else 0}\n"
+                  )
           PY
 
   homebrew_tap:

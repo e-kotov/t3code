@@ -202,9 +202,11 @@ runtime classpath inside the release Gradle run, and skips release vital lint so
 gets full CPU and an 8 GB heap). Debug module unit tests run in parallel in
 `android_checks` with a read-only Gradle cache so `android` stays focused on
 `assembleRelease` and avoids caching Debug test dependencies. `.github/actions/build-fork-tailnet`
-disables `setup-go` caching (relying on `fork-tailnet-so-v1` instead), PR checks
-keep Gradle caches read-only, and `release` / `upstream-sync` prune superseded
-caches so `android-ccache` and `fork-tailnet-so` are not evicted by the 10 GiB limit.
+disables `setup-go` caching (relying on `fork-tailnet-so-v1` instead), PR
+citation checks keep Gradle caches read-only, a separate `cache_cleanup` job
+runs in dry-run mode unless `prune_caches=true` is dispatched on `main`, and
+deletion targets only known obsolete entries (`setup-go-*` and closed-PR caches)
+so active `main` Gradle, ccache, and `fork-tailnet-so` caches are left intact.
 Each build prints ccache hit/miss statistics in its job summary. Compiler contents and source inputs are validated by ccache,
 including when a fallback key restores an older entry.
 
