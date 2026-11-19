@@ -82,7 +82,7 @@ export function HomeListOptionsProvider({
 export function useHomeListOptions(availableEnvironmentIds: ReadonlySet<EnvironmentId>) {
   const shared = useContext(HomeListOptionsContext);
   const { savedWorkingFirst, saveWorkingFirst } = useWorkingSidebarPlacement();
-  const savePreferences = useAtomSet(updateMobilePreferencesAtom);
+  const savePreferences = useAtomCommand(saveMobilePreferences);
   const [localOptions, setLocalOptions] = useState<HomeListOptions>(defaultHomeListOptions);
   const options = shared?.options ?? localOptions;
   const updateOptions =
