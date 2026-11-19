@@ -77,6 +77,9 @@ import type * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAda
 const projectId = ProjectId.make("project:launch-test");
 const otherProjectId = ProjectId.make("project:launch-other");
 const encodeThreadProjection = Schema.encodeEffect(OrchestrationV2ThreadProjectionJson);
+const dispatchIntakeCommand = (
+  command: Parameters<typeof ThreadMessageIntake.dispatchCommand>[0],
+) => ThreadMessageIntake.dispatchCommand(command, { managesProviders: true });
 const modelSelection = {
   instanceId: ProviderInstanceId.make("codex"),
   model: "gpt-5.1-codex",
@@ -2729,7 +2732,7 @@ it.effect("shared intake preserves durable attachment bytes after a lost launch 
     }).pipe(Effect.flip);
     assert.equal(missingProject._tag, "ThreadLaunchError");
     assert.equal((yield* claimedFiles).length, 1);
-    const missingThread = yield* ThreadMessageIntake.dispatchCommand({
+    const missingThread = yield* dispatchIntakeCommand({
       type: "message.dispatch",
       commandId: CommandId.make("intake-no-thread"),
       threadId: ThreadId.make("missing-thread"),
@@ -2743,7 +2746,7 @@ it.effect("shared intake preserves durable attachment bytes after a lost launch 
     assert.equal(missingThread._tag, "OrchestratorProjectionError");
     assert.equal((yield* claimedFiles).length, 1);
 
-    const dispatch = ThreadMessageIntake.dispatchCommand({
+    const dispatch = dispatchIntakeCommand({
       type: "message.dispatch",
       commandId: CommandId.make("intake-dispatch"),
       threadId: input.threadId,
@@ -2779,7 +2782,7 @@ it.effect("shared intake preserves durable attachment bytes after a lost launch 
     });
     assert.isNotNull(filePath);
     yield* fs.writeFile(filePath, new Uint8Array([5, 6, 7, 8]));
-    const edit = ThreadMessageIntake.dispatchCommand({
+    const edit = dispatchIntakeCommand({
       type: "queued-run.edit",
       commandId: CommandId.make("intake-edit"),
       threadId: input.threadId,
@@ -2805,7 +2808,7 @@ it.effect("shared intake preserves durable attachment bytes after a lost launch 
     assert.deepEqual(yield* fs.readFile(durableFilePath), new Uint8Array([5, 6, 7, 8]));
     assert.deepEqual(yield* fs.readFile(filePath), new Uint8Array([5, 6, 7, 8]));
     const beforeRejectedEdit = (yield* claimedFiles).length;
-    const rejectedEdit = yield* ThreadMessageIntake.dispatchCommand({
+    const rejectedEdit = yield* dispatchIntakeCommand({
       type: "queued-run.edit",
       commandId: CommandId.make("intake-edit-rejected"),
       threadId: input.threadId,

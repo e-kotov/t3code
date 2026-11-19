@@ -8,13 +8,15 @@ const harness = vi.hoisted(() => ({ saved: [] as unknown[] }));
 vi.mock("../../state/preferences", async () => {
   const { Atom, AsyncResult } = await import("effect/reactivity");
   return {
-    updateMobilePreferencesAtom: {},
+    saveMobilePreferences: {},
     mobilePreferencesAtom: Atom.make(AsyncResult.success({})),
   };
 });
-vi.mock("@effect/atom-react", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@effect/atom-react")>()),
-  useAtomSet: () => (value: unknown) => harness.saved.push(value),
+vi.mock("../../state/use-atom-command", () => ({
+  useAtomCommand: () => async (value: unknown) => {
+    harness.saved.push(value);
+    return { _tag: "Success", value: undefined };
+  },
 }));
 
 import { HomeListOptionsProvider, useHomeListOptions } from "./home-list-options";
