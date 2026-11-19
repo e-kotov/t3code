@@ -161,6 +161,8 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
           "markConnected",
           "markDisconnected",
           "proofKeyThumbprintOf",
+          // Upstream's device-key refresh coexists with fork bearer renewal.
+          "renew",
           "renewSession",
           "revoke",
           "revokeAllExcept",

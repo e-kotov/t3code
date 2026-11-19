@@ -60,10 +60,11 @@ const corruptWithNativeWrite = () => {
   return {
     backend,
     tokens: () =>
-      decode(raw).credentials.map(({ connectionId, credential }) => [
-        connectionId,
-        credential.token,
-      ]),
+      decode(raw).credentials.map(({ connectionId, credential }) => {
+        if (credential._tag !== "BearerConnectionCredential")
+          throw new Error("Expected Bearer fixture credential");
+        return [connectionId, credential.token];
+      }),
     started: Effect.promise(() => writeStarted),
     land: Effect.sync(() => land()),
   };

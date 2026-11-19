@@ -142,7 +142,10 @@ const renewalOver = Effect.fn(function* (httpBaseUrl: string) {
   };
   return {
     renewNow: renewal.renewNow(route, prepared),
-    token: () => catalog.credentials[0]?.credential.token,
+    token: () => {
+      const credential = catalog.credentials[0]?.credential;
+      return credential?._tag === "BearerConnectionCredential" ? credential.token : undefined;
+    },
   };
 });
 

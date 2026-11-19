@@ -208,7 +208,11 @@ const setup = (stored: Record<string, string>, responder: Responder) =>
           ),
         ),
       put: (connectionId, credential) =>
-        Ref.update(tokens, (map) => new Map(map).set(connectionId, credential.token)),
+        Ref.update(tokens, (map) => {
+          if (credential._tag !== "BearerConnectionCredential")
+            throw new Error("Expected Bearer fixture credential");
+          return new Map(map).set(connectionId, credential.token);
+        }),
       remove: (connectionId) =>
         Ref.update(tokens, (map) => {
           const next = new Map(map);
