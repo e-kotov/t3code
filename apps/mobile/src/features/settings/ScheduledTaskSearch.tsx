@@ -1,6 +1,6 @@
 import { useAtom, useAtomValue } from "@effect/atom-react";
 import {
-  makeScheduledTaskSearchAtom,
+  createScheduledTaskSearch,
   scheduledTaskSearchInputAtom,
 } from "@t3tools/client-runtime/scheduled-task-search";
 import type { EnvironmentId, ScheduledTask } from "@t3tools/contracts";
@@ -8,11 +8,14 @@ import { useGT } from "gt-react-native";
 
 import type { AppBarSearch } from "../../components/ui/AppBar.types";
 import { AppText } from "../../components/ui/AppText";
-import { environmentProjects } from "../../state/projects";
+import { useProjects } from "../../state/entities";
 import { SettingsSection } from "./components/SettingsSection";
 import { SettingsSwitchRow } from "./components/SettingsSwitchRow";
 
-const searchAtom = makeScheduledTaskSearchAtom(environmentProjects.projectsAtom);
+function useSearch() {
+  const { query, includePrompts } = useAtomValue(scheduledTaskSearchInputAtom);
+  return createScheduledTaskSearch(query, includePrompts, useProjects());
+}
 
 export function useHeaderSearch(): AppBarSearch {
   const gt = useGT();
@@ -41,13 +44,13 @@ export function Options() {
 }
 
 export function useMatcher(environmentId: EnvironmentId) {
-  const search = useAtomValue(searchAtom);
+  const search = useSearch();
   return (task: ScheduledTask) => search.matches(task, environmentId);
 }
 
 export function EmptyText({ projectSelected }: { readonly projectSelected: boolean }) {
   const gt = useGT();
-  const { active } = useAtomValue(searchAtom);
+  const { active } = useSearch();
   if (active) return gt("No matching tasks");
   return projectSelected ? gt("No tasks in this project.") : gt("No scheduled tasks yet.");
 }
@@ -60,7 +63,7 @@ export function RowMatch({
   readonly environmentId: EnvironmentId;
   readonly task: ScheduledTask;
 }) {
-  const search = useAtomValue(searchAtom);
+  const search = useSearch();
   const projectTitle = search.projectTitle(environmentId, task.projectId);
   return (
     <>
