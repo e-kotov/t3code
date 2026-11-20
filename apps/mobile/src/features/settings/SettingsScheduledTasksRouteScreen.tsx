@@ -1,4 +1,5 @@
 import { AutomationDestinationSetting } from "./AutomationDestinationSetting";
+import { filterScheduledTasks } from "@t3tools/client-runtime/scheduled-task-search";
 import { msg, T, useGT, useLocale, useMessages, Var } from "gt-react-native";
 import { managedCapabilityDenial } from "@t3tools/client-runtime/contract-labels";
 import * as Dialog from "../../components/ui/Dialog";
@@ -437,6 +438,14 @@ function PickerRow(props: {
 
 export function SettingsScheduledTasksRouteScreen() {
   const gt = useGT();
+  const [query, setQuery] = useState("");
+  const search = {
+    value: query,
+    onChangeText: setQuery,
+    placeholder: gt("Search scheduled tasks"),
+    mode: "inline" as const,
+    compactToolbar: false,
+  };
   const [now, setNow] = useState(Date.now);
   useFocusEffect(() => {
     const updateNow = () => setNow(Date.now());
@@ -470,6 +479,7 @@ export function SettingsScheduledTasksRouteScreen() {
   return (
     <SettingsScreen
       title={gt("Scheduled tasks")}
+      search={search}
       actions={[
         {
           accessibilityLabel: gt("New task"),
@@ -481,6 +491,7 @@ export function SettingsScheduledTasksRouteScreen() {
       menus={[environmentMenu]}
     >
       <ScrollView
+        automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         contentInsetAdjustmentBehavior="automatic"
@@ -495,6 +506,7 @@ export function SettingsScheduledTasksRouteScreen() {
               key={environment.environmentId}
               environment={environment}
               now={now}
+              searchQuery={query.trim()}
               projectIds={
                 selectedProjectKey === null
                   ? null
@@ -1593,11 +1605,13 @@ function EnvironmentTasks({
   environment,
   now,
   projectIds,
+  searchQuery,
   onEdit,
 }: {
   readonly environment: SettingsTarget;
   readonly now: number;
   readonly projectIds: readonly ProjectId[] | null;
+  readonly searchQuery: string;
   readonly onEdit: (task: ScheduledTask) => void;
 }) {
   const gt = useGT();
@@ -1607,9 +1621,10 @@ function EnvironmentTasks({
   const tasks = useEnvironmentQuery(
     serverEnvironment.scheduledTasksLive({ environmentId, input: {} }),
   );
-  const visibleTasks = tasks.data?.tasks.filter(
+  const scopedTasks = tasks.data?.tasks.filter(
     (task) => projectIds === null || projectIds.includes(task.projectId),
   );
+  const visibleTasks = scopedTasks && filterScheduledTasks(scopedTasks, searchQuery);
   const canOperate = useAtomValue(
     serverEnvironment.upsertScheduledTask.permissionAtom(environmentId),
   );
@@ -1675,7 +1690,11 @@ function EnvironmentTasks({
         </Text>
       ) : visibleTasks?.length === 0 ? (
         <Text className="p-4 text-base text-foreground-muted">
-          {projectIds === null ? gt("No scheduled tasks yet.") : gt("No tasks in this project.")}
+          {searchQuery
+            ? gt("No matching tasks")
+            : projectIds === null
+              ? gt("No scheduled tasks yet.")
+              : gt("No tasks in this project.")}
         </Text>
       ) : (
         visibleTasks?.map((task, index) => (
