@@ -10,18 +10,18 @@ import type {
   FileCommentLineAnnotation,
 } from "./fileCommentAnnotations";
 import {
+  carryQuotedFileComment,
   clearShadowSourceSublineHighlights,
+  FORK_SOURCE_SUBLINE_UNSAFE_CSS,
+  type FileTextChange,
   fileReviewCommentsFor,
   formatQuotedRangeLabel,
   quoteSubmittedFileComment,
-  remapQuotedFileComment,
   type SourceSelection,
   syncShadowSourceSublineHighlights,
   withPromptCommentAnnotations,
 } from "./forkFileSublineComments";
 import { ForkSourceSelectionToolbar, ForkSublineQuoteBadge } from "./ForkSourceSelectionToolbar";
-
-export { FORK_SOURCE_SUBLINE_UNSAFE_CSS } from "./forkFileSublineComments";
 
 const EMPTY_COMMENTS: ReadonlyArray<ReviewCommentContext> = [];
 
@@ -50,6 +50,21 @@ function draftSelectionOf(
   return (draft && stagedSelections.get(draft.id)) ?? null;
 }
 
+type EditEvent = { readonly changes: ReadonlyArray<FileTextChange> };
+
+function handleWithChanges<Event extends EditEvent>(
+  changesRef: { current: ReadonlyArray<FileTextChange> | null },
+  handler: (event: Event) => void,
+  event: Event,
+) {
+  changesRef.current = event.changes;
+  try {
+    handler(event);
+  } finally {
+    changesRef.current = null;
+  }
+}
+
 /** Subline quote state and line annotations for the editable file surface. */
 export function useForkEditableFileComments(
   composerDraftTarget: ScopedThreadRef | DraftId,
@@ -69,6 +84,7 @@ export function useForkEditableFileComments(
     () => new Map(),
   );
   const pendingSelectionRef = useRef<SourceSelection | null>(null);
+  const editChangesRef = useRef<ReadonlyArray<FileTextChange> | null>(null);
   const inPrompt = (entryId: string) => promptComments.some((comment) => comment.id === entryId);
   // A staged selection serves only the draft; once in the prompt, the resolved comment decides.
   const quoteOf = (entryId: string) =>
@@ -82,17 +98,26 @@ export function useForkEditableFileComments(
     comments,
     quoteOf,
     stagedSelections,
+    unsafeCSS: FORK_SOURCE_SUBLINE_UNSAFE_CSS,
     lineAnnotationState: [lineAnnotations, setLineAnnotations] as const,
+    /** Exposes the changes of each editor event to the comments its handler rebuilds. */
+    trackEdit:
+      <Event extends EditEvent>(handler: (event: Event) => void) =>
+      (event: Event) =>
+        handleWithChanges(editChangesRef, handler, event),
     /**
      * Quotes the line comments the editable surface builds: a submitted draft from its captured
-     * selection, an edited comment only when its quoted occurrence provably survived the edit.
+     * selection, an edited comment only when the edit left its quoted lines untouched.
      */
     addReviewComment: (...[target, comment, options]: Parameters<typeof addReviewComment>) => {
       let next = comment;
-      if (inPrompt(comment.id)) {
-        // `comments` and `contents` come from the same render, before this edit.
-        const previous = comments.find((candidate) => candidate.id === comment.id);
-        if (previous) next = remapQuotedFileComment(previous, contents, comment);
+      // The stored record, not this render's, holds the lines before the change being handled.
+      const stored = useComposerDraftStore
+        .getState()
+        .getComposerDraft(target)
+        ?.reviewComments.find((candidate) => candidate.id === comment.id);
+      if (stored) {
+        next = carryQuotedFileComment(stored, editChangesRef.current ?? [], comment);
       } else {
         const selection = stagedSelections.get(comment.id);
         if (selection) next = quoteSubmittedFileComment(comment, selection, contents);
@@ -138,19 +163,17 @@ export function useForkEditableFileComments(
 /** Selection toolbar and comment highlights, mounted inside the editable surface element. */
 export function ForkEditableSourceComments({
   comments,
-  lineAnnotations,
   disabled,
   onComment,
 }: {
   readonly comments: ReturnType<typeof useForkEditableFileComments>;
-  readonly lineAnnotations: ReadonlyArray<FileCommentLineAnnotation>;
   readonly disabled: boolean;
   readonly onComment: (range: SelectedLineRange) => void;
 }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const surfaceEl = anchor?.parentElement ?? null;
   const { surfaceKey, contents, comments: fileComments, stageSelection } = comments;
-  const draft = draftSelectionOf(lineAnnotations, comments.stagedSelections);
+  const draft = draftSelectionOf(comments.lineAnnotationState[0], comments.stagedSelections);
 
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- syncs CSS Highlights in the editable diffs shadow DOM for saved and draft subline comments
   useEffect(() => {

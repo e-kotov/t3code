@@ -11,12 +11,13 @@ import {
 } from "~/reviewCommentContext";
 import {
   buildSublineFileReviewComment,
+  carryQuotedFileComment,
   clearShadowSourceSublineHighlights,
+  type FileTextChange,
   fileReviewCommentsFor,
   formatQuotedRangeLabel,
   inferMarkdownSourceLineRange,
   quoteSubmittedFileComment,
-  remapQuotedFileComment,
   renderedMarkdownCommentsFor,
   resolveFileReviewComment,
   type SourceSelection,
@@ -30,6 +31,20 @@ const decodeRecord = Schema.decodeUnknownSync(ComposerContextRecord);
 function throughRecord(comment: ReviewCommentContext): ReviewCommentContext {
   const record = decodeRecord(JSON.parse(JSON.stringify(reviewCommentContextRecord(comment))));
   return reviewCommentFromRecord(record as ReviewCommentContextRecord);
+}
+
+function change(
+  [startLine, startCharacter]: readonly [number, number],
+  [endLine, endCharacter]: readonly [number, number],
+  text = "",
+): FileTextChange {
+  return {
+    range: {
+      start: { line: startLine, character: startCharacter },
+      end: { line: endLine, character: endCharacter },
+    },
+    text,
+  };
 }
 
 describe("forkFileSublineComments", () => {
@@ -217,7 +232,7 @@ describe("forkFileSublineComments", () => {
     expect(fileReviewCommentsFor([crlfLine], "src/a.ts", crlf)).toEqual([crlfLine]);
   });
 
-  it("does not move a quote onto another occurrence of its text after an edit", () => {
+  it("demotes a quote to a line comment when an edit touches its lines", () => {
     const contents = "const a = x + x;\n";
     const quote = createAssistantTextSelector(contents, 14, 15)!;
     const comment = buildSublineFileReviewComment({
@@ -233,8 +248,8 @@ describe("forkFileSublineComments", () => {
     expect(comment.rangeLabel).toBe('L1:15 · "x"');
 
     // The editor rebuilds an edited comment from its remapped lines in the edited text.
-    const remap = (edited: string, line = 1) => {
-      const remapped = buildFileReviewComment({
+    const lineComment = (edited: string, line: number) =>
+      buildFileReviewComment({
         id: comment.id,
         filePath: "src/a.ts",
         startLine: line,
@@ -242,46 +257,77 @@ describe("forkFileSublineComments", () => {
         text: comment.text,
         contents: edited,
       });
-      return { remapped, result: remapQuotedFileComment(comment, contents, remapped) };
+    const carry = (
+      previous: ReviewCommentContext,
+      changes: ReadonlyArray<FileTextChange>,
+      edited: string,
+      line: number,
+    ) => {
+      const remapped = lineComment(edited, line);
+      return { remapped, result: carryQuotedFileComment(previous, changes, remapped) };
     };
-    // Deleting " + x" leaves one "x", which is not the quoted occurrence.
-    const edited = "const a = x;\n";
-    const deleted = remap(edited);
-    expect(deleted.result).toEqual(deleted.remapped);
-    // Deleting "const a = x + " can only have kept the quoted occurrence.
-    expect(remap("x;\n").result.rangeLabel).toBe('L1:1 · "x"');
-    // Edits that provably keep the occurrence carry it to its new column or line.
-    expect(remap("const ab = x + x;\n").result.rangeLabel).toBe('L1:16 · "x"');
-    expect(remap("// note\nconst a = x + x;\n", 2).result).toMatchObject({
-      rangeLabel: 'L2:15 · "x"',
+
+    // Any change on the quoted line demotes, whether or not the quoted "x" still looks the same.
+    for (const [changes, edited] of [
+      [[change([0, 11], [0, 15])], "const a = x;\n"],
+      [[change([0, 0], [0, 14])], "x;\n"],
+      [[change([0, 7], [0, 7], "b")], "const ab = x + x;\n"],
+      [[change([0, 0], [0, 0], "// note")], "// noteconst a = x + x;\n"],
+      [[change([0, 16], [0, 16], "\n")], "const a = x + x;\n\n"],
+    ] as const) {
+      const { remapped, result } = carry(comment, changes, edited, 1);
+      expect(result).toEqual(remapped);
+    }
+
+    // Lines inserted or removed above move the quote; its line text and column are unchanged.
+    const moved = "// note\nconst a = x + x;\n";
+    const below = carry(comment, [change([0, 0], [0, 0], "// note\n")], moved, 2).result;
+    expect(below).toMatchObject({ rangeLabel: 'L2:15 · "x"', diff: "x", quote });
+    expect(carry(below, [change([0, 0], [1, 0])], contents, 1).result).toEqual({
+      ...lineComment(contents, 1),
+      rangeLabel: 'L1:15 · "x"',
       diff: "x",
       quote,
     });
+    // A change below the quote and one above it in the same event shift it by the net lines.
+    const both = "// note\na\nconst a = x + x;\nc;";
+    const shifted = carry(
+      below,
+      [change([0, 7], [0, 7], "\na"), change([2, 0], [2, 0], "c;")],
+      both,
+      3,
+    ).result;
+    expect(shifted.rangeLabel).toBe('L3:15 · "x"');
+    // One of the event's changes on the quoted line demotes it.
+    const touched = carry(
+      below,
+      [change([0, 0], [0, 0], "a\n"), change([1, 7], [1, 7], "b")],
+      "a\n// note\nconst ab = x + x;\n",
+      3,
+    );
+    expect(touched.result).toEqual(touched.remapped);
+    // The editor's own line remap must agree with the changes, or the quote is dropped.
+    const disagreeing = carry(comment, [change([0, 0], [0, 0], "// note\n")], moved, 1);
+    expect(disagreeing.result).toEqual(disagreeing.remapped);
 
-    // Context only within the line cannot tell which "x" of "x + x;" survives as "x;".
-    const short = "x + x;\n";
-    const shortComment = buildSublineFileReviewComment({
-      id: "comment-short",
+    // Deleting "x);\nbar(" splices the "x" of "bar(x)" onto line 1, whose text reads the same.
+    const splice = "foo(x);\nbar(x);\n";
+    const spliceComment = buildSublineFileReviewComment({
+      id: "comment-splice",
       filePath: "src/a.ts",
       sectionKind: "file",
       text: "Rename.",
-      quote: createAssistantTextSelector(short, 4, 5)!,
-      contents: short,
+      quote: createAssistantTextSelector(splice, 4, 5)!,
+      contents: splice,
       startLine: 1,
       endLine: 1,
     });
-    expect(shortComment.rangeLabel).toBe('L1:5 · "x"');
-    const shortRemapped = buildFileReviewComment({
-      id: shortComment.id,
-      filePath: "src/a.ts",
-      startLine: 1,
-      endLine: 1,
-      text: shortComment.text,
-      contents: "x;\n",
-    });
-    expect(remapQuotedFileComment(shortComment, short, shortRemapped)).toEqual(shortRemapped);
+    expect(spliceComment.rangeLabel).toBe('L1:5 · "x"');
+    const spliced = carry(spliceComment, [change([0, 4], [1, 4])], "foo(x);\n", 1);
+    expect(spliced.result).toEqual(spliced.remapped);
 
     const restored = throughRecord(comment);
+    const edited = "const a = x;\n";
     expect(fileReviewCommentsFor([restored], "src/a.ts", edited)).toEqual([restored]);
     expect(sourceSublineAnchors("moved", edited, [restored], null).commentAnchors).toEqual([]);
     clearShadowSourceSublineHighlights("moved");
@@ -386,6 +432,8 @@ describe("forkFileSublineComments", () => {
       text: comment.text,
       contents: edited,
     });
-    expect(remapQuotedFileComment(comment, contents, remapped)).toEqual(remapped);
+    expect(carryQuotedFileComment(comment, [change([0, 10], [0, 16], "other")], remapped)).toEqual(
+      remapped,
+    );
   });
 });

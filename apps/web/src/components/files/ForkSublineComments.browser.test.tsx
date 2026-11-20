@@ -400,6 +400,21 @@ it("creates subline comments from text selections in editable workspace source f
       ?.reviewComments.map((comment) => comment.id),
   ).toEqual([comments[0]!.id]);
   expect(state.writeFile).not.toHaveBeenCalled();
+
+  // A line inserted above moves the quote with the editor's line remap.
+  await userEvent.click(editor);
+  const lineStart = pointInRow(shadow(screen)!.querySelector<HTMLElement>('[data-line="1"]')!, 0);
+  await act(async () => {
+    const { node, offset } = lineStart;
+    window.getSelection()?.setBaseAndExtent(node, offset, node, offset);
+  });
+  await userEvent.keyboard("{Enter}");
+  await vi.waitFor(() => expect(state.optimistic?.contents).toBe(`\n${contents}`));
+  await vi.waitFor(() =>
+    expect(
+      useComposerDraftStore.getState().getComposerDraft(threadRef)?.reviewComments[0],
+    ).toMatchObject({ startIndex: 1, rangeLabel: 'L2:7 · "retryCount"', diff: "retryCount" }),
+  );
 });
 
 function pointInRow(row: HTMLElement, column: number): { node: Text; offset: number } {

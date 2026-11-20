@@ -1,3 +1,4 @@
+import type { EditorChange } from "@pierre/diffs/edit";
 import {
   createAssistantTextSelector,
   findAssistantCitationText,
@@ -255,43 +256,14 @@ export type SourceSelection = {
   readonly quote: FileTextQuote;
 };
 
-/**
- * Where `span` of `before` sits in `after`, or null when an edit may have touched it. Both ways of
- * aligning the unchanged prefix and suffix must agree, so text that only looks the same is refused.
- */
-function remapSpan(before: string, after: string, span: RawSpan): RawSpan | null {
-  if (span.start < 0 || span.end > before.length) return null;
-  if (before === after) return span;
-  const shorter = Math.min(before.length, after.length);
-  let prefix = 0;
-  while (prefix < shorter && before[prefix] === after[prefix]) prefix += 1;
-  let suffix = 0;
-  while (
-    suffix < shorter &&
-    before[before.length - 1 - suffix] === after[after.length - 1 - suffix]
-  ) {
-    suffix += 1;
-  }
-  const delta = after.length - before.length;
-  const place = (kept: number, keptSuffix: number) => {
-    if (span.end <= kept) return span.start;
-    if (span.start >= before.length - keptSuffix) return span.start + delta;
-    return null;
-  };
-  const prefixFirst = place(prefix, Math.min(suffix, shorter - prefix));
-  const suffixFirst = place(Math.min(prefix, shorter - suffix), suffix);
-  if (prefixFirst === null || prefixFirst !== suffixFirst) return null;
-  return { start: prefixFirst, end: prefixFirst + span.end - span.start };
-}
-
-/** The captured selection's raw span within `contents`, or null when it cannot be identified. */
+/** The captured selection's raw span, only within the exact `contents` it was captured from. */
 function selectionSpanIn(selection: SourceSelection, contents: string): RawSpan | null {
-  const lineStart = lineStartsOf(selection.contents)[selection.startLine - 1];
+  if (selection.contents !== contents) return null;
+  const lineStart = lineStartsOf(contents)[selection.startLine - 1];
   if (lineStart === undefined) return null;
   const start = lineStart + selection.column;
   const span = { start, end: start + selection.quote.text.length };
-  if (selection.contents.slice(span.start, span.end) !== selection.quote.text) return null;
-  return remapSpan(selection.contents, contents, span);
+  return contents.slice(span.start, span.end) === selection.quote.text ? span : null;
 }
 
 /** 1-based column of `span` when it lies within the comment's lines and starts on the first. */
@@ -368,19 +340,20 @@ export function buildSublineFileReviewComment(input: {
 
 function withQuote(
   comment: ReviewCommentContext,
-  quote: FileTextQuote,
-  column: number,
+  quoteText: string,
+  quote: FileTextQuote | undefined,
+  column: number | undefined,
 ): ReviewCommentContext {
   return {
     ...comment,
     rangeLabel: formatQuotedRangeLabel({
-      quoteText: quote.text,
+      quoteText,
       startLine: comment.startIndex + 1,
       endLine: comment.endIndex + 1,
       column,
     }),
-    diff: quote.text,
-    quote,
+    diff: quoteText,
+    ...(quote ? { quote } : {}),
   };
 }
 
@@ -397,35 +370,45 @@ export function quoteSubmittedFileComment(
   const column = columnWithinLines(contents, comment.startIndex, comment.endIndex, span);
   if (span === null || column === undefined) return comment;
   const quote = createAssistantTextSelector(contents, span.start, span.end) ?? selection.quote;
-  return withQuote(comment, quote, column);
+  return withQuote(comment, quote.text, quote, column);
 }
 
+/** An editor change: the replaced range in the text before it, and the inserted text. */
+export type FileTextChange = Pick<EditorChange, "range" | "text">;
+
 /**
- * Carries a quoted comment through an edit that the editor remapped to `comment`'s lines, whose
- * excerpt (`diff`) is cut from the edited text. `previous` is the comment resolved in `before`.
- * Returns the plain line comment unless the quoted occurrence provably survived the edit.
+ * Carries a stored comment through one editor change event to `comment`, the plain line comment
+ * rebuilt at the editor's remapped lines. A quote survives only when no change touches its lines,
+ * which then keep their exact text and column, and the lines moved as the changes above imply.
  */
-export function remapQuotedFileComment(
+export function carryQuotedFileComment(
   previous: ReviewCommentContext,
-  before: string,
+  changes: ReadonlyArray<FileTextChange>,
   comment: ReviewCommentContext,
 ): ReviewCommentContext {
-  // The editor excerpt splits lines on "\n" alone, so a lone "\r" breaks the line alignment.
-  if (!previous.quote || /\r(?!\n)/.test(before)) return comment;
-  const starts = lineStartsOf(before);
-  const span = locateSourceComment(previous, before, starts);
-  const regionStart = starts[previous.startIndex];
-  if (span === null || span === "ambiguous" || regionStart === undefined) return comment;
-  const region = before
-    .split("\n")
-    .slice(previous.startIndex, previous.endIndex + 1)
-    .join("\n");
-  const moved = remapSpan(region, comment.diff, {
-    start: span.start - regionStart,
-    end: span.end - regionStart,
-  });
-  const column = moved === null ? undefined : columnOnFirstLine(comment.diff, 0, moved);
-  return column === undefined ? comment : withQuote(comment, previous.quote, column);
+  if (!previous.quote && !isQuotedLabel(previous.rangeLabel)) return comment;
+  const first = previous.startIndex;
+  const last = previous.endIndex;
+  let shift = 0;
+  for (const { range, text } of changes) {
+    if (range.start.line > last) continue;
+    // Whole lines replaced right above the quote end at its first column, after a line break.
+    const linesAbove =
+      range.start.character === 0 &&
+      range.end.line === first &&
+      range.end.character === 0 &&
+      (text === "" || text.endsWith("\n"));
+    if (range.end.line >= first && !linesAbove) return comment;
+    shift += (text.match(/\r\n|\r|\n/g)?.length ?? 0) - (range.end.line - range.start.line);
+  }
+  if (comment.startIndex !== first + shift || comment.endIndex !== last + shift) return comment;
+  const column = labelColumnOffset(previous.rangeLabel);
+  return withQuote(
+    comment,
+    previous.quote?.text ?? previous.diff,
+    previous.quote,
+    column === undefined ? undefined : column + 1,
+  );
 }
 
 /** Line tables of one file version, built on first use and shared by its comments. */

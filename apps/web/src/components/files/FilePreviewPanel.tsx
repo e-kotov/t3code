@@ -122,7 +122,6 @@ import {
 import SourceFilePreview from "./CommentableSourcePreview";
 import { resolveCenteredFileLineScrollTop } from "./fileLineReveal";
 import {
-  FORK_SOURCE_SUBLINE_UNSAFE_CSS,
   ForkEditableSourceComments,
   ForkQuotedCommentAnnotation,
   useForkEditableFileComments,
@@ -1070,7 +1069,7 @@ function EditableFileSurface({
             file={externalFile}
             edit={editable}
             editorOptions={editorOptions}
-            onEditChange={handleEditChange}
+            onEditChange={forkComments.trackEdit(handleEditChange)}
             options={{
               disableFileHeader: true,
               enableGutterUtility: !hasOpenCommentForm,
@@ -1082,7 +1081,7 @@ function EditableFileSurface({
               theme: resolveDiffThemeName(resolvedTheme),
               preferredHighlighter: PREFERRED_HIGHLIGHTER,
               themeType: resolvedTheme,
-              unsafeCSS: `${FILE_LINK_REVEAL_UNSAFE_CSS}\n${FORK_SOURCE_SUBLINE_UNSAFE_CSS}`,
+              unsafeCSS: `${FILE_LINK_REVEAL_UNSAFE_CSS}\n${forkComments.unsafeCSS}`,
               onPostRender: handlePostRender,
             }}
             selectedLines={selectedRange}
@@ -1124,7 +1123,6 @@ function EditableFileSurface({
         </Virtualizer>
         <ForkEditableSourceComments
           comments={forkComments}
-          lineAnnotations={lineAnnotations}
           disabled={hasOpenCommentForm}
           onComment={beginComment}
         />
