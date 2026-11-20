@@ -10,6 +10,7 @@ import { readCaller } from "../../threadAccess.ts";
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
 import * as McpToolAccess from "../../McpToolAccess.ts";
 import * as OrchestratorMcpService from "../../OrchestratorMcpService.ts";
+import { rejectScheduledTaskModelUpdate } from "../../scheduledTaskExecution.ts";
 import * as ThreadMetadataMcpService from "../../ThreadMetadataMcpService.ts";
 
 const handlers = {
@@ -114,16 +115,11 @@ const handlers = {
         enabled,
         freshSession,
         bindToCurrentThread,
-        target,
+        ...rest
       }) =>
         Effect.gen(function* () {
           if (scheduledTaskId === undefined) return yield* Effect.die("unreachable");
-          if (target !== undefined) {
-            return yield* new OrchestratorMcpFailure({
-              code: "invalid_request",
-              message: "The target model can only be set when creating a scheduled task.",
-            });
-          }
+          yield* rejectScheduledTaskModelUpdate(rest.target);
           const scope = yield* McpInvocationContext.McpInvocationContext;
           const service = yield* OrchestratorMcpService.OrchestratorMcpService;
           return yield* service.updateScheduledTask(scope, {

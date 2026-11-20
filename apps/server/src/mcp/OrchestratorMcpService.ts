@@ -1,5 +1,8 @@
 import { defaultScheduledTaskBinding, scheduledTaskWorkspaces } from "./automationDestination.ts";
-import { resolveScheduledTaskExecution } from "./scheduledTaskExecution.ts";
+import {
+  scheduledTaskExecutionResolver,
+  type ModelTargetParent,
+} from "./scheduledTaskExecution.ts";
 import {
   CommandId,
   type RunId,
@@ -1616,12 +1619,7 @@ const make = Effect.gen(function* () {
   };
 
   const resolveTarget = Effect.fn("OrchestratorMcpService.resolveTarget")(function* (input: {
-    readonly parent: {
-      readonly thread: Pick<
-        OrchestrationV2ThreadProjection["thread"],
-        "projectId" | "modelSelection"
-      >;
-    };
+    readonly parent: ModelTargetParent;
     readonly target: OrchestratorMcpTarget | undefined;
     readonly providers: ReadonlyArray<ServerProvider>;
     /** Receipt replays bypass current settings because they start no work. Dispatch must reuse the checked command ID. */
@@ -1755,6 +1753,11 @@ const make = Effect.gen(function* () {
       supportedRuntimeModes: provider.supportedRuntimeModes,
     };
   });
+
+  const resolveScheduledTaskExecution = scheduledTaskExecutionResolver(
+    loadProviders,
+    resolveTargetRechecking,
+  );
 
   const requestKey = (clientRequestId: string | undefined): Effect.Effect<string> =>
     clientRequestId === undefined ? random.uuidV4() : Effect.succeed(clientRequestId);
@@ -2342,23 +2345,14 @@ const make = Effect.gen(function* () {
             : "bindToCurrentThread binds to this thread, which belongs to a different project.",
         );
       }
-      const { modelSelection, runtimeMode } = yield* resolveScheduledTaskExecution({
+      const execution = yield* resolveScheduledTaskExecution({
         input,
         bindToCurrentThread,
         runtimeMode: limits.runtimeMode,
         inherited: parent?.thread.modelSelection,
         projectDefault: projectDefaultModelSelection(project),
-        providerEnabled: (instanceId) =>
-          resolveProjectProviderInstanceEnabled(settings, projectId, instanceId),
-        resolve: (target, modelSelection) =>
-          Effect.flatMap(loadProviders, (providers) =>
-            resolveTargetRechecking({
-              parent: { thread: { projectId, modelSelection } },
-              target,
-              providers,
-              cwd: project.workspaceRoot,
-            }),
-          ),
+        project,
+        settings,
       });
       // Never end on a lone high surrogate, which renders as a broken character.
       const derivedTitle = (input.prompt.split("\n")[0]?.trim() ?? "")
@@ -2378,8 +2372,7 @@ const make = Effect.gen(function* () {
             ? "continue"
             : "new_thread",
         workspaceStrategy: yield* automationWorkspace(projectId, bindToCurrentThread),
-        modelSelection,
-        runtimeMode,
+        ...execution,
         interactionMode: limits.interactionMode,
         createdBy: "agent",
         creationSource: "mcp",

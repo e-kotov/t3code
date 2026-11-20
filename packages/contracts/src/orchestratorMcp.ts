@@ -25,6 +25,7 @@ import {
   ScheduledTaskSchedule,
   ScheduledTaskUpsertSchedule,
 } from "./scheduledTask.ts";
+import { scheduledTaskMcpTarget } from "./scheduledTaskMcpTarget.ts";
 import { ProviderInteractionMode, ProviderRequestKind, RuntimeMode } from "./providerPolicy.ts";
 import { PullRequestState } from "./pullRequest.ts";
 import {
@@ -713,16 +714,7 @@ export const OrchestratorMcpScheduleTaskInput = Schema.Struct({
   projectId: OrchestratorMcpProjectTarget,
   prompt: OrchestratorMcpPrompt,
   schedule: OrchestratorMcpSchedule,
-  target: Schema.optional(
-    Schema.Struct({
-      providerInstanceId: ProviderInstanceId,
-      model: TrimmedNonEmptyString,
-      options: OrchestratorMcpTarget.fields.options,
-    }).annotate({
-      description:
-        "Model for a new task that starts in a new thread. Use catalog IDs and options from orchestrator_capabilities.",
-    }),
-  ),
+  target: scheduledTaskMcpTarget(OrchestratorMcpTarget.fields.options),
   title: Schema.optional(OrchestratorMcpTitle),
   enabled: Schema.optional(Schema.Boolean.annotate({ description: "Default true." })),
   bindToCurrentThread: Schema.optional(
