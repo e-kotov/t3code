@@ -189,8 +189,9 @@
     {
       "id": "automations",
       "group": "Providers and automations",
-      "summary": "agent-created scheduled tasks that start a new thread per run in the chosen destination",
+      "summary": "scheduled task search and a configurable default destination for agent-created tasks",
       "tests": [
+        "packages/client-runtime/src/scheduledTaskSearch.test.ts",
         "apps/server/src/mcp/automationDestination.test.ts",
         "packages/contracts/src/automationDestinationSettings.test.ts",
         "apps/server/src/telemetry/automationDestinationDimension.test.ts",
@@ -423,7 +424,8 @@
         "scripts/fork-footprint-budget.test.py",
         "scripts/fork-merge-upstream.test.py",
         "scripts/fork-sync-excerpt.test.py",
-        "scripts/fork-feature-guard.test.py"
+        "scripts/fork-feature-guard.test.py",
+        "scripts/fork-prune-actions-caches.test.py"
       ]
     },
     {

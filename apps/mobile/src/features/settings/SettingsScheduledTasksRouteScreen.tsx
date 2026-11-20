@@ -1,4 +1,5 @@
 import { AutomationDestinationSetting } from "./AutomationDestinationSetting";
+import * as TaskSearch from "./ScheduledTaskSearch";
 import { msg, T, useGT, useLocale, useMessages, Var } from "gt-react-native";
 import { managedCapabilityDenial } from "@t3tools/client-runtime/contract-labels";
 import * as Dialog from "../../components/ui/Dialog";
@@ -40,6 +41,7 @@ import {
   WEBHOOK_FILTER_OPS,
   type WebhookFilterDraft,
 } from "@t3tools/client-runtime/scheduled-task-webhook";
+import { scheduledTaskWorktreeBaseRef } from "@t3tools/client-runtime/scheduled-task-worktree";
 import { scheduleTimeZoneLabel } from "@t3tools/client-runtime/scheduled-task-time-zone";
 import type { MessageResolver } from "../../i18n/messages";
 import { useRef, useState, type ReactNode } from "react";
@@ -67,6 +69,7 @@ import { buildModelOptions } from "../../lib/modelOptions";
 import { withImplicitFastModeSelection } from "../../lib/providerOptions";
 import { useProjects, useEnvironmentServerConfig } from "../../state/entities";
 import { useEnvironmentQuery } from "../../state/query";
+import { usePaginatedBranches } from "../../state/queries";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { resolveNewTaskBranchLabel } from "../threads/new-task-context-presentation";
@@ -435,6 +438,7 @@ function PickerRow(props: {
 
 export function SettingsScheduledTasksRouteScreen() {
   const gt = useGT();
+  const taskSearch = TaskSearch.useHeaderSearch();
   const [now, setNow] = useState(Date.now);
   useFocusEffect(() => {
     const updateNow = () => setNow(Date.now());
@@ -468,6 +472,7 @@ export function SettingsScheduledTasksRouteScreen() {
   return (
     <SettingsScreen
       title={gt("Scheduled tasks")}
+      search={taskSearch}
       actions={[
         {
           accessibilityLabel: gt("New task"),
@@ -479,6 +484,7 @@ export function SettingsScheduledTasksRouteScreen() {
       menus={[environmentMenu]}
     >
       <ScrollView
+        automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         contentInsetAdjustmentBehavior="automatic"
@@ -487,6 +493,7 @@ export function SettingsScheduledTasksRouteScreen() {
         contentContainerClassName="gap-5 px-5 pt-4"
         contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 18) + 18 }}
       >
+        {visibleEnvironments.length > 0 ? <TaskSearch.Options /> : null}
         {visibleEnvironments.length > 0 ? (
           visibleEnvironments.map((environment) => (
             <EnvironmentTasks
@@ -538,12 +545,19 @@ export function SettingsScheduledTaskEditRouteScreen() {
 
 function SettingsScheduledTaskEditorScreen({ title }: { readonly title: string }) {
   const gt = useGT();
-  const { editor, voiceOwnerKey, readEditor, setEditor, hasChanges, draftForEnvironment } =
-    useScheduledTaskEditor();
+  const {
+    editor,
+    voiceOwnerKey,
+    readEditor,
+    setEditor,
+    hasChanges,
+    saving,
+    setSaving,
+    draftForEnvironment,
+  } = useScheduledTaskEditor();
   const { availableTargets } = useSettingsEnvironmentFilter();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const [saving, setSaving] = useState(false);
   // Set once the save lands, so the removal guard lets the editor close.
   const saved = useRef(false);
   const ownerKey = editor ? `${voiceOwnerKey}:${editor.environmentId}` : null;
@@ -739,6 +753,21 @@ function TaskForm({
           project.id === draft.task?.projectId),
     )
     .sort((left, right) => Number(right.pinnedAt != null) - Number(left.pinnedAt != null));
+  const automaticBaseRef = draft.workspace === "worktree" && !draft.baseRef.trim();
+  const automaticBaseRefCwd = automaticBaseRef
+    ? (projects.find((project) => project.id === draft.projectId)?.workspaceRoot ?? null)
+    : null;
+  const automaticBaseRefs = usePaginatedBranches({
+    environmentId,
+    cwd: automaticBaseRefCwd,
+    query: "",
+  });
+  const worktreeBaseRef = scheduledTaskWorktreeBaseRef(draft.baseRef, automaticBaseRefs.refs);
+  // Until the project's refs load, the automatic base would save as `main`. A failed lookup falls back to it.
+  const automaticBaseRefLoading =
+    automaticBaseRefCwd !== null &&
+    automaticBaseRefs.data === null &&
+    automaticBaseRefs.error === null;
   const config = useEnvironmentServerConfig(environmentId);
   const destinationLabel = useScheduledTaskDestinationLabel(environmentId, draft.threadId);
   const boundThread = useScheduledTaskThread(environmentId, draft.threadId);
@@ -787,7 +816,8 @@ function TaskForm({
       saving ||
       dictationPending ||
       taskMissing ||
-      environmentUnavailable
+      environmentUnavailable ||
+      automaticBaseRefLoading
     )
       return;
     // Preserve signatures edited on other clients by sending the task's current value.
@@ -868,7 +898,7 @@ function TaskForm({
             ? { type: "existing_worktree", worktreePath: draft.checkoutPath.trim() }
             : {
                 type: "worktree",
-                baseRef: draft.baseRef.trim() || "main",
+                baseRef: worktreeBaseRef,
                 startFromOrigin: draft.startFromOrigin,
               },
       // Tasks have no mode picker; a mode above the administrator's ceiling is refused.
@@ -1095,7 +1125,7 @@ function TaskForm({
               label={gt("Base branch")}
               value={resolveNewTaskBranchLabel(
                 {
-                  branchName: draft.baseRef,
+                  branchName: automaticBaseRefLoading ? null : worktreeBaseRef,
                   startFromOrigin: draft.startFromOrigin,
                   workspaceMode: "worktree",
                 },
@@ -1454,6 +1484,7 @@ function TaskForm({
           dictationPending ||
           taskMissing ||
           environmentUnavailable ||
+          automaticBaseRefLoading ||
           // The server refuses an enabled webhook task under this policy.
           (draft.enabled && draft.schedule.mode === "webhook" && webhookDenial !== undefined)
         }
@@ -1581,8 +1612,9 @@ function EnvironmentTasks({
   const tasks = useEnvironmentQuery(
     serverEnvironment.scheduledTasksLive({ environmentId, input: {} }),
   );
+  const matches = TaskSearch.useMatcher(environmentId);
   const visibleTasks = tasks.data?.tasks.filter(
-    (task) => projectIds === null || projectIds.includes(task.projectId),
+    (task) => (projectIds === null || projectIds.includes(task.projectId)) && matches(task),
   );
   const canOperate = useAtomValue(
     serverEnvironment.upsertScheduledTask.permissionAtom(environmentId),
@@ -1649,7 +1681,7 @@ function EnvironmentTasks({
         </Text>
       ) : visibleTasks?.length === 0 ? (
         <Text className="p-4 text-base text-foreground-muted">
-          {projectIds === null ? gt("No scheduled tasks yet.") : gt("No tasks in this project.")}
+          <TaskSearch.EmptyText projectSelected={projectIds !== null} />
         </Text>
       ) : (
         visibleTasks?.map((task, index) => (
@@ -1672,6 +1704,7 @@ function EnvironmentTasks({
               <Text textRole="body" className="text-foreground" numberOfLines={1}>
                 {task.title}
               </Text>
+              <TaskSearch.RowMatch environmentId={environmentId} task={task} />
               <Text className="text-sm text-foreground-muted" numberOfLines={2}>
                 {!task.enabled
                   ? gt("{schedule} · Paused", {

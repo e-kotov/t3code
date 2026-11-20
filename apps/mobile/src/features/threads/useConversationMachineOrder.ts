@@ -1,6 +1,7 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { useAtomCommand } from "../../state/use-atom-command";
+import { useAtomValue } from "@effect/atom-react";
 
-import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
+import { mobilePreferencesAtom, saveMobilePreferences } from "../../state/preferences";
 import { moveMachineInOrder } from "./conversationListOrder";
 
 /** The saved machine group order and the move handler for machine group headers. */
@@ -8,7 +9,7 @@ export function useConversationMachineOrder(
   environments: ReadonlyArray<{ readonly environmentId: string }>,
 ) {
   const preferencesResult = useAtomValue(mobilePreferencesAtom);
-  const updatePreferences = useAtomSet(updateMobilePreferencesAtom);
+  const updatePreferences = useAtomCommand(saveMobilePreferences);
   const machineOrder =
     preferencesResult._tag === "Success"
       ? (preferencesResult.value.conversationMachineOrder ?? [])

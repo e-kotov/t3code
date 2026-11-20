@@ -1,4 +1,5 @@
 import { AutomationDestinationSetting } from "./AutomationDestinationSetting";
+import * as TaskSearch from "./ScheduledTaskSearch";
 import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
 import { managedCapabilityDenial } from "@t3tools/client-runtime/contract-labels";
 import { useAtomValue } from "@effect/atom-react";
@@ -38,6 +39,7 @@ import {
   type WebhookFilterDraft,
 } from "@t3tools/client-runtime/scheduled-task-webhook";
 import { scheduleTimeZoneLabel } from "@t3tools/client-runtime/scheduled-task-time-zone";
+import { scheduledTaskWorktreeBaseRef } from "@t3tools/client-runtime/scheduled-task-worktree";
 import {
   MAX_WEBHOOK_DELIVERY_AGE_MINUTES,
   MAX_WEBHOOK_FILTERS,
@@ -77,7 +79,7 @@ import {
 import { buildThreadRouteParams } from "../../threadRoutes";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import { environmentAtomList, environmentIdsKey } from "../../state/environmentAtomList";
-import { useThreadSearch } from "../../state/queries";
+import { usePaginatedBranches, useThreadSearch } from "../../state/queries";
 import { formatEnvironmentQueryError, useEnvironmentQuery } from "../../state/query";
 import { EMPTY_SERVER_PROVIDERS, serverEnvironment } from "../../state/server";
 import { threadFamilies } from "../../state/threads";
@@ -196,7 +198,7 @@ const EMPTY_DRAFT: DraftState = {
   threadId: "",
   threadMode: "new_thread",
   workspaceMode: "worktree",
-  baseRef: "main",
+  baseRef: "",
   startFromOrigin: true,
   existingWorktreePath: "",
   modelKey: "",
@@ -492,6 +494,7 @@ export function ScheduledTasksSettings(target: {
           </Button>
         }
       >
+        {scope.kind !== "unavailable" && environments.length > 0 ? <TaskSearch.Field /> : null}
         {scope.kind === "unavailable" ? (
           <SettingsSection title={gt("Unavailable selection")}>
             <SettingsRow title={scope.message} />
@@ -586,7 +589,8 @@ function ScheduledTaskEnvironmentList({
   const linkedTask = linkedState?.tasks?.find((task) => task.id === taskId);
 
   const loaded = states.filter((state) => state.connected && state.error === null && state.tasks);
-  const populated = loaded.filter((state) => state.tasks && state.tasks.length > 0);
+  const populated = TaskSearch.usePopulated(loaded);
+  const searching = TaskSearch.useActive();
   const summaries: Record<string, string[]> = {
     "Not connected:": [],
     "Loading scheduled tasks on": [],
@@ -603,7 +607,7 @@ function ScheduledTaskEnvironmentList({
       summaries["Could not load scheduled tasks:"]!.push(`${label}: ${error}`);
     } else if (!tasks) {
       summaries["Loading scheduled tasks on"]!.push(label);
-    } else if (tasks.length === 0 && populated.length > 0) {
+    } else if (!searching && tasks.length === 0 && populated.length > 0) {
       summaries["No tasks on"]!.push(label);
     }
   }
@@ -650,12 +654,7 @@ function ScheduledTaskEnvironmentList({
           role="status"
         />
       ) : null}
-      {populated.length === 0 && loaded.length > 0 ? (
-        <SettingsRow
-          title={gt("No scheduled tasks")}
-          description={gt("No tasks match this environment and project selection.")}
-        />
-      ) : null}
+      {populated.length === 0 && loaded.length > 0 ? <TaskSearch.EmptyRow /> : null}
       {Object.entries(summaries).map(([label, entries]) => {
         if (entries.length === 0) return null;
         const summary = messages(SCOPE_SUMMARY_TEMPLATES[label] ?? label, {
@@ -725,6 +724,7 @@ function ScheduledTaskEnvironmentSection({
     matchesScheduledTaskScope(scope, environment.environmentId, task.projectId),
   );
   const linkedTask = tasks?.find((task) => task.id === taskId);
+  const visibleTasks = TaskSearch.useFilter(tasks, environment.environmentId);
   return (
     <SettingsSection
       title={environment.label}
@@ -758,13 +758,10 @@ function ScheduledTaskEnvironmentSection({
               role="status"
             />
           ) : null}
-          {tasks.length === 0 ? (
-            <SettingsRow
-              title={gt("No scheduled tasks")}
-              description={gt("No tasks match this environment and project selection.")}
-            />
+          {visibleTasks?.length === 0 ? (
+            <TaskSearch.EmptyRow />
           ) : (
-            tasks.map((task) => (
+            visibleTasks?.map((task) => (
               <ScheduledTaskRow
                 key={task.id}
                 environmentId={environment.environmentId}
@@ -839,7 +836,7 @@ function ScheduledTaskRow({
   return (
     <SettingsRow
       title={task.title}
-      description={<span className="line-clamp-2">{task.prompt}</span>}
+      description={<TaskSearch.RowDescription environmentId={environmentId} task={task} />}
       status={
         <div className="flex flex-wrap items-center gap-2">
           <span>
@@ -1534,6 +1531,19 @@ function ScheduledTaskEditorForm({
     : task;
   const selectedProjectId = draft.projectId || projects[0]?.id || "";
   const selectedProject = projects.find((project) => project.id === selectedProjectId);
+  const automaticBaseRef = draft.workspaceMode === "worktree" && !draft.baseRef.trim();
+  const automaticBaseRefs = usePaginatedBranches({
+    environmentId,
+    cwd: automaticBaseRef ? (selectedProject?.workspaceRoot ?? null) : null,
+    query: "",
+  });
+  const worktreeBaseRef = scheduledTaskWorktreeBaseRef(draft.baseRef, automaticBaseRefs.refs);
+  // Until the project's refs load, the automatic base would save as `main`. A failed lookup falls back to it.
+  const automaticBaseRefLoading =
+    automaticBaseRef &&
+    selectedProject !== undefined &&
+    automaticBaseRefs.data === null &&
+    automaticBaseRefs.error === null;
   const instanceEntries = providerInstanceEntriesFor(
     providers,
     settings,
@@ -1585,7 +1595,8 @@ function ScheduledTaskEditorForm({
       saving ||
       editingTaskMissing ||
       !connected ||
-      tasksQuery.data === null
+      tasksQuery.data === null ||
+      automaticBaseRefLoading
     )
       return;
     const selection = activeSelection;
@@ -1657,7 +1668,7 @@ function ScheduledTaskEditorForm({
           ? { type: "existing_worktree", worktreePath: draft.existingWorktreePath.trim() }
           : {
               type: "worktree",
-              baseRef: draft.baseRef.trim() || "main",
+              baseRef: worktreeBaseRef,
               startFromOrigin: draft.startFromOrigin,
             };
     const input: ScheduledTaskUpsertInput = {
@@ -1726,7 +1737,7 @@ function ScheduledTaskEditorForm({
                   projectId: defaultScheduledTaskProjectId(projectsOn(next.environmentId), scope),
                   modelKey: "",
                   baseModelSelection: null,
-                  baseRef: "main",
+                  baseRef: "",
                   startFromOrigin: true,
                   existingWorktreePath: "",
                 }));
@@ -1885,7 +1896,7 @@ function ScheduledTaskEditorForm({
                 id="scheduled-task-base-ref"
                 environmentId={environmentId}
                 cwd={selectedProject?.workspaceRoot ?? null}
-                value={draft.baseRef}
+                value={automaticBaseRefLoading ? "" : worktreeBaseRef}
                 onValueChange={(baseRef) => setDraft((current) => ({ ...current, baseRef }))}
                 startFromOrigin={draft.startFromOrigin}
                 onStartFromOriginChange={(startFromOrigin) =>
@@ -2335,6 +2346,7 @@ function ScheduledTaskEditorForm({
             editingTaskMissing ||
             !connected ||
             !tasksQuery.data ||
+            automaticBaseRefLoading ||
             (draft.enabled && draft.scheduleMode === "webhook" && webhookDenial !== undefined)
           }
           onClick={() => void submit()}
