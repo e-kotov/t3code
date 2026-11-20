@@ -298,10 +298,12 @@
     {
       "id": "source-comments",
       "group": "Everyday tools",
-      "summary": "comments on source files, including files outside the project",
+      "summary": "comments on source files and rendered Markdown (including subline quotes and external files)",
       "tests": [
         "apps/web/src/components/files/CommentableSourcePreview.browser.test.tsx",
-        "apps/web/src/components/files/CommentableSourcePreview.app.browser.test.tsx"
+        "apps/web/src/components/files/CommentableSourcePreview.app.browser.test.tsx",
+        "apps/web/src/components/files/forkFileSublineComments.test.ts",
+        "apps/web/src/components/files/ForkSublineComments.browser.test.tsx"
       ]
     },
     {

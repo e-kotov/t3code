@@ -1,0 +1,11 @@
+@layer base {
+  ::highlight(t3-file-markdown-comment) {
+    background-color: color-mix(in oklab, var(--primary) 26%, transparent);
+  }
+  ::highlight(t3-file-markdown-comment-active) {
+    background-color: color-mix(in oklab, var(--primary) 44%, transparent);
+  }
+  ::highlight(t3-file-markdown-comment-draft) {
+    background-color: color-mix(in oklab, var(--primary) 36%, transparent);
+  }
+}
