@@ -549,3 +549,137 @@ it("demotes an editable subline comment when an edit leaves only another occurre
   expect(stored()?.[0]?.quote).toBeUndefined();
   await vi.waitFor(() => expect(highlightedText("t3-file-source-comment")).toEqual([]));
 });
+
+it("keeps a deleted quoted line's comment off the identical line that survives", async () => {
+  using _settings = setup(false);
+  await page.viewport(1200, 900);
+  await preloadHighlighter({ themes: Object.values(DEFAULT_THEMES), langs: ["typescript"] });
+  const contents = "same();\nsame();\n";
+  await using screen = await render(preview("src/a.ts", contents));
+  const editor = screen.getByRole("textbox", { name: "src/a.ts" });
+  await expect.element(editor).toBeVisible();
+  const quoted = (id: string, text: string, line: number) => {
+    const start = contents.indexOf("same", (line - 1) * "same();\n".length);
+    return buildSublineFileReviewComment({
+      id,
+      filePath: "src/a.ts",
+      sectionKind: "file",
+      text,
+      quote: createAssistantTextSelector(contents, start, start + "same".length)!,
+      contents,
+      startLine: line,
+      endLine: line,
+    });
+  };
+  await act(async () => {
+    const store = useComposerDraftStore.getState();
+    store.addReviewComment(threadRef, quoted("first", "First.", 1));
+    store.addReviewComment(threadRef, quoted("second", "Second.", 2));
+  });
+  await expect.element(screen.getByText("First.", { exact: true })).toBeVisible();
+  await expect.element(screen.getByText("Second.", { exact: true })).toBeVisible();
+  const stored = (id: string) =>
+    useComposerDraftStore
+      .getState()
+      .getComposerDraft(threadRef)
+      ?.reviewComments.find((comment) => comment.id === id);
+
+  // Delete the first line, whose text the surviving second line repeats.
+  await userEvent.click(editor);
+  const lineStart = pointInRow(shadow(screen)!.querySelector<HTMLElement>('[data-line="1"]')!, 0);
+  await act(async () => {
+    window.getSelection()?.setBaseAndExtent(lineStart.node, 0, lineStart.node, 0);
+  });
+  await userEvent.keyboard("{Shift>}{ArrowDown}{/Shift}{Backspace}");
+  await vi.waitFor(() => expect(state.optimistic?.contents).toBe("same();\n"));
+
+  await vi.waitFor(() =>
+    expect(stored("first")).toMatchObject({ rangeLabel: "L1", diff: "same();" }),
+  );
+  expect(stored("first")?.quote).toBeUndefined();
+  expect(stored("second")).toMatchObject({
+    startIndex: 0,
+    rangeLabel: 'L1:1 · "same"',
+    quote: { text: "same" },
+  });
+  await expect.element(screen.getByText("Second.", { exact: true })).toBeVisible();
+  await expect.element(screen.getByText("First.", { exact: true })).not.toBeInTheDocument();
+});
+
+it("keeps quotes through an external refresh of a file with mixed line endings", async () => {
+  using _settings = setup(false);
+  await page.viewport(1200, 900);
+  await preloadHighlighter({ themes: Object.values(DEFAULT_THEMES), langs: ["typescript"] });
+  const lines = ["const retryCount = 3;", "const timeoutMs = 5000;", "const done = true;"];
+  const contents = `${lines[0]}\r\n${lines[1]}\n${lines[2]}\n`;
+  await using screen = await render(preview("src/config.ts", contents));
+  const editor = screen.getByRole("textbox", { name: "src/config.ts" });
+  await expect.element(editor).toBeVisible();
+  await vi.waitFor(() =>
+    expect(shadow(screen)?.querySelector('[data-line="2"]')?.textContent).toContain("timeoutMs"),
+  );
+  const quoted = (id: string, word: string, line: number) => {
+    const start = contents.indexOf(word);
+    return buildSublineFileReviewComment({
+      id,
+      filePath: "src/config.ts",
+      sectionKind: "file",
+      text: `Rename ${word}.`,
+      quote: createAssistantTextSelector(contents, start, start + word.length)!,
+      contents,
+      startLine: line,
+      endLine: line,
+    });
+  };
+  await act(async () => {
+    const store = useComposerDraftStore.getState();
+    store.addReviewComment(threadRef, quoted("retry", "retryCount", 1));
+    store.addReviewComment(threadRef, quoted("timeout", "timeoutMs", 2));
+  });
+  await expect.element(screen.getByText("Rename timeoutMs.", { exact: true })).toBeVisible();
+  const stored = (id: string) =>
+    useComposerDraftStore
+      .getState()
+      .getComposerDraft(threadRef)
+      ?.reviewComments.find((comment) => comment.id === id);
+  const rowAt = (line: number) =>
+    shadow(screen)!.querySelector<HTMLElement>(`[data-line="${line}"]`)!;
+  const typeAt = async (line: number, column: number, keys: string) => {
+    await userEvent.click(editor);
+    const point = pointInRow(rowAt(line), column);
+    await act(async () => {
+      window.getSelection()?.setBaseAndExtent(point.node, point.offset, point.node, point.offset);
+    });
+    await userEvent.keyboard(keys);
+  };
+
+  // The first user edit on the mixed file is an edit: it demotes the quote on its line.
+  await typeAt(1, lines[0]!.length, " ");
+  await vi.waitFor(() =>
+    expect(stored("retry")).toMatchObject({ rangeLabel: "L1", diff: `${lines[0]} \r` }),
+  );
+  expect(stored("timeout")).toMatchObject({ rangeLabel: 'L2:7 · "timeoutMs"' });
+
+  // A refresh from disk with mixed line endings edits no quoted line by hand.
+  const external = `${lines[0]} \r\n${lines[1]}\nconst done = false;\n`;
+  await act(async () => {
+    state.optimistic = {
+      relativePath: "src/config.ts",
+      contents: external,
+      truncated: false,
+      byteLength: external.length,
+    };
+    for (const listener of state.listeners) listener();
+  });
+  await vi.waitFor(() => expect(rowAt(3).textContent).toContain("false"));
+  expect(stored("timeout")).toMatchObject({
+    rangeLabel: 'L2:7 · "timeoutMs"',
+    quote: { text: "timeoutMs" },
+  });
+
+  // A user edit after the refresh still demotes the quote on its line.
+  await typeAt(2, lines[1]!.length, " ");
+  await vi.waitFor(() => expect(stored("timeout")).toMatchObject({ rangeLabel: "L2" }));
+  expect(stored("timeout")?.quote).toBeUndefined();
+  expect(state.writeFile).not.toHaveBeenCalled();
+});

@@ -1,4 +1,4 @@
-import type { SelectedLineRange } from "@pierre/diffs";
+import { type SelectedLineRange, uniformLineEndings } from "@pierre/diffs";
 import type { ScopedThreadRef } from "@t3tools/contracts";
 import { type ComponentProps, useEffect, useId, useRef, useState } from "react";
 
@@ -13,6 +13,7 @@ import {
   carryQuotedFileComment,
   clearShadowSourceSublineHighlights,
   demoteTouchedQuotedFileComments,
+  editTouchesFileComment,
   FORK_SOURCE_SUBLINE_UNSAFE_CSS,
   type FileTextChange,
   fileReviewCommentsFor,
@@ -63,9 +64,10 @@ function handleWithChanges<Event extends EditEvent>(
   },
   handler: (event: Event) => void,
   event: Event,
+  changes = event.changes,
 ): ReadonlySet<string> {
   const rebuiltIds = new Set<string>();
-  refs.changes.current = event.changes;
+  refs.changes.current = changes;
   refs.rebuiltIds.current = rebuiltIds;
   try {
     handler(event);
@@ -89,8 +91,13 @@ export function useForkEditableFileComments(
   const [annotationState, setLineAnnotations] = useState<FileCommentLineAnnotation[]>(() =>
     withPromptCommentAnnotations([], comments),
   );
+  // Comments whose lines an edit deleted: the editor dropped their annotations, as upstream does.
+  const [detachedIds, setDetachedIds] = useState<ReadonlySet<string>>(() => new Set());
   // Comments added while open (context import) are annotated too, until an edit stores them.
-  const lineAnnotations = withPromptCommentAnnotations(annotationState, comments);
+  const lineAnnotations = withPromptCommentAnnotations(
+    annotationState,
+    comments.filter((comment) => !detachedIds.has(comment.id)),
+  );
   const [stagedSelections, setStagedSelections] = useState<ReadonlyMap<string, SourceSelection>>(
     () => new Map(),
   );
@@ -98,7 +105,9 @@ export function useForkEditableFileComments(
   const editChangesRef = useRef<ReadonlyArray<FileTextChange> | null>(null);
   const rebuiltIdsRef = useRef<Set<string> | null>(null);
   // The editor's text before its next change event, which may come before the next render.
-  const editorTextRef = useRef(contents);
+  // The editor gives every line the line ending of the first, as `uniformLineEndings` does.
+  const [initialEditorText] = useState(() => uniformLineEndings(contents));
+  const editorTextRef = useRef(initialEditorText);
   const inPrompt = (entryId: string) => promptComments.some((comment) => comment.id === entryId);
   // A staged selection serves only the draft; once in the prompt, the resolved comment decides.
   const quoteOf = (entryId: string) =>
@@ -124,9 +133,13 @@ export function useForkEditableFileComments(
         const before = editorTextRef.current;
         editorTextRef.current = event.file.contents;
         const refs = { changes: editChangesRef, rebuiltIds: rebuiltIdsRef };
-        // A file replaced from outside arrives as a whole-text change that edits no comment.
-        if (before !== event.file.contents && contents === event.file.contents) {
-          handleWithChanges(refs, handler, event);
+        // A file replaced from outside arrives as a whole-text change that edits no comment, so
+        // comments the handler rebuilds from it (line endings differed from disk) see no change.
+        if (
+          before !== event.file.contents &&
+          uniformLineEndings(contents) === event.file.contents
+        ) {
+          handleWithChanges(refs, handler, event, []);
           return;
         }
         const annotatedIds = new Set(
@@ -142,6 +155,13 @@ export function useForkEditableFileComments(
         ).filter((comment) => annotatedIds.has(comment.id));
         const rebuiltIds = handleWithChanges(refs, handler, event);
         const missed = annotated.filter((comment) => !rebuiltIds.has(comment.id));
+        // The editor rebuilds every annotation it keeps, so a touched comment it missed was deleted.
+        const deleted = missed.filter((comment) => editTouchesFileComment(comment, event.changes));
+        setDetachedIds((current) => {
+          const next = new Set([...current].filter((id) => !rebuiltIds.has(id)));
+          for (const comment of deleted) next.add(comment.id);
+          return next;
+        });
         for (const comment of demoteTouchedQuotedFileComments(missed, event.changes, before)) {
           addReviewComment(composerDraftTarget, comment);
         }

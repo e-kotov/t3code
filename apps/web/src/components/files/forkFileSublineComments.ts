@@ -471,6 +471,12 @@ export function carryQuotedFileComment(
   );
 }
 
+/** Whether one editor change event touches the recorded lines of `comment`. */
+export const editTouchesFileComment = (
+  comment: ReviewCommentContext,
+  changes: ReadonlyArray<FileTextChange>,
+) => untouchedLineShift(comment.startIndex, comment.endIndex, changes) === null;
+
 /**
  * The line comments that replace quoted `comments` an editor change event touched, built from
  * `before`, the text before the event. The editable surface rebuilds no comment whose line the
@@ -483,8 +489,7 @@ export function demoteTouchedQuotedFileComments(
   before: string,
 ): ReviewCommentContext[] {
   return comments.flatMap((comment) =>
-    isQuotedComment(comment) &&
-    untouchedLineShift(comment.startIndex, comment.endIndex, changes) === null
+    isQuotedComment(comment) && editTouchesFileComment(comment, changes)
       ? [
           buildFileReviewComment({
             id: comment.id,
