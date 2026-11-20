@@ -1,9 +1,5 @@
 import { AutomationDestinationSetting } from "./AutomationDestinationSetting";
-import {
-  createScheduledTaskSearch,
-  type ScheduledTaskSearch,
-} from "@t3tools/client-runtime/scheduled-task-search";
-import { ScheduledTaskSearchField } from "./ScheduledTaskSearchField";
+import * as TaskSearch from "./ScheduledTaskSearch";
 import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
 import { managedCapabilityDenial } from "@t3tools/client-runtime/contract-labels";
 import { useAtomValue } from "@effect/atom-react";
@@ -416,9 +412,6 @@ export function ScheduledTasksSettings(target: {
   const setting = useSearchableSetting();
   const gt = useGT();
   const { scope, environments, connectedEnvironments, environment } = useSettingsScope();
-  const [query, setQuery] = useState("");
-  const [includePrompts, setIncludePrompts] = useState(false);
-  const taskSearch = createScheduledTaskSearch(query, includePrompts, useProjects());
   const [editor, setEditor] = useState<{
     environmentId: EnvironmentId;
     task: ScheduledTask | null;
@@ -501,14 +494,7 @@ export function ScheduledTasksSettings(target: {
           </Button>
         }
       >
-        {scope.kind !== "unavailable" && environments.length > 0 ? (
-          <ScheduledTaskSearchField
-            query={query}
-            onChange={setQuery}
-            includePrompts={includePrompts}
-            onIncludePromptsChange={setIncludePrompts}
-          />
-        ) : null}
+        {scope.kind !== "unavailable" && environments.length > 0 ? <TaskSearch.Field /> : null}
         {scope.kind === "unavailable" ? (
           <SettingsSection title={gt("Unavailable selection")}>
             <SettingsRow title={scope.message} />
@@ -531,7 +517,6 @@ export function ScheduledTasksSettings(target: {
           <ScheduledTaskEnvironmentList
             environmentId={linkedEnvironmentId}
             taskId={target.taskId}
-            taskSearch={taskSearch}
             onEdit={openForEdit}
           />
         ) : (
@@ -541,7 +526,6 @@ export function ScheduledTasksSettings(target: {
                 key={entry.environmentId}
                 environment={entry}
                 taskId={linkedEnvironmentId === entry.environmentId ? target.taskId : undefined}
-                taskSearch={taskSearch}
                 onEdit={openForEdit}
               />
             ))}
@@ -572,12 +556,10 @@ const scheduledTasksListAtom = environmentAtomList("web-scheduled-tasks-list", (
 function ScheduledTaskEnvironmentList({
   environmentId,
   taskId,
-  taskSearch,
   onEdit,
 }: {
   readonly environmentId: EnvironmentId | undefined;
   readonly taskId: ScheduledTaskId | undefined;
-  readonly taskSearch: ScheduledTaskSearch;
   readonly onEdit: (environmentId: EnvironmentId, task: ScheduledTask) => void;
 }) {
   const messages = useMessages();
@@ -607,12 +589,8 @@ function ScheduledTaskEnvironmentList({
   const linkedTask = linkedState?.tasks?.find((task) => task.id === taskId);
 
   const loaded = states.filter((state) => state.connected && state.error === null && state.tasks);
-  const populated = loaded
-    .map((state) => ({
-      ...state,
-      tasks: state.tasks && taskSearch.filter(state.tasks, state.environment.environmentId),
-    }))
-    .filter((state) => state.tasks && state.tasks.length > 0);
+  const populated = TaskSearch.usePopulated(loaded);
+  const searching = TaskSearch.useActive();
   const summaries: Record<string, string[]> = {
     "Not connected:": [],
     "Loading scheduled tasks on": [],
@@ -629,7 +607,7 @@ function ScheduledTaskEnvironmentList({
       summaries["Could not load scheduled tasks:"]!.push(`${label}: ${error}`);
     } else if (!tasks) {
       summaries["Loading scheduled tasks on"]!.push(label);
-    } else if (!taskSearch.active && tasks.length === 0 && populated.length > 0) {
+    } else if (!searching && tasks.length === 0 && populated.length > 0) {
       summaries["No tasks on"]!.push(label);
     }
   }
@@ -660,7 +638,6 @@ function ScheduledTaskEnvironmentList({
                 key={task.id}
                 environmentId={environment.environmentId}
                 task={task}
-                projectTitle={taskSearch.projectTitle(environment.environmentId, task.projectId)}
                 timeZone={timeZone}
                 onEdit={() => onEdit(environment.environmentId, task)}
               />
@@ -677,16 +654,7 @@ function ScheduledTaskEnvironmentList({
           role="status"
         />
       ) : null}
-      {populated.length === 0 && loaded.length > 0 ? (
-        <SettingsRow
-          title={taskSearch.active ? gt("No matching tasks") : gt("No scheduled tasks")}
-          description={
-            taskSearch.active
-              ? undefined
-              : gt("No tasks match this environment and project selection.")
-          }
-        />
-      ) : null}
+      {populated.length === 0 && loaded.length > 0 ? <TaskSearch.EmptyRow /> : null}
       {Object.entries(summaries).map(([label, entries]) => {
         if (entries.length === 0) return null;
         const summary = messages(SCOPE_SUMMARY_TEMPLATES[label] ?? label, {
@@ -733,12 +701,10 @@ function ScheduledTaskEnvironmentSubtitle({
 function ScheduledTaskEnvironmentSection({
   environment,
   taskId,
-  taskSearch,
   onEdit,
 }: {
   readonly environment: EnvironmentPresentation;
   readonly taskId?: ScheduledTaskId | undefined;
-  readonly taskSearch: ScheduledTaskSearch;
   readonly onEdit: (environmentId: EnvironmentId, task: ScheduledTask) => void;
 }) {
   const gt = useGT();
@@ -758,7 +724,7 @@ function ScheduledTaskEnvironmentSection({
     matchesScheduledTaskScope(scope, environment.environmentId, task.projectId),
   );
   const linkedTask = tasks?.find((task) => task.id === taskId);
-  const visibleTasks = tasks && taskSearch.filter(tasks, environment.environmentId);
+  const visibleTasks = TaskSearch.useFilter(tasks, environment.environmentId);
   return (
     <SettingsSection
       title={environment.label}
@@ -779,7 +745,7 @@ function ScheduledTaskEnvironmentSection({
         />
       ) : tasksQuery.error ? (
         <SettingsRow title={gt("Could not load scheduled tasks")} description={tasksQuery.error} />
-      ) : !visibleTasks ? (
+      ) : !tasks ? (
         <SettingsRow title={gt("Loading scheduled tasks…")} role="status" />
       ) : (
         <>
@@ -792,22 +758,14 @@ function ScheduledTaskEnvironmentSection({
               role="status"
             />
           ) : null}
-          {visibleTasks.length === 0 ? (
-            <SettingsRow
-              title={taskSearch.active ? gt("No matching tasks") : gt("No scheduled tasks")}
-              description={
-                taskSearch.active
-                  ? undefined
-                  : gt("No tasks match this environment and project selection.")
-              }
-            />
+          {visibleTasks?.length === 0 ? (
+            <TaskSearch.EmptyRow />
           ) : (
-            visibleTasks.map((task) => (
+            visibleTasks?.map((task) => (
               <ScheduledTaskRow
                 key={task.id}
                 environmentId={environment.environmentId}
                 task={task}
-                projectTitle={taskSearch.projectTitle(environment.environmentId, task.projectId)}
                 timeZone={tasksQuery.data?.timeZone}
                 onEdit={() => onEdit(environment.environmentId, task)}
               />
@@ -822,13 +780,11 @@ function ScheduledTaskEnvironmentSection({
 function ScheduledTaskRow({
   environmentId,
   task,
-  projectTitle,
   timeZone,
   onEdit,
 }: {
   readonly environmentId: EnvironmentId;
   readonly task: ScheduledTask;
-  readonly projectTitle: string | undefined;
   readonly timeZone: string | undefined;
   readonly onEdit: () => void;
 }) {
@@ -880,12 +836,7 @@ function ScheduledTaskRow({
   return (
     <SettingsRow
       title={task.title}
-      description={
-        <>
-          {projectTitle ? <span className="block truncate">{projectTitle}</span> : null}
-          <span className="line-clamp-2">{task.prompt}</span>
-        </>
-      }
+      description={<TaskSearch.RowDescription environmentId={environmentId} task={task} />}
       status={
         <div className="flex flex-wrap items-center gap-2">
           <span>

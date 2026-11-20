@@ -1,9 +1,5 @@
 import { AutomationDestinationSetting } from "./AutomationDestinationSetting";
-import {
-  createScheduledTaskSearch,
-  type ScheduledTaskSearch,
-} from "@t3tools/client-runtime/scheduled-task-search";
-import { ScheduledTaskSearchOptions, ScheduledTaskSearchProject } from "./ScheduledTaskSearch";
+import * as TaskSearch from "./ScheduledTaskSearch";
 import { msg, T, useGT, useLocale, useMessages, Var } from "gt-react-native";
 import { managedCapabilityDenial } from "@t3tools/client-runtime/contract-labels";
 import * as Dialog from "../../components/ui/Dialog";
@@ -442,16 +438,7 @@ function PickerRow(props: {
 
 export function SettingsScheduledTasksRouteScreen() {
   const gt = useGT();
-  const [query, setQuery] = useState("");
-  const [includePrompts, setIncludePrompts] = useState(false);
-  const taskSearch = createScheduledTaskSearch(query, includePrompts, useProjects());
-  const search = {
-    value: query,
-    onChangeText: setQuery,
-    placeholder: gt("Search scheduled tasks"),
-    mode: "inline" as const,
-    compactToolbar: false,
-  };
+  const taskSearch = TaskSearch.useHeaderSearch();
   const [now, setNow] = useState(Date.now);
   useFocusEffect(() => {
     const updateNow = () => setNow(Date.now());
@@ -485,7 +472,7 @@ export function SettingsScheduledTasksRouteScreen() {
   return (
     <SettingsScreen
       title={gt("Scheduled tasks")}
-      search={search}
+      search={taskSearch}
       actions={[
         {
           accessibilityLabel: gt("New task"),
@@ -506,19 +493,13 @@ export function SettingsScheduledTasksRouteScreen() {
         contentContainerClassName="gap-5 px-5 pt-4"
         contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 18) + 18 }}
       >
-        {visibleEnvironments.length > 0 ? (
-          <ScheduledTaskSearchOptions
-            includePrompts={includePrompts}
-            onIncludePromptsChange={setIncludePrompts}
-          />
-        ) : null}
+        {visibleEnvironments.length > 0 ? <TaskSearch.Options /> : null}
         {visibleEnvironments.length > 0 ? (
           visibleEnvironments.map((environment) => (
             <EnvironmentTasks
               key={environment.environmentId}
               environment={environment}
               now={now}
-              taskSearch={taskSearch}
               projectIds={
                 selectedProjectKey === null
                   ? null
@@ -1617,13 +1598,11 @@ function EnvironmentTasks({
   environment,
   now,
   projectIds,
-  taskSearch,
   onEdit,
 }: {
   readonly environment: SettingsTarget;
   readonly now: number;
   readonly projectIds: readonly ProjectId[] | null;
-  readonly taskSearch: ScheduledTaskSearch;
   readonly onEdit: (task: ScheduledTask) => void;
 }) {
   const gt = useGT();
@@ -1633,10 +1612,10 @@ function EnvironmentTasks({
   const tasks = useEnvironmentQuery(
     serverEnvironment.scheduledTasksLive({ environmentId, input: {} }),
   );
-  const scopedTasks = tasks.data?.tasks.filter(
-    (task) => projectIds === null || projectIds.includes(task.projectId),
+  const matches = TaskSearch.useMatcher(environmentId);
+  const visibleTasks = tasks.data?.tasks.filter(
+    (task) => (projectIds === null || projectIds.includes(task.projectId)) && matches(task),
   );
-  const visibleTasks = scopedTasks && taskSearch.filter(scopedTasks, environmentId);
   const canOperate = useAtomValue(
     serverEnvironment.upsertScheduledTask.permissionAtom(environmentId),
   );
@@ -1702,11 +1681,7 @@ function EnvironmentTasks({
         </Text>
       ) : visibleTasks?.length === 0 ? (
         <Text className="p-4 text-base text-foreground-muted">
-          {taskSearch.active
-            ? gt("No matching tasks")
-            : projectIds === null
-              ? gt("No scheduled tasks yet.")
-              : gt("No tasks in this project.")}
+          <TaskSearch.EmptyText projectSelected={projectIds !== null} />
         </Text>
       ) : (
         visibleTasks?.map((task, index) => (
@@ -1729,9 +1704,7 @@ function EnvironmentTasks({
               <Text textRole="body" className="text-foreground" numberOfLines={1}>
                 {task.title}
               </Text>
-              <ScheduledTaskSearchProject
-                title={taskSearch.projectTitle(environmentId, task.projectId)}
-              />
+              <TaskSearch.RowMatch environmentId={environmentId} task={task} />
               <Text className="text-sm text-foreground-muted" numberOfLines={2}>
                 {!task.enabled
                   ? gt("{schedule} · Paused", {

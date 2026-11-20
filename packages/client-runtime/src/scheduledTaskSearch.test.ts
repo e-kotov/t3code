@@ -29,6 +29,15 @@ describe("createScheduledTaskSearch", () => {
     expect(search.filter(tasks, server)).toEqual([tasks[0]]);
     expect(search.projectTitle(laptop, reporting)).toBe("Financial Reports");
     expect(search.projectTitle(server, reporting)).toBe("Storage");
+    const accented = [
+      { title: "Egor’s report", prompt: "", projectId: reporting },
+      { title: "Inbox", prompt: "", projectId: operations },
+    ];
+    const cafeProjects = [{ environmentId: laptop, id: operations, title: "Café ops" }];
+    const cafe = createScheduledTaskSearch("cafe", false, cafeProjects);
+    expect(cafe.filter(accented, laptop)).toEqual([accented[1]]);
+    const apostrophe = createScheduledTaskSearch("egor's", false, []);
+    expect(apostrophe.filter(accented, laptop)).toEqual([accented[0]]);
   });
 
   it("adds prompt matches in list order when enabled", () => {
