@@ -117,7 +117,10 @@ export function useForkEditableFileComments(
         .getComposerDraft(target)
         ?.reviewComments.find((candidate) => candidate.id === comment.id);
       if (stored) {
-        next = carryQuotedFileComment(stored, editChangesRef.current ?? [], comment);
+        // A restored record keeps the quote this render recovered, so it is not rebuilt per render.
+        const quote = stored.quote ?? comments.find(({ id }) => id === comment.id)?.quote;
+        const previous = quote ? { ...stored, quote } : stored;
+        next = carryQuotedFileComment(previous, editChangesRef.current ?? [], comment);
       } else {
         const selection = stagedSelections.get(comment.id);
         if (selection) next = quoteSubmittedFileComment(comment, selection, contents);
