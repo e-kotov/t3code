@@ -5,6 +5,7 @@ import {
 } from "@t3tools/client-runtime/scheduled-task-search";
 import type { EnvironmentId, ScheduledTask } from "@t3tools/contracts";
 import { useGT } from "gt-react-native";
+import { Platform } from "react-native";
 
 import type { AppBarSearch } from "../../components/ui/AppBar.types";
 import { AppText } from "../../components/ui/AppText";
@@ -24,7 +25,8 @@ export function useHeaderSearch(): AppBarSearch {
     value: query,
     onChangeText: (next) => setInput({ query: next, includePrompts }),
     placeholder: gt("Search scheduled tasks"),
-    mode: "inline",
+    // Android's inline search covers the toolbar and hides the New task action.
+    mode: Platform.OS === "android" ? "collapsible" : "inline",
     compactToolbar: false,
   };
 }
