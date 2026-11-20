@@ -189,9 +189,10 @@
     {
       "id": "automations",
       "group": "Providers and automations",
-      "summary": "agent-created scheduled tasks that start a new thread per run in the chosen destination",
+      "summary": "agent-created scheduled tasks with a choice of model, effort, and thread destination",
       "tests": [
         "apps/server/src/mcp/automationDestination.test.ts",
+        "apps/server/src/mcp/scheduledTaskExecution.test.ts",
         "packages/contracts/src/automationDestinationSettings.test.ts",
         "apps/server/src/telemetry/automationDestinationDimension.test.ts",
         "apps/server/src/scheduledTasks/scheduledTaskCreationReplay.test.ts"
