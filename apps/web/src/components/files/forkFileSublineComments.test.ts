@@ -141,6 +141,8 @@ describe("forkFileSublineComments", () => {
     expect(lineComment.diff).toBe("const retryCount = 3;");
     const restoredLine = throughRecord(lineComment);
     expect(resolveFileReviewComment(restoredLine, contents)).toEqual(restoredLine);
+    expect(sourceSublineAnchors("line", contents, [lineComment], null).commentAnchors).toEqual([]);
+    clearShadowSourceSublineHighlights("line");
     const extended = contents.replace("retryCount = 3;", "retryCount = 3; // tuned");
     expect(resolveFileReviewComment(restoredLine, extended)).toBeNull();
 

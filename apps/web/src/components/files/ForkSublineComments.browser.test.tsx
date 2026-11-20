@@ -185,6 +185,10 @@ function findTextNode(root: Node, needle: string): { node: Text; index: number }
   throw new Error(`Could not find text node containing "${needle}"`);
 }
 
+function highlightedText(name: string): string[] {
+  return [...(CSS.highlights.get(name) ?? [])].map((range) => range.toString());
+}
+
 function shadow(screen: Screen) {
   return screen.container.querySelector("diffs-container")?.shadowRoot;
 }
@@ -300,7 +304,9 @@ it("creates and restores subline comments from text selections in read-only exte
       text: "second sentence",
     },
   });
-  await vi.waitFor(() => expect(CSS.highlights.get("t3-file-source-comment")?.size).toBe(1));
+  await vi.waitFor(() =>
+    expect(highlightedText("t3-file-source-comment")).toEqual(["second sentence"]),
+  );
 
   const titleRow = shadow(screen)!.querySelector<HTMLElement>('[data-line="1"]')!;
   const title = findTextNode(titleRow, "Title");
@@ -380,7 +386,12 @@ it("creates subline comments from text selections in editable workspace source f
       .addReviewComment(threadRef, reviewCommentFromRecord(reviewCommentContextRecord(imported)));
   });
   await expect.element(screen.getByText("Use seconds.", { exact: true })).toBeVisible();
-  await vi.waitFor(() => expect(CSS.highlights.get("t3-file-source-comment")?.size).toBe(2));
+  await vi.waitFor(() =>
+    expect(highlightedText("t3-file-source-comment").toSorted()).toEqual([
+      "retryCount",
+      "timeoutMs",
+    ]),
+  );
   await userEvent.click(screen.getByRole("button", { name: "Delete comment" }).nth(1));
   expect(
     useComposerDraftStore

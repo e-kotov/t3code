@@ -795,6 +795,8 @@ export function sourceSublineAnchors(
   const commentAnchors = sameComments
     ? cached.commentAnchors
     : comments.flatMap((comment) => {
+        // Whole-line comments and ambiguous restores carry no quote, so they get no text highlight.
+        if (!comment.quote) return [];
         const anchor = anchorOf(starts, locateSourceComment(comment, contents, starts));
         return anchor ? [anchor] : [];
       });
@@ -882,7 +884,7 @@ export function syncShadowSourceSublineHighlights(input: {
     let last = Number.NEGATIVE_INFINITY;
     for (const row of shadowRoot.querySelectorAll<HTMLElement>("[data-line]")) {
       const line = Number(row.dataset.line);
-      if (!Number.isFinite(line)) continue;
+      if (!Number.isFinite(line) || rows.has(line)) continue;
       rows.set(line, row);
       first = Math.min(first, line);
       last = Math.max(last, line);

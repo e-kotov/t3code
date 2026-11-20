@@ -60,7 +60,10 @@ export function useForkEditableFileComments(
   const addReviewComment = useComposerDraftStore((store) => store.addReviewComment);
   const promptComments = usePromptReviewComments(composerDraftTarget);
   const comments = fileReviewCommentsFor(promptComments, relativePath, contents);
-  const [annotationState, setLineAnnotations] = useState<FileCommentLineAnnotation[]>([]);
+  const [annotationState, setLineAnnotations] = useState<FileCommentLineAnnotation[]>(() =>
+    withPromptCommentAnnotations([], comments),
+  );
+  // Comments added while open (context import) are annotated too, until an edit stores them.
   const lineAnnotations = withPromptCommentAnnotations(annotationState, comments);
   const [stagedQuotes, setStagedQuotes] = useState<ReadonlyMap<string, FileTextQuote>>(
     () => new Map(),
