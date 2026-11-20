@@ -17,10 +17,24 @@ import sys
 PR_MERGE_REF = re.compile(r"refs/pull/([0-9]+)/merge")
 
 
+def unique_fields(pairs):
+    fields = dict(pairs)
+    if len(fields) != len(pairs):
+        raise ValueError(f"duplicate JSON fields: {[key for key, _ in pairs]}")
+    return fields
+
+
+def gh(*args):
+    return subprocess.run(["gh", "api", *args], capture_output=True, encoding="utf-8",
+                          errors="replace")
+
+
 def gh_json(*args):
     # Raw JSON only: `gh --jq` would coerce values (1.0 -> 1, JSON-in-string -> object).
-    out = subprocess.run(["gh", "api", *args], check=True, capture_output=True, text=True).stdout
-    return json.loads(out)
+    result = gh(*args)
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or f"gh api exited {result.returncode}")
+    return json.loads(result.stdout, object_pairs_hook=unique_fields)
 
 
 def is_count(value):
@@ -92,17 +106,19 @@ def build_plan(repo, mode):
         f"obsolete ({mode}): {len(selected)} ({mib(candidate_total)})",
     ]
     lines += [f"- PR #{n}: {'merged' if m else 'not merged'}" for n, m in merged.items()]
+    "\n".join(lines + [label for _, label in plan]).encode("utf-8")  # e.g. lone surrogates
     return lines, plan
 
 
 def delete_cache(repo, cache_id):
     """Return an error string, or None on success."""
     try:
-        result = subprocess.run(["gh", "api", "-X", "DELETE", f"repos/{repo}/actions/caches/{cache_id}"],
-                                capture_output=True, text=True)
+        result = gh("-X", "DELETE", f"repos/{repo}/actions/caches/{cache_id}")
     except OSError as error:
-        return str(error)
-    return None if result.returncode == 0 else result.stderr.strip()
+        return str(error) or "could not run gh"
+    if result.returncode == 0:
+        return None
+    return result.stderr.strip() or f"gh api exited {result.returncode}"
 
 
 def main(argv=None):

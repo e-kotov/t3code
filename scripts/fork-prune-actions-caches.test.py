@@ -39,12 +39,13 @@ class PruneActionsCachesTest(unittest.TestCase):
             if "DELETE" in command:
                 if isinstance(delete_error, Exception):
                     raise delete_error
-                return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+                code = 1 if delete_error == "silent" else 0
+                return subprocess.CompletedProcess(command, code, stdout="", stderr="")
             if isinstance(pr_reply, Exception) and "/pulls/" in command[-1]:
                 raise pr_reply
             body = listing if "/caches" in command[-1] else pr_reply
             text = body if isinstance(body, str) else json.dumps(body)
-            return subprocess.CompletedProcess(command, 0, stdout=text)
+            return subprocess.CompletedProcess(command, 0, stdout=text, stderr="")
 
         with mock.patch.object(prune.subprocess, "run", side_effect=run), \
                 mock.patch("builtins.print"), mock.patch.dict(prune.os.environ, {}, clear=True):
@@ -91,16 +92,23 @@ class PruneActionsCachesTest(unittest.TestCase):
             "string count": ([page([GO], total="1")], MERGED),
             "pages disagree on count": ([page([GO], total=2), page([PR7], total=3)], MERGED),
             "listing not JSON": ("not json", MERGED),
+            "duplicate PR fields": ([page([GO, PR7])],
+                                    '{"number": 7, "merged": false, "merged": true}'),
+            "lone surrogate in a key": (json.dumps([page([GO])]).replace("setup-go-x", "setup-go-\\ud800"),
+                                        MERGED),
         }
         for name, (listing, pr_reply) in cases.items():
             with self.subTest(name):
                 code, calls = self.run_main(listing, pr_reply)
                 self.assertEqual((code, self.deletes(calls)), (1, []))
 
-    def test_failure_to_launch_delete_stops_the_run(self):
-        code, calls = self.run_main([page([GO, dict(GO, id=9, key="setup-go-y")])],
-                                    delete_error=OSError("gh missing"))
-        self.assertEqual((code, len(self.deletes(calls))), (1, 1))
+    def test_failed_delete_stops_the_run(self):
+        two = [page([GO, dict(GO, id=9, key="setup-go-y")])]
+        for name, error in {"gh cannot launch": OSError("gh missing"),
+                            "gh fails silently": "silent"}.items():
+            with self.subTest(name):
+                code, calls = self.run_main(two, delete_error=error)
+                self.assertEqual((code, len(self.deletes(calls))), (1, 1))
 
 
 if __name__ == "__main__":
