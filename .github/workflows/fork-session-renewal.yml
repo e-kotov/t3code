@@ -5,7 +5,6 @@ on:
     branches: [main]
     paths:
       - "apps/server/src/auth/**"
-      - "apps/server/src/peer/**"
       - "apps/server/src/server.ts"
       - "packages/client-runtime/src/connection/**"
       - "packages/contracts/src/forkSessionRenewal.ts"
@@ -78,15 +77,14 @@ jobs:
             echo "::endgroup::"
           done
           exit "$renewal_check_failed"
-      - name: Test renewal, expiry, revocation, storage races, live HTTP credential, mobile transport and peer-link recovery
+      - name: Test renewal, expiry, revocation, storage races, live HTTP credential, and mobile transport
         run: |
           vp test run \
             apps/server/src/auth/ForkSessionRenewal.test.ts \
+            apps/server/src/auth/ForkSessionRenewalHttp.test.ts \
             apps/server/src/auth/forkSessionRenewal.tripwire.test.ts \
             apps/server/src/auth/forkConnectApproval.test.ts \
-            apps/server/src/peer/ForkPeerLinkRenewal.test.ts \
             apps/server/src/auth/SessionStore.test.ts \
-            apps/server/src/peer/PeerLinks.test.ts \
             packages/client-runtime/src/connection/forkCredentialCatalog.test.ts \
             packages/client-runtime/src/connection/forkDirectSessionRenewal.test.ts \
             packages/client-runtime/src/connection/driver.test.ts \

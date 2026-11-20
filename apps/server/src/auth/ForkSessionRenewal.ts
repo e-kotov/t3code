@@ -11,10 +11,10 @@ import * as SqlSchema from "effect/sql/SqlSchema";
 import type { AuthSessionRecord } from "../persistence/AuthSessions.ts";
 
 /**
- * Fork: a still-valid direct pairing or agent-link session gets a token for the
- * same session with a later signed expiry. Its old tokens keep their own
- * expiries, revoking the session still ends every token, and nothing renews
- * once the session has expired or been revoked.
+ * Fork: a still-valid direct pairing session gets a token for the same session
+ * with a later signed expiry. Its old tokens keep their own expiries, revoking
+ * the session still ends every token, and nothing renews once the session has
+ * expired or been revoked.
  */
 export interface RenewalPolicy {
   readonly enabled: boolean;
@@ -179,16 +179,15 @@ export type RenewSession<E> = (
 ) => Effect.Effect<SessionRenewal, E | SessionRenewalError>;
 
 /**
- * Pairing-link sessions and genuine agent links: bearer only, never DPoP,
- * cookies, startup, CLI or desktop sessions, and never an outside MCP client.
+ * Pairing-link sessions only: bearer, never DPoP, cookies, startup, CLI or desktop
+ * sessions, and never an MCP client. Agent links renew on use in `EnvironmentAuth`.
  */
 const isRenewable = (session: RenewableSession) =>
   session.method === "bearer-access-token" &&
   session.proofKeyThumbprint === undefined &&
-  ((session.subject === "one-time-token" &&
-    session.peerLink === undefined &&
-    session.runtimeModeCeiling === undefined) ||
-    (session.subject === "mcp-client" && session.peerLink === true));
+  session.subject === "one-time-token" &&
+  session.peerLink === undefined &&
+  session.runtimeModeCeiling === undefined;
 
 /** The token's own claims must survive renewal unchanged except for its expiry. */
 const sameGrant = (before: RenewableSession, after: RenewableSession) =>

@@ -55,6 +55,7 @@ import {
   lazy,
   Suspense,
   useEffect,
+  useEffectEvent,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -100,11 +101,10 @@ import FileBrowserPanel from "./FileBrowserPanel";
 import { FileExplorerPane } from "./FileExplorerPane";
 import { FileBreadcrumbs } from "./FileBreadcrumbs";
 import { breadcrumbPathOf, retainedBreadcrumbTrail, trailChildOf } from "./filePath";
-import { FileMarkdownPreview } from "./FileMarkdownPreview";
+import { ForkCommentableMarkdownPreview } from "./ForkCommentableMarkdownPreview";
 import {
   type FileCommentAnnotationEntry,
   type FileCommentAnnotationGroup,
-  type FileCommentLineAnnotation,
   formatFileCommentRange,
   nextFileCommentId,
   normalizeFileCommentRange,
@@ -122,7 +122,11 @@ import {
 } from "./fileSurfaceChrome";
 import SourceFilePreview from "./CommentableSourcePreview";
 import { resolveCenteredFileLineScrollTop } from "./fileLineReveal";
-import { DiffCommentAnnotation } from "../diffs/DiffCommentAnnotation";
+import {
+  ForkEditableSourceComments,
+  ForkQuotedCommentAnnotation,
+  useForkEditableFileComments,
+} from "./ForkEditableFileComments";
 import { projectFileCacheKey } from "./fileContentRevision";
 import {
   filePreviewReadErrorMessage,
@@ -237,6 +241,33 @@ function WorkspaceImagePreview(props: {
   );
 }
 
+interface HtmlPreviewFrame {
+  readonly revision: string | null;
+  readonly url: string;
+  /** When the loaded page's grant is about to expire and a fresh URL has to replace it. */
+  readonly renewAt: number;
+}
+
+const HTML_PREVIEW_RENEW_BEFORE_EXPIRY_MS = 2 * 60_000;
+// Grants last an hour. A client clock far from the server's would otherwise renew at once, forever.
+const HTML_PREVIEW_MIN_GRANT_HOLD_MS = 3 * 60_000;
+const HTML_PREVIEW_MAX_GRANT_HOLD_MS = 60 * 60_000;
+
+const htmlPreviewFrame = (
+  minted: { readonly revision: string | null; readonly url: string; readonly expiresAt: number },
+  now: number,
+): HtmlPreviewFrame => ({
+  revision: minted.revision,
+  url: minted.url,
+  renewAt: Math.min(
+    Math.max(
+      minted.expiresAt - HTML_PREVIEW_RENEW_BEFORE_EXPIRY_MS,
+      now + HTML_PREVIEW_MIN_GRANT_HOLD_MS,
+    ),
+    now + HTML_PREVIEW_MAX_GRANT_HOLD_MS,
+  ),
+});
+
 export function WorkspaceBrowserPreview(props: {
   readonly environmentId: EnvironmentId;
   readonly threadRef: ScopedThreadRef;
@@ -257,21 +288,45 @@ export function WorkspaceBrowserPreview(props: {
   // Each workspace mutation re-mints the URL: a file outside the workspace is signed by its
   // inode, which an atomic replace changes.
   const assetUrl = useAssetUrlState(props.environmentId, resource, props.workspaceMutationId);
-  // The HTML frame keeps its first URL per key, so the key moves only once the re-minted URL arrives.
-  const [settledMutationId, setSettledMutationId] = useState(props.workspaceMutationId);
+  const refreshAssetUrl = useAssetUrlRefresh(props.environmentId, resource);
+  // Servers that report the file's revision let an unchanged page stay loaded; older ones only
+  // offer the workspace mutation, which changes after every command.
+  const fileRevision = assetUrl._tag === "Success" ? assetUrl.fileRevision : undefined;
+  const latestRevision = fileRevision ?? props.workspaceMutationId;
+  // The HTML frame keeps the URL it loaded, so it moves only once a re-minted URL has arrived.
+  const [frame, setFrame] = useState<HtmlPreviewFrame | null>(null);
+  const [endingGrant, setEndingGrant] = useState<string | null>(null);
+  const grantEnding = frame !== null && endingGrant === frame.url;
   if (
+    !pdf &&
     assetUrl._tag === "Success" &&
-    !assetUrl.waiting &&
-    settledMutationId !== props.workspaceMutationId
+    (frame === null ||
+      (!assetUrl.waiting &&
+        (frame.revision !== latestRevision || (grantEnding && frame.url !== assetUrl.url))))
   ) {
-    setSettledMutationId(props.workspaceMutationId);
+    const { url, expiresAt } = assetUrl;
+    setFrame(() => htmlPreviewFrame({ revision: latestRevision, url, expiresAt }, Date.now()));
   }
-  const fileRevision = pdf && assetUrl._tag === "Success" ? assetUrl.fileRevision : undefined;
-  const revision = fileRevision ?? (pdf ? props.workspaceMutationId : settledMutationId);
+  const renewGrant = useEffectEvent((url: string) => {
+    setEndingGrant(url);
+    // A command may have minted the next URL already; otherwise ask for it.
+    if (assetUrl._tag === "Success" && assetUrl.url === url) {
+      void refreshAssetUrl().catch(() => undefined);
+    }
+  });
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- mints a fresh URL shortly before the loaded page's grant expires
+  useEffect(() => {
+    if (frame === null) return;
+    const timer = setTimeout(() => renewGrant(frame.url), frame.renewAt - Date.now());
+    return () => clearTimeout(timer);
+  }, [frame]);
+  const revision = pdf ? latestRevision : (frame?.revision ?? latestRevision);
+  const url =
+    assetUrl._tag !== "Success" ? null : pdf ? assetUrl.url : (frame?.url ?? assetUrl.url);
   const revisionSuffix =
     revision === null
       ? ""
-      : `${assetUrl._tag === "Success" && assetUrl.url.includes("?") ? "&" : "?"}${fileRevision !== undefined ? "file" : "workspace"}-revision=${encodeURIComponent(revision)}`;
+      : `${url?.includes("?") ? "&" : "?"}${fileRevision !== undefined ? "file" : "workspace"}-revision=${encodeURIComponent(revision)}`;
 
   if (assetUrl._tag === "Failure") {
     return (
@@ -290,11 +345,12 @@ export function WorkspaceBrowserPreview(props: {
       </div>
     );
   }
+  const documentId = `${props.environmentId}:${resource._tag}:${props.threadRef.threadId}:${props.absolutePath}`;
   return (
     <BrowserDocumentFrame
-      src={`${assetUrl.url}${revisionSuffix}`}
-      documentKey={`${props.environmentId}:${resource._tag}:${props.threadRef.threadId}:${props.absolutePath}:${revision}`}
-      documentId={`${props.environmentId}:${resource._tag}:${props.threadRef.threadId}:${props.absolutePath}`}
+      src={`${url}${revisionSuffix}`}
+      documentKey={`${documentId}:${revision}${pdf ? "" : `:${frame?.renewAt}`}`}
+      documentId={documentId}
       title={props.title}
       pdf={pdf}
       pdfActions={
@@ -859,7 +915,8 @@ function EditableFileSurface({
   onEditorChange,
 }: EditableFileSurfaceProps) {
   const messages = useMessages();
-  const addReviewComment = useComposerDraftStore((store) => store.addReviewComment);
+  const forkComments = useForkEditableFileComments(composerDraftTarget, relativePath, contents);
+  const addReviewComment = forkComments.addReviewComment;
   const removeReviewComment = useComposerDraftStore((store) => store.removeReviewComment);
   const promptCommentIds = new Set(
     useComposerDraftStore(
@@ -867,7 +924,7 @@ function EditableFileSurface({
         store.getComposerDraft(composerDraftTarget)?.reviewComments ?? EMPTY_REVIEW_COMMENTS,
     ).map((comment) => comment.id),
   );
-  const [lineAnnotations, setLineAnnotations] = useState<FileCommentLineAnnotation[]>([]);
+  const [lineAnnotations, setLineAnnotations] = forkComments.lineAnnotationState;
   const [selectionOverride, setSelectionOverride] = useState<FileSelectionOverride | null>(null);
   const selectedRange =
     selectionOverride?.revealRequestId === revealRequestId ? selectionOverride.range : null;
@@ -979,7 +1036,7 @@ function EditableFileSurface({
     editorRef.current?.blur();
     const { startLine, endLine } = normalizeFileCommentRange(range);
     const draftEntry: FileCommentAnnotationEntry = {
-      id: nextFileCommentId(),
+      id: forkComments.claimQuote(nextFileCommentId()),
       kind: "draft",
       startLine,
       endLine,
@@ -1036,6 +1093,7 @@ function EditableFileSurface({
   const handlePostRender: FilePostRender = (fileContainer, instance, phase) => {
     onPostRender(fileContainer, instance, phase);
     onEditablePostRender(instance.file, phase);
+    forkComments.onPostRender(fileContainer, phase, lineAnnotations);
 
     if (selectionFrameRef.current !== null) {
       cancelAnimationFrame(selectionFrameRef.current);
@@ -1064,7 +1122,7 @@ function EditableFileSurface({
             file={externalFile}
             edit={editable}
             editorOptions={editorOptions}
-            onEditChange={handleEditChange}
+            onEditChange={forkComments.trackEdit(handleEditChange)}
             options={{
               disableFileHeader: true,
               enableGutterUtility: !hasOpenCommentForm,
@@ -1076,7 +1134,7 @@ function EditableFileSurface({
               theme: resolveDiffThemeName(resolvedTheme),
               preferredHighlighter: PREFERRED_HIGHLIGHTER,
               themeType: resolvedTheme,
-              unsafeCSS: FILE_LINK_REVEAL_UNSAFE_CSS,
+              unsafeCSS: `${FILE_LINK_REVEAL_UNSAFE_CSS}\n${forkComments.unsafeCSS}`,
               onPostRender: handlePostRender,
             }}
             selectedLines={selectedRange}
@@ -1091,8 +1149,9 @@ function EditableFileSurface({
               return (
                 <div className="py-1">
                   {entries.map((entry) => (
-                    <DiffCommentAnnotation
+                    <ForkQuotedCommentAnnotation
                       key={entry.id}
+                      quote={forkComments.quoteFor(entry)}
                       environmentId={environmentId}
                       projectId={projectId}
                       ownerKey={JSON.stringify([
@@ -1115,6 +1174,11 @@ function EditableFileSurface({
             className="min-h-full"
           />
         </Virtualizer>
+        <ForkEditableSourceComments
+          comments={forkComments}
+          disabled={hasOpenCommentForm}
+          onComment={beginComment}
+        />
       </div>
     </EditProvider>
   );
@@ -1141,8 +1205,10 @@ function selectRenderedContentOnSelectAll(event: ReactKeyboardEvent<HTMLElement>
 
 function RenderedMarkdownSurface({
   environmentId,
+  projectId,
   cwd,
   relativePath,
+  composerDraftTarget,
   contents,
   threadRef,
   workspaceMutationId,
@@ -1151,7 +1217,6 @@ function RenderedMarkdownSurface({
 }: Omit<
   EditableFileSurfaceProps,
   | "resolvedTheme"
-  | "composerDraftTarget"
   | "revealLine"
   | "revealRequestId"
   | "wordWrap"
@@ -1167,7 +1232,8 @@ function RenderedMarkdownSurface({
 
   return (
     <ScrollArea className="min-h-0 flex-1" onKeyDown={selectRenderedContentOnSelectAll}>
-      <FileMarkdownPreview
+      <ForkCommentableMarkdownPreview
+        commentTarget={{ environmentId, projectId, composerDraftTarget }}
         text={contents}
         cwd={cwd}
         relativePath={relativePath}
@@ -1788,8 +1854,10 @@ export default function FilePreviewPanel({
               <RenderedMarkdownSurface
                 key={relativePath}
                 environmentId={environmentId}
+                projectId={projectId}
                 cwd={cwd}
                 relativePath={relativePath}
+                composerDraftTarget={composerDraftTarget}
                 threadRef={threadRef}
                 contents={file.data.contents}
                 workspaceMutationId={workspaceMutationId}

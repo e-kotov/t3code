@@ -329,6 +329,8 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("ForkSessionRenew
       name: "an outside MCP client",
       input: { subject: "mcp-client", method: "bearer-access-token", runtimeModeCeiling: "auto" },
     },
+    // Agent links renew on use through `SessionStore.extend` instead.
+    { name: "an agent link", input: agentLink },
     {
       name: "a pairing carrying a mode ceiling",
       input: { ...pairing, runtimeModeCeiling: "approval-required" },
@@ -343,24 +345,6 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("ForkSessionRenew
         reason: "not_renewable",
       });
       expect(yield* rowExpiry(issued.sessionId)).toBe(day(30));
-    }).pipe(Effect.provide(Layer.merge(layerSessionStore, TestClock.layer()))),
-  );
-
-  it.effect("renews an agent link with its access, mode ceiling and link marker intact", () =>
-    Effect.gen(function* () {
-      const sessions = yield* SessionStore.SessionStore;
-      const issued = yield* sessions.issue(agentLink);
-      yield* TestClock.adjust(Duration.days(3));
-      const next = renewed(yield* sessions.renewSession(issued.token, policy));
-      const verified = yield* sessions.verify(next.token);
-      expect(verified).toMatchObject({
-        sessionId: issued.sessionId,
-        subject: "mcp-client",
-        runtimeModeCeiling: "auto",
-        peerLink: true,
-      });
-      expect([...verified.scopes].sort()).toEqual([...mcpClientScopes("auto")].sort());
-      expect(claimsOf(next.token)).toMatchObject({ rtc: "auto", plk: 1 });
     }).pipe(Effect.provide(Layer.merge(layerSessionStore, TestClock.layer()))),
   );
 

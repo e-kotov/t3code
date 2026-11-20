@@ -17,12 +17,16 @@ import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 
+import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
+import * as ManagedProjectFolders from "../project/ManagedProjectFolders.ts";
+import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import * as ProviderAdapterRegistry from "../orchestration-v2/ProviderAdapterRegistry.ts";
 import * as ThreadLaunchService from "../orchestration-v2/ThreadLaunchService.ts";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
 import * as RemoteDelegation from "../peer/RemoteDelegation.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as ProviderRegistry from "../provider/ProviderRegistry.ts";
+import * as Scheduler from "../scheduling/Scheduler.ts";
 import * as ScheduledTaskService from "../scheduledTasks/ScheduledTaskService.ts";
 import * as SecretRequests from "../secrets/SecretRequests.ts";
 import * as ServerSettings from "../serverSettings.ts";
@@ -188,4 +192,146 @@ it.effect("rejects invalid effort and a model override for a shared thread befor
     assert.include(modeError.message, "needs a new thread per run");
     assert.deepEqual(yield* Ref.get(saved), []);
   }),
+);
+
+const liveHarness = (
+  launches: Ref.Ref<
+    Array<Parameters<ThreadLaunchService.ThreadLaunchService["Service"]["launch"]>[0]>
+  >,
+  providers: Ref.Ref<ReadonlyArray<ServerProvider>>,
+) => {
+  const launchLayer = Layer.mock(ThreadLaunchService.ThreadLaunchService)({
+    isNonGitProject: () => Effect.succeed(false),
+    launch: (input) =>
+      Ref.update(launches, (all) => [...all, input]).pipe(
+        Effect.as({ threadId: ThreadId.make("thread:scheduled-run"), resumed: false } as never),
+      ),
+  });
+  const managementLayer = Layer.mock(ThreadManagementService.ThreadManagementService)({
+    getThreadRecords: () => Effect.succeed(idleThreadProjection(caller)),
+    getThreadShell: () => Effect.succeed(caller),
+  });
+  const secretsLayer = Layer.mock(SecretRequests.SecretRequests)({});
+  const scheduledTaskLayer = ScheduledTaskService.layer.pipe(
+    Layer.provide(
+      Layer.mergeAll(
+        ManagedPolicy.layerTest(),
+        launchLayer,
+        managementLayer,
+        secretsLayer,
+        Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
+          namedProjectsRoot: "/projects",
+          isScratchProject: () => Effect.succeed(false),
+        }),
+        NodeCrypto.layer,
+        Layer.succeed(Scheduler.Scheduler, { register: () => Effect.void }),
+      ),
+    ),
+  );
+  const mcpLayer = OrchestratorMcpService.layer.pipe(
+    Layer.provide(
+      Layer.mergeAll(
+        NodeServices.layer,
+        NodeCrypto.layer,
+        launchLayer,
+        managementLayer,
+        Layer.mock(GitVcsDriver.GitVcsDriver)({
+          resolvePrimaryRemoteName: () => Effect.succeed("origin"),
+          resolveDefaultBranchName: () => Effect.succeed("main"),
+          resolveCommit: () => Effect.succeed({ commitSha: "abc123" }),
+        }),
+        ServerSettings.layerTest({
+          agentScheduledTasksUseCurrentThread: true,
+          providerInstances: { [providerInstanceId]: { driver: provider.driver, enabled: true } },
+        }),
+        Layer.mock(ProviderRegistry.ProviderRegistry)({
+          getProviders: Ref.get(providers),
+        }),
+        Layer.mock(ProviderAdapterRegistry.ProviderAdapterRegistryV2)({
+          list: () => Effect.succeed([providerInstanceId]),
+        }),
+        Layer.mock(ProjectService.ProjectService)({
+          getById: () =>
+            Effect.succeedSome({
+              id: projectId,
+              workspaceRoot: "/repo",
+              defaultModelSelection: null,
+            } as never),
+        }),
+        secretsLayer,
+        Layer.mock(RemoteDelegation.RemoteDelegation)({}),
+        scheduledTaskLayer,
+      ),
+    ),
+  );
+  return Layer.mergeAll(scheduledTaskLayer, mcpLayer);
+};
+
+it.effect("passes the scheduled model and effort to thread launch when the task fires", () =>
+  Effect.gen(function* () {
+    const launches = yield* Ref.make<
+      Array<Parameters<ThreadLaunchService.ThreadLaunchService["Service"]["launch"]>[0]>
+    >([]);
+    const providers = yield* Ref.make<ReadonlyArray<ServerProvider>>([provider]);
+    yield* Effect.gen(function* () {
+      const mcp = yield* OrchestratorMcpService.OrchestratorMcpService;
+      const scheduledTasks = yield* ScheduledTaskService.ScheduledTaskService;
+      const created = yield* mcp.scheduleTask(scope, request);
+      yield* scheduledTasks.runNow({ id: created.scheduledTaskId });
+      const launched = yield* Ref.get(launches);
+      assert.lengthOf(launched, 1);
+      assert.deepEqual(launched[0]?.modelSelection, {
+        instanceId: providerInstanceId,
+        model,
+        options: [{ id: "reasoningEffort", value: "high" }],
+      });
+    }).pipe(Effect.provide(liveHarness(launches, providers)));
+  }).pipe(Effect.provide(SqlitePersistence.layerMemory)),
+);
+
+it.effect("stops reporting the saved model when an edit binds the task to a thread", () =>
+  Effect.gen(function* () {
+    const launches = yield* Ref.make<
+      Array<Parameters<ThreadLaunchService.ThreadLaunchService["Service"]["launch"]>[0]>
+    >([]);
+    const providers = yield* Ref.make<ReadonlyArray<ServerProvider>>([provider]);
+    yield* Effect.gen(function* () {
+      const mcp = yield* OrchestratorMcpService.OrchestratorMcpService;
+      const created = yield* mcp.scheduleTask(scope, request);
+      assert.isDefined(created.modelSelection);
+
+      const bound = yield* mcp.updateScheduledTask(scope, {
+        scheduledTaskId: created.scheduledTaskId,
+        bindToCurrentThread: true,
+      });
+      assert.equal(bound.boundThreadId, threadId);
+      assert.isUndefined(bound.modelSelection);
+
+      const listed = yield* mcp.listScheduledTasks(scope, {
+        scheduledTaskId: created.scheduledTaskId,
+      });
+      assert.isUndefined(listed.tasks[0]?.modelSelection);
+    }).pipe(Effect.provide(liveHarness(launches, providers)));
+  }).pipe(Effect.provide(SqlitePersistence.layerMemory)),
+);
+
+it.effect("replays a saved schedule by clientRequestId even after the provider goes offline", () =>
+  Effect.gen(function* () {
+    const launches = yield* Ref.make<
+      Array<Parameters<ThreadLaunchService.ThreadLaunchService["Service"]["launch"]>[0]>
+    >([]);
+    const providers = yield* Ref.make<ReadonlyArray<ServerProvider>>([provider]);
+    yield* Effect.gen(function* () {
+      const mcp = yield* OrchestratorMcpService.OrchestratorMcpService;
+      const withKey = decode({
+        ...request,
+        clientRequestId: "schedule-model-replay-1",
+      });
+      const created = yield* mcp.scheduleTask(scope, withKey);
+
+      yield* Ref.set(providers, []);
+      const replayed = yield* mcp.scheduleTask(scope, withKey);
+      assert.deepEqual(replayed, created);
+    }).pipe(Effect.provide(liveHarness(launches, providers)));
+  }).pipe(Effect.provide(SqlitePersistence.layerMemory)),
 );
