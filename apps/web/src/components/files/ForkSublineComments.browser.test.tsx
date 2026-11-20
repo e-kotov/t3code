@@ -13,6 +13,8 @@ import { act, render, type Screen } from "../../../test/render";
 const state = vi.hoisted(() => ({
   file: null as ProjectReadFileResult | null,
   optimistic: null as ProjectReadFileResult | null,
+  // The file query re-renders the panel with the optimistic contents, as the app's atom does.
+  listeners: new Set<() => void>(),
   writeFile: vi.fn(),
 }));
 
@@ -60,29 +62,39 @@ vi.mock(import("../DiffWorkerPoolProvider"), () => ({
   DiffWorkerPoolProvider: ({ children }: { children?: ReactNode }) => <>{children}</>,
 }));
 vi.mock(import("./FileBreadcrumbs"), () => ({ FileBreadcrumbs: () => <></> }));
-vi.mock(import("./projectFilesQueryState"), async (original) => ({
-  ...(await original()),
-  useProjectFileQuery: () => ({
-    data: state.file,
-    error: null,
-    isPending: false,
-    readError: null,
-    isNotFile: false,
-    isFile: true,
-    refresh: vi.fn(),
-  }),
-  getOptimisticProjectFileQueryData: () => state.optimistic,
-  getUnsavedProjectFileQueryData: () => null,
-  setProjectFileQueryData: (
-    _environmentId: EnvironmentId,
-    _cwd: string,
-    relativePath: string,
-    contents: string,
-  ) => {
-    state.optimistic = { relativePath, contents, truncated: false, byteLength: contents.length };
-  },
-  confirmProjectFileQueryData: () => true,
-}));
+vi.mock(import("./projectFilesQueryState"), async (original) => {
+  const { useSyncExternalStore } = await import("react");
+  const subscribe = (listener: () => void) => {
+    state.listeners.add(listener);
+    return () => state.listeners.delete(listener);
+  };
+  const current = () => state.optimistic ?? state.file;
+  return {
+    ...(await original()),
+    useProjectFileQuery: () => ({
+      data: useSyncExternalStore(subscribe, current),
+      error: null,
+      isPending: false,
+      readError: null,
+      isNotFile: false,
+      isFile: true,
+      refresh: vi.fn(),
+    }),
+    getProjectFileContents: () => current()?.contents,
+    getOptimisticProjectFileQueryData: () => state.optimistic,
+    getUnsavedProjectFileQueryData: () => null,
+    setProjectFileQueryData: (
+      _environmentId: EnvironmentId,
+      _cwd: string,
+      relativePath: string,
+      contents: string,
+    ) => {
+      state.optimistic = { relativePath, contents, truncated: false, byteLength: contents.length };
+      for (const listener of state.listeners) listener();
+    },
+    confirmProjectFileQueryData: () => true,
+  };
+});
 
 import FilePreviewPanel from "./FilePreviewPanel";
 import { buildSublineFileReviewComment } from "./forkFileSublineComments";
@@ -96,6 +108,7 @@ function setup(renderMarkdown: boolean) {
   localStorage.setItem(keys[0]!, "false");
   localStorage.setItem(keys[1]!, String(renderMarkdown));
   state.optimistic = null;
+  state.listeners.clear();
   useComposerDraftStore.getState().clearComposerContent(threadRef);
   state.writeFile.mockReset().mockResolvedValue(AsyncResult.success(undefined));
   return {
@@ -415,6 +428,75 @@ it("creates subline comments from text selections in editable workspace source f
       useComposerDraftStore.getState().getComposerDraft(threadRef)?.reviewComments[0],
     ).toMatchObject({ startIndex: 1, rangeLabel: 'L2:7 · "retryCount"', diff: "retryCount" }),
   );
+  await vi.waitFor(() => expect(highlightedText("t3-file-source-comment")).toEqual(["retryCount"]));
+  const stored = (id = comments[0]!.id) =>
+    useComposerDraftStore
+      .getState()
+      .getComposerDraft(threadRef)
+      ?.reviewComments.find((comment) => comment.id === id);
+  const rowAt = (line: number) =>
+    shadow(screen)!.querySelector<HTMLElement>(`[data-line="${line}"]`)!;
+
+  // A change from outside replaces the editor's document but edits no quoted line by hand.
+  const external = `\n${contents.replace("5000", "6000")}`;
+  await act(async () => {
+    state.optimistic = {
+      relativePath: "src/config.ts",
+      contents: external,
+      truncated: false,
+      byteLength: external.length,
+    };
+    for (const listener of state.listeners) listener();
+  });
+  await vi.waitFor(() => expect(rowAt(3).textContent).toContain("6000"));
+  expect(stored()).toMatchObject({
+    rangeLabel: 'L2:7 · "retryCount"',
+    quote: { text: "retryCount" },
+  });
+
+  // Pasting the same text over the quote still edits its line, so it becomes a line comment.
+  await userEvent.click(editor);
+  const word = [pointInRow(rowAt(2), 6), pointInRow(rowAt(2), 16)] as const;
+  await act(async () => {
+    window
+      .getSelection()
+      ?.setBaseAndExtent(word[0].node, word[0].offset, word[1].node, word[1].offset);
+  });
+  await userEvent.copy();
+  await userEvent.paste();
+  await vi.waitFor(() =>
+    expect(stored()).toMatchObject({ rangeLabel: "L2", diff: "const retryCount = 3;" }),
+  );
+  expect(stored()?.quote).toBeUndefined();
+  expect(state.optimistic?.contents).toBe(external);
+
+  // Deleting a quoted line leaves its comment on the line's old text, as for a line comment.
+  const timeoutStart = external.indexOf("timeoutMs");
+  const timeout = buildSublineFileReviewComment({
+    id: "timeout-comment",
+    filePath: "src/config.ts",
+    sectionKind: "file",
+    text: "Use seconds.",
+    quote: createAssistantTextSelector(external, timeoutStart, timeoutStart + "timeoutMs".length)!,
+    contents: external,
+    startLine: 3,
+    endLine: 3,
+  });
+  await act(async () => {
+    useComposerDraftStore.getState().addReviewComment(threadRef, timeout);
+  });
+  await vi.waitFor(() => expect(highlightedText("t3-file-source-comment")).toEqual(["timeoutMs"]));
+  await userEvent.click(editor);
+  const timeoutLine = pointInRow(rowAt(3), 0);
+  await act(async () => {
+    window.getSelection()?.setBaseAndExtent(timeoutLine.node, 0, timeoutLine.node, 0);
+  });
+  await userEvent.keyboard("{Shift>}{ArrowDown}{/Shift}{Backspace}");
+  await vi.waitFor(() => expect(state.optimistic?.contents).toBe("\nconst retryCount = 3;\n"));
+  await vi.waitFor(() =>
+    expect(stored(timeout.id)).toMatchObject({ rangeLabel: "L3", diff: "const timeoutMs = 6000;" }),
+  );
+  expect(stored(timeout.id)?.quote).toBeUndefined();
 });
 
 function pointInRow(row: HTMLElement, column: number): { node: Text; offset: number } {

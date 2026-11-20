@@ -7,7 +7,11 @@ import {
 import { maskMarkdownFrontmatter } from "@t3tools/shared/markdownFrontmatter";
 
 import { mathWrapperOf } from "~/markdown-clipboard";
-import { inferReviewCommentFenceLanguage, type ReviewCommentContext } from "~/reviewCommentContext";
+import {
+  buildFileReviewComment,
+  inferReviewCommentFenceLanguage,
+  type ReviewCommentContext,
+} from "~/reviewCommentContext";
 import type {
   FileCommentAnnotationEntry,
   FileCommentLineAnnotation,
@@ -376,6 +380,69 @@ export function quoteSubmittedFileComment(
 /** An editor change: the replaced range in the text before it, and the inserted text. */
 export type FileTextChange = Pick<EditorChange, "range" | "text">;
 
+type Position = FileTextChange["range"]["start"];
+const comparePositions = (left: Position, right: Position) =>
+  left.line - right.line || left.character - right.character;
+const LINE_BREAKS = /\r\n|\r|\n/g;
+
+/**
+ * The line shift one editor change event applies to lines `first` to `last` (zero-based), or null
+ * when it touches them. Ranges that touch act as one; inserts at one position have no defined order.
+ */
+function untouchedLineShift(
+  first: number,
+  last: number,
+  changes: ReadonlyArray<FileTextChange>,
+): number | null {
+  const merged: Array<{
+    start: Position;
+    end: Position;
+    text: string;
+    endsWithInsert: boolean;
+    unordered: boolean;
+  }> = [];
+  for (const { range, text } of changes.toSorted((left, right) =>
+    comparePositions(left.range.start, right.range.start),
+  )) {
+    const insert = comparePositions(range.start, range.end) === 0;
+    const previous = merged.at(-1);
+    const order = previous ? comparePositions(range.start, previous.end) : 1;
+    if (previous && order <= 0) {
+      // Whether an insert lands before or after the change it touches is not defined.
+      previous.unordered ||= order < 0 || insert || previous.endsWithInsert;
+      if (comparePositions(range.end, previous.end) >= 0) {
+        previous.end = range.end;
+        previous.endsWithInsert = insert;
+      }
+      previous.text += text;
+    } else {
+      merged.push({
+        start: range.start,
+        end: range.end,
+        text,
+        endsWithInsert: insert,
+        unordered: false,
+      });
+    }
+  }
+  let shift = 0;
+  for (const { start, end, text, unordered } of merged) {
+    if (start.line > last) continue;
+    // The quoted lines stay whole when the change ends at their first column after a line break.
+    const linesAbove =
+      end.line === first &&
+      end.character === 0 &&
+      !unordered &&
+      (/[\r\n]$/.test(text) || (text === "" && start.character === 0));
+    if (end.line >= first && !linesAbove) return null;
+    shift += (text.match(LINE_BREAKS)?.length ?? 0) - (end.line - start.line);
+  }
+  return shift;
+}
+
+const isQuotedComment = (comment: ReviewCommentContext) =>
+  comment.quote !== undefined || isQuotedLabel(comment.rangeLabel);
+
 /**
  * Carries a stored comment through one editor change event to `comment`, the plain line comment
  * rebuilt at the editor's remapped lines. A quote survives only when no change touches its lines,
@@ -386,28 +453,49 @@ export function carryQuotedFileComment(
   changes: ReadonlyArray<FileTextChange>,
   comment: ReviewCommentContext,
 ): ReviewCommentContext {
-  if (!previous.quote && !isQuotedLabel(previous.rangeLabel)) return comment;
-  const first = previous.startIndex;
-  const last = previous.endIndex;
-  let shift = 0;
-  for (const { range, text } of changes) {
-    if (range.start.line > last) continue;
-    // Whole lines replaced right above the quote end at its first column, after a line break.
-    const linesAbove =
-      range.start.character === 0 &&
-      range.end.line === first &&
-      range.end.character === 0 &&
-      (text === "" || text.endsWith("\n"));
-    if (range.end.line >= first && !linesAbove) return comment;
-    shift += (text.match(/\r\n|\r|\n/g)?.length ?? 0) - (range.end.line - range.start.line);
+  if (!isQuotedComment(previous)) return comment;
+  const shift = untouchedLineShift(previous.startIndex, previous.endIndex, changes);
+  if (
+    shift === null ||
+    comment.startIndex !== previous.startIndex + shift ||
+    comment.endIndex !== previous.endIndex + shift
+  ) {
+    return comment;
   }
-  if (comment.startIndex !== first + shift || comment.endIndex !== last + shift) return comment;
   const column = labelColumnOffset(previous.rangeLabel);
   return withQuote(
     comment,
     previous.quote?.text ?? previous.diff,
     previous.quote,
     column === undefined ? undefined : column + 1,
+  );
+}
+
+/**
+ * The line comments that replace quoted `comments` an editor change event touched, built from
+ * `before`, the text before the event. The editable surface rebuilds no comment whose line the
+ * event deleted or whose text it left unchanged, so these keep their recorded lines, as upstream
+ * keeps a line comment whose line was deleted.
+ */
+export function demoteTouchedQuotedFileComments(
+  comments: ReadonlyArray<ReviewCommentContext>,
+  changes: ReadonlyArray<FileTextChange>,
+  before: string,
+): ReviewCommentContext[] {
+  return comments.flatMap((comment) =>
+    isQuotedComment(comment) &&
+    untouchedLineShift(comment.startIndex, comment.endIndex, changes) === null
+      ? [
+          buildFileReviewComment({
+            id: comment.id,
+            filePath: comment.filePath,
+            startLine: comment.startIndex + 1,
+            endLine: comment.endIndex + 1,
+            text: comment.text,
+            contents: before,
+          }),
+        ]
+      : [],
   );
 }
 

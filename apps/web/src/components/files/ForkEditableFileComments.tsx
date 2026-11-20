@@ -12,6 +12,7 @@ import type {
 import {
   carryQuotedFileComment,
   clearShadowSourceSublineHighlights,
+  demoteTouchedQuotedFileComments,
   FORK_SOURCE_SUBLINE_UNSAFE_CSS,
   type FileTextChange,
   fileReviewCommentsFor,
@@ -50,19 +51,29 @@ function draftSelectionOf(
   return (draft && stagedSelections.get(draft.id)) ?? null;
 }
 
-type EditEvent = { readonly changes: ReadonlyArray<FileTextChange> };
+type EditEvent = {
+  readonly changes: ReadonlyArray<FileTextChange>;
+  readonly file: { readonly contents: string };
+};
 
 function handleWithChanges<Event extends EditEvent>(
-  changesRef: { current: ReadonlyArray<FileTextChange> | null },
+  refs: {
+    changes: { current: ReadonlyArray<FileTextChange> | null };
+    rebuiltIds: { current: Set<string> | null };
+  },
   handler: (event: Event) => void,
   event: Event,
-) {
-  changesRef.current = event.changes;
+): ReadonlySet<string> {
+  const rebuiltIds = new Set<string>();
+  refs.changes.current = event.changes;
+  refs.rebuiltIds.current = rebuiltIds;
   try {
     handler(event);
   } finally {
-    changesRef.current = null;
+    refs.changes.current = null;
+    refs.rebuiltIds.current = null;
   }
+  return rebuiltIds;
 }
 
 /** Subline quote state and line annotations for the editable file surface. */
@@ -85,6 +96,9 @@ export function useForkEditableFileComments(
   );
   const pendingSelectionRef = useRef<SourceSelection | null>(null);
   const editChangesRef = useRef<ReadonlyArray<FileTextChange> | null>(null);
+  const rebuiltIdsRef = useRef<Set<string> | null>(null);
+  // The editor's text before its next change event, which may come before the next render.
+  const editorTextRef = useRef(contents);
   const inPrompt = (entryId: string) => promptComments.some((comment) => comment.id === entryId);
   // A staged selection serves only the draft; once in the prompt, the resolved comment decides.
   const quoteOf = (entryId: string) =>
@@ -100,16 +114,44 @@ export function useForkEditableFileComments(
     stagedSelections,
     unsafeCSS: FORK_SOURCE_SUBLINE_UNSAFE_CSS,
     lineAnnotationState: [lineAnnotations, setLineAnnotations] as const,
-    /** Exposes the changes of each editor event to the comments its handler rebuilds. */
+    /**
+     * Exposes the changes of each editor event to the comments its handler rebuilds, then demotes
+     * the quoted comments the event touched that the handler did not rebuild.
+     */
     trackEdit:
       <Event extends EditEvent>(handler: (event: Event) => void) =>
-      (event: Event) =>
-        handleWithChanges(editChangesRef, handler, event),
+      (event: Event) => {
+        const before = editorTextRef.current;
+        editorTextRef.current = event.file.contents;
+        const refs = { changes: editChangesRef, rebuiltIds: rebuiltIdsRef };
+        // A file replaced from outside arrives as a whole-text change that edits no comment.
+        if (before !== event.file.contents && contents === event.file.contents) {
+          handleWithChanges(refs, handler, event);
+          return;
+        }
+        const annotatedIds = new Set(
+          lineAnnotations.flatMap((annotation) =>
+            annotation.metadata.entries.flatMap((entry) =>
+              entry.kind === "comment" ? [entry.id] : [],
+            ),
+          ),
+        );
+        const annotated = (
+          useComposerDraftStore.getState().getComposerDraft(composerDraftTarget)?.reviewComments ??
+          EMPTY_COMMENTS
+        ).filter((comment) => annotatedIds.has(comment.id));
+        const rebuiltIds = handleWithChanges(refs, handler, event);
+        const missed = annotated.filter((comment) => !rebuiltIds.has(comment.id));
+        for (const comment of demoteTouchedQuotedFileComments(missed, event.changes, before)) {
+          addReviewComment(composerDraftTarget, comment);
+        }
+      },
     /**
      * Quotes the line comments the editable surface builds: a submitted draft from its captured
      * selection, an edited comment only when the edit left its quoted lines untouched.
      */
     addReviewComment: (...[target, comment, options]: Parameters<typeof addReviewComment>) => {
+      rebuiltIdsRef.current?.add(comment.id);
       let next = comment;
       // The stored record, not this render's, holds the lines before the change being handled.
       const stored = useComposerDraftStore

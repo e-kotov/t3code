@@ -326,6 +326,40 @@ describe("forkFileSublineComments", () => {
     const spliced = carry(spliceComment, [change([0, 4], [1, 4])], "foo(x);\n", 1);
     expect(spliced.result).toEqual(spliced.remapped);
 
+    // Touching ranges of one event act as one: these two splice the quoted "x" onto line 1.
+    const lower = "x;\nabove;\nx;\n";
+    const lowerComment = buildSublineFileReviewComment({
+      id: "comment-lower-x",
+      filePath: "src/a.ts",
+      sectionKind: "file",
+      text: "Rename.",
+      quote: createAssistantTextSelector(lower, 10, 11)!,
+      contents: lower,
+      startLine: 3,
+      endLine: 3,
+    });
+    expect(lowerComment.rangeLabel).toBe('L3:1 · "x"');
+    const joined = carry(
+      lowerComment,
+      [change([0, 1], [1, 0]), change([1, 0], [2, 0])],
+      "xx;\n",
+      1,
+    );
+    expect(joined.result).toEqual(joined.remapped);
+    // A replacement from mid-line above that ends in a line break leaves the quoted line whole.
+    const kept = carry(lowerComment, [change([0, 1], [2, 0], "y\n")], "xy\nx;\n", 2).result;
+    expect(kept).toMatchObject({ rangeLabel: 'L2:1 · "x"', diff: "x", quote: lowerComment.quote });
+    for (const [changes, edited] of [
+      [[change([0, 1], [2, 0], "y")], "xyx;\n"],
+      [[change([0, 1], [2, 0])], "xx;\n"],
+      // Inserts at one position have no defined order, so the line break may come first.
+      [[change([2, 0], [2, 0], "a\n"), change([2, 0], [2, 0], "b")], "x;\nabove;\na\nbx;\n"],
+    ] as const) {
+      const line = edited.split("\n").length - 1;
+      const { remapped, result } = carry(lowerComment, changes, edited, line);
+      expect(result).toEqual(remapped);
+    }
+
     const restored = throughRecord(comment);
     const edited = "const a = x;\n";
     expect(fileReviewCommentsFor([restored], "src/a.ts", edited)).toEqual([restored]);
