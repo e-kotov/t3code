@@ -2,8 +2,9 @@
 """Find, and with --delete remove, provably dead GitHub Actions caches.
 
 Only two classes are ever selected: keys starting with `setup-go-` (the fork's tailnet
-build caches its library instead) and caches on `refs/pull/<n>/merge` whose PR is closed.
-Every lookup finishes before the first deletion, so any API failure deletes nothing.
+build caches its library instead) and caches on `refs/pull/<n>/merge` whose PR is merged.
+A merged PR cannot reopen, unlike a closed one. Every lookup and validation finishes before
+the first deletion, so any API failure or malformed response deletes nothing.
 """
 import argparse
 import json
@@ -26,15 +27,24 @@ def list_caches(repo):
                            "--jq", ".actions_caches[]")
     if len(caches) != total:
         raise RuntimeError(f"listed {len(caches)} caches but the API reports {total}")
+    for cache in caches:
+        if not (isinstance(cache.get("id"), int) and isinstance(cache.get("key"), str)
+                and isinstance(cache.get("ref"), str)):
+            raise RuntimeError(f"malformed cache record: {cache!r}")
+    if len({cache["id"] for cache in caches}) != len(caches):
+        raise RuntimeError("duplicate cache ids in the listing")
     return caches
 
 
-def pr_state(repo, number):
-    return gh_json_lines(f"repos/{repo}/pulls/{number}", "--jq", "{state: .state}")[0]["state"]
+def pr_merged(repo, number):
+    pr = gh_json_lines(f"repos/{repo}/pulls/{number}", "--jq", "{number: .number, merged: .merged}")[0]
+    if pr.get("number") != int(number) or not isinstance(pr.get("merged"), bool):
+        raise RuntimeError(f"malformed pull request #{number}: {pr!r}")
+    return pr["merged"]
 
 
-def select_obsolete(caches, pr_states):
-    """Return (cache, reason) pairs; pr_states maps PR number strings to 'open' or 'closed'."""
+def select_obsolete(caches, pr_merged):
+    """Return (cache, reason) pairs; pr_merged maps PR number strings to whether it merged."""
     selected = []
     for cache in caches:
         key, ref = cache.get("key", ""), cache.get("ref", "")
@@ -42,8 +52,8 @@ def select_obsolete(caches, pr_states):
             selected.append((cache, "setup-go"))
             continue
         match = PR_MERGE_REF.fullmatch(ref)
-        if match and pr_states[match.group(1)] == "closed":
-            selected.append((cache, f"closed PR #{match.group(1)}"))
+        if match and pr_merged[match.group(1)] is True:
+            selected.append((cache, f"merged PR #{match.group(1)}"))
     return selected
 
 
@@ -61,20 +71,20 @@ def main(argv=None):
     try:
         caches = list_caches(args.repo)
         numbers = {m.group(1) for c in caches if (m := PR_MERGE_REF.fullmatch(c.get("ref", "")))}
-        pr_states = {n: pr_state(args.repo, n) for n in sorted(numbers, key=int)}
+        merged = {n: pr_merged(args.repo, n) for n in sorted(numbers, key=int)}
+        selected = select_obsolete(caches, merged)
     except (subprocess.CalledProcessError, ValueError, KeyError, IndexError, RuntimeError) as error:
         detail = getattr(error, "stderr", "") or error
         print(f"::error::Cache lookup failed; nothing deleted: {str(detail).strip()}")
         return 1
 
-    selected = select_obsolete(caches, pr_states)
     total = sum(c.get("size_in_bytes", 0) for c in caches)
     candidate_total = sum(c.get("size_in_bytes", 0) for c, _ in selected)
     lines = [
         f"Cache inventory: {len(caches)} entries ({mib(total)}); "
         f"obsolete ({mode}): {len(selected)} ({mib(candidate_total)})",
     ]
-    lines += [f"- PR #{n}: {state}" for n, state in pr_states.items()]
+    lines += [f"- PR #{n}: {'merged' if m else 'not merged'}" for n, m in merged.items()]
     status = 0
     deleted = 0
     for cache, reason in selected:

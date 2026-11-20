@@ -1,6 +1,6 @@
 name: Fork Actions cache prune
 
-# Deletes only provably dead caches (setup-go-* keys and closed-PR merge refs) so they do not
+# Deletes only provably dead caches (setup-go-* keys and merged-PR merge refs) so they do not
 # evict main's Android caches. Scheduled runs delete; dispatches dry-run unless dry_run=false on main.
 on:
   schedule:
