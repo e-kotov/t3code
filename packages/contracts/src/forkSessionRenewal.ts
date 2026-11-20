@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema";
 import { EnvironmentId } from "./baseSchemas.ts";
 
 /**
- * Fork: extends a still-valid direct pairing or agent-link session in place.
+ * Fork: extends a still-valid direct pairing session in place.
  * Bearer-only; an older host answers it with anything but this schema.
  */
 export const FORK_SESSION_RENEWAL_PATH = "/api/fork/auth/session/renew";

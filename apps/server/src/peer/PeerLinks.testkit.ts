@@ -64,10 +64,9 @@ export const descriptorOf = (
  * socket. The descriptor can be swapped, as when its address comes to answer
  * as another environment, and every bearer it receives is recorded.
  */
-export const servePeer = <E, R, RE = never, RR = never>(
+export const servePeer = <E, R>(
   initial: ExecutionEnvironmentDescriptor,
   tools: Layer.Layer<never, E, R>,
-  routes: Layer.Layer<never, RE, RR> = Layer.empty,
 ) =>
   Effect.gen(function* () {
     const descriptor = yield* Ref.make(initial);
@@ -141,7 +140,6 @@ export const servePeer = <E, R, RE = never, RR = never>(
         ),
         Layer.provide(McpOAuth.layerMcpClientAuthenticator),
       ),
-      routes,
     ).pipe(
       Layer.provide(layerRecordBearers),
       Layer.provide(layerEnvironment),
@@ -196,10 +194,9 @@ export const layerLinkingEnvironment = <E = never>(
     SqlClient.SqlClient,
     E | Layer.Error<typeof Sqlite.layerMemory>
   > = Sqlite.layerMemory,
-  peerLinks: typeof PeerLinks.layer = PeerLinks.layer,
 ) =>
   PeerMcpClient.layer.pipe(
-    Layer.provideMerge(peerLinks),
+    Layer.provideMerge(PeerLinks.layer),
     Layer.provideMerge(ServerSettings.layerTest({ linkedEnvironmentsEnabled: true })),
     Layer.provideMerge(database),
     Layer.provide(Layer.mergeAll(secrets, FetchHttpClient.layer)),

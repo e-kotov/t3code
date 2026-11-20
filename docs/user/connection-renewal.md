@@ -1,18 +1,23 @@
 # Connection renewal (fork)
 
-Direct pairing links and agent links can renew while in use. By default a pairing
-can lapse after 30 days of inactivity or one year after it was first made.
+Direct pairing links can renew while in use. By default a pairing can lapse after
+30 days of inactivity or one year after it was first made.
 
 **What renews.** Direct pairings from desktop, web and mobile, including pairings made over
-SSH, and the links in **Settings → Labs → Linked environments**. T3 Connect, the browser
-that serves the web app itself, startup links and outside MCP clients are unchanged.
+SSH. T3 Connect, the browser that serves the web app itself, startup links and outside MCP
+clients are unchanged. The settings on this page apply only to these pairings.
+
+**Linked environments.** The links in **Settings → Labs → Linked environments** renew
+themselves while agents use them: each use keeps a link valid for 30 more days, with no
+yearly cap and no setting to turn this off. A link unused for 30 days expires; link it
+again with a new pairing code. Both machines need this version or later; see
+[Link another environment](remote-access.md#link-another-environment).
 
 **When.** A device paired with a proof-of-possession key refreshes its short access token
 with that key and extends the pairing within the host's renewal limits. Existing bearer
 pairings stay on the fork's renewal path: a connected device asks its host about once
 every six hours, and the host extends the session at most once a day (with a shorter
-window, in steps of a quarter of it). A host keeps its own agent links
-renewed in the background while it runs. Newly paired clients use proof-of-possession
+window, in steps of a quarter of it). Newly paired clients use proof-of-possession
 refresh when the host and client support it. Otherwise, they use the legacy bearer
 path if both ends support it; they do not need to re-pair just to keep that path.
 
@@ -36,7 +41,7 @@ still refresh its short access token until the pairing's fixed expiration; it ca
 move that expiration. A managed policy that does not allow remote clients also stops
 renewal.
 
-**Migration.** Existing bearer pairings and agent links are not changed automatically.
+**Migration.** Existing bearer pairings are not changed automatically.
 To try key-bound refresh, use a separate device or browser profile with its own
 T3 Code storage. Pair with one noncritical host via a standard one-time direct pairing
 link, using a distinct label for the test device. Do not reuse your usual client or
@@ -52,5 +57,4 @@ client and check that it reconnects without pairing again.
 
 If a check fails, remove only the test pairing from its client, revoke only that
 device in **Settings → Connections**, and return to the existing link. Keep that
-fallback while you expand one connection at a time. Leave agent links untouched
-and validate them separately.
+fallback while you expand one connection at a time.
