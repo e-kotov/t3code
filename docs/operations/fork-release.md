@@ -198,17 +198,18 @@ and the local task-output build cache. `--build-cache` enables reuse of cacheabl
 task outputs. A separate 3 GB ccache retains C/C++ compiler results across `:app`
 and every CMake native library (`scripts/fork-sharing-tests.gradle` injects CMake
 `ccache` compiler launchers across all Android CMake modules, checks the release
-runtime classpath inside the release Gradle run, and skips release vital lint so R8
-gets full CPU and an 8 GB heap). Debug module unit tests run in parallel in
-`android_checks` with a read-only Gradle cache so `android` stays focused on
-`assembleRelease` and avoids caching Debug test dependencies. `.github/actions/build-fork-tailnet`
-disables `setup-go` caching (relying on `fork-tailnet-so-v1` instead), PR
-citation checks keep Gradle caches read-only, a separate `cache_cleanup` job
-runs in dry-run mode unless `prune_caches=true` is dispatched on `main`, and
-deletion targets only known obsolete entries (`setup-go-*` and closed-PR caches)
-so active `main` Gradle, ccache, and `fork-tailnet-so` caches are left intact.
-Each build prints ccache hit/miss statistics in its job summary. Compiler contents and source inputs are validated by ccache,
+runtime classpath inside the single Gradle run, and skips release vital lint so R8
+gets full CPU and an 8 GB heap). Each build prints ccache hit/miss statistics in
+its job summary. Compiler contents and source inputs are validated by ccache,
 including when a fallback key restores an older entry.
+
+An evicted cache set made one release about 11 minutes slower, so caches that can
+never be restored again should not crowd out `main`'s. `fork-actions-cache-prune.yml`
+runs `scripts/fork-prune-actions-caches.py` weekly and deletes only `setup-go-*`
+entries (the tailnet action caches its built library instead) and caches on a closed
+PR's `refs/pull/<n>/merge` ref; if any lookup fails it deletes nothing. A manual
+dispatch is a dry run unless `dry_run` is turned off on `main`, and the script run
+locally without `--delete` only lists candidates.
 
 The first cache-enabled run is still cold. For the most reusable cache, dispatch
 release builds from `main`: GitHub exposes default-branch caches to later tag

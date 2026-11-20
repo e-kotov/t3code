@@ -22,10 +22,6 @@ on:
         description: "Label this prerelease as a nightly build"
         default: false
         type: boolean
-      prune_caches:
-        description: "Delete known obsolete Actions caches (setup-go, closed PRs); false runs dry-run"
-        default: false
-        type: boolean
 
 permissions:
   contents: read
@@ -290,14 +286,7 @@ jobs:
       - name: Install the native compiler cache
         id: ccache_install
         run: |
-          if ! command -v ccache >/dev/null 2>&1; then
-            if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
-              sudo apt-get update -o Dir::Etc::sourcelist="sources.list.d/ubuntu.sources" -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0"
-            else
-              sudo apt-get update
-            fi
-            sudo apt-get install -y --no-install-recommends ccache
-          fi
+          sudo apt-get update && sudo apt-get install -y ccache
           echo "CCACHE_DIR=$RUNNER_TEMP/t3-android-ccache" >> "$GITHUB_ENV"
       - name: Restore native compiler results
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -311,16 +300,25 @@ jobs:
       - uses: ./.github/actions/setup-ci-deps
         with:
           install-args: --filter=@t3tools/mobile...
+      - name: Check standalone startup without an Expo project
+        working-directory: apps/mobile
+        run: vp test run fork-app-identity.test.ts src/features/observability/forkObserve.test.ts
+      - run: vp run --filter @t3tools/mobile typecheck
       - run: vp exec --filter @t3tools/mobile -- expo prebuild --clean --platform android --no-install
-      # Keep Debug unit tests in parallel android_checks so this job only builds and verifies the release APK.
-      - name: Verify release classpath and build a standalone release APK
+      # One Gradle run checks the release runtime classpath, runs native unit
+      # tests, and builds the release APK; a failing check stops the build.
+      - name: Verify native classpath, test modules, and build a standalone release APK
         working-directory: apps/mobile/android
         run: >-
           ./gradlew --init-script ../../../scripts/fork-sharing-tests.gradle
           -Dorg.gradle.jvmargs="-Xmx8g -XX:MaxMetaspaceSize=1024m -XX:+UseParallelGC"
           :app:verifyPatchedNativeSharing
+          :expo-sharing:testDebugUnitTest
+          :t3-agent-notifications:testDebugUnitTest
+          :t3-citation-passage:testDebugUnitTest
+          :t3-tailnet:testDebugUnitTest
           assembleRelease
-          -PreactNativeArchitectures=arm64-v8a --build-cache --parallel --max-workers=4
+          -PreactNativeArchitectures=arm64-v8a --build-cache --max-workers=4
       - name: Report native compiler cache hits
         if: always() && steps.ccache_install.outcome == 'success'
         run: ccache --show-stats | tee -a "$GITHUB_STEP_SUMMARY"
@@ -359,56 +357,8 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
-  android_checks:
-    needs: prepare
-    runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    env:
-      APP_VARIANT: production
-      T3CODE_FORK_BUILD: "1"
-    steps:
-      - name: Checkout release commit without vendored gitlinks
-        env:
-          RELEASE_REF: ${{ needs.prepare.outputs.sha }}
-          GIT_TERMINAL_PROMPT: "0"
-        run: |
-          set -euo pipefail
-          git init .
-          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
-          git fetch --no-tags --depth=1 origin "$RELEASE_REF"
-          git sparse-checkout set --no-cone '/*' '!/.repos/'
-          git checkout --detach FETCH_HEAD
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-      - uses: ./.github/actions/build-fork-tailnet
-      - name: Restore Gradle cache
-        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
-        with:
-          cache-read-only: true
-      - uses: ./.github/actions/setup-ci-deps
-        with:
-          install-args: --filter=@t3tools/mobile...
-          save-pnpm-store: false
-      - name: Check standalone startup without an Expo project
-        working-directory: apps/mobile
-        run: vp test run fork-app-identity.test.ts src/features/observability/forkObserve.test.ts
-      - run: vp run --filter @t3tools/mobile typecheck
-      - run: vp exec --filter @t3tools/mobile -- expo prebuild --clean --platform android --no-install
-      - name: Run Android module unit tests
-        working-directory: apps/mobile/android
-        run: >-
-          ./gradlew --init-script ../../../scripts/fork-sharing-tests.gradle
-          -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1024m -XX:+UseParallelGC"
-          :expo-sharing:testDebugUnitTest
-          :t3-agent-notifications:testDebugUnitTest
-          :t3-citation-passage:testDebugUnitTest
-          :t3-tailnet:testDebugUnitTest
-          --build-cache --parallel --max-workers=4
-
   release:
-    needs: [prepare, mac_signed, linux_server, android, android_checks]
+    needs: [prepare, mac_signed, linux_server, android]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -458,81 +408,6 @@ jobs:
           gh release create "$RELEASE_TAG" assets/* --repo "$GITHUB_REPOSITORY" \
             --verify-tag --title "$title" \
             --notes-file "$RUNNER_TEMP/release-notes.md" --prerelease --latest=false
-
-  cache_cleanup:
-    needs: [prepare, release]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      actions: write
-    steps:
-      - name: Prune known obsolete Actions caches
-        env:
-          GH_TOKEN: ${{ github.token }}
-          DELETE_CACHES: ${{ inputs.prune_caches && github.ref == 'refs/heads/main' }}
-        run: |
-          python3 - <<'PY' || echo '::warning::Cache pruning skipped'
-          import json, os, re, subprocess
-
-          repo = os.environ["GITHUB_REPOSITORY"]
-          delete_mode = os.environ.get("DELETE_CACHES", "false").lower() == "true"
-
-          def api_pages(endpoint):
-              out = subprocess.check_output(["gh", "api", "--paginate", endpoint], text=True).strip()
-              dec = json.JSONDecoder()
-              pos, items = 0, []
-              while pos < len(out):
-                  obj, end = dec.raw_decode(out, pos)
-                  if isinstance(obj, dict) and "actions_caches" in obj:
-                      items.extend(obj["actions_caches"])
-                  elif isinstance(obj, list):
-                      items.extend(obj)
-                  pos = end
-                  while pos < len(out) and out[pos].isspace():
-                      pos += 1
-              return items
-
-          caches = api_pages(f"repos/{repo}/actions/caches")
-          open_prs = {str(p["number"]) for p in api_pages(f"repos/{repo}/pulls?state=open&per_page=100")}
-
-          candidates = []
-          for c in caches:
-              key = c.get("key", "")
-              ref = c.get("ref", "")
-              if key.startswith("setup-go-"):
-                  candidates.append((c["id"], c.get("size_in_bytes", 0), f"legacy-go:{ref}:{key}"))
-                  continue
-              m_pr = re.fullmatch(r"refs/pull/([0-9]+)/merge", ref)
-              if m_pr and m_pr.group(1) not in open_prs:
-                  candidates.append((c["id"], c.get("size_in_bytes", 0), f"closed-pr:{ref}:{key}"))
-
-          total_mib = sum(c.get("size_in_bytes", 0) for c in caches) / (1024 * 1024)
-          cand_mib = sum(sz for _, sz, _ in candidates) / (1024 * 1024)
-          mode_label = "live" if delete_mode else "dry-run"
-          print(f"Cache inventory: {len(caches)} entries ({total_mib:.1f} MiB); obsolete candidates ({mode_label}): {len(candidates)} ({cand_mib:.1f} MiB)")
-
-          deleted = 0
-          for cid, sz, label in candidates:
-              mib = sz / (1024 * 1024)
-              if delete_mode:
-                  res = subprocess.run(["gh", "api", "-X", "DELETE", f"repos/{repo}/actions/caches/{cid}"], capture_output=True, text=True)
-                  if res.returncode == 0:
-                      deleted += 1
-                  print(f"delete {cid} ({mib:.1f} MiB, rc={res.returncode}): {label[:80]}")
-              else:
-                  print(f"dry-run {cid} ({mib:.1f} MiB): {label[:80]}")
-
-          summary = os.environ.get("GITHUB_STEP_SUMMARY")
-          if summary:
-              with open(summary, "a", encoding="utf-8") as fh:
-                  fh.write(
-                      f"### Obsolete cache cleanup ({mode_label})\n"
-                      f"- Total caches before cleanup: {len(caches)} ({total_mib:.1f} MiB)\n"
-                      f"- Obsolete candidates (`setup-go-*` and closed PRs): {len(candidates)} ({cand_mib:.1f} MiB)\n"
-                      f"- Deleted: {deleted if delete_mode else 0}\n"
-                  )
-          PY
 
   homebrew_tap:
     # Points e-kotov/tap's t3-code-ek cask at the release just published, so

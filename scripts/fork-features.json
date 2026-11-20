@@ -421,7 +421,8 @@
         "scripts/fork-footprint-budget.test.py",
         "scripts/fork-merge-upstream.test.py",
         "scripts/fork-sync-excerpt.test.py",
-        "scripts/fork-feature-guard.test.py"
+        "scripts/fork-feature-guard.test.py",
+        "scripts/fork-prune-actions-caches.test.py"
       ]
     },
     {
