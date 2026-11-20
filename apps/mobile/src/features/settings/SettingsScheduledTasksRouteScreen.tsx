@@ -1,4 +1,5 @@
 import { AutomationDestinationSetting } from "./AutomationDestinationSetting";
+import * as TaskSearch from "./ScheduledTaskSearch";
 import { msg, T, useGT, useLocale, useMessages, Var } from "gt-react-native";
 import { managedCapabilityDenial } from "@t3tools/client-runtime/contract-labels";
 import * as Dialog from "../../components/ui/Dialog";
@@ -437,6 +438,7 @@ function PickerRow(props: {
 
 export function SettingsScheduledTasksRouteScreen() {
   const gt = useGT();
+  const taskSearch = TaskSearch.useHeaderSearch();
   const [now, setNow] = useState(Date.now);
   useFocusEffect(() => {
     const updateNow = () => setNow(Date.now());
@@ -470,6 +472,7 @@ export function SettingsScheduledTasksRouteScreen() {
   return (
     <SettingsScreen
       title={gt("Scheduled tasks")}
+      search={taskSearch}
       actions={[
         {
           accessibilityLabel: gt("New task"),
@@ -481,6 +484,7 @@ export function SettingsScheduledTasksRouteScreen() {
       menus={[environmentMenu]}
     >
       <ScrollView
+        automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         contentInsetAdjustmentBehavior="automatic"
@@ -489,6 +493,7 @@ export function SettingsScheduledTasksRouteScreen() {
         contentContainerClassName="gap-5 px-5 pt-4"
         contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 18) + 18 }}
       >
+        {visibleEnvironments.length > 0 ? <TaskSearch.Options /> : null}
         {visibleEnvironments.length > 0 ? (
           visibleEnvironments.map((environment) => (
             <EnvironmentTasks
@@ -1607,8 +1612,9 @@ function EnvironmentTasks({
   const tasks = useEnvironmentQuery(
     serverEnvironment.scheduledTasksLive({ environmentId, input: {} }),
   );
+  const matches = TaskSearch.useMatcher(environmentId);
   const visibleTasks = tasks.data?.tasks.filter(
-    (task) => projectIds === null || projectIds.includes(task.projectId),
+    (task) => (projectIds === null || projectIds.includes(task.projectId)) && matches(task),
   );
   const canOperate = useAtomValue(
     serverEnvironment.upsertScheduledTask.permissionAtom(environmentId),
@@ -1675,7 +1681,7 @@ function EnvironmentTasks({
         </Text>
       ) : visibleTasks?.length === 0 ? (
         <Text className="p-4 text-base text-foreground-muted">
-          {projectIds === null ? gt("No scheduled tasks yet.") : gt("No tasks in this project.")}
+          <TaskSearch.EmptyText projectSelected={projectIds !== null} />
         </Text>
       ) : (
         visibleTasks?.map((task, index) => (
@@ -1698,6 +1704,7 @@ function EnvironmentTasks({
               <Text textRole="body" className="text-foreground" numberOfLines={1}>
                 {task.title}
               </Text>
+              <TaskSearch.RowMatch environmentId={environmentId} task={task} />
               <Text className="text-sm text-foreground-muted" numberOfLines={2}>
                 {!task.enabled
                   ? gt("{schedule} · Paused", {
