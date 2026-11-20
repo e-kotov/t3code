@@ -57,25 +57,28 @@ type EditEvent = {
   readonly file: { readonly contents: string };
 };
 
+/** What the handler of one editor event rebuilt: comment ids, and whether it set annotations. */
+type Rebuild = { readonly ids: Set<string>; annotations: boolean };
+
 function handleWithChanges<Event extends EditEvent>(
   refs: {
     changes: { current: ReadonlyArray<FileTextChange> | null };
-    rebuiltIds: { current: Set<string> | null };
+    rebuild: { current: Rebuild | null };
   },
   handler: (event: Event) => void,
   event: Event,
   changes = event.changes,
-): ReadonlySet<string> {
-  const rebuiltIds = new Set<string>();
+): Rebuild {
+  const rebuild: Rebuild = { ids: new Set(), annotations: false };
   refs.changes.current = changes;
-  refs.rebuiltIds.current = rebuiltIds;
+  refs.rebuild.current = rebuild;
   try {
     handler(event);
   } finally {
     refs.changes.current = null;
-    refs.rebuiltIds.current = null;
+    refs.rebuild.current = null;
   }
-  return rebuiltIds;
+  return rebuild;
 }
 
 /** Subline quote state and line annotations for the editable file surface. */
@@ -93,6 +96,11 @@ export function useForkEditableFileComments(
   );
   // Comments whose lines an edit deleted: the editor dropped their annotations, as upstream does.
   const [detachedIds, setDetachedIds] = useState<ReadonlySet<string>>(() => new Set());
+  // A comment removed from the prompt frees its id, so an import with that id is annotated again.
+  const promptIds = new Set(promptComments.map((comment) => comment.id));
+  if ([...detachedIds].some((id) => !promptIds.has(id))) {
+    setDetachedIds(new Set([...detachedIds].filter((id) => promptIds.has(id))));
+  }
   // Comments added while open (context import) are annotated too, until an edit stores them.
   const lineAnnotations = withPromptCommentAnnotations(
     annotationState,
@@ -103,7 +111,7 @@ export function useForkEditableFileComments(
   );
   const pendingSelectionRef = useRef<SourceSelection | null>(null);
   const editChangesRef = useRef<ReadonlyArray<FileTextChange> | null>(null);
-  const rebuiltIdsRef = useRef<Set<string> | null>(null);
+  const rebuildRef = useRef<Rebuild | null>(null);
   // The editor's text before its next change event, which may come before the next render.
   // The editor gives every line the line ending of the first, as `uniformLineEndings` does.
   const [initialEditorText] = useState(() => uniformLineEndings(contents));
@@ -122,7 +130,13 @@ export function useForkEditableFileComments(
     quoteOf,
     stagedSelections,
     unsafeCSS: FORK_SOURCE_SUBLINE_UNSAFE_CSS,
-    lineAnnotationState: [lineAnnotations, setLineAnnotations] as const,
+    lineAnnotationState: [
+      lineAnnotations,
+      (update: Parameters<typeof setLineAnnotations>[0]) => {
+        if (rebuildRef.current) rebuildRef.current.annotations = true;
+        setLineAnnotations(update);
+      },
+    ] as const,
     /**
      * Exposes the changes of each editor event to the comments its handler rebuilds, then demotes
      * the quoted comments the event touched that the handler did not rebuild.
@@ -132,7 +146,7 @@ export function useForkEditableFileComments(
       (event: Event) => {
         const before = editorTextRef.current;
         editorTextRef.current = event.file.contents;
-        const refs = { changes: editChangesRef, rebuiltIds: rebuiltIdsRef };
+        const refs = { changes: editChangesRef, rebuild: rebuildRef };
         // A file replaced from outside arrives as a whole-text change that edits no comment, so
         // comments the handler rebuilds from it (line endings differed from disk) see no change.
         if (
@@ -153,12 +167,16 @@ export function useForkEditableFileComments(
           useComposerDraftStore.getState().getComposerDraft(composerDraftTarget)?.reviewComments ??
           EMPTY_COMMENTS
         ).filter((comment) => annotatedIds.has(comment.id));
-        const rebuiltIds = handleWithChanges(refs, handler, event);
-        const missed = annotated.filter((comment) => !rebuiltIds.has(comment.id));
-        // The editor rebuilds every annotation it keeps, so a touched comment it missed was deleted.
-        const deleted = missed.filter((comment) => editTouchesFileComment(comment, event.changes));
+        const rebuild = handleWithChanges(refs, handler, event);
+        const missed = annotated.filter((comment) => !rebuild.ids.has(comment.id));
+        // The editor rebuilds every annotation it keeps, so a touched comment missing from the
+        // annotations the handler set was deleted. A handler that set none (the text is unchanged,
+        // as after pasting identical text) deleted nothing.
+        const deleted = rebuild.annotations
+          ? missed.filter((comment) => editTouchesFileComment(comment, event.changes))
+          : [];
         setDetachedIds((current) => {
-          const next = new Set([...current].filter((id) => !rebuiltIds.has(id)));
+          const next = new Set([...current].filter((id) => !rebuild.ids.has(id)));
           for (const comment of deleted) next.add(comment.id);
           return next;
         });
@@ -171,7 +189,7 @@ export function useForkEditableFileComments(
      * selection, an edited comment only when the edit left its quoted lines untouched.
      */
     addReviewComment: (...[target, comment, options]: Parameters<typeof addReviewComment>) => {
-      rebuiltIdsRef.current?.add(comment.id);
+      rebuildRef.current?.ids.add(comment.id);
       let next = comment;
       // The stored record, not this render's, holds the lines before the change being handled.
       const stored = useComposerDraftStore

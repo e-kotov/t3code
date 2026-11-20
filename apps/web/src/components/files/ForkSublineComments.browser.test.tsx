@@ -454,6 +454,25 @@ it("creates subline comments from text selections in editable workspace source f
     quote: { text: "retryCount" },
   });
 
+  // A comment imported while open on the same line is not rebuilt by an unchanged-text edit.
+  const constStart = external.indexOf("const retryCount");
+  const sameLine = buildSublineFileReviewComment({
+    id: "same-line-comment",
+    filePath: "src/config.ts",
+    sectionKind: "file",
+    text: "Keep const.",
+    quote: createAssistantTextSelector(external, constStart, constStart + "const".length)!,
+    contents: external,
+    startLine: 2,
+    endLine: 2,
+  });
+  await act(async () => {
+    useComposerDraftStore
+      .getState()
+      .addReviewComment(threadRef, reviewCommentFromRecord(reviewCommentContextRecord(sameLine)));
+  });
+  await expect.element(screen.getByText("Keep const.", { exact: true })).toBeVisible();
+
   // Pasting the same text over the quote still edits its line, so it becomes a line comment.
   await userEvent.click(editor);
   const word = [pointInRow(rowAt(2), 6), pointInRow(rowAt(2), 16)] as const;
@@ -469,6 +488,11 @@ it("creates subline comments from text selections in editable workspace source f
   );
   expect(stored()?.quote).toBeUndefined();
   expect(state.optimistic?.contents).toBe(external);
+  await vi.waitFor(() =>
+    expect(stored(sameLine.id)).toMatchObject({ rangeLabel: "L2", diff: "const retryCount = 3;" }),
+  );
+  expect(stored(sameLine.id)?.quote).toBeUndefined();
+  await expect.element(screen.getByText("Keep const.", { exact: true })).toBeVisible();
 
   // Deleting a quoted line leaves its comment on the line's old text, as for a line comment.
   const timeoutStart = external.indexOf("timeoutMs");
@@ -604,6 +628,27 @@ it("keeps a deleted quoted line's comment off the identical line that survives",
   });
   await expect.element(screen.getByText("Second.", { exact: true })).toBeVisible();
   await expect.element(screen.getByText("First.", { exact: true })).not.toBeInTheDocument();
+
+  // Removing the deleted line's comment frees its id: importing it again shows it.
+  await act(async () => {
+    useComposerDraftStore.getState().removeReviewComment(threadRef, "first");
+  });
+  await act(async () => {
+    useComposerDraftStore.getState().addReviewComment(
+      threadRef,
+      buildSublineFileReviewComment({
+        id: "first",
+        filePath: "src/a.ts",
+        sectionKind: "file",
+        text: "First again.",
+        quote: createAssistantTextSelector("same();\n", 0, "same".length)!,
+        contents: "same();\n",
+        startLine: 1,
+        endLine: 1,
+      }),
+    );
+  });
+  await expect.element(screen.getByText("First again.", { exact: true })).toBeVisible();
 });
 
 it("keeps quotes through an external refresh of a file with mixed line endings", async () => {
