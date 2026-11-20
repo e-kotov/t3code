@@ -378,6 +378,7 @@
       "docs": "docs/user/connection-renewal.md",
       "tests": [
         "apps/server/src/auth/ForkSessionRenewal.test.ts",
+        "apps/server/src/auth/ForkSessionRenewalHttp.test.ts",
         "packages/client-runtime/src/connection/forkCredentialCatalog.test.ts",
         "packages/client-runtime/src/connection/forkDirectSessionRenewal.test.ts",
         "apps/web/src/connection/forkFreshCatalogStore.test.ts",

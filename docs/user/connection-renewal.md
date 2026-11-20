@@ -8,8 +8,8 @@ SSH. T3 Connect, the browser that serves the web app itself, startup links and o
 clients are unchanged. The settings on this page apply only to these pairings.
 
 **Linked environments.** The links in **Settings → Labs → Linked environments** renew
-themselves while agents use them: each use keeps a link valid for 30 more days, with no
-yearly cap and no setting to turn this off. A link unused for 30 days expires; link it
+themselves while agents use them: use keeps a link valid for about 30 days after it was
+last used (the expiry moves at most once a day), with no yearly cap and no setting to turn this off. A link unused for 30 days expires; link it
 again with a new pairing code. Both machines need this version or later; see
 [Link another environment](remote-access.md#link-another-environment).
 

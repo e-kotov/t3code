@@ -81,6 +81,7 @@ jobs:
         run: |
           vp test run \
             apps/server/src/auth/ForkSessionRenewal.test.ts \
+            apps/server/src/auth/ForkSessionRenewalHttp.test.ts \
             apps/server/src/auth/forkSessionRenewal.tripwire.test.ts \
             apps/server/src/auth/forkConnectApproval.test.ts \
             apps/server/src/auth/SessionStore.test.ts \
