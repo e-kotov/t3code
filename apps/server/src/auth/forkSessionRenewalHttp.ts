@@ -45,7 +45,7 @@ const handle = Effect.fn("ForkSessionRenewal.handle")(
       );
     const token = parseBearerToken(yield* HttpServerRequest.HttpServerRequest);
     if (token === null) return yield* refuse(401, "missing_credential");
-    // A policy without remote clients lets paired devices and agent links end at their expiry.
+    // A policy without remote clients lets paired devices end at their expiry.
     if (!ManagedLimits.allowsRemoteClients(services.managedPolicy)) {
       return yield* refuse(403, "not_renewable");
     }

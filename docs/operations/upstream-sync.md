@@ -126,15 +126,15 @@ ships tests that fail when upstream changes what it relies on. They are register
 (`apps/server/src/auth/forkSessionRenewal.tripwire.test.ts`), so the sync runs them on every
 merge and a failure reaches the resolver as "This run":
 
-- **Behavior:** a pairing-link token and an agent-link token that are never renewed stop verifying
-  at their signed 30-day expiry, their subjects are `one-time-token` and `mcp-client`, and a socket
-  closes at the expiry it opened with. A failure means upstream changed session lifetime or added
-  its own renewal: compare both implementations as above and write `.claude-needs-decision.md`.
-  Restoring the old behavior over upstream is never the fix.
-- **Surface:** the `SessionStore` members and the `auth_sessions` and `peer_environment_links`
-  columns. An unrelated upstream addition updates the snapshot, which still needs Egor's approval
-  as a fork-test change; an addition about lifetime, renewal, lineage or device keys needs the
-  decision file.
+- **Behavior:** a pairing-link token that is never renewed stops verifying at its signed 30-day
+  expiry, its subject is `one-time-token`, and a socket closes at the expiry it opened with. A
+  failure means upstream changed session lifetime or added its own renewal: compare both
+  implementations as above and write `.claude-needs-decision.md`. Restoring the old behavior
+  over upstream is never the fix. Agent links are out of scope: they renew on use through
+  upstream's `SessionStore.extend` (Egor's decision in PR #101), and fork renewal refuses them.
+- **Surface:** the `SessionStore` members and the `auth_sessions` columns. An unrelated upstream
+  addition updates the snapshot, which still needs Egor's approval as a fork-test change; an
+  addition about lifetime, renewal, lineage or device keys needs the decision file.
 - **Client mounts:** a live connection keeps its HTTP credential current only through two mount
   lines: the driver starts renewal for each lease and the supervisor follows the lease's renewed
   bearer. `packages/client-runtime/src/connection/forkDirectSessionRenewal.test.ts` runs the real

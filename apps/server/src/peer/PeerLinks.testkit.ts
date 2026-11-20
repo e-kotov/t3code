@@ -196,10 +196,9 @@ export const layerLinkingEnvironment = <E = never>(
     SqlClient.SqlClient,
     E | Layer.Error<typeof Sqlite.layerMemory>
   > = Sqlite.layerMemory,
-  peerLinks: typeof PeerLinks.layer = PeerLinks.layer,
 ) =>
   PeerMcpClient.layer.pipe(
-    Layer.provideMerge(peerLinks),
+    Layer.provideMerge(PeerLinks.layer),
     Layer.provideMerge(ServerSettings.layerTest({ linkedEnvironmentsEnabled: true })),
     Layer.provideMerge(database),
     Layer.provide(Layer.mergeAll(secrets, FetchHttpClient.layer)),
