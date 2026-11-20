@@ -203,6 +203,15 @@ gets full CPU and an 8 GB heap). Each build prints ccache hit/miss statistics in
 its job summary. Compiler contents and source inputs are validated by ccache,
 including when a fallback key restores an older entry.
 
+An evicted cache set made one release about 11 minutes slower, so caches that can
+never be restored again should not crowd out `main`'s. `fork-actions-cache-prune.yml`
+runs `scripts/fork-prune-actions-caches.py` weekly and lists the only caches it may
+delete: `setup-go-*` entries (the tailnet action caches its built library instead) and
+caches on a merged PR's `refs/pull/<n>/merge` ref. The scheduled run only lists them.
+Deleting needs a manual dispatch on `main` with `dry_run` turned off; if any lookup fails
+or returns malformed data it deletes nothing. Once several weekly lists look right, the
+scheduled run can be switched to delete.
+
 The first cache-enabled run is still cold. For the most reusable cache, dispatch
 release builds from `main`: GitHub exposes default-branch caches to later tag
 builds, while a cache created only on one release tag is not shared with other

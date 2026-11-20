@@ -1,4 +1,5 @@
 import { AutomationDestinationSetting } from "./AutomationDestinationSetting";
+import * as TaskSearch from "./ScheduledTaskSearch";
 import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
 import { managedCapabilityDenial } from "@t3tools/client-runtime/contract-labels";
 import { useAtomValue } from "@effect/atom-react";
@@ -493,6 +494,7 @@ export function ScheduledTasksSettings(target: {
           </Button>
         }
       >
+        {scope.kind !== "unavailable" && environments.length > 0 ? <TaskSearch.Field /> : null}
         {scope.kind === "unavailable" ? (
           <SettingsSection title={gt("Unavailable selection")}>
             <SettingsRow title={scope.message} />
@@ -587,7 +589,8 @@ function ScheduledTaskEnvironmentList({
   const linkedTask = linkedState?.tasks?.find((task) => task.id === taskId);
 
   const loaded = states.filter((state) => state.connected && state.error === null && state.tasks);
-  const populated = loaded.filter((state) => state.tasks && state.tasks.length > 0);
+  const populated = TaskSearch.usePopulated(loaded);
+  const searching = TaskSearch.useActive();
   const summaries: Record<string, string[]> = {
     "Not connected:": [],
     "Loading scheduled tasks on": [],
@@ -604,7 +607,7 @@ function ScheduledTaskEnvironmentList({
       summaries["Could not load scheduled tasks:"]!.push(`${label}: ${error}`);
     } else if (!tasks) {
       summaries["Loading scheduled tasks on"]!.push(label);
-    } else if (tasks.length === 0 && populated.length > 0) {
+    } else if (!searching && tasks.length === 0 && populated.length > 0) {
       summaries["No tasks on"]!.push(label);
     }
   }
@@ -651,12 +654,7 @@ function ScheduledTaskEnvironmentList({
           role="status"
         />
       ) : null}
-      {populated.length === 0 && loaded.length > 0 ? (
-        <SettingsRow
-          title={gt("No scheduled tasks")}
-          description={gt("No tasks match this environment and project selection.")}
-        />
-      ) : null}
+      {populated.length === 0 && loaded.length > 0 ? <TaskSearch.EmptyRow /> : null}
       {Object.entries(summaries).map(([label, entries]) => {
         if (entries.length === 0) return null;
         const summary = messages(SCOPE_SUMMARY_TEMPLATES[label] ?? label, {
@@ -726,6 +724,7 @@ function ScheduledTaskEnvironmentSection({
     matchesScheduledTaskScope(scope, environment.environmentId, task.projectId),
   );
   const linkedTask = tasks?.find((task) => task.id === taskId);
+  const visibleTasks = TaskSearch.useFilter(tasks, environment.environmentId);
   return (
     <SettingsSection
       title={environment.label}
@@ -759,13 +758,10 @@ function ScheduledTaskEnvironmentSection({
               role="status"
             />
           ) : null}
-          {tasks.length === 0 ? (
-            <SettingsRow
-              title={gt("No scheduled tasks")}
-              description={gt("No tasks match this environment and project selection.")}
-            />
+          {visibleTasks?.length === 0 ? (
+            <TaskSearch.EmptyRow />
           ) : (
-            tasks.map((task) => (
+            visibleTasks?.map((task) => (
               <ScheduledTaskRow
                 key={task.id}
                 environmentId={environment.environmentId}
@@ -840,7 +836,7 @@ function ScheduledTaskRow({
   return (
     <SettingsRow
       title={task.title}
-      description={<span className="line-clamp-2">{task.prompt}</span>}
+      description={<TaskSearch.RowDescription environmentId={environmentId} task={task} />}
       status={
         <div className="flex flex-wrap items-center gap-2">
           <span>

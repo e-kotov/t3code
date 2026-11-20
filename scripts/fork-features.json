@@ -189,8 +189,9 @@
     {
       "id": "automations",
       "group": "Providers and automations",
-      "summary": "agent-created scheduled tasks with a choice of model, effort, and thread destination",
+      "summary": "scheduled task search, a configurable default thread destination, and model and effort selection for agent-created tasks",
       "tests": [
+        "packages/client-runtime/src/scheduledTaskSearch.test.ts",
         "apps/server/src/mcp/automationDestination.test.ts",
         "apps/server/src/mcp/scheduledTaskExecution.test.ts",
         "packages/contracts/src/automationDestinationSettings.test.ts",
@@ -422,7 +423,8 @@
         "scripts/fork-footprint-budget.test.py",
         "scripts/fork-merge-upstream.test.py",
         "scripts/fork-sync-excerpt.test.py",
-        "scripts/fork-feature-guard.test.py"
+        "scripts/fork-feature-guard.test.py",
+        "scripts/fork-prune-actions-caches.test.py"
       ]
     },
     {
