@@ -26,9 +26,9 @@ import {
   buildSublineFileReviewComment,
   clearShadowSourceSublineHighlights,
   formatQuotedRangeLabel,
+  type SourceSelection,
   syncShadowSourceSublineHighlights,
 } from "./forkFileSublineComments";
-import type { FileTextQuote } from "./forkFileTextQuote";
 import { ForkSourceSelectionToolbar, ForkSublineQuoteBadge } from "./ForkSourceSelectionToolbar";
 import ReadOnlySourcePreview from "./ReadOnlySourcePreview";
 
@@ -70,7 +70,7 @@ function CommentableSource({ commentTarget, ...props }: Props & { commentTarget:
     id: string;
     startLine: number;
     endLine: number;
-    quote?: FileTextQuote | undefined;
+    selection?: SourceSelection | undefined;
   } | null>(null);
   const [draftText, setDraftText] = useState("");
   const [selectedLines, setSelectedLines] = useState<SelectedLineRange | null>(null);
@@ -102,9 +102,7 @@ function CommentableSource({ commentTarget, ...props }: Props & { commentTarget:
     if (annotation) annotation.metadata.entries.push(entry);
     else annotations.push({ lineNumber: draft.endLine, metadata: { entries: [entry] } });
   }
-  const draftStartLine = draft?.startLine;
-  const draftEndLine = draft?.endLine;
-  const draftQuote = draft?.quote;
+  const draftSelection = draft?.selection ?? null;
 
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- syncs CSS Highlights in the diffs shadow DOM for saved and draft subline comments
   useEffect(() => {
@@ -114,13 +112,10 @@ function CommentableSource({ commentTarget, ...props }: Props & { commentTarget:
       shadowRoot,
       contents: props.text,
       comments: fileComments,
-      draft:
-        draftStartLine !== undefined && draftEndLine !== undefined && draftQuote
-          ? { startLine: draftStartLine, endLine: draftEndLine, quote: draftQuote }
-          : null,
+      draft: draftSelection,
     });
     return () => clearShadowSourceSublineHighlights(surfaceKey);
-  }, [draftEndLine, draftQuote, draftStartLine, fileComments, props.text, surfaceEl, surfaceKey]);
+  }, [draftSelection, fileComments, props.text, surfaceEl, surfaceKey]);
 
   const dismiss = () => {
     setDraft(null);
@@ -133,18 +128,14 @@ function CommentableSource({ commentTarget, ...props }: Props & { commentTarget:
     setDraftText("");
     setDraft({ id: nextFileCommentId(), ...normalizeFileCommentRange(range) });
   };
-  const beginQuoteComment = (selection: {
-    readonly startLine: number;
-    readonly endLine: number;
-    readonly quote: FileTextQuote;
-  }) => {
+  const beginQuoteComment = (selection: SourceSelection) => {
     setSelectedLines(null);
     setDraftText("");
     setDraft({
       id: nextFileCommentId(),
       startLine: selection.startLine,
       endLine: selection.endLine,
-      quote: selection.quote,
+      selection,
     });
   };
   return (
@@ -179,10 +170,7 @@ function CommentableSource({ commentTarget, ...props }: Props & { commentTarget:
                     shadowRoot: fileContainer.shadowRoot,
                     contents: props.text,
                     comments: fileComments,
-                    draft:
-                      draftStartLine !== undefined && draftEndLine !== undefined && draftQuote
-                        ? { startLine: draftStartLine, endLine: draftEndLine, quote: draftQuote }
-                        : null,
+                    draft: draftSelection,
                   });
                 }
                 props.onPostRender?.(fileContainer, instance, phase);
@@ -195,7 +183,7 @@ function CommentableSource({ commentTarget, ...props }: Props & { commentTarget:
                 {annotation.metadata.entries.map((entry) => {
                   const entryQuote =
                     entry.kind === "draft"
-                      ? draft?.quote
+                      ? draft?.selection?.quote
                       : fileComments.find((comment) => comment.id === entry.id)?.quote;
                   return (
                     <div key={entry.id}>
@@ -230,6 +218,7 @@ function CommentableSource({ commentTarget, ...props }: Props & { commentTarget:
                                   contents: props.text,
                                   startLine: entry.startLine,
                                   endLine: entry.endLine,
+                                  selection: draft?.selection,
                                 })
                               : buildFileReviewComment({
                                   id: entry.id,

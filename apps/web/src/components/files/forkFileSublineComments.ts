@@ -3,6 +3,7 @@ import {
   findAssistantCitationText,
   splitsSurrogatePair,
 } from "@t3tools/shared/assistantCitations";
+import { maskMarkdownFrontmatter } from "@t3tools/shared/markdownFrontmatter";
 
 import { mathWrapperOf } from "~/markdown-clipboard";
 import { inferReviewCommentFenceLanguage, type ReviewCommentContext } from "~/reviewCommentContext";
@@ -156,15 +157,17 @@ export function inferMarkdownSourceLineRange(
   sourceText: string,
   quote: FileTextQuote,
 ): { readonly startLine: number; readonly endLine: number } | null {
+  // The preview hides front matter; masking keeps line breaks, so lines stay aligned.
+  const visible = maskMarkdownFrontmatter(sourceText);
   // Lines stay aligned with the source, so a match in the stripped text names source lines.
-  const stripped = sourceText
+  const stripped = visible
     .split(/\r\n|\r|\n/)
     .map(stripSimpleMarkdownInline)
     .join("\n");
   const strippedMatch = verifiedMatch(stripped, quote);
   if (strippedMatch !== null) return lineRangeOf(stripped, strippedMatch);
-  const rawMatch = verifiedMatch(sourceText, quote);
-  return rawMatch === null ? null : lineRangeOf(sourceText, rawMatch);
+  const rawMatch = verifiedMatch(visible, quote);
+  return rawMatch === null ? null : lineRangeOf(visible, rawMatch);
 }
 
 type RawSpan = { readonly start: number; readonly end: number };
@@ -199,7 +202,8 @@ function contextAgrees(text: string, span: RawSpan, context: QuoteContext): bool
 
 /**
  * Raw offsets of `quote` within `[from, to)`: the occurrence at `column` (an offset from `from`),
- * else the one whose context agrees, else the only one. "ambiguous" when it cannot tell.
+ * else the one whose context agrees. "ambiguous" when it cannot tell: a lone occurrence of the
+ * same text is not proof that it is the quoted one.
  */
 function locateQuote(
   text: string,
@@ -218,7 +222,7 @@ function locateQuote(
   ) {
     spans.push({ start: from + index, end: from + index + quote.text.length });
   }
-  if (spans.length <= 1) return spans[0] ?? null;
+  if (spans.length === 0) return null;
   const atColumn =
     column === undefined ? undefined : spans.find((span) => span.start === from + column);
   if (atColumn) return atColumn;
@@ -242,6 +246,67 @@ function columnOnFirstLine(text: string, from: number, span: RawSpan): number | 
   return lineBreak === -1 ? span.start - from + 1 : undefined;
 }
 
+/** A text selection as captured: `quote` starts `column` raw units into `startLine` of `contents`. */
+export type SourceSelection = {
+  readonly contents: string;
+  readonly startLine: number;
+  readonly endLine: number;
+  readonly column: number;
+  readonly quote: FileTextQuote;
+};
+
+/**
+ * Where `span` of `before` sits in `after`, or null when an edit may have touched it. Both ways of
+ * aligning the unchanged prefix and suffix must agree, so text that only looks the same is refused.
+ */
+function remapSpan(before: string, after: string, span: RawSpan): RawSpan | null {
+  if (span.start < 0 || span.end > before.length) return null;
+  if (before === after) return span;
+  const shorter = Math.min(before.length, after.length);
+  let prefix = 0;
+  while (prefix < shorter && before[prefix] === after[prefix]) prefix += 1;
+  let suffix = 0;
+  while (
+    suffix < shorter &&
+    before[before.length - 1 - suffix] === after[after.length - 1 - suffix]
+  ) {
+    suffix += 1;
+  }
+  const delta = after.length - before.length;
+  const place = (kept: number, keptSuffix: number) => {
+    if (span.end <= kept) return span.start;
+    if (span.start >= before.length - keptSuffix) return span.start + delta;
+    return null;
+  };
+  const prefixFirst = place(prefix, Math.min(suffix, shorter - prefix));
+  const suffixFirst = place(Math.min(prefix, shorter - suffix), suffix);
+  if (prefixFirst === null || prefixFirst !== suffixFirst) return null;
+  return { start: prefixFirst, end: prefixFirst + span.end - span.start };
+}
+
+/** The captured selection's raw span within `contents`, or null when it cannot be identified. */
+function selectionSpanIn(selection: SourceSelection, contents: string): RawSpan | null {
+  const lineStart = lineStartsOf(selection.contents)[selection.startLine - 1];
+  if (lineStart === undefined) return null;
+  const start = lineStart + selection.column;
+  const span = { start, end: start + selection.quote.text.length };
+  if (selection.contents.slice(span.start, span.end) !== selection.quote.text) return null;
+  return remapSpan(selection.contents, contents, span);
+}
+
+/** 1-based column of `span` when it lies within the comment's lines and starts on the first. */
+function columnWithinLines(
+  contents: string,
+  startIndex: number,
+  endIndex: number,
+  span: RawSpan | "ambiguous" | null,
+): number | undefined {
+  if (span === null || span === "ambiguous") return undefined;
+  const bounds = lineBounds(contents, lineStartsOf(contents), startIndex, endIndex);
+  if (bounds === null || span.start < bounds.from || span.end > bounds.to) return undefined;
+  return columnOnFirstLine(contents, bounds.from, span);
+}
+
 export function buildSublineFileReviewComment(input: {
   readonly id: string;
   readonly filePath: string;
@@ -251,6 +316,8 @@ export function buildSublineFileReviewComment(input: {
   readonly contents: string;
   readonly startLine?: number | undefined;
   readonly endLine?: number | undefined;
+  /** The captured selection, which names the quoted occurrence. */
+  readonly selection?: SourceSelection | undefined;
 }): ReviewCommentContext {
   const inferred =
     input.startLine !== undefined
@@ -264,13 +331,13 @@ export function buildSublineFileReviewComment(input: {
 
   let column: number | undefined;
   if (input.sectionKind === "file" && inferred) {
-    const starts = lineStartsOf(input.contents);
-    const bounds = lineBounds(input.contents, starts, inferred.startLine - 1, inferred.endLine - 1);
-    const span =
-      bounds && locateQuote(input.contents, bounds.from, bounds.to, input.quote, undefined);
-    if (bounds && span && span !== "ambiguous") {
-      column = columnOnFirstLine(input.contents, bounds.from, span);
-    }
+    const startIndex = inferred.startLine - 1;
+    const endIndex = inferred.endLine - 1;
+    const bounds = lineBounds(input.contents, lineStartsOf(input.contents), startIndex, endIndex);
+    const span = input.selection
+      ? selectionSpanIn(input.selection, input.contents)
+      : bounds && locateQuote(input.contents, bounds.from, bounds.to, input.quote, undefined);
+    column = columnWithinLines(input.contents, startIndex, endIndex, span);
   }
 
   const startIndex = inferred ? inferred.startLine - 1 : 0;
@@ -299,27 +366,66 @@ export function buildSublineFileReviewComment(input: {
   };
 }
 
-/**
- * Re-quotes a whole-line comment the editor rebuilt from its remapped lines (`diff`).
- * Returns the plain line comment when the quoted text is no longer within those lines.
- */
-export function quoteFileReviewComment(
+function withQuote(
   comment: ReviewCommentContext,
   quote: FileTextQuote,
+  column: number,
 ): ReviewCommentContext {
-  const span = locateQuote(comment.diff, 0, comment.diff.length, quote, undefined);
-  if (span === null) return comment;
   return {
     ...comment,
     rangeLabel: formatQuotedRangeLabel({
       quoteText: quote.text,
       startLine: comment.startIndex + 1,
       endLine: comment.endIndex + 1,
-      column: span === "ambiguous" ? undefined : columnOnFirstLine(comment.diff, 0, span),
+      column,
     }),
     diff: quote.text,
     quote,
   };
+}
+
+/**
+ * Quotes a whole-line comment built from `contents` for a submitted selection. Returns the plain
+ * line comment when the selected occurrence is no longer certain within the comment's lines.
+ */
+export function quoteSubmittedFileComment(
+  comment: ReviewCommentContext,
+  selection: SourceSelection,
+  contents: string,
+): ReviewCommentContext {
+  const span = selectionSpanIn(selection, contents);
+  const column = columnWithinLines(contents, comment.startIndex, comment.endIndex, span);
+  if (span === null || column === undefined) return comment;
+  const quote = createAssistantTextSelector(contents, span.start, span.end) ?? selection.quote;
+  return withQuote(comment, quote, column);
+}
+
+/**
+ * Carries a quoted comment through an edit that the editor remapped to `comment`'s lines, whose
+ * excerpt (`diff`) is cut from the edited text. `previous` is the comment resolved in `before`.
+ * Returns the plain line comment unless the quoted occurrence provably survived the edit.
+ */
+export function remapQuotedFileComment(
+  previous: ReviewCommentContext,
+  before: string,
+  comment: ReviewCommentContext,
+): ReviewCommentContext {
+  // The editor excerpt splits lines on "\n" alone, so a lone "\r" breaks the line alignment.
+  if (!previous.quote || /\r(?!\n)/.test(before)) return comment;
+  const starts = lineStartsOf(before);
+  const span = locateSourceComment(previous, before, starts);
+  const regionStart = starts[previous.startIndex];
+  if (span === null || span === "ambiguous" || regionStart === undefined) return comment;
+  const region = before
+    .split("\n")
+    .slice(previous.startIndex, previous.endIndex + 1)
+    .join("\n");
+  const moved = remapSpan(region, comment.diff, {
+    start: span.start - regionStart,
+    end: span.end - regionStart,
+  });
+  const column = moved === null ? undefined : columnOnFirstLine(comment.diff, 0, moved);
+  return column === undefined ? comment : withQuote(comment, previous.quote, column);
 }
 
 /** Line tables of one file version, built on first use and shared by its comments. */
@@ -610,6 +716,7 @@ export function captureShadowSourceTextSelection(
 ): {
   readonly startLine: number;
   readonly endLine: number;
+  readonly column: number;
   readonly quote: FileTextQuote;
   readonly rect: DOMRect;
   readonly lastRect: DOMRect;
@@ -694,6 +801,7 @@ export function captureShadowSourceTextSelection(
   return {
     startLine,
     endLine,
+    column: startColumn,
     quote,
     rect,
     lastRect,
@@ -720,12 +828,6 @@ type SourceAnchor = {
   readonly startColumn: number;
   readonly endLine: number;
   readonly endColumn: number;
-};
-
-type SourceDraft = {
-  readonly startLine: number;
-  readonly endLine: number;
-  readonly quote: FileTextQuote;
 };
 
 function anchorOf(starts: readonly number[], span: RawSpan | "ambiguous" | null) {
@@ -759,7 +861,7 @@ type SourceAnchors = {
   readonly starts: readonly number[];
   readonly comments: ReadonlyArray<ReviewCommentContext>;
   readonly commentAnchors: ReadonlyArray<SourceAnchor>;
-  readonly draft: SourceDraft | null;
+  readonly draft: SourceSelection | null;
   readonly draftAnchor: SourceAnchor | null;
 };
 
@@ -773,7 +875,7 @@ export function sourceSublineAnchors(
   surfaceKey: string,
   contents: string,
   comments: ReadonlyArray<ReviewCommentContext>,
-  draft: SourceDraft | null,
+  draft: SourceSelection | null,
 ): SourceAnchors {
   const cached = sourceAnchorsBySurface.get(surfaceKey);
   const sameContents = cached?.contents === contents;
@@ -787,8 +889,9 @@ export function sourceSublineAnchors(
       (cached.draft !== null &&
         draft !== null &&
         cached.draft.quote === draft.quote &&
+        cached.draft.contents === draft.contents &&
         cached.draft.startLine === draft.startLine &&
-        cached.draft.endLine === draft.endLine));
+        cached.draft.column === draft.column));
   if (cached && sameComments && sameDraft) return cached;
 
   const starts = sameContents ? cached.starts : lineStartsOf(contents);
@@ -801,12 +904,7 @@ export function sourceSublineAnchors(
         return anchor ? [anchor] : [];
       });
   let draftAnchor = sameDraft ? cached.draftAnchor : null;
-  if (!sameDraft && draft) {
-    const bounds = lineBounds(contents, starts, draft.startLine - 1, draft.endLine - 1);
-    draftAnchor = bounds
-      ? anchorOf(starts, locateQuote(contents, bounds.from, bounds.to, draft.quote, undefined))
-      : null;
-  }
+  if (!sameDraft) draftAnchor = draft ? anchorOf(starts, selectionSpanIn(draft, contents)) : null;
   const next = { contents, starts, comments, commentAnchors, draft, draftAnchor };
   sourceAnchorsBySurface.set(surfaceKey, next);
   return next;
@@ -868,7 +966,7 @@ export function syncShadowSourceSublineHighlights(input: {
   readonly shadowRoot: ShadowRoot | null | undefined;
   readonly contents: string;
   readonly comments: ReadonlyArray<ReviewCommentContext>;
-  readonly draft?: SourceDraft | null | undefined;
+  readonly draft?: SourceSelection | null | undefined;
 }): void {
   const { surfaceKey, shadowRoot, contents, comments, draft } = input;
   if (!shadowRoot) {

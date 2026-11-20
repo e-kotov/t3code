@@ -13,13 +13,11 @@ import {
 import {
   FILE_TEXT_QUOTE_MAX_LENGTH,
   captureShadowSourceTextSelection,
+  type SourceSelection,
 } from "./forkFileSublineComments";
-import type { FileTextQuote } from "./forkFileTextQuote";
 
 interface CapturedSourceSelection {
-  readonly startLine: number;
-  readonly endLine: number;
-  readonly quote: FileTextQuote;
+  readonly selection: SourceSelection;
   readonly position: SelectionActionPoint;
 }
 
@@ -48,11 +46,7 @@ export function ForkSourceSelectionToolbar({
   readonly portalTarget?: HTMLElement | null | undefined;
   readonly contents: string;
   readonly disabled?: boolean | undefined;
-  readonly onComment: (selection: {
-    readonly startLine: number;
-    readonly endLine: number;
-    readonly quote: FileTextQuote;
-  }) => void;
+  readonly onComment: (selection: SourceSelection) => void;
 }) {
   const gt = useGT();
   const [selection, setSelection] = useState<CapturedSourceSelection | null>(null);
@@ -102,9 +96,13 @@ export function ForkSourceSelectionToolbar({
         pointer.y >= captured.rect.top - 12 &&
         pointer.y <= captured.rect.bottom + 12;
       setSelection({
-        startLine: captured.startLine,
-        endLine: captured.endLine,
-        quote: captured.quote,
+        selection: {
+          contents,
+          startLine: captured.startLine,
+          endLine: captured.endLine,
+          column: captured.column,
+          quote: captured.quote,
+        },
         position: resolveSelectionActionPosition({
           bounds,
           selectionRect: captured.lastRect,
@@ -131,7 +129,7 @@ export function ForkSourceSelectionToolbar({
   }, [contents, disabled, surfaceEl]);
 
   if (!selection || disabled) return null;
-  const tooLong = selection.quote.text.length > FILE_TEXT_QUOTE_MAX_LENGTH;
+  const tooLong = selection.selection.quote.text.length > FILE_TEXT_QUOTE_MAX_LENGTH;
   const button = (
     <Button
       ref={toolbarRef}
@@ -149,11 +147,7 @@ export function ForkSourceSelectionToolbar({
         window.getSelection()?.removeAllRanges();
         actionsRef.current?.cancel();
         setSelection(null);
-        onComment({
-          startLine: selection.startLine,
-          endLine: selection.endLine,
-          quote: selection.quote,
-        });
+        onComment(selection.selection);
       }}
       onKeyDown={(event) => {
         event.stopPropagation();

@@ -401,3 +401,54 @@ it("creates subline comments from text selections in editable workspace source f
   ).toEqual([comments[0]!.id]);
   expect(state.writeFile).not.toHaveBeenCalled();
 });
+
+function pointInRow(row: HTMLElement, column: number): { node: Text; offset: number } {
+  let remaining = column;
+  const walker = row.ownerDocument.createTreeWalker(row, NodeFilter.SHOW_TEXT);
+  for (let current = walker.nextNode(); current; current = walker.nextNode()) {
+    const text = current as Text;
+    if (remaining <= text.length) return { node: text, offset: remaining };
+    remaining -= text.length;
+  }
+  throw new Error(`Row has no column ${column}`);
+}
+
+it("demotes an editable subline comment when an edit leaves only another occurrence", async () => {
+  using _settings = setup(false);
+  await page.viewport(1200, 900);
+  await preloadHighlighter({ themes: Object.values(DEFAULT_THEMES), langs: ["typescript"] });
+  const contents = "const a = x + x;\n";
+  await using screen = await render(preview("src/a.ts", contents));
+
+  const editor = screen.getByRole("textbox", { name: "src/a.ts" });
+  await expect.element(editor).toBeVisible();
+  await vi.waitFor(() =>
+    expect(shadow(screen)?.querySelector('[data-line="1"]')?.textContent).toContain("x + x"),
+  );
+  await userEvent.click(editor);
+  const row = () => shadow(screen)!.querySelector<HTMLElement>('[data-line="1"]')!;
+  const second = [pointInRow(row(), 14), pointInRow(row(), 15)] as const;
+  await selectDomRange(row(), second[0].node, second[0].offset, second[1].node, second[1].offset);
+  await userEvent.click(page.getByRole("button", { name: "Add a comment" }));
+  await screen.getByRole("textbox", { name: 'Comment on lines L1 · "x"' }).fill("Rename.");
+  await userEvent.click(screen.getByRole("button", { name: "Comment", exact: true }));
+  const stored = () => useComposerDraftStore.getState().getComposerDraft(threadRef)?.reviewComments;
+  expect(stored()?.[0]?.rangeLabel).toBe('L1:15 · "x"');
+  await vi.waitFor(() => expect(highlightedText("t3-file-source-comment")).toEqual(["x"]));
+
+  // Select " + x" in the editor and delete it in one edit.
+  await userEvent.click(editor);
+  const from = pointInRow(row(), 11);
+  const to = pointInRow(row(), 15);
+  await act(async () => {
+    window.getSelection()?.setBaseAndExtent(from.node, from.offset, to.node, to.offset);
+  });
+  await userEvent.keyboard("{Backspace}");
+  await vi.waitFor(() => expect(state.optimistic?.contents).toBe("const a = x;\n"));
+
+  await vi.waitFor(() =>
+    expect(stored()?.[0]).toMatchObject({ rangeLabel: "L1", diff: "const a = x;" }),
+  );
+  expect(stored()?.[0]?.quote).toBeUndefined();
+  await vi.waitFor(() => expect(highlightedText("t3-file-source-comment")).toEqual([]));
+});

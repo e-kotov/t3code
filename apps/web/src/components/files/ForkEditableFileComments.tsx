@@ -13,11 +13,12 @@ import {
   clearShadowSourceSublineHighlights,
   fileReviewCommentsFor,
   formatQuotedRangeLabel,
-  quoteFileReviewComment,
+  quoteSubmittedFileComment,
+  remapQuotedFileComment,
+  type SourceSelection,
   syncShadowSourceSublineHighlights,
   withPromptCommentAnnotations,
 } from "./forkFileSublineComments";
-import type { FileTextQuote } from "./forkFileTextQuote";
 import { ForkSourceSelectionToolbar, ForkSublineQuoteBadge } from "./ForkSourceSelectionToolbar";
 
 export { FORK_SOURCE_SUBLINE_UNSAFE_CSS } from "./forkFileSublineComments";
@@ -39,15 +40,14 @@ export function useForkFileReviewComments(
   return fileReviewCommentsFor(usePromptReviewComments(composerDraftTarget), filePath, contents);
 }
 
-function draftQuoteOf(
+function draftSelectionOf(
   lineAnnotations: ReadonlyArray<FileCommentLineAnnotation>,
-  quoteOf: (entryId: string) => FileTextQuote | undefined,
+  stagedSelections: ReadonlyMap<string, SourceSelection>,
 ) {
   const draft = lineAnnotations
     .flatMap((annotation) => annotation.metadata.entries)
     .find((entry) => entry.kind === "draft");
-  const quote = draft ? quoteOf(draft.id) : undefined;
-  return draft && quote ? { startLine: draft.startLine, endLine: draft.endLine, quote } : null;
+  return (draft && stagedSelections.get(draft.id)) ?? null;
 }
 
 /** Subline quote state and line annotations for the editable file surface. */
@@ -65,35 +65,49 @@ export function useForkEditableFileComments(
   );
   // Comments added while open (context import) are annotated too, until an edit stores them.
   const lineAnnotations = withPromptCommentAnnotations(annotationState, comments);
-  const [stagedQuotes, setStagedQuotes] = useState<ReadonlyMap<string, FileTextQuote>>(
+  const [stagedSelections, setStagedSelections] = useState<ReadonlyMap<string, SourceSelection>>(
     () => new Map(),
   );
-  const pendingQuoteRef = useRef<FileTextQuote | null>(null);
-  // A staged quote serves only the draft; once in the prompt, the resolved comment decides.
+  const pendingSelectionRef = useRef<SourceSelection | null>(null);
+  const inPrompt = (entryId: string) => promptComments.some((comment) => comment.id === entryId);
+  // A staged selection serves only the draft; once in the prompt, the resolved comment decides.
   const quoteOf = (entryId: string) =>
-    promptComments.some((comment) => comment.id === entryId)
+    inPrompt(entryId)
       ? comments.find((comment) => comment.id === entryId)?.quote
-      : stagedQuotes.get(entryId);
+      : stagedSelections.get(entryId)?.quote;
 
   return {
     surfaceKey,
     contents,
     comments,
     quoteOf,
+    stagedSelections,
     lineAnnotationState: [lineAnnotations, setLineAnnotations] as const,
+    /**
+     * Quotes the line comments the editable surface builds: a submitted draft from its captured
+     * selection, an edited comment only when its quoted occurrence provably survived the edit.
+     */
     addReviewComment: (...[target, comment, options]: Parameters<typeof addReviewComment>) => {
-      const quote = quoteOf(comment.id);
-      addReviewComment(target, quote ? quoteFileReviewComment(comment, quote) : comment, options);
+      let next = comment;
+      if (inPrompt(comment.id)) {
+        // `comments` and `contents` come from the same render, before this edit.
+        const previous = comments.find((candidate) => candidate.id === comment.id);
+        if (previous) next = remapQuotedFileComment(previous, contents, comment);
+      } else {
+        const selection = stagedSelections.get(comment.id);
+        if (selection) next = quoteSubmittedFileComment(comment, selection, contents);
+      }
+      addReviewComment(target, next, options);
     },
-    /** Attaches the quote staged by the selection toolbar, if any, to a new entry id. */
+    /** Attaches the selection staged by the selection toolbar, if any, to a new entry id. */
     claimQuote: (id: string) => {
-      const quote = pendingQuoteRef.current;
-      pendingQuoteRef.current = null;
-      if (quote) setStagedQuotes((current) => new Map(current).set(id, quote));
+      const selection = pendingSelectionRef.current;
+      pendingSelectionRef.current = null;
+      if (selection) setStagedSelections((current) => new Map(current).set(id, selection));
       return id;
     },
-    stageQuote: (quote: FileTextQuote) => {
-      pendingQuoteRef.current = quote;
+    stageSelection: (selection: SourceSelection) => {
+      pendingSelectionRef.current = selection;
     },
     quoteFor: (entry: Pick<FileCommentAnnotationEntry, "id" | "startLine" | "endLine">) => {
       const quote = quoteOf(entry.id);
@@ -115,7 +129,7 @@ export function useForkEditableFileComments(
         shadowRoot: fileContainer.shadowRoot,
         contents,
         comments,
-        draft: draftQuoteOf(lineAnnotations, quoteOf),
+        draft: draftSelectionOf(lineAnnotations, stagedSelections),
       });
     },
   };
@@ -135,11 +149,8 @@ export function ForkEditableSourceComments({
 }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const surfaceEl = anchor?.parentElement ?? null;
-  const { surfaceKey, contents, comments: fileComments, stageQuote } = comments;
-  const draft = draftQuoteOf(lineAnnotations, comments.quoteOf);
-  const draftStartLine = draft?.startLine;
-  const draftEndLine = draft?.endLine;
-  const draftQuote = draft?.quote;
+  const { surfaceKey, contents, comments: fileComments, stageSelection } = comments;
+  const draft = draftSelectionOf(lineAnnotations, comments.stagedSelections);
 
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- syncs CSS Highlights in the editable diffs shadow DOM for saved and draft subline comments
   useEffect(() => {
@@ -148,13 +159,10 @@ export function ForkEditableSourceComments({
       shadowRoot: surfaceEl?.querySelector("diffs-container")?.shadowRoot,
       contents,
       comments: fileComments,
-      draft:
-        draftStartLine !== undefined && draftEndLine !== undefined && draftQuote
-          ? { startLine: draftStartLine, endLine: draftEndLine, quote: draftQuote }
-          : null,
+      draft,
     });
     return () => clearShadowSourceSublineHighlights(surfaceKey);
-  }, [contents, draftEndLine, draftQuote, draftStartLine, fileComments, surfaceEl, surfaceKey]);
+  }, [contents, draft, fileComments, surfaceEl, surfaceKey]);
 
   return (
     <>
@@ -165,7 +173,7 @@ export function ForkEditableSourceComments({
         contents={contents}
         disabled={disabled}
         onComment={(selection) => {
-          stageQuote(selection.quote);
+          stageSelection(selection);
           onComment({ start: selection.startLine, end: selection.endLine });
         }}
       />

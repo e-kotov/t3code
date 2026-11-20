@@ -15,9 +15,11 @@ import {
   fileReviewCommentsFor,
   formatQuotedRangeLabel,
   inferMarkdownSourceLineRange,
-  quoteFileReviewComment,
+  quoteSubmittedFileComment,
+  remapQuotedFileComment,
   renderedMarkdownCommentsFor,
   resolveFileReviewComment,
+  type SourceSelection,
   sourceSublineAnchors,
 } from "./forkFileSublineComments";
 
@@ -215,6 +217,142 @@ describe("forkFileSublineComments", () => {
     expect(fileReviewCommentsFor([crlfLine], "src/a.ts", crlf)).toEqual([crlfLine]);
   });
 
+  it("does not move a quote onto another occurrence of its text after an edit", () => {
+    const contents = "const a = x + x;\n";
+    const quote = createAssistantTextSelector(contents, 14, 15)!;
+    const comment = buildSublineFileReviewComment({
+      id: "comment-second-x",
+      filePath: "src/a.ts",
+      sectionKind: "file",
+      text: "Rename.",
+      quote,
+      contents,
+      startLine: 1,
+      endLine: 1,
+    });
+    expect(comment.rangeLabel).toBe('L1:15 · "x"');
+
+    // The editor rebuilds an edited comment from its remapped lines in the edited text.
+    const remap = (edited: string, line = 1) => {
+      const remapped = buildFileReviewComment({
+        id: comment.id,
+        filePath: "src/a.ts",
+        startLine: line,
+        endLine: line,
+        text: comment.text,
+        contents: edited,
+      });
+      return { remapped, result: remapQuotedFileComment(comment, contents, remapped) };
+    };
+    // Deleting " + x" leaves one "x", which is not the quoted occurrence.
+    const edited = "const a = x;\n";
+    const deleted = remap(edited);
+    expect(deleted.result).toEqual(deleted.remapped);
+    // Deleting "const a = x + " can only have kept the quoted occurrence.
+    expect(remap("x;\n").result.rangeLabel).toBe('L1:1 · "x"');
+    // Edits that provably keep the occurrence carry it to its new column or line.
+    expect(remap("const ab = x + x;\n").result.rangeLabel).toBe('L1:16 · "x"');
+    expect(remap("// note\nconst a = x + x;\n", 2).result).toMatchObject({
+      rangeLabel: 'L2:15 · "x"',
+      diff: "x",
+      quote,
+    });
+
+    // Context only within the line cannot tell which "x" of "x + x;" survives as "x;".
+    const short = "x + x;\n";
+    const shortComment = buildSublineFileReviewComment({
+      id: "comment-short",
+      filePath: "src/a.ts",
+      sectionKind: "file",
+      text: "Rename.",
+      quote: createAssistantTextSelector(short, 4, 5)!,
+      contents: short,
+      startLine: 1,
+      endLine: 1,
+    });
+    expect(shortComment.rangeLabel).toBe('L1:5 · "x"');
+    const shortRemapped = buildFileReviewComment({
+      id: shortComment.id,
+      filePath: "src/a.ts",
+      startLine: 1,
+      endLine: 1,
+      text: shortComment.text,
+      contents: "x;\n",
+    });
+    expect(remapQuotedFileComment(shortComment, short, shortRemapped)).toEqual(shortRemapped);
+
+    const restored = throughRecord(comment);
+    expect(fileReviewCommentsFor([restored], "src/a.ts", edited)).toEqual([restored]);
+    expect(sourceSublineAnchors("moved", edited, [restored], null).commentAnchors).toEqual([]);
+    clearShadowSourceSublineHighlights("moved");
+  });
+
+  it("keeps the quote of a comment submitted on a later line of a CR-only file", () => {
+    const contents = "first\rconst b = needle;\r";
+    const start = contents.indexOf("needle");
+    const quote = createAssistantTextSelector(contents, start, start + 6)!;
+    const selection: SourceSelection = { contents, startLine: 2, endLine: 2, column: 10, quote };
+    const submitted = buildFileReviewComment({
+      id: "comment-cr",
+      filePath: "src/a.ts",
+      startLine: 2,
+      endLine: 2,
+      text: "Rename.",
+      contents,
+    });
+    expect(quoteSubmittedFileComment(submitted, selection, contents)).toMatchObject({
+      rangeLabel: 'L2:11 · "needle"',
+      diff: "needle",
+      quote,
+    });
+
+    // The captured column names the occurrence; an edit that may have moved it demotes the draft.
+    const repeated = "const a = x + x;\n";
+    const second: SourceSelection = {
+      contents: repeated,
+      startLine: 1,
+      endLine: 1,
+      column: 14,
+      quote: createAssistantTextSelector(repeated, 14, 15)!,
+    };
+    const lineComment = (text: string) =>
+      buildFileReviewComment({
+        id: "comment-x",
+        filePath: "src/a.ts",
+        startLine: 1,
+        endLine: 1,
+        text: "Rename.",
+        contents: text,
+      });
+    expect(quoteSubmittedFileComment(lineComment(repeated), second, repeated).rangeLabel).toBe(
+      'L1:15 · "x"',
+    );
+    const edited = "const a = x;\n";
+    expect(quoteSubmittedFileComment(lineComment(edited), second, edited)).toEqual(
+      lineComment(edited),
+    );
+    expect(sourceSublineAnchors("draft", edited, [], second).draftAnchor).toBeNull();
+    expect(sourceSublineAnchors("draft", repeated, [], second).draftAnchor).toEqual({
+      startLine: 1,
+      startColumn: 14,
+      endLine: 1,
+      endColumn: 15,
+    });
+    clearShadowSourceSublineHighlights("draft");
+  });
+
+  it("does not map rendered text into hidden YAML front matter", () => {
+    // The front matter is not rendered, so its "alpha beta" only looks like the rendered entity.
+    const markdown = "---\ntitle: alpha beta\n---\n\n&#97;lpha beta\n";
+    const alpha = createAssistantTextSelector("alpha beta", 0, 5)!;
+    expect(inferMarkdownSourceLineRange(markdown, alpha)).toBeNull();
+
+    const body = "---\r\ntitle: gamma\r\n---\r\n\r\nThe gamma beta.\r\n";
+    const rendered = "The gamma beta.";
+    const gamma = createAssistantTextSelector(rendered, 4, 9)!;
+    expect(inferMarkdownSourceLineRange(body, gamma)).toEqual({ startLine: 5, endLine: 5 });
+  });
+
   it("drops the quote when an edit removes it from the recorded lines", () => {
     const contents = "const a = needle;\nconst b = needle;\n";
     const quote = createAssistantTextSelector(contents, 10, 16)!;
@@ -248,6 +386,6 @@ describe("forkFileSublineComments", () => {
       text: comment.text,
       contents: edited,
     });
-    expect(quoteFileReviewComment(remapped, quote)).toEqual(remapped);
+    expect(remapQuotedFileComment(comment, contents, remapped)).toEqual(remapped);
   });
 });
