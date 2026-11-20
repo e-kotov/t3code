@@ -1,7 +1,8 @@
 name: Fork Actions cache prune
 
 # Deletes only provably dead caches (setup-go-* keys and merged-PR merge refs) so they do not
-# evict main's Android caches. Scheduled runs delete; dispatches dry-run unless dry_run=false on main.
+# evict main's Android caches. Scheduled runs only list candidates; deleting needs a dispatch on
+# main with dry_run=false until the weekly lists have been checked.
 on:
   schedule:
     - cron: "37 3 * * 1"
@@ -38,7 +39,7 @@ jobs:
       - name: Prune obsolete caches
         env:
           GH_TOKEN: ${{ github.token }}
-          DELETE: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == false && github.ref == 'refs/heads/main') }}
+          DELETE: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == false && github.ref == 'refs/heads/main' }}
         run: |
           set -euo pipefail
           if [ "$DELETE" = true ]; then set -- --delete; fi
