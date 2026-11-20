@@ -1,10 +1,12 @@
 import { DEFAULT_THEMES, preloadHighlighter } from "@pierre/diffs";
 import { EnvironmentId, ThreadId, type ProjectReadFileResult } from "@t3tools/contracts";
+import { createAssistantTextSelector } from "@t3tools/shared/assistantCitations";
 import { AsyncResult } from "effect/reactivity";
 import type { ReactNode } from "react";
 import { expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
 import { useComposerDraftStore } from "~/composerDraftStore";
+import { reviewCommentContextRecord, reviewCommentFromRecord } from "~/lib/composerContextRecords";
 import "../../index.css";
 import { act, render, type Screen } from "../../../test/render";
 
@@ -83,6 +85,7 @@ vi.mock(import("./projectFilesQueryState"), async (original) => ({
 }));
 
 import FilePreviewPanel from "./FilePreviewPanel";
+import { buildSublineFileReviewComment } from "./forkFileSublineComments";
 
 const environmentId = EnvironmentId.make("subline-comments-test");
 const threadRef = { environmentId, threadId: ThreadId.make("thread") };
@@ -290,7 +293,7 @@ it("creates and restores subline comments from text selections in read-only exte
     sectionId: `file:${path}`,
     startIndex: 1,
     endIndex: 1,
-    rangeLabel: 'L2 · "second sentence"',
+    rangeLabel: 'L2:26 · "second sentence"',
     diff: "second sentence",
     text: "Split this clause.",
     quote: {
@@ -351,12 +354,39 @@ it("creates subline comments from text selections in editable workspace source f
     sectionId: "file:src/config.ts",
     startIndex: 0,
     endIndex: 0,
-    rangeLabel: 'L1 · "retryCount"',
+    rangeLabel: 'L1:7 · "retryCount"',
     diff: "retryCount",
     text: "Rename to maxRetries.",
     quote: {
       text: "retryCount",
     },
   });
+
+  // Context import adds a comment, without its quote, while the file is open.
+  const start = contents.indexOf("timeoutMs");
+  const imported = buildSublineFileReviewComment({
+    id: "imported-comment",
+    filePath: "src/config.ts",
+    sectionKind: "file",
+    text: "Use seconds.",
+    quote: createAssistantTextSelector(contents, start, start + "timeoutMs".length)!,
+    contents,
+    startLine: 2,
+    endLine: 2,
+  });
+  await act(async () => {
+    useComposerDraftStore
+      .getState()
+      .addReviewComment(threadRef, reviewCommentFromRecord(reviewCommentContextRecord(imported)));
+  });
+  await expect.element(screen.getByText("Use seconds.", { exact: true })).toBeVisible();
+  await vi.waitFor(() => expect(CSS.highlights.get("t3-file-source-comment")?.size).toBe(2));
+  await userEvent.click(screen.getByRole("button", { name: "Delete comment" }).nth(1));
+  expect(
+    useComposerDraftStore
+      .getState()
+      .getComposerDraft(threadRef)
+      ?.reviewComments.map((comment) => comment.id),
+  ).toEqual([comments[0]!.id]);
   expect(state.writeFile).not.toHaveBeenCalled();
 });

@@ -11,11 +11,14 @@ import {
 } from "~/reviewCommentContext";
 import {
   buildSublineFileReviewComment,
+  clearShadowSourceSublineHighlights,
   fileReviewCommentsFor,
   formatQuotedRangeLabel,
   inferMarkdownSourceLineRange,
+  quoteFileReviewComment,
   renderedMarkdownCommentsFor,
   resolveFileReviewComment,
+  sourceSublineAnchors,
 } from "./forkFileSublineComments";
 
 const isReviewCommentContext = Schema.is(ReviewCommentContextSchema);
@@ -77,6 +80,16 @@ describe("forkFileSublineComments", () => {
         suffix: "",
       }),
     ).toBeNull();
+
+    // Markup splits the rendered word, and an earlier URL holds the same raw text.
+    const linked = "See https://example.com/alpha for details.\n\nSome **al**pha text.\n";
+    const linkedRendered = "See https://example.com/alpha for details.\nSome alpha text.";
+    const alphaStart = linkedRendered.lastIndexOf("alpha");
+    const alphaQuote = createAssistantTextSelector(linkedRendered, alphaStart, alphaStart + 5)!;
+    expect(inferMarkdownSourceLineRange(linked, alphaQuote)).toEqual({ startLine: 3, endLine: 3 });
+    expect(
+      inferMarkdownSourceLineRange(linked, { ...alphaQuote, prefix: "", suffix: "" }),
+    ).toBeNull();
   });
 
   it("builds valid schema-compliant ReviewCommentContext records and validates staleness", () => {
@@ -101,7 +114,7 @@ describe("forkFileSublineComments", () => {
       sectionId: "file:src/config.ts",
       startIndex: 1,
       endIndex: 1,
-      rangeLabel: 'L2 · "retryCount = 3"',
+      rangeLabel: 'L2:7 · "retryCount = 3"',
       diff: "retryCount = 3",
       text: "Make this configurable.",
       quote,
@@ -145,5 +158,94 @@ describe("forkFileSublineComments", () => {
     expect(renderedMarkdownCommentsFor([renderedComment], "docs/guide.md")[0]?.quote?.text).toBe(
       "retry",
     );
+  });
+
+  it("restores record quotes onto the selected occurrence within the recorded lines", () => {
+    const sourceComment = (contents: string, start: number, end: number, line: number) => {
+      const quote = createAssistantTextSelector(contents, start, end)!;
+      const comment = buildSublineFileReviewComment({
+        id: `comment-${line}-${start}`,
+        filePath: "src/a.ts",
+        sectionKind: "file",
+        text: "Note.",
+        quote,
+        contents,
+        startLine: line,
+        endLine: line,
+      });
+      return { quote, comment, restored: throughRecord(comment) };
+    };
+    const resolvedQuote = (comment: ReviewCommentContext, contents: string) =>
+      fileReviewCommentsFor([comment], "src/a.ts", contents)[0]?.quote;
+
+    const repeated = "const y = x + x;\n";
+    const second = sourceComment(
+      repeated,
+      repeated.lastIndexOf("x"),
+      repeated.lastIndexOf("x") + 1,
+      1,
+    );
+    expect(second.restored.rangeLabel).toBe('L1:15 · "x"');
+    expect(resolvedQuote(second.restored, repeated)).toEqual(second.quote);
+    // Without a column the occurrence is unknown: keep the comment, but do not guess a highlight.
+    const unlocated = { ...second.restored, rangeLabel: 'L1 · "x"' };
+    expect(fileReviewCommentsFor([unlocated], "src/a.ts", repeated)).toEqual([unlocated]);
+
+    const wholeLine = "alpha\nbeta gamma\n";
+    const line = sourceComment(wholeLine, 6, 16, 2);
+    expect(resolvedQuote(line.restored, wholeLine)).toEqual(line.quote);
+
+    const carriageReturns = "first\rsecond line\r";
+    const cr = sourceComment(carriageReturns, 6, 12, 2);
+    expect(resolvedQuote(cr.restored, carriageReturns)).toEqual(cr.quote);
+
+    const crlf = "one\r\ntwo\r\n";
+    const crlfLine = throughRecord(
+      buildFileReviewComment({
+        id: "comment-crlf",
+        filePath: "src/a.ts",
+        startLine: 2,
+        endLine: 2,
+        text: "Whole line.",
+        contents: crlf,
+      }),
+    );
+    expect(fileReviewCommentsFor([crlfLine], "src/a.ts", crlf)).toEqual([crlfLine]);
+  });
+
+  it("drops the quote when an edit removes it from the recorded lines", () => {
+    const contents = "const a = needle;\nconst b = needle;\n";
+    const quote = createAssistantTextSelector(contents, 10, 16)!;
+    const comment = buildSublineFileReviewComment({
+      id: "comment-needle",
+      filePath: "src/a.ts",
+      sectionKind: "file",
+      text: "Rename.",
+      quote,
+      contents,
+      startLine: 1,
+      endLine: 1,
+    });
+    const edited = "const a = other;\nconst b = needle;\n";
+    expect(resolveFileReviewComment(comment, edited)).toBeNull();
+
+    // Scrolling re-renders rows with equal inputs; the located anchors must be reused, not rescanned.
+    const anchors = sourceSublineAnchors("surface", contents, [comment], null);
+    expect(anchors.commentAnchors).toEqual([
+      { startLine: 1, startColumn: 10, endLine: 1, endColumn: 16 },
+    ]);
+    expect(sourceSublineAnchors("surface", contents, [{ ...comment }], null)).toBe(anchors);
+    expect(sourceSublineAnchors("surface", edited, [comment], null).commentAnchors).toEqual([]);
+    clearShadowSourceSublineHighlights("surface");
+
+    const remapped = buildFileReviewComment({
+      id: comment.id,
+      filePath: "src/a.ts",
+      startLine: 1,
+      endLine: 1,
+      text: comment.text,
+      contents: edited,
+    });
+    expect(quoteFileReviewComment(remapped, quote)).toEqual(remapped);
   });
 });

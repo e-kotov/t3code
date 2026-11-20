@@ -13,9 +13,9 @@ import {
   clearShadowSourceSublineHighlights,
   fileReviewCommentsFor,
   formatQuotedRangeLabel,
-  initialEditableFileAnnotations,
   quoteFileReviewComment,
   syncShadowSourceSublineHighlights,
+  withPromptCommentAnnotations,
 } from "./forkFileSublineComments";
 import type { FileTextQuote } from "./forkFileTextQuote";
 import { ForkSourceSelectionToolbar, ForkSublineQuoteBadge } from "./ForkSourceSelectionToolbar";
@@ -24,16 +24,19 @@ export { FORK_SOURCE_SUBLINE_UNSAFE_CSS } from "./forkFileSublineComments";
 
 const EMPTY_COMMENTS: ReadonlyArray<ReviewCommentContext> = [];
 
+function usePromptReviewComments(composerDraftTarget: ScopedThreadRef | DraftId) {
+  return useComposerDraftStore(
+    (store) => store.getComposerDraft(composerDraftTarget)?.reviewComments ?? EMPTY_COMMENTS,
+  );
+}
+
 /** Prompt comments that still apply to this raw file, with quotes recovered from records. */
 export function useForkFileReviewComments(
   composerDraftTarget: ScopedThreadRef | DraftId,
   filePath: string,
   contents: string,
 ): ReviewCommentContext[] {
-  const comments = useComposerDraftStore(
-    (store) => store.getComposerDraft(composerDraftTarget)?.reviewComments ?? EMPTY_COMMENTS,
-  );
-  return fileReviewCommentsFor(comments, filePath, contents);
+  return fileReviewCommentsFor(usePromptReviewComments(composerDraftTarget), filePath, contents);
 }
 
 function draftQuoteOf(
@@ -47,7 +50,7 @@ function draftQuoteOf(
   return draft && quote ? { startLine: draft.startLine, endLine: draft.endLine, quote } : null;
 }
 
-/** Subline quote state for the editable file surface; the surface keeps its line annotations. */
+/** Subline quote state and line annotations for the editable file surface. */
 export function useForkEditableFileComments(
   composerDraftTarget: ScopedThreadRef | DraftId,
   relativePath: string,
@@ -55,20 +58,26 @@ export function useForkEditableFileComments(
 ) {
   const surfaceKey = useId();
   const addReviewComment = useComposerDraftStore((store) => store.addReviewComment);
-  const comments = useForkFileReviewComments(composerDraftTarget, relativePath, contents);
+  const promptComments = usePromptReviewComments(composerDraftTarget);
+  const comments = fileReviewCommentsFor(promptComments, relativePath, contents);
+  const [annotationState, setLineAnnotations] = useState<FileCommentLineAnnotation[]>([]);
+  const lineAnnotations = withPromptCommentAnnotations(annotationState, comments);
   const [stagedQuotes, setStagedQuotes] = useState<ReadonlyMap<string, FileTextQuote>>(
     () => new Map(),
   );
   const pendingQuoteRef = useRef<FileTextQuote | null>(null);
+  // A staged quote serves only the draft; once in the prompt, the resolved comment decides.
   const quoteOf = (entryId: string) =>
-    stagedQuotes.get(entryId) ?? comments.find((comment) => comment.id === entryId)?.quote;
+    promptComments.some((comment) => comment.id === entryId)
+      ? comments.find((comment) => comment.id === entryId)?.quote
+      : stagedQuotes.get(entryId);
 
   return {
     surfaceKey,
     contents,
     comments,
     quoteOf,
-    initialLineAnnotations: () => initialEditableFileAnnotations(comments),
+    lineAnnotationState: [lineAnnotations, setLineAnnotations] as const,
     addReviewComment: (...[target, comment, options]: Parameters<typeof addReviewComment>) => {
       const quote = quoteOf(comment.id);
       addReviewComment(target, quote ? quoteFileReviewComment(comment, quote) : comment, options);

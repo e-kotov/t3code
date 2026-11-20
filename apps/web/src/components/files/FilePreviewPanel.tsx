@@ -104,7 +104,6 @@ import { ForkCommentableMarkdownPreview } from "./ForkCommentableMarkdownPreview
 import {
   type FileCommentAnnotationEntry,
   type FileCommentAnnotationGroup,
-  type FileCommentLineAnnotation,
   formatFileCommentRange,
   nextFileCommentId,
   normalizeFileCommentRange,
@@ -873,9 +872,7 @@ function EditableFileSurface({
         store.getComposerDraft(composerDraftTarget)?.reviewComments ?? EMPTY_REVIEW_COMMENTS,
     ).map((comment) => comment.id),
   );
-  const [lineAnnotations, setLineAnnotations] = useState<FileCommentLineAnnotation[]>(
-    forkComments.initialLineAnnotations,
-  );
+  const [lineAnnotations, setLineAnnotations] = forkComments.lineAnnotationState;
   const [selectionOverride, setSelectionOverride] = useState<FileSelectionOverride | null>(null);
   const selectedRange =
     selectionOverride?.revealRequestId === revealRequestId ? selectionOverride.range : null;

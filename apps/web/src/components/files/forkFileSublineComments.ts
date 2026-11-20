@@ -47,17 +47,32 @@ function truncateSnippet(value: string, maxChars = QUOTE_LABEL_MAX_CHARS): strin
   return `${collapsed.slice(0, end)}…`;
 }
 
+/** `column` (1-based, on the start line) tells a restored record which occurrence was quoted. */
 export function formatQuotedRangeLabel(input: {
   readonly quoteText: string;
   readonly startLine?: number | undefined;
   readonly endLine?: number | undefined;
+  readonly column?: number | undefined;
 }): string {
   const snippet = `"${truncateSnippet(input.quoteText)}"`;
   if (input.startLine === undefined) return snippet;
   const startLine = Math.max(1, input.startLine);
   const endLine = Math.max(startLine, input.endLine ?? startLine);
-  const linePart = endLine === startLine ? `L${startLine}` : `L${startLine} to L${endLine}`;
+  const start = input.column === undefined ? `L${startLine}` : `L${startLine}:${input.column}`;
+  const linePart = endLine === startLine ? start : `${start} to L${endLine}`;
   return `${linePart} · ${snippet}`;
+}
+
+const QUOTED_LABEL = /^L\d+(?::(\d+))?(?: to L\d+)? · ".*"$/su;
+
+function isQuotedLabel(rangeLabel: string): boolean {
+  return QUOTED_LABEL.test(rangeLabel);
+}
+
+/** The label's start column as a 0-based offset into the start line. */
+function labelColumnOffset(rangeLabel: string): number | undefined {
+  const column = QUOTED_LABEL.exec(rangeLabel)?.[1];
+  return column === undefined ? undefined : Number(column) - 1;
 }
 
 function lineStartsOf(text: string): number[] {
@@ -112,31 +127,119 @@ function stripSimpleMarkdownInline(line: string): string {
     .replace(/^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/, "");
 }
 
+function lineRangeOf(text: string, match: { readonly start: number; readonly end: number }) {
+  const starts = lineStartsOf(text);
+  const rawStart = rawTextOffset(text, match.start);
+  const rawEnd = Math.max(rawStart + 1, rawTextOffset(text, match.end));
+  const startLine = lineIndexAtOffset(starts, rawStart) + 1;
+  const endLine = lineIndexAtOffset(starts, rawEnd - 1) + 1;
+  return { startLine, endLine: Math.max(startLine, endLine) };
+}
+
+/** A match whose rendered context agrees on at least one side; a lone occurrence is not proof. */
+function verifiedMatch(text: string, quote: FileTextQuote) {
+  const match = findAssistantCitationText(text, quote);
+  if (match === null) return null;
+  const normalized = text.replace(/\s+/g, " ");
+  const prefix = quote.prefix.replace(/\s+/g, " ");
+  const suffix = quote.suffix.replace(/\s+/g, " ");
+  const prefixAgrees =
+    prefix.length > 0 &&
+    normalized.slice(Math.max(0, match.start - prefix.length), match.start) === prefix;
+  const suffixAgrees =
+    suffix.length > 0 && normalized.slice(match.end, match.end + suffix.length) === suffix;
+  return prefixAgrees || suffixAgrees ? match : null;
+}
+
+/** Source lines of a rendered quote, or null when the mapping cannot be verified. */
 export function inferMarkdownSourceLineRange(
   sourceText: string,
   quote: FileTextQuote,
 ): { readonly startLine: number; readonly endLine: number } | null {
-  const starts = lineStartsOf(sourceText);
-  const direct = findAssistantCitationText(sourceText, quote);
-  if (direct !== null) {
-    const rawStart = rawTextOffset(sourceText, direct.start);
-    const rawEnd = Math.max(rawStart + 1, rawTextOffset(sourceText, direct.end));
-    const startLine = lineIndexAtOffset(starts, rawStart) + 1;
-    const endLine = lineIndexAtOffset(starts, Math.max(rawStart, rawEnd - 1)) + 1;
-    return { startLine, endLine: Math.max(startLine, endLine) };
-  }
+  // Lines stay aligned with the source, so a match in the stripped text names source lines.
+  const stripped = sourceText
+    .split(/\r\n|\r|\n/)
+    .map(stripSimpleMarkdownInline)
+    .join("\n");
+  const strippedMatch = verifiedMatch(stripped, quote);
+  if (strippedMatch !== null) return lineRangeOf(stripped, strippedMatch);
+  const rawMatch = verifiedMatch(sourceText, quote);
+  return rawMatch === null ? null : lineRangeOf(sourceText, rawMatch);
+}
 
-  const normalizedQuote = quote.text.replace(/\s+/g, " ").trim();
-  if (normalizedQuote.length === 0 || normalizedQuote.includes("\n")) return null;
-  const lines = sourceText.split(/\r\n|\r|\n/);
-  let matchedLine: number | null = null;
-  for (let index = 0; index < lines.length; index += 1) {
-    const stripped = stripSimpleMarkdownInline(lines[index]!).replace(/\s+/g, " ");
-    if (!stripped.includes(normalizedQuote)) continue;
-    if (matchedLine !== null) return null;
-    matchedLine = index + 1;
+type RawSpan = { readonly start: number; readonly end: number };
+
+// Normalizing a prefix or suffix of a string yields a prefix or suffix of its normalization.
+function normalizedBefore(text: string, index: number, length: number): string {
+  for (let window = length + 16; ; window *= 2) {
+    const from = Math.max(0, index - window);
+    const normalized = text.slice(from, index).replace(/\s+/g, " ");
+    if (normalized.length >= length || from === 0) return normalized.slice(-length);
   }
-  return matchedLine === null ? null : { startLine: matchedLine, endLine: matchedLine };
+}
+
+function normalizedAfter(text: string, index: number, length: number): string {
+  for (let window = length + 16; ; window *= 2) {
+    const to = Math.min(text.length, index + window);
+    const normalized = text.slice(index, to).replace(/\s+/g, " ");
+    if (normalized.length >= length || to === text.length) return normalized.slice(0, length);
+  }
+}
+
+type QuoteContext = { readonly prefix: string; readonly suffix: string };
+
+// Context cut off by the start or end of `text` is compatible, so a slice can be checked alone.
+function contextAgrees(text: string, span: RawSpan, context: QuoteContext): boolean {
+  const prefix = context.prefix.replace(/\s+/g, " ");
+  const suffix = context.suffix.replace(/\s+/g, " ");
+  const before = prefix.length === 0 ? "" : normalizedBefore(text, span.start, prefix.length);
+  const after = suffix.length === 0 ? "" : normalizedAfter(text, span.end, suffix.length);
+  return prefix.endsWith(before) && suffix.startsWith(after);
+}
+
+/**
+ * Raw offsets of `quote` within `[from, to)`: the occurrence at `column` (an offset from `from`),
+ * else the one whose context agrees, else the only one. "ambiguous" when it cannot tell.
+ */
+function locateQuote(
+  text: string,
+  from: number,
+  to: number,
+  quote: { readonly text: string } & Partial<QuoteContext>,
+  column: number | undefined,
+): RawSpan | "ambiguous" | null {
+  if (quote.text.length === 0) return null;
+  const region = text.slice(from, to);
+  const spans: RawSpan[] = [];
+  for (
+    let index = region.indexOf(quote.text);
+    index !== -1;
+    index = region.indexOf(quote.text, index + 1)
+  ) {
+    spans.push({ start: from + index, end: from + index + quote.text.length });
+  }
+  if (spans.length <= 1) return spans[0] ?? null;
+  const atColumn =
+    column === undefined ? undefined : spans.find((span) => span.start === from + column);
+  if (atColumn) return atColumn;
+  const { prefix, suffix } = quote;
+  if (prefix !== undefined && suffix !== undefined) {
+    const agreeing = spans.filter((span) => contextAgrees(text, span, { prefix, suffix }));
+    if (agreeing.length === 1) return agreeing[0]!;
+  }
+  return "ambiguous";
+}
+
+function lineBounds(text: string, starts: readonly number[], startIndex: number, endIndex: number) {
+  const from = starts[startIndex];
+  if (from === undefined || endIndex < startIndex) return null;
+  return { from, to: lineEndOf(text, starts, Math.min(endIndex, starts.length - 1)) };
+}
+
+/** 1-based column of `span` when it starts on the first line of `[from, …)`. */
+function columnOnFirstLine(text: string, from: number, span: RawSpan): number | undefined {
+  const lineBreak = text.slice(from, span.start).search(/\r|\n/);
+  return lineBreak === -1 ? span.start - from + 1 : undefined;
 }
 
 export function buildSublineFileReviewComment(input: {
@@ -159,6 +262,17 @@ export function buildSublineFileReviewComment(input: {
         ? inferMarkdownSourceLineRange(input.contents, input.quote)
         : null;
 
+  let column: number | undefined;
+  if (input.sectionKind === "file" && inferred) {
+    const starts = lineStartsOf(input.contents);
+    const bounds = lineBounds(input.contents, starts, inferred.startLine - 1, inferred.endLine - 1);
+    const span =
+      bounds && locateQuote(input.contents, bounds.from, bounds.to, input.quote, undefined);
+    if (bounds && span && span !== "ambiguous") {
+      column = columnOnFirstLine(input.contents, bounds.from, span);
+    }
+  }
+
   const startIndex = inferred ? inferred.startLine - 1 : 0;
   const endIndex = inferred ? inferred.endLine - 1 : 0;
   return {
@@ -176,6 +290,7 @@ export function buildSublineFileReviewComment(input: {
       quoteText: input.quote.text,
       startLine: inferred?.startLine,
       endLine: inferred?.endLine,
+      column,
     }),
     text: input.text.trim(),
     diff: input.quote.text,
@@ -184,55 +299,80 @@ export function buildSublineFileReviewComment(input: {
   };
 }
 
+/**
+ * Re-quotes a whole-line comment the editor rebuilt from its remapped lines (`diff`).
+ * Returns the plain line comment when the quoted text is no longer within those lines.
+ */
 export function quoteFileReviewComment(
   comment: ReviewCommentContext,
   quote: FileTextQuote,
 ): ReviewCommentContext {
+  const span = locateQuote(comment.diff, 0, comment.diff.length, quote, undefined);
+  if (span === null) return comment;
   return {
     ...comment,
     rangeLabel: formatQuotedRangeLabel({
       quoteText: quote.text,
       startLine: comment.startIndex + 1,
       endLine: comment.endIndex + 1,
+      column: span === "ambiguous" ? undefined : columnOnFirstLine(comment.diff, 0, span),
     }),
     diff: quote.text,
     quote,
   };
 }
 
-// Composer context records (stash, import into another thread) drop the client-only quote.
-// Quoted labels end with the snippet, so whole-line comments keep exact line matching.
-function recoverSourceQuote(
-  comment: ReviewCommentContext,
-  contents: string,
-  lines: readonly string[],
-  slice: string,
-): FileTextQuote | null {
-  if (!comment.rangeLabel.endsWith('"') || comment.diff.trim().length === 0) return null;
-  const index = slice.indexOf(comment.diff);
-  if (index < 0) return null;
-  let offset = index;
-  for (const line of lines.slice(0, comment.startIndex)) offset += line.length + 1;
-  return createAssistantTextSelector(contents, offset, offset + comment.diff.length);
+/** Line tables of one file version, built on first use and shared by its comments. */
+function fileLines(contents: string) {
+  let starts: number[] | undefined;
+  let lines: string[] | undefined;
+  return {
+    starts: () => (starts ??= lineStartsOf(contents)),
+    // Upstream `buildFileReviewComment` cuts whole-line comments on "\n" alone.
+    lines: () => (lines ??= contents.split("\n")),
+  };
 }
 
-/** The comment if it still applies to `contents`, with a quote recovered when a record dropped it. */
+/** Where a source comment's quote sits in `contents`, searched only within its recorded lines. */
+function locateSourceComment(
+  comment: ReviewCommentContext,
+  contents: string,
+  starts: readonly number[],
+): RawSpan | "ambiguous" | null {
+  const bounds = lineBounds(contents, starts, comment.startIndex, comment.endIndex);
+  if (bounds === null) return null;
+  // Composer context records (stash, import into another thread) drop the client-only quote.
+  const quote = comment.quote ?? { text: comment.diff };
+  return locateQuote(
+    contents,
+    bounds.from,
+    bounds.to,
+    quote,
+    labelColumnOffset(comment.rangeLabel),
+  );
+}
+
+/**
+ * The comment if it still applies to `contents`. A record that dropped its quote gets it back
+ * when the quoted occurrence is certain; an ambiguous one stays a comment without a highlight.
+ */
 export function resolveFileReviewComment(
   comment: ReviewCommentContext,
   contents: string,
+  lines = fileLines(contents),
 ): ReviewCommentContext | null {
-  const lines = contents.split("\n");
-  const slice = lines.slice(comment.startIndex, comment.endIndex + 1).join("\n");
-  if (!comment.quote) {
-    if (slice === comment.diff) return comment;
-    const quote = recoverSourceQuote(comment, contents, lines, slice);
-    return quote ? { ...comment, quote } : null;
+  if (!comment.quote && !isQuotedLabel(comment.rangeLabel)) {
+    const slice = lines
+      .lines()
+      .slice(comment.startIndex, comment.endIndex + 1)
+      .join("\n");
+    return slice === comment.diff ? comment : null;
   }
-  if (slice.includes(comment.quote.text)) return comment;
-  const located =
-    findAssistantCitationText(slice, { ...comment.quote, start: 0, end: 0 }) !== null ||
-    findAssistantCitationText(contents, comment.quote) !== null;
-  return located ? comment : null;
+  const span = locateSourceComment(comment, contents, lines.starts());
+  if (span === null) return null;
+  if (comment.quote || span === "ambiguous") return comment;
+  const quote = createAssistantTextSelector(contents, span.start, span.end);
+  return quote ? { ...comment, quote } : comment;
 }
 
 export function fileReviewCommentsFor(
@@ -241,9 +381,10 @@ export function fileReviewCommentsFor(
   contents: string,
 ): ReviewCommentContext[] {
   const sectionId = rawFileSectionId(filePath);
+  const lines = fileLines(contents);
   return comments.flatMap((comment) => {
     if (comment.sectionId !== sectionId) return [];
-    const resolved = resolveFileReviewComment(comment, contents);
+    const resolved = resolveFileReviewComment(comment, contents, lines);
     return resolved ? [resolved] : [];
   });
 }
@@ -573,61 +714,123 @@ function pointWithinShadowRow(
   return { node: row, offset: row.childNodes.length };
 }
 
-function resolveShadowQuoteRange(
-  shadowRoot: ShadowRoot,
+/** 1-based lines and raw 0-based columns of a located quote. */
+type SourceAnchor = {
+  readonly startLine: number;
+  readonly startColumn: number;
+  readonly endLine: number;
+  readonly endColumn: number;
+};
+
+type SourceDraft = {
+  readonly startLine: number;
+  readonly endLine: number;
+  readonly quote: FileTextQuote;
+};
+
+function anchorOf(starts: readonly number[], span: RawSpan | "ambiguous" | null) {
+  if (span === null || span === "ambiguous" || span.end <= span.start) return null;
+  const startIndex = lineIndexAtOffset(starts, span.start);
+  const endIndex = lineIndexAtOffset(starts, span.end - 1);
+  return {
+    startLine: startIndex + 1,
+    startColumn: span.start - starts[startIndex]!,
+    endLine: endIndex + 1,
+    endColumn: span.end - starts[endIndex]!,
+  };
+}
+
+function sameAnchorInput(left: ReviewCommentContext, right: ReviewCommentContext): boolean {
+  return (
+    left === right ||
+    (left.id === right.id &&
+      left.startIndex === right.startIndex &&
+      left.endIndex === right.endIndex &&
+      left.rangeLabel === right.rangeLabel &&
+      left.diff === right.diff &&
+      left.quote?.text === right.quote?.text &&
+      left.quote?.prefix === right.quote?.prefix &&
+      left.quote?.suffix === right.quote?.suffix)
+  );
+}
+
+type SourceAnchors = {
+  readonly contents: string;
+  readonly starts: readonly number[];
+  readonly comments: ReadonlyArray<ReviewCommentContext>;
+  readonly commentAnchors: ReadonlyArray<SourceAnchor>;
+  readonly draft: SourceDraft | null;
+  readonly draftAnchor: SourceAnchor | null;
+};
+
+const sourceAnchorsBySurface = new Map<string, SourceAnchors>();
+
+/**
+ * Located quotes for one surface, recomputed only when contents, comments, or the draft change.
+ * Virtualized rows re-render on scroll and must only project these onto mounted rows.
+ */
+export function sourceSublineAnchors(
+  surfaceKey: string,
   contents: string,
-  quote: FileTextQuote,
-  lineHint?: { readonly startIndex: number; readonly endIndex: number },
-): Range | null {
-  const starts = lineStartsOf(contents);
-  let rawStart: number | null = null;
-  let rawEnd: number | null = null;
+  comments: ReadonlyArray<ReviewCommentContext>,
+  draft: SourceDraft | null,
+): SourceAnchors {
+  const cached = sourceAnchorsBySurface.get(surfaceKey);
+  const sameContents = cached?.contents === contents;
+  const sameComments =
+    sameContents &&
+    cached.comments.length === comments.length &&
+    cached.comments.every((comment, index) => sameAnchorInput(comment, comments[index]!));
+  const sameDraft =
+    sameContents &&
+    (cached.draft === draft ||
+      (cached.draft !== null &&
+        draft !== null &&
+        cached.draft.quote === draft.quote &&
+        cached.draft.startLine === draft.startLine &&
+        cached.draft.endLine === draft.endLine));
+  if (cached && sameComments && sameDraft) return cached;
 
-  const fullMatch = findAssistantCitationText(contents, quote);
-  if (fullMatch !== null) {
-    rawStart = rawTextOffset(contents, fullMatch.start);
-    rawEnd = rawTextOffset(contents, fullMatch.end);
-  } else if (lineHint) {
-    const lines = contents.split(/\r\n|\r|\n/);
-    const slice = lines.slice(lineHint.startIndex, lineHint.endIndex + 1).join("\n");
-    const sliceMatch = findAssistantCitationText(slice, { ...quote, start: 0, end: 0 });
-    if (sliceMatch !== null) {
-      const baseOffset = starts[lineHint.startIndex] ?? 0;
-      rawStart = baseOffset + rawTextOffset(slice, sliceMatch.start);
-      rawEnd = baseOffset + rawTextOffset(slice, sliceMatch.end);
-    }
+  const starts = sameContents ? cached.starts : lineStartsOf(contents);
+  const commentAnchors = sameComments
+    ? cached.commentAnchors
+    : comments.flatMap((comment) => {
+        const anchor = anchorOf(starts, locateSourceComment(comment, contents, starts));
+        return anchor ? [anchor] : [];
+      });
+  let draftAnchor = sameDraft ? cached.draftAnchor : null;
+  if (!sameDraft && draft) {
+    const bounds = lineBounds(contents, starts, draft.startLine - 1, draft.endLine - 1);
+    draftAnchor = bounds
+      ? anchorOf(starts, locateQuote(contents, bounds.from, bounds.to, draft.quote, undefined))
+      : null;
   }
-  if (rawStart === null || rawEnd === null || rawEnd <= rawStart) return null;
+  const next = { contents, starts, comments, commentAnchors, draft, draftAnchor };
+  sourceAnchorsBySurface.set(surfaceKey, next);
+  return next;
+}
 
-  const startLine = lineIndexAtOffset(starts, rawStart) + 1;
-  const startColumn = rawStart - (starts[startLine - 1] ?? 0);
-  const endLine = lineIndexAtOffset(starts, Math.max(rawStart, rawEnd - 1)) + 1;
-  const endColumn = rawEnd - (starts[endLine - 1] ?? 0);
-
-  const rows = [...shadowRoot.querySelectorAll<HTMLElement>("[data-line]")];
-  if (rows.length === 0) return null;
-  const firstMountedLine = Number(rows[0]!.dataset.line);
-  const lastMountedLine = Number(rows[rows.length - 1]!.dataset.line);
-  if (endLine < firstMountedLine || startLine > lastMountedLine) return null;
-
-  const clampedStartLine = Math.max(startLine, firstMountedLine);
-  const clampedStartCol = clampedStartLine === startLine ? startColumn : 0;
-  const clampedEndLine = Math.min(endLine, lastMountedLine);
-  const startRow = shadowRoot.querySelector<HTMLElement>(`[data-line="${clampedStartLine}"]`);
-  const endRow = shadowRoot.querySelector<HTMLElement>(`[data-line="${clampedEndLine}"]`);
+function projectSourceAnchor(
+  document: Document,
+  rows: ReadonlyMap<number, HTMLElement>,
+  mounted: { readonly first: number; readonly last: number },
+  anchor: SourceAnchor,
+): Range | null {
+  if (anchor.endLine < mounted.first || anchor.startLine > mounted.last) return null;
+  const startLine = Math.max(anchor.startLine, mounted.first);
+  const endLine = Math.min(anchor.endLine, mounted.last);
+  const startRow = rows.get(startLine);
+  const endRow = rows.get(endLine);
   if (!startRow || !endRow) return null;
-
-  const clampedEndCol =
-    clampedEndLine === endLine
-      ? endColumn
-      : Math.max(
-          0,
-          lineEndOf(contents, starts, clampedEndLine - 1) - (starts[clampedEndLine - 1] ?? 0),
-        );
-
-  const startPoint = pointWithinShadowRow(startRow, clampedStartCol);
-  const endPoint = pointWithinShadowRow(endRow, clampedEndCol);
-  const range = shadowRoot.ownerDocument.createRange();
+  const startPoint = pointWithinShadowRow(
+    startRow,
+    startLine === anchor.startLine ? anchor.startColumn : 0,
+  );
+  const endPoint = pointWithinShadowRow(
+    endRow,
+    endLine === anchor.endLine ? anchor.endColumn : Number.POSITIVE_INFINITY,
+  );
+  const range = document.createRange();
   range.setStart(startPoint.node, startPoint.offset);
   range.setEnd(endPoint.node, endPoint.offset);
   return range.collapsed ? null : range;
@@ -663,35 +866,41 @@ export function syncShadowSourceSublineHighlights(input: {
   readonly shadowRoot: ShadowRoot | null | undefined;
   readonly contents: string;
   readonly comments: ReadonlyArray<ReviewCommentContext>;
-  readonly draft?:
-    | { readonly startLine: number; readonly endLine: number; readonly quote: FileTextQuote }
-    | null
-    | undefined;
+  readonly draft?: SourceDraft | null | undefined;
 }): void {
   const { surfaceKey, shadowRoot, contents, comments, draft } = input;
   if (!shadowRoot) {
     clearShadowSourceSublineHighlights(surfaceKey);
     return;
   }
+  const anchors = sourceSublineAnchors(surfaceKey, contents, comments, draft ?? null);
   const commentRanges: Range[] = [];
-  for (const comment of comments) {
-    if (!comment.quote) continue;
-    const range = resolveShadowQuoteRange(shadowRoot, contents, comment.quote, {
-      startIndex: comment.startIndex,
-      endIndex: comment.endIndex,
-    });
-    if (range) commentRanges.push(range);
-  }
   const draftRanges: Range[] = [];
-  if (draft) {
-    const range = resolveShadowQuoteRange(shadowRoot, contents, draft.quote, {
-      startIndex: draft.startLine - 1,
-      endIndex: draft.endLine - 1,
-    });
-    if (range) draftRanges.push(range);
+  if (anchors.commentAnchors.length > 0 || anchors.draftAnchor) {
+    const rows = new Map<number, HTMLElement>();
+    let first = Number.POSITIVE_INFINITY;
+    let last = Number.NEGATIVE_INFINITY;
+    for (const row of shadowRoot.querySelectorAll<HTMLElement>("[data-line]")) {
+      const line = Number(row.dataset.line);
+      if (!Number.isFinite(line)) continue;
+      rows.set(line, row);
+      first = Math.min(first, line);
+      last = Math.max(last, line);
+    }
+    const document = shadowRoot.ownerDocument;
+    for (const anchor of anchors.commentAnchors) {
+      const range = projectSourceAnchor(document, rows, { first, last }, anchor);
+      if (range) commentRanges.push(range);
+    }
+    const draftRange =
+      anchors.draftAnchor &&
+      projectSourceAnchor(document, rows, { first, last }, anchors.draftAnchor);
+    if (draftRange) draftRanges.push(draftRange);
   }
+  const hadRanges = sourceHighlightSurfaceRanges.has(surfaceKey);
   if (commentRanges.length === 0 && draftRanges.length === 0) {
     sourceHighlightSurfaceRanges.delete(surfaceKey);
+    if (!hadRanges) return;
   } else {
     sourceHighlightSurfaceRanges.set(surfaceKey, { comments: commentRanges, drafts: draftRanges });
   }
@@ -699,16 +908,27 @@ export function syncShadowSourceSublineHighlights(input: {
 }
 
 export function clearShadowSourceSublineHighlights(surfaceKey: string): void {
+  sourceAnchorsBySurface.delete(surfaceKey);
   if (sourceHighlightSurfaceRanges.delete(surfaceKey)) {
     rebuildSourceHighlights();
   }
 }
 
-export function initialEditableFileAnnotations(
+/** `annotations` plus entries for prompt comments it lacks, such as ones imported while open. */
+export function withPromptCommentAnnotations(
+  annotations: FileCommentLineAnnotation[],
   comments: ReadonlyArray<ReviewCommentContext>,
 ): FileCommentLineAnnotation[] {
-  const annotations: FileCommentLineAnnotation[] = [];
-  for (const comment of comments) {
+  const annotated = new Set(
+    annotations.flatMap((annotation) => annotation.metadata.entries.map((entry) => entry.id)),
+  );
+  const missing = comments.filter((comment) => !annotated.has(comment.id));
+  if (missing.length === 0) return annotations;
+  const next = annotations.map((annotation) => ({
+    ...annotation,
+    metadata: { entries: [...annotation.metadata.entries] },
+  }));
+  for (const comment of missing) {
     const lineNumber = comment.endIndex + 1;
     const entry: FileCommentAnnotationEntry = {
       id: comment.id,
@@ -717,9 +937,9 @@ export function initialEditableFileAnnotations(
       endLine: lineNumber,
       text: comment.text,
     };
-    const existing = annotations.find((item) => item.lineNumber === lineNumber);
+    const existing = next.find((item) => item.lineNumber === lineNumber);
     if (existing) existing.metadata.entries.push(entry);
-    else annotations.push({ lineNumber, metadata: { entries: [entry] } });
+    else next.push({ lineNumber, metadata: { entries: [entry] } });
   }
-  return annotations;
+  return next;
 }
