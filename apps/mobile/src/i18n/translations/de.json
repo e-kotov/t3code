@@ -5520,5 +5520,6 @@
   "856812e7e1fc445e": "Tool-Aufrufe im Chat",
   "8d545d54c0a9e950": "Die Befehle, Bearbeitungen und Suchen ausblenden, die Agenten ausführen. „Erfolgreiche ausblenden“ behält Fehler. „Zen“ zeigt nur endgültige Antworten. Genehmigungen, Fragen und Fehler werden immer angezeigt.",
   "17e44811aed5153f": "Geplante Aufgaben suchen",
-  "a8753618b379e894": "Keine passenden Aufgaben"
+  "a8753618b379e894": "Keine passenden Aufgaben",
+  "54de9e17b1153a9d": "Auch in Prompts suchen"
 }
