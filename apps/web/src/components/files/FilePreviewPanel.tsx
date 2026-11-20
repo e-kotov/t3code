@@ -80,7 +80,7 @@ import { resolvePathLinkTarget } from "@t3tools/shared/fileLinks";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { stackedThreadToast, toastManager } from "~/components/ui/toast";
 import { type DraftId, useComposerDraftStore } from "~/composerDraftStore";
-import type { ReviewCommentContext } from "~/reviewCommentContext";
+import { buildFileReviewComment, type ReviewCommentContext } from "~/reviewCommentContext";
 import { assetEnvironment } from "~/state/assets";
 import { usePreviewAvailable } from "~/browser/previewRuntime";
 import { useEnvironmentHttpBaseUrl, usePrimaryEnvironmentId } from "~/state/environments";
@@ -101,21 +101,11 @@ import { FileExplorerPane } from "./FileExplorerPane";
 import { FileBreadcrumbs } from "./FileBreadcrumbs";
 import { breadcrumbPathOf, retainedBreadcrumbTrail, trailChildOf } from "./filePath";
 import { ForkCommentableMarkdownPreview } from "./ForkCommentableMarkdownPreview";
-import { ForkSourceSelectionToolbar, ForkSublineQuoteBadge } from "./ForkSourceSelectionToolbar";
-import {
-  FORK_SOURCE_SUBLINE_UNSAFE_CSS,
-  type FileTextQuote,
-  buildEditableReviewComment,
-  initialEditableFileAnnotations,
-  matchesFileReviewComment,
-  rawFileSectionId,
-  useForkEditableSourceHighlights,
-  useForkSublineQuotes,
-} from "./forkFileSublineComments";
 import {
   type FileCommentAnnotationEntry,
   type FileCommentAnnotationGroup,
   type FileCommentLineAnnotation,
+  formatFileCommentRange,
   nextFileCommentId,
   normalizeFileCommentRange,
   remapFileCommentAnnotations,
@@ -132,7 +122,12 @@ import {
 } from "./fileSurfaceChrome";
 import SourceFilePreview from "./CommentableSourcePreview";
 import { resolveCenteredFileLineScrollTop } from "./fileLineReveal";
-import { DiffCommentAnnotation } from "../diffs/DiffCommentAnnotation";
+import {
+  FORK_SOURCE_SUBLINE_UNSAFE_CSS,
+  ForkEditableSourceComments,
+  ForkQuotedCommentAnnotation,
+  useForkEditableFileComments,
+} from "./ForkEditableFileComments";
 import { projectFileCacheKey } from "./fileContentRevision";
 import {
   filePreviewReadErrorMessage,
@@ -869,20 +864,17 @@ function EditableFileSurface({
   onEditorChange,
 }: EditableFileSurfaceProps) {
   const messages = useMessages();
-  const addReviewComment = useComposerDraftStore((store) => store.addReviewComment);
+  const forkComments = useForkEditableFileComments(composerDraftTarget, relativePath, contents);
+  const addReviewComment = forkComments.addReviewComment;
   const removeReviewComment = useComposerDraftStore((store) => store.removeReviewComment);
-  const draft = useComposerDraftStore((store) => store.getComposerDraft(composerDraftTarget));
-  const reviewComments = draft?.reviewComments ?? EMPTY_REVIEW_COMMENTS;
-  const fileReviewComments = reviewComments.filter(
-    (comment) =>
-      comment.sectionId === rawFileSectionId(relativePath) &&
-      matchesFileReviewComment(comment, contents),
+  const promptCommentIds = new Set(
+    useComposerDraftStore(
+      (store) =>
+        store.getComposerDraft(composerDraftTarget)?.reviewComments ?? EMPTY_REVIEW_COMMENTS,
+    ).map((comment) => comment.id),
   );
-  const promptCommentIds = new Set(reviewComments.map((comment) => comment.id));
-  const { registerQuote, clearQuote, quoteOf, formatEntryRangeLabel } =
-    useForkSublineQuotes(fileReviewComments);
-  const [lineAnnotations, setLineAnnotations] = useState<FileCommentLineAnnotation[]>(() =>
-    initialEditableFileAnnotations(reviewComments, relativePath, contents),
+  const [lineAnnotations, setLineAnnotations] = useState<FileCommentLineAnnotation[]>(
+    forkComments.initialLineAnnotations,
   );
   const [selectionOverride, setSelectionOverride] = useState<FileSelectionOverride | null>(null);
   const selectedRange =
@@ -890,20 +882,7 @@ function EditableFileSurface({
   const setSelectedRange = (range: SelectedLineRange | null) => {
     setSelectionOverride({ revealRequestId, range });
   };
-  const [surfaceEl, setSurfaceEl] = useState<HTMLDivElement | null>(null);
-  const syncEditableHighlights = useForkEditableSourceHighlights({
-    surfaceKey: JSON.stringify([
-      "editable-source",
-      environmentId,
-      composerDraftTarget,
-      relativePath,
-    ]),
-    surfaceEl,
-    contents,
-    comments: fileReviewComments,
-    lineAnnotations,
-    quoteOf,
-  });
+  const surfaceRef = useRef<HTMLDivElement>(null);
   const selectionFrameRef = useRef<number | null>(null);
   const saveTarget = { environmentId, cwd, relativePath };
   useFileSaveSession(saveTarget, onPendingChange);
@@ -947,14 +926,13 @@ function EditableFileSurface({
         if (entry.kind !== "comment" || !promptCommentIds.has(entry.id)) continue;
         addReviewComment(
           composerDraftTarget,
-          buildEditableReviewComment({
+          buildFileReviewComment({
             id: entry.id,
             filePath: relativePath,
             startLine: entry.startLine,
             endLine: entry.endLine,
             text: entry.text,
             contents: file.contents,
-            quote: quoteOf(entry.id),
           }),
         );
       }
@@ -963,7 +941,6 @@ function EditableFileSurface({
 
   const removeAnnotationEntry = (entryId: string) => {
     setSelectedRange(null);
-    clearQuote(entryId);
     removeReviewComment(composerDraftTarget, entryId);
     setLineAnnotations((current) => {
       return current.flatMap((annotation) => {
@@ -981,14 +958,13 @@ function EditableFileSurface({
     if (entry) {
       addReviewComment(
         composerDraftTarget,
-        buildEditableReviewComment({
+        buildFileReviewComment({
           id: entry.id,
           filePath: relativePath,
           startLine: entry.startLine,
           endLine: entry.endLine,
           text,
           contents,
-          quote: quoteOf(entry.id),
         }),
       );
     }
@@ -1006,14 +982,12 @@ function EditableFileSurface({
     );
   };
 
-  const beginComment = (range: SelectedLineRange, quote?: FileTextQuote) => {
+  const beginComment = (range: SelectedLineRange) => {
     editorRef.current?.setSelections([]);
     editorRef.current?.blur();
     const { startLine, endLine } = normalizeFileCommentRange(range);
-    const id = nextFileCommentId();
-    if (quote) registerQuote(id, quote);
     const draftEntry: FileCommentAnnotationEntry = {
-      id,
+      id: forkComments.claimQuote(nextFileCommentId()),
       kind: "draft",
       startLine,
       endLine,
@@ -1051,14 +1025,15 @@ function EditableFileSurface({
   );
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- installs selection dismissal listeners on the editor surface DOM node
   useEffect(() => {
-    if (!surfaceEl) return;
+    const root = surfaceRef.current;
+    if (!root) return;
     return installFileEditorDismissal({
-      root: surfaceEl,
+      root,
       editor: { setSelections: (selections) => editorRef.current?.setSelections(selections) },
       isBlocked: () => hasOpenCommentForm,
       onDismiss: () => setSelectedRange(null),
     });
-  }, [hasOpenCommentForm, setSelectedRange, surfaceEl]);
+  }, [hasOpenCommentForm, setSelectedRange]);
   const handleLineSelectionEnd = (range: SelectedLineRange | null) => {
     setSelectedRange(range);
     if (range) {
@@ -1069,7 +1044,7 @@ function EditableFileSurface({
   const handlePostRender: FilePostRender = (fileContainer, instance, phase) => {
     onPostRender(fileContainer, instance, phase);
     onEditablePostRender(instance.file, phase);
-    if (phase !== "unmount") syncEditableHighlights(fileContainer.shadowRoot);
+    forkComments.onPostRender(fileContainer, phase, lineAnnotations);
 
     if (selectionFrameRef.current !== null) {
       cancelAnimationFrame(selectionFrameRef.current);
@@ -1086,7 +1061,7 @@ function EditableFileSurface({
 
   return (
     <EditProvider createEditor={createFileEditor}>
-      <div ref={setSurfaceEl} className="flex min-h-0 flex-1">
+      <div ref={surfaceRef} className="flex min-h-0 flex-1">
         <Virtualizer
           className="file-preview-virtualizer min-h-0 flex-1 overflow-auto"
           config={{
@@ -1124,44 +1099,37 @@ function EditableFileSurface({
               if (entries.length === 0) return null;
               return (
                 <div className="py-1">
-                  {entries.map((entry) => {
-                    const entryQuote = quoteOf(entry.id);
-                    return (
-                      <div key={entry.id}>
-                        {entryQuote ? <ForkSublineQuoteBadge text={entryQuote.text} /> : null}
-                        <DiffCommentAnnotation
-                          environmentId={environmentId}
-                          projectId={projectId}
-                          ownerKey={JSON.stringify([
-                            environmentId,
-                            composerDraftTarget,
-                            relativePath,
-                            entry.id,
-                          ])}
-                          kind={entry.kind}
-                          rangeLabel={formatEntryRangeLabel(entry, messages)}
-                          text={entry.text}
-                          onCancel={() => removeAnnotationEntry(entry.id)}
-                          onComment={(text) => submitAnnotationEntry(entry.id, text)}
-                          onDelete={() => removeAnnotationEntry(entry.id)}
-                        />
-                      </div>
-                    );
-                  })}
+                  {entries.map((entry) => (
+                    <ForkQuotedCommentAnnotation
+                      key={entry.id}
+                      quote={forkComments.quoteFor(entry)}
+                      environmentId={environmentId}
+                      projectId={projectId}
+                      ownerKey={JSON.stringify([
+                        environmentId,
+                        composerDraftTarget,
+                        relativePath,
+                        entry.id,
+                      ])}
+                      kind={entry.kind}
+                      rangeLabel={formatFileCommentRange(entry.startLine, entry.endLine, messages)}
+                      text={entry.text}
+                      onCancel={() => removeAnnotationEntry(entry.id)}
+                      onComment={(text) => submitAnnotationEntry(entry.id, text)}
+                      onDelete={() => removeAnnotationEntry(entry.id)}
+                    />
+                  ))}
                 </div>
               );
             }}
             className="min-h-full"
           />
         </Virtualizer>
-        <ForkSourceSelectionToolbar
-          surfaceEl={surfaceEl}
-          portalTarget={surfaceEl}
-          contents={contents}
+        <ForkEditableSourceComments
+          comments={forkComments}
+          lineAnnotations={lineAnnotations}
           disabled={hasOpenCommentForm}
-          onComment={(selection) =>
-            beginComment({ start: selection.startLine, end: selection.endLine }, selection.quote)
-          }
+          onComment={beginComment}
         />
       </div>
     </EditProvider>
@@ -1217,13 +1185,11 @@ function RenderedMarkdownSurface({
   return (
     <ScrollArea className="min-h-0 flex-1" onKeyDown={selectRenderedContentOnSelectAll}>
       <ForkCommentableMarkdownPreview
-        environmentId={environmentId}
-        projectId={projectId}
+        commentTarget={{ environmentId, projectId, composerDraftTarget }}
+        text={contents}
         cwd={cwd}
         relativePath={relativePath}
-        contents={contents}
         threadRef={threadRef}
-        composerDraftTarget={composerDraftTarget}
         workspaceMutationId={workspaceMutationId}
         onTaskListChange={
           readOnly

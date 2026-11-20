@@ -299,6 +299,16 @@ it("creates and restores subline comments from text selections in read-only exte
   });
   await vi.waitFor(() => expect(CSS.highlights.get("t3-file-source-comment")?.size).toBe(1));
 
+  const titleRow = shadow(screen)!.querySelector<HTMLElement>('[data-line="1"]')!;
+  const title = findTextNode(titleRow, "Title");
+  const first = findTextNode(row, "First");
+  await selectDomRange(titleRow, title.node, title.index + 2, first.node, first.index + 5);
+  await userEvent.click(page.getByRole("button", { name: "Add a comment" }));
+  await expect
+    .element(screen.getByRole("textbox", { name: 'Comment on lines L1 to L2 · "tle First"' }))
+    .toBeVisible();
+  await vi.waitFor(() => expect(CSS.highlights.get("t3-file-source-comment-draft")?.size).toBe(1));
+
   await screen.unmount();
   await using reopened = await render(preview(path, contents));
   await expect.element(reopened.getByText("Split this clause.", { exact: true })).toBeVisible();

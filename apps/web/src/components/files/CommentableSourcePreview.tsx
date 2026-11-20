@@ -9,7 +9,7 @@ import { useClientSettings } from "~/hooks/useSettings";
 import { useRenderedAppearance } from "~/hooks/useTheme";
 import { resolveDiffThemeName } from "~/lib/diffRendering";
 import { PREFERRED_HIGHLIGHTER } from "~/lib/syntaxHighlighting";
-import { buildFileReviewComment, type ReviewCommentContext } from "~/reviewCommentContext";
+import { buildFileReviewComment } from "~/reviewCommentContext";
 
 import { DiffCommentAnnotation } from "../diffs/DiffCommentAnnotation";
 import {
@@ -20,16 +20,15 @@ import {
   normalizeFileCommentRange,
 } from "./fileCommentAnnotations";
 import { FILE_LINK_REVEAL_UNSAFE_CSS } from "./fileSurfaceChrome";
+import { useForkFileReviewComments } from "./ForkEditableFileComments";
 import {
   FORK_SOURCE_SUBLINE_UNSAFE_CSS,
-  type FileTextQuote,
   buildSublineFileReviewComment,
   clearShadowSourceSublineHighlights,
   formatQuotedRangeLabel,
-  matchesFileReviewComment,
-  rawFileSectionId,
   syncShadowSourceSublineHighlights,
 } from "./forkFileSublineComments";
+import type { FileTextQuote } from "./forkFileTextQuote";
 import { ForkSourceSelectionToolbar, ForkSublineQuoteBadge } from "./ForkSourceSelectionToolbar";
 import ReadOnlySourcePreview from "./ReadOnlySourcePreview";
 
@@ -47,7 +46,6 @@ type Props = Omit<ComponentProps<typeof ReadOnlySourcePreview>, "onPostRender"> 
   ) => void;
   commentTarget?: CommentTarget | undefined;
 };
-const EMPTY_COMMENTS: ReadonlyArray<ReviewCommentContext> = [];
 
 export default function CommentableSourcePreview({ commentTarget, ...props }: Props) {
   if (!commentTarget) return <ReadOnlySourcePreview {...props} />;
@@ -66,9 +64,7 @@ function CommentableSource({ commentTarget, ...props }: Props & { commentTarget:
   const defaultWordWrap = useClientSettings((settings) => settings.wordWrap);
   const addReviewComment = useComposerDraftStore((store) => store.addReviewComment);
   const removeReviewComment = useComposerDraftStore((store) => store.removeReviewComment);
-  const comments = useComposerDraftStore(
-    (store) => store.getComposerDraft(composerDraftTarget)?.reviewComments ?? EMPTY_COMMENTS,
-  );
+  const fileComments = useForkFileReviewComments(composerDraftTarget, props.name, props.text);
   const [surfaceEl, setSurfaceEl] = useState<HTMLDivElement | null>(null);
   const [draft, setDraft] = useState<{
     id: string;
@@ -79,10 +75,6 @@ function CommentableSource({ commentTarget, ...props }: Props & { commentTarget:
   const [draftText, setDraftText] = useState("");
   const [selectedLines, setSelectedLines] = useState<SelectedLineRange | null>(null);
   const surfaceKey = JSON.stringify(["read-only-source", commentTarget, props.name]);
-  const sectionId = rawFileSectionId(props.name);
-  const fileComments = comments.filter(
-    (comment) => comment.sectionId === sectionId && matchesFileReviewComment(comment, props.text),
-  );
   const annotations: FileCommentLineAnnotation[] = [];
   for (const comment of fileComments) {
     let annotation = annotations.find((entry) => entry.lineNumber === comment.endIndex + 1);

@@ -3,33 +3,17 @@ import {
   findAssistantCitationText,
   splitsSurrogatePair,
 } from "@t3tools/shared/assistantCitations";
-import * as Schema from "effect/Schema";
-import { useEffect, useState } from "react";
 
 import { mathWrapperOf } from "~/markdown-clipboard";
-import {
-  buildFileReviewComment,
-  inferReviewCommentFenceLanguage,
-  type ReviewCommentContext,
-} from "~/reviewCommentContext";
-import {
-  type FileCommentAnnotationEntry,
-  type FileCommentLineAnnotation,
-  formatFileCommentRange,
+import { inferReviewCommentFenceLanguage, type ReviewCommentContext } from "~/reviewCommentContext";
+import type {
+  FileCommentAnnotationEntry,
+  FileCommentLineAnnotation,
 } from "./fileCommentAnnotations";
+import type { FileTextQuote } from "./forkFileTextQuote";
 
 export const FILE_TEXT_QUOTE_MAX_LENGTH = 4000;
 const QUOTE_LABEL_MAX_CHARS = 32;
-
-export const FileTextQuoteSchema = Schema.Struct({
-  text: Schema.String,
-  start: Schema.Number,
-  end: Schema.Number,
-  prefix: Schema.String,
-  suffix: Schema.String,
-});
-
-export type FileTextQuote = typeof FileTextQuoteSchema.Type;
 
 export const MARKDOWN_COMMENT_HIGHLIGHT_NAME = "t3-file-markdown-comment";
 export const MARKDOWN_COMMENT_ACTIVE_HIGHLIGHT_NAME = "t3-file-markdown-comment-active";
@@ -47,11 +31,11 @@ export const FORK_SOURCE_SUBLINE_UNSAFE_CSS = `
   }
 `;
 
-export function renderedMarkdownSectionId(filePath: string): string {
+function renderedMarkdownSectionId(filePath: string): string {
   return `file-rendered:${filePath}`;
 }
 
-export function rawFileSectionId(filePath: string): string {
+function rawFileSectionId(filePath: string): string {
   return `file:${filePath}`;
 }
 
@@ -200,20 +184,81 @@ export function buildSublineFileReviewComment(input: {
   };
 }
 
-export function matchesFileReviewComment(comment: ReviewCommentContext, contents: string): boolean {
+export function quoteFileReviewComment(
+  comment: ReviewCommentContext,
+  quote: FileTextQuote,
+): ReviewCommentContext {
+  return {
+    ...comment,
+    rangeLabel: formatQuotedRangeLabel({
+      quoteText: quote.text,
+      startLine: comment.startIndex + 1,
+      endLine: comment.endIndex + 1,
+    }),
+    diff: quote.text,
+    quote,
+  };
+}
+
+// Composer context records (stash, import into another thread) drop the client-only quote.
+// Quoted labels end with the snippet, so whole-line comments keep exact line matching.
+function recoverSourceQuote(
+  comment: ReviewCommentContext,
+  contents: string,
+  lines: readonly string[],
+  slice: string,
+): FileTextQuote | null {
+  if (!comment.rangeLabel.endsWith('"') || comment.diff.trim().length === 0) return null;
+  const index = slice.indexOf(comment.diff);
+  if (index < 0) return null;
+  let offset = index;
+  for (const line of lines.slice(0, comment.startIndex)) offset += line.length + 1;
+  return createAssistantTextSelector(contents, offset, offset + comment.diff.length);
+}
+
+/** The comment if it still applies to `contents`, with a quote recovered when a record dropped it. */
+export function resolveFileReviewComment(
+  comment: ReviewCommentContext,
+  contents: string,
+): ReviewCommentContext | null {
   const lines = contents.split("\n");
   const slice = lines.slice(comment.startIndex, comment.endIndex + 1).join("\n");
   if (!comment.quote) {
-    return slice === comment.diff;
+    if (slice === comment.diff) return comment;
+    const quote = recoverSourceQuote(comment, contents, lines, slice);
+    return quote ? { ...comment, quote } : null;
   }
-  if (slice.includes(comment.quote.text)) return true;
-  return (
-    findAssistantCitationText(slice, {
-      ...comment.quote,
-      start: 0,
-      end: 0,
-    }) !== null || findAssistantCitationText(contents, comment.quote) !== null
-  );
+  if (slice.includes(comment.quote.text)) return comment;
+  const located =
+    findAssistantCitationText(slice, { ...comment.quote, start: 0, end: 0 }) !== null ||
+    findAssistantCitationText(contents, comment.quote) !== null;
+  return located ? comment : null;
+}
+
+export function fileReviewCommentsFor(
+  comments: ReadonlyArray<ReviewCommentContext>,
+  filePath: string,
+  contents: string,
+): ReviewCommentContext[] {
+  const sectionId = rawFileSectionId(filePath);
+  return comments.flatMap((comment) => {
+    if (comment.sectionId !== sectionId) return [];
+    const resolved = resolveFileReviewComment(comment, contents);
+    return resolved ? [resolved] : [];
+  });
+}
+
+export function renderedMarkdownCommentsFor(
+  comments: ReadonlyArray<ReviewCommentContext>,
+  filePath: string,
+): ReviewCommentContext[] {
+  const sectionId = renderedMarkdownSectionId(filePath);
+  return comments.flatMap((comment) => {
+    if (comment.sectionId !== sectionId) return [];
+    // A record without the quote still anchors when its rendered text is unique.
+    const quote = comment.quote ?? { text: comment.diff, start: 0, end: 0, prefix: "", suffix: "" };
+    return [{ ...comment, quote }];
+  });
 }
 
 const CONTROL_SELECTOR =
@@ -661,14 +706,9 @@ export function clearShadowSourceSublineHighlights(surfaceKey: string): void {
 
 export function initialEditableFileAnnotations(
   comments: ReadonlyArray<ReviewCommentContext>,
-  filePath: string,
-  contents: string,
 ): FileCommentLineAnnotation[] {
-  const sectionId = rawFileSectionId(filePath);
   const annotations: FileCommentLineAnnotation[] = [];
   for (const comment of comments) {
-    if (comment.sectionId !== sectionId) continue;
-    if (!matchesFileReviewComment(comment, contents)) continue;
     const lineNumber = comment.endIndex + 1;
     const entry: FileCommentAnnotationEntry = {
       id: comment.id,
@@ -682,130 +722,4 @@ export function initialEditableFileAnnotations(
     else annotations.push({ lineNumber, metadata: { entries: [entry] } });
   }
   return annotations;
-}
-
-export function useForkSublineQuotes(comments: ReadonlyArray<ReviewCommentContext>) {
-  const [quotesByEntryId, setQuotesByEntryId] = useState<ReadonlyMap<string, FileTextQuote>>(
-    () => new Map(),
-  );
-
-  const registerQuote = (entryId: string, quote: FileTextQuote) => {
-    setQuotesByEntryId((current) => {
-      const next = new Map(current);
-      next.set(entryId, quote);
-      return next;
-    });
-  };
-
-  const clearQuote = (entryId: string) => {
-    setQuotesByEntryId((current) => {
-      if (!current.has(entryId)) return current;
-      const next = new Map(current);
-      next.delete(entryId);
-      return next;
-    });
-  };
-
-  const quoteOf = (entryId: string): FileTextQuote | undefined =>
-    quotesByEntryId.get(entryId) ?? comments.find((comment) => comment.id === entryId)?.quote;
-
-  const formatEntryRangeLabel = (
-    entry: Pick<FileCommentAnnotationEntry, "id" | "startLine" | "endLine">,
-    resolve?: Parameters<typeof formatFileCommentRange>[2],
-  ): string => {
-    const quote = quoteOf(entry.id);
-    if (quote) {
-      return formatQuotedRangeLabel({
-        startLine: entry.startLine,
-        endLine: entry.endLine,
-        quoteText: quote.text,
-      });
-    }
-    return formatFileCommentRange(entry.startLine, entry.endLine, resolve);
-  };
-
-  return {
-    registerQuote,
-    clearQuote,
-    quoteOf,
-    formatEntryRangeLabel,
-  };
-}
-
-export function buildEditableReviewComment(input: {
-  readonly id: string;
-  readonly filePath: string;
-  readonly startLine: number;
-  readonly endLine: number;
-  readonly text: string;
-  readonly contents: string;
-  readonly quote?: FileTextQuote | undefined;
-}): ReviewCommentContext {
-  if (input.quote) {
-    return buildSublineFileReviewComment({
-      id: input.id,
-      filePath: input.filePath,
-      sectionKind: "file",
-      text: input.text,
-      quote: input.quote,
-      contents: input.contents,
-      startLine: input.startLine,
-      endLine: input.endLine,
-    });
-  }
-  return buildFileReviewComment(input);
-}
-
-export function useForkEditableSourceHighlights(input: {
-  readonly surfaceKey: string;
-  readonly surfaceEl: HTMLElement | null;
-  readonly contents: string;
-  readonly comments: ReadonlyArray<ReviewCommentContext>;
-  readonly lineAnnotations: ReadonlyArray<FileCommentLineAnnotation>;
-  readonly quoteOf: (entryId: string) => FileTextQuote | undefined;
-}) {
-  const draftEntry = input.lineAnnotations
-    .flatMap((annotation) => annotation.metadata.entries)
-    .find((entry) => entry.kind === "draft");
-  const draftStartLine = draftEntry?.startLine;
-  const draftEndLine = draftEntry?.endLine;
-  const draftQuote = draftEntry ? input.quoteOf(draftEntry.id) : undefined;
-
-  const sync = (shadowRoot: ShadowRoot | null | undefined) => {
-    syncShadowSourceSublineHighlights({
-      surfaceKey: input.surfaceKey,
-      shadowRoot,
-      contents: input.contents,
-      comments: input.comments,
-      draft:
-        draftStartLine !== undefined && draftEndLine !== undefined && draftQuote
-          ? { startLine: draftStartLine, endLine: draftEndLine, quote: draftQuote }
-          : null,
-    });
-  };
-
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- syncs CSS Highlights in the editable diffs shadow DOM for saved and draft subline comments
-  useEffect(() => {
-    syncShadowSourceSublineHighlights({
-      surfaceKey: input.surfaceKey,
-      shadowRoot: input.surfaceEl?.querySelector("diffs-container")?.shadowRoot,
-      contents: input.contents,
-      comments: input.comments,
-      draft:
-        draftStartLine !== undefined && draftEndLine !== undefined && draftQuote
-          ? { startLine: draftStartLine, endLine: draftEndLine, quote: draftQuote }
-          : null,
-    });
-    return () => clearShadowSourceSublineHighlights(input.surfaceKey);
-  }, [
-    draftEndLine,
-    draftQuote,
-    draftStartLine,
-    input.comments,
-    input.contents,
-    input.surfaceEl,
-    input.surfaceKey,
-  ]);
-
-  return sync;
 }

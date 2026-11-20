@@ -1,17 +1,31 @@
+import { ComposerContextRecord, type ReviewCommentContextRecord } from "@t3tools/contracts";
 import { createAssistantTextSelector } from "@t3tools/shared/assistantCitations";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vite-plus/test";
 
-import { ReviewCommentContextSchema } from "~/reviewCommentContext";
+import { reviewCommentContextRecord, reviewCommentFromRecord } from "~/lib/composerContextRecords";
 import {
-  buildEditableReviewComment,
+  buildFileReviewComment,
+  type ReviewCommentContext,
+  ReviewCommentContextSchema,
+} from "~/reviewCommentContext";
+import {
   buildSublineFileReviewComment,
+  fileReviewCommentsFor,
   formatQuotedRangeLabel,
   inferMarkdownSourceLineRange,
-  matchesFileReviewComment,
+  renderedMarkdownCommentsFor,
+  resolveFileReviewComment,
 } from "./forkFileSublineComments";
 
 const isReviewCommentContext = Schema.is(ReviewCommentContextSchema);
+const decodeRecord = Schema.decodeUnknownSync(ComposerContextRecord);
+
+// Stash and context import persist records as JSON and decode them with the wire schema.
+function throughRecord(comment: ReviewCommentContext): ReviewCommentContext {
+  const record = decodeRecord(JSON.parse(JSON.stringify(reviewCommentContextRecord(comment))));
+  return reviewCommentFromRecord(record as ReviewCommentContextRecord);
+}
 
 describe("forkFileSublineComments", () => {
   it("formats quoted range labels with and without line numbers", () => {
@@ -92,11 +106,18 @@ describe("forkFileSublineComments", () => {
       text: "Make this configurable.",
       quote,
     });
-    expect(matchesFileReviewComment(sublineComment, contents)).toBe(true);
+    expect(resolveFileReviewComment(sublineComment, contents)).toBe(sublineComment);
     const edited = "const first = 1;\nconst other = 9;\nconst last = 4;\n";
-    expect(matchesFileReviewComment(sublineComment, edited)).toBe(false);
+    expect(resolveFileReviewComment(sublineComment, edited)).toBeNull();
 
-    const lineComment = buildEditableReviewComment({
+    const restored = throughRecord(sublineComment);
+    expect(restored.quote).toBeUndefined();
+    expect(fileReviewCommentsFor([restored], "src/config.ts", contents)).toEqual([
+      { ...restored, quote },
+    ]);
+    expect(resolveFileReviewComment(restored, edited)).toBeNull();
+
+    const lineComment = buildFileReviewComment({
       id: "comment-line-1",
       filePath: "src/config.ts",
       startLine: 2,
@@ -104,8 +125,25 @@ describe("forkFileSublineComments", () => {
       text: "Whole line comment.",
       contents,
     });
-    expect(lineComment.quote).toBeUndefined();
     expect(lineComment.diff).toBe("const retryCount = 3;");
-    expect(matchesFileReviewComment(lineComment, contents)).toBe(true);
+    const restoredLine = throughRecord(lineComment);
+    expect(resolveFileReviewComment(restoredLine, contents)).toEqual(restoredLine);
+    const extended = contents.replace("retryCount = 3;", "retryCount = 3; // tuned");
+    expect(resolveFileReviewComment(restoredLine, extended)).toBeNull();
+
+    const renderedQuote = createAssistantTextSelector("Please retry later.", 7, 12)!;
+    const renderedComment = throughRecord(
+      buildSublineFileReviewComment({
+        id: "comment-rendered-1",
+        filePath: "docs/guide.md",
+        sectionKind: "file-rendered",
+        text: "Say when.",
+        quote: renderedQuote,
+        contents: "Please **retry** later.\n",
+      }),
+    );
+    expect(renderedMarkdownCommentsFor([renderedComment], "docs/guide.md")[0]?.quote?.text).toBe(
+      "retry",
+    );
   });
 });

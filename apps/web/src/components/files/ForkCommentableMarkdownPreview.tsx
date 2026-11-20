@@ -2,6 +2,7 @@ import type { EnvironmentId, ProjectId, ScopedThreadRef } from "@t3tools/contrac
 import { useGT } from "gt-react";
 import { MessageCircle, QuoteIcon, X } from "lucide-react";
 import {
+  type ComponentProps,
   type MouseEvent as ReactMouseEvent,
   useEffect,
   useLayoutEffect,
@@ -25,7 +26,6 @@ import { FileMarkdownPreview } from "./FileMarkdownPreview";
 import { nextFileCommentId } from "./fileCommentAnnotations";
 import {
   FILE_TEXT_QUOTE_MAX_LENGTH,
-  type FileTextQuote,
   MARKDOWN_COMMENT_ACTIVE_HIGHLIGHT_NAME,
   MARKDOWN_COMMENT_DRAFT_HIGHLIGHT_NAME,
   MARKDOWN_COMMENT_HIGHLIGHT_NAME,
@@ -33,9 +33,10 @@ import {
   captureContainerTextSelection,
   formatQuotedRangeLabel,
   inferMarkdownSourceLineRange,
-  renderedMarkdownSectionId,
+  renderedMarkdownCommentsFor,
   resolveContainerTextQuoteRange,
 } from "./forkFileSublineComments";
+import type { FileTextQuote } from "./forkFileTextQuote";
 import { ForkSublineQuoteBadge } from "./ForkSourceSelectionToolbar";
 import "./forkMarkdownComments.css";
 
@@ -105,37 +106,32 @@ function positionPopoverNearAnchor(popover: HTMLElement, anchorRect: DOMRect) {
   popover.style.visibility = "visible";
 }
 
+function useRenderedMarkdownComments(
+  composerDraftTarget: ScopedThreadRef | DraftId,
+  relativePath: string,
+): ReviewCommentContext[] {
+  const comments = useComposerDraftStore(
+    (store) => store.getComposerDraft(composerDraftTarget)?.reviewComments ?? EMPTY_COMMENTS,
+  );
+  return renderedMarkdownCommentsFor(comments, relativePath);
+}
+
 export function ForkCommentableMarkdownPreview({
-  environmentId,
-  projectId,
-  cwd,
-  relativePath,
-  contents,
-  threadRef,
-  composerDraftTarget,
-  workspaceMutationId,
-  onTaskListChange,
-}: {
-  readonly environmentId: EnvironmentId;
-  readonly projectId?: ProjectId | undefined;
-  readonly cwd: string;
-  readonly relativePath: string;
-  readonly contents: string;
-  readonly threadRef: ScopedThreadRef;
-  readonly composerDraftTarget: ScopedThreadRef | DraftId;
-  readonly workspaceMutationId: string | null;
-  readonly onTaskListChange?:
-    | ((input: { readonly markerOffset: number; readonly checked: boolean }) => void)
-    | undefined;
+  commentTarget,
+  ...previewProps
+}: ComponentProps<typeof FileMarkdownPreview> & {
+  readonly commentTarget: {
+    readonly environmentId: EnvironmentId;
+    readonly projectId?: ProjectId | undefined;
+    readonly composerDraftTarget: ScopedThreadRef | DraftId;
+  };
 }) {
+  const { environmentId, projectId, composerDraftTarget } = commentTarget;
+  const { relativePath, text: contents } = previewProps;
   const gt = useGT();
   const addReviewComment = useComposerDraftStore((store) => store.addReviewComment);
   const removeReviewComment = useComposerDraftStore((store) => store.removeReviewComment);
-  const allComments = useComposerDraftStore(
-    (store) => store.getComposerDraft(composerDraftTarget)?.reviewComments ?? EMPTY_COMMENTS,
-  );
-  const sectionId = renderedMarkdownSectionId(relativePath);
-  const comments = allComments.filter((comment) => comment.sectionId === sectionId);
+  const comments = useRenderedMarkdownComments(composerDraftTarget, relativePath);
 
   const [surfaceEl, setSurfaceEl] = useState<HTMLDivElement | null>(null);
   const [selection, setSelection] = useState<{
@@ -235,69 +231,73 @@ export function ForkCommentableMarkdownPreview({
     const ownedSaved = new Set<Range>();
     const ownedActive = new Set<Range>();
     const ownedDraft = new Set<Range>();
+    let anchorRange: Range | null = null;
+    let rangesStale = true;
     let frame: number | null = null;
 
-    const sync = () => {
-      frame = null;
-      if (!surfaceEl.isConnected) return;
-
+    // Finding quotes walks the whole document, so only DOM or comment changes re-resolve them.
+    // Highlight ranges are live and follow layout; scroll and resize only move the popover.
+    const resolveRanges = () => {
       const savedRanges: Range[] = [];
       const activeRanges: Range[] = [];
       const draftRanges: Range[] = [];
-
-      for (const comment of allComments) {
-        if (comment.sectionId !== sectionId || !comment.quote) continue;
+      for (const comment of comments) {
+        if (!comment.quote) continue;
         const range = resolveContainerTextQuoteRange(surfaceEl, comment.quote);
         if (!range) continue;
-        if (inspectedCommentId === comment.id) {
-          activeRanges.push(range);
-        } else {
-          savedRanges.push(range);
-        }
+        if (inspectedCommentId === comment.id) activeRanges.push(range);
+        else savedRanges.push(range);
       }
       if (activeDraftQuote) {
         const range = resolveContainerTextQuoteRange(surfaceEl, activeDraftQuote);
         if (range) draftRanges.push(range);
       }
-
       addOwnedRanges(registry, MARKDOWN_COMMENT_HIGHLIGHT_NAME, ownedSaved, savedRanges);
       addOwnedRanges(registry, MARKDOWN_COMMENT_ACTIVE_HIGHLIGHT_NAME, ownedActive, activeRanges);
       addOwnedRanges(registry, MARKDOWN_COMMENT_DRAFT_HIGHLIGHT_NAME, ownedDraft, draftRanges);
+      anchorRange = (activeDraftQuote ? draftRanges[0] : activeRanges[0]) ?? null;
+    };
 
+    const sync = () => {
+      frame = null;
+      if (!surfaceEl.isConnected) return;
+      if (rangesStale) {
+        rangesStale = false;
+        resolveRanges();
+      }
       const popover = popoverRef.current;
       if (popover && (activeDraftQuote || inspectedCommentId !== null)) {
-        const anchorRange = activeDraftQuote
-          ? (draftRanges[0] ?? resolveContainerTextQuoteRange(surfaceEl, activeDraftQuote))
-          : activeRanges[0];
         const anchorRect =
           anchorRange?.getBoundingClientRect() ?? scrollContainer.getBoundingClientRect();
         positionPopoverNearAnchor(popover, anchorRect);
       }
     };
 
-    const scheduleSync = () => {
-      if (frame !== null) cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(sync);
+    const scheduleSync = (staleRanges: boolean) => {
+      if (staleRanges) rangesStale = true;
+      if (frame === null) frame = requestAnimationFrame(sync);
     };
+    const resync = () => scheduleSync(true);
+    const reposition = () => scheduleSync(false);
 
-    const observer = new MutationObserver(scheduleSync);
+    const observer = new MutationObserver(resync);
     observer.observe(surfaceEl, { childList: true, characterData: true, subtree: true });
-    const stopResize = observeResize([surfaceEl, scrollContainer], scheduleSync);
-    scrollContainer.addEventListener("scroll", scheduleSync, { passive: true });
-    window.addEventListener("resize", scheduleSync);
+    const stopResize = observeResize([surfaceEl, scrollContainer], reposition);
+    scrollContainer.addEventListener("scroll", reposition, { passive: true });
+    window.addEventListener("resize", reposition);
     sync();
 
     return () => {
       if (frame !== null) cancelAnimationFrame(frame);
       observer.disconnect();
       stopResize();
-      scrollContainer.removeEventListener("scroll", scheduleSync);
-      window.removeEventListener("resize", scheduleSync);
+      scrollContainer.removeEventListener("scroll", reposition);
+      window.removeEventListener("resize", reposition);
       removeOwnedRanges(registry, MARKDOWN_COMMENT_HIGHLIGHT_NAME, ownedSaved);
       removeOwnedRanges(registry, MARKDOWN_COMMENT_ACTIVE_HIGHLIGHT_NAME, ownedActive);
       removeOwnedRanges(registry, MARKDOWN_COMMENT_DRAFT_HIGHLIGHT_NAME, ownedDraft);
     };
-  }, [activeDraftQuote, allComments, inspectedCommentId, sectionId, surfaceEl]);
+  }, [activeDraftQuote, comments, inspectedCommentId, surfaceEl]);
 
   const popoverOpen = activeDraft !== null || inspectedComment !== null;
   const draftIsEmpty = activeDraft !== null && activeDraft.text.trim().length === 0;
@@ -435,14 +435,7 @@ export function ForkCommentableMarkdownPreview({
         </div>
       ) : null}
 
-      <FileMarkdownPreview
-        text={contents}
-        cwd={cwd}
-        relativePath={relativePath}
-        threadRef={threadRef}
-        workspaceMutationId={workspaceMutationId}
-        onTaskListChange={onTaskListChange}
-      />
+      <FileMarkdownPreview {...previewProps} />
 
       {selection
         ? createPortal(

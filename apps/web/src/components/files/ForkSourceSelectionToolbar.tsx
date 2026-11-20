@@ -12,9 +12,9 @@ import {
 } from "~/lib/selectionActions";
 import {
   FILE_TEXT_QUOTE_MAX_LENGTH,
-  type FileTextQuote,
   captureShadowSourceTextSelection,
 } from "./forkFileSublineComments";
+import type { FileTextQuote } from "./forkFileTextQuote";
 
 interface CapturedSourceSelection {
   readonly startLine: number;

@@ -3,10 +3,7 @@ import { PullRequestContextMetadata, type PullRequestReviewPosition } from "@t3t
 import * as Schema from "effect/Schema";
 
 import { isLineInFileDiff } from "./components/pullRequest/pullRequestDiff.logic";
-import {
-  FileTextQuoteSchema,
-  type FileTextQuote,
-} from "./components/files/forkFileSublineComments";
+import { FileTextQuoteSchema, type FileTextQuote } from "./components/files/forkFileTextQuote";
 
 const ReviewCommentSelectionSchema = Schema.Struct({
   start: Schema.Number,
