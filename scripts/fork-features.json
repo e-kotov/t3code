@@ -376,11 +376,11 @@
     {
       "id": "session-renewal",
       "group": "Connections",
-      "summary": "direct pairings and agent links renew themselves while in use, up to a yearly cap",
+      "summary": "direct pairings renew themselves while in use, up to a yearly cap",
       "docs": "docs/user/connection-renewal.md",
       "tests": [
         "apps/server/src/auth/ForkSessionRenewal.test.ts",
-        "apps/server/src/peer/ForkPeerLinkRenewal.test.ts",
+        "apps/server/src/auth/ForkSessionRenewalHttp.test.ts",
         "packages/client-runtime/src/connection/forkCredentialCatalog.test.ts",
         "packages/client-runtime/src/connection/forkDirectSessionRenewal.test.ts",
         "apps/web/src/connection/forkFreshCatalogStore.test.ts",
