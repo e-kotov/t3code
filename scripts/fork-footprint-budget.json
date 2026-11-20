@@ -111,6 +111,7 @@
     "apps/server/src/orchestration-v2/ThreadLaunchService.test.ts": 85,
     "apps/server/src/orchestration-v2/ThreadLaunchService.ts": 8,
     "apps/server/src/orchestration-v2/ThreadManagementService.ts": 9,
+    "apps/server/src/peer/PeerLinks.testkit.ts": 4,
     "apps/server/src/persistence/initializeV2Database.ts": 4,
     "apps/server/src/preview/Manager.ts": 5,
     "apps/server/src/preview/ServerBrowser.test.ts": 3,
