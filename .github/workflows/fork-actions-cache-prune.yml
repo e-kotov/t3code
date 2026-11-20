@@ -1,0 +1,46 @@
+name: Fork Actions cache prune
+
+# Deletes only provably dead caches (setup-go-* keys and merged-PR merge refs) so they do not
+# evict main's Android caches. Scheduled runs only list candidates; deleting needs a dispatch on
+# main with dry_run=false until the weekly lists have been checked.
+on:
+  schedule:
+    - cron: "37 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "List candidates without deleting"
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: fork-actions-cache-prune
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    if: github.repository == 'e-kotov/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout the prune script
+        run: |
+          git init -q .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/scripts/fork-prune-actions-caches*'
+          git fetch -q --no-tags --depth=1 origin "$GITHUB_SHA"
+          git checkout -q --detach FETCH_HEAD
+      - name: Test candidate selection
+        run: python3 -B scripts/fork-prune-actions-caches.test.py
+      - name: Prune obsolete caches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DELETE: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == false && github.ref == 'refs/heads/main' }}
+        run: |
+          set -euo pipefail
+          if [ "$DELETE" = true ]; then set -- --delete; fi
+          python3 -B scripts/fork-prune-actions-caches.py "$@"

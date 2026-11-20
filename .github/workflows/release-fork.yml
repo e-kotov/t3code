@@ -312,7 +312,7 @@ jobs:
         run: >-
           ./gradlew --init-script ../../../scripts/fork-sharing-tests.gradle
           -Dorg.gradle.jvmargs="-Xmx8g -XX:MaxMetaspaceSize=1024m -XX:+UseParallelGC"
-          :app:verifyNoForkObserve
+          :app:verifyPatchedNativeSharing
           :expo-sharing:testDebugUnitTest
           :t3-agent-notifications:testDebugUnitTest
           :t3-citation-passage:testDebugUnitTest
