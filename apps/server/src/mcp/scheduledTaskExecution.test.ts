@@ -335,3 +335,30 @@ it.effect("replays a saved schedule by clientRequestId even after the provider g
     }).pipe(Effect.provide(liveHarness(launches, providers)));
   }).pipe(Effect.provide(SqlitePersistence.layerMemory)),
 );
+
+it.effect("rejects switching a new-thread task with a model override to freshSession: true", () =>
+  Effect.gen(function* () {
+    const launches = yield* Ref.make<
+      Array<Parameters<ThreadLaunchService.ThreadLaunchService["Service"]["launch"]>[0]>
+    >([]);
+    const providers = yield* Ref.make<ReadonlyArray<ServerProvider>>([provider]);
+    yield* Effect.gen(function* () {
+      const mcp = yield* OrchestratorMcpService.OrchestratorMcpService;
+      const created = yield* mcp.scheduleTask(scope, request);
+      const error = yield* mcp
+        .updateScheduledTask(scope, {
+          scheduledTaskId: created.scheduledTaskId,
+          freshSession: true,
+        })
+        .pipe(Effect.flip);
+      assert.equal(error.code, "invalid_request");
+      assert.include(error.message, "freshSession");
+
+      const listed = yield* mcp.listScheduledTasks(scope, {
+        scheduledTaskId: created.scheduledTaskId,
+      });
+      assert.isFalse(listed.tasks[0]?.freshSession);
+      assert.deepEqual(listed.tasks[0]?.modelSelection, created.modelSelection);
+    }).pipe(Effect.provide(liveHarness(launches, providers)));
+  }).pipe(Effect.provide(SqlitePersistence.layerMemory)),
+);

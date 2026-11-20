@@ -2510,6 +2510,12 @@ const make = Effect.gen(function* () {
             "To move this task to a new thread with fresh sessions, first unbind it with bindToCurrentThread: false, then set freshSession: true in a second call.",
           );
         }
+        if (input.freshSession === true && scheduledTaskThreadMode(existing) === "new_thread") {
+          return yield* failure(
+            "invalid_request",
+            "A new-thread scheduled task cannot switch to freshSession: true. Create a new task without a model override instead.",
+          );
+        }
         const threadId =
           input.bindToCurrentThread === undefined
             ? existing.threadId
