@@ -21,15 +21,21 @@ def gh_json_lines(*args):
     return [json.loads(line) for line in out.splitlines() if line.strip()]
 
 
+def is_count(value):
+    # `type(...) is int` rejects JSON booleans, which Python treats as ints.
+    return type(value) is int and value >= 0
+
+
 def list_caches(repo):
     total = gh_json_lines(f"repos/{repo}/actions/caches?per_page=1", "--jq", ".total_count")[0]
     caches = gh_json_lines("--paginate", f"repos/{repo}/actions/caches?per_page=100",
                            "--jq", ".actions_caches[]")
-    if len(caches) != total:
-        raise RuntimeError(f"listed {len(caches)} caches but the API reports {total}")
+    if not is_count(total) or len(caches) != total:
+        raise RuntimeError(f"listed {len(caches)} caches but the API reports {total!r}")
     for cache in caches:
-        if not (isinstance(cache.get("id"), int) and isinstance(cache.get("key"), str)
-                and isinstance(cache.get("ref"), str)):
+        if not (type(cache) is dict and is_count(cache.get("id")) and cache["id"] > 0
+                and type(cache.get("key")) is str and type(cache.get("ref")) is str
+                and is_count(cache.get("size_in_bytes"))):
             raise RuntimeError(f"malformed cache record: {cache!r}")
     if len({cache["id"] for cache in caches}) != len(caches):
         raise RuntimeError("duplicate cache ids in the listing")
@@ -38,7 +44,8 @@ def list_caches(repo):
 
 def pr_merged(repo, number):
     pr = gh_json_lines(f"repos/{repo}/pulls/{number}", "--jq", "{number: .number, merged: .merged}")[0]
-    if pr.get("number") != int(number) or not isinstance(pr.get("merged"), bool):
+    if type(pr) is not dict or type(pr.get("number")) is not int or pr["number"] != int(number) \
+            or type(pr.get("merged")) is not bool:
         raise RuntimeError(f"malformed pull request #{number}: {pr!r}")
     return pr["merged"]
 
@@ -47,7 +54,7 @@ def select_obsolete(caches, pr_merged):
     """Return (cache, reason) pairs; pr_merged maps PR number strings to whether it merged."""
     selected = []
     for cache in caches:
-        key, ref = cache.get("key", ""), cache.get("ref", "")
+        key, ref = cache["key"], cache["ref"]
         if key.startswith("setup-go-"):
             selected.append((cache, "setup-go"))
             continue
@@ -68,18 +75,21 @@ def main(argv=None):
     args = parser.parse_args(argv)
     mode = "delete" if args.delete else "dry-run"
 
+    # The whole deletion plan is built here; any failure before the loop deletes nothing.
     try:
         caches = list_caches(args.repo)
-        numbers = {m.group(1) for c in caches if (m := PR_MERGE_REF.fullmatch(c.get("ref", "")))}
+        numbers = {m.group(1) for c in caches if (m := PR_MERGE_REF.fullmatch(c["ref"]))}
         merged = {n: pr_merged(args.repo, n) for n in sorted(numbers, key=int)}
         selected = select_obsolete(caches, merged)
-    except (subprocess.CalledProcessError, ValueError, KeyError, IndexError, RuntimeError) as error:
+        plan = [(c["id"], f"{c['id']} {mib(c['size_in_bytes'])} {reason} {c['ref']} {c['key'][:80]}")
+                for c, reason in selected]
+        total = sum(c["size_in_bytes"] for c in caches)
+        candidate_total = sum(c["size_in_bytes"] for c, _ in selected)
+    except Exception as error:  # noqa: BLE001 - any lookup or shape error must stop before deleting
         detail = getattr(error, "stderr", "") or error
         print(f"::error::Cache lookup failed; nothing deleted: {str(detail).strip()}")
         return 1
 
-    total = sum(c.get("size_in_bytes", 0) for c in caches)
-    candidate_total = sum(c.get("size_in_bytes", 0) for c, _ in selected)
     lines = [
         f"Cache inventory: {len(caches)} entries ({mib(total)}); "
         f"obsolete ({mode}): {len(selected)} ({mib(candidate_total)})",
@@ -87,13 +97,12 @@ def main(argv=None):
     lines += [f"- PR #{n}: {'merged' if m else 'not merged'}" for n, m in merged.items()]
     status = 0
     deleted = 0
-    for cache, reason in selected:
-        label = f"{cache['id']} {mib(cache.get('size_in_bytes', 0))} {reason} {cache['ref']} {cache['key'][:80]}"
+    for cache_id, label in plan:
         if not args.delete:
             lines.append(f"- would delete {label}")
             continue
         result = subprocess.run(["gh", "api", "-X", "DELETE",
-                                 f"repos/{args.repo}/actions/caches/{cache['id']}"],
+                                 f"repos/{args.repo}/actions/caches/{cache_id}"],
                                 capture_output=True, text=True)
         if result.returncode != 0:
             lines.append(f"- FAILED {label}: {result.stderr.strip()}")

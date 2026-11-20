@@ -32,36 +32,63 @@ class PruneActionsCachesTest(unittest.TestCase):
         self.assertEqual([(c["id"], reason) for c, reason in selected],
                          [(1, "setup-go"), (2, "merged PR #7")])
 
-    def test_lookup_failure_or_malformed_response_deletes_nothing(self):
+    def run_main(self, listing, pr_reply, total=None):
+        """Run main() --delete against a fake gh; return (exit code, commands issued)."""
+        calls = []
+
+        def run(command, **kwargs):
+            calls.append(command)
+            if "DELETE" in command:
+                return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+            if "/pulls/" in command[2]:
+                if isinstance(pr_reply, Exception):
+                    raise pr_reply
+                return subprocess.CompletedProcess(command, 0, stdout=pr_reply + "\n")
+            if "per_page=1" in command[2]:
+                count = len(listing) if total is None else total
+                return subprocess.CompletedProcess(command, 0, stdout=f"{count}\n")
+            return subprocess.CompletedProcess(command, 0, stdout="\n".join(listing) + "\n")
+
+        with mock.patch.object(prune.subprocess, "run", side_effect=run), \
+                mock.patch("builtins.print"), mock.patch.dict(prune.os.environ, {}, clear=True):
+            code = prune.main(["--repo", "o/r", "--delete"])
+        return code, calls
+
+    def test_bad_lookup_or_malformed_response_deletes_nothing(self):
         go = '{"id": 1, "ref": "refs/heads/main", "key": "setup-go-x", "size_in_bytes": 1}'
         pr7 = '{"id": 2, "ref": "refs/pull/7/merge", "key": "k", "size_in_bytes": 1}'
+        merged = '{"number": 7, "merged": true}'
         cases = {
-            "PR lookup fails": ([go, pr7], subprocess.CalledProcessError(1, [], stderr="HTTP 502")),
-            "PR has no merged flag": ([go, pr7], '{"number": 7, "merged": null}'),
-            "cache without id": ([go, '{"ref": "refs/pull/7/merge", "key": "k"}'],
-                                 '{"number": 7, "merged": true}'),
-            "duplicate cache ids": ([go, go.replace("setup-go-x", "setup-go-y")],
-                                    '{"number": 7, "merged": true}'),
+            "PR lookup fails": ([go, pr7], subprocess.CalledProcessError(1, [], stderr="HTTP 502"), None),
+            "PR has no merged flag": ([go, pr7], '{"number": 7, "merged": null}', None),
+            "PR reply for another number": ([go, pr7], '{"number": 8, "merged": true}', None),
+            "cache without id": ([go, '{"ref": "refs/pull/7/merge", "key": "k", "size_in_bytes": 1}'],
+                                 merged, None),
+            "boolean cache id": ([go, pr7.replace('"id": 2', '"id": false')], merged, None),
+            "cache record not an object": ([go, '["refs/pull/7/merge"]'], merged, None),
+            "malformed size": ([go, pr7.replace('"size_in_bytes": 1', '"size_in_bytes": "big"')],
+                               merged, None),
+            "duplicate cache ids": ([go, go.replace("setup-go-x", "setup-go-y")], merged, None),
+            "count mismatch": ([go, pr7], merged, 3),
+            "boolean total": ([go], merged, "true"),
         }
-        for name, (listing, pr_reply) in cases.items():
+        for name, (listing, pr_reply, total) in cases.items():
             with self.subTest(name):
-                calls = []
-
-                def run(command, **kwargs):
-                    calls.append(command)
-                    if "/pulls/" in command[2]:
-                        if isinstance(pr_reply, Exception):
-                            raise pr_reply
-                        return subprocess.CompletedProcess(command, 0, stdout=pr_reply + "\n")
-                    if "per_page=1" in command[2]:
-                        return subprocess.CompletedProcess(command, 0, stdout=f"{len(listing)}\n")
-                    return subprocess.CompletedProcess(command, 0, stdout="\n".join(listing) + "\n")
-
-                with mock.patch.object(prune.subprocess, "run", side_effect=run), \
-                        mock.patch("builtins.print"), \
-                        mock.patch.dict(prune.os.environ, {}, clear=True):
-                    self.assertEqual(prune.main(["--repo", "o/r", "--delete"]), 1)
+                code, calls = self.run_main(listing, pr_reply, total)
+                self.assertEqual(code, 1)
                 self.assertFalse([c for c in calls if "DELETE" in c])
+
+    def test_only_merged_pr_caches_are_deleted(self):
+        pr7 = '{"id": 2, "ref": "refs/pull/7/merge", "key": "k", "size_in_bytes": 1}'
+        code, calls = self.run_main([pr7], '{"number": 7, "merged": false}')
+        self.assertEqual(code, 0)
+        self.assertFalse([c for c in calls if "DELETE" in c])
+        lookup = next(c for c in calls if "/pulls/" in c[2])
+        self.assertIn(".merged", lookup[-1])
+
+        code, calls = self.run_main([pr7], '{"number": 7, "merged": true}')
+        self.assertEqual(code, 0)
+        self.assertEqual([c[-1] for c in calls if "DELETE" in c], ["repos/o/r/actions/caches/2"])
 
 
 if __name__ == "__main__":
