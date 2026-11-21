@@ -1,5 +1,9 @@
 import { defaultScheduledTaskBinding, scheduledTaskWorkspaces } from "./automationDestination.ts";
 import {
+  scheduledTaskExecutionResolver,
+  type ModelTargetParent,
+} from "./scheduledTaskExecution.ts";
+import {
   CommandId,
   type RunId,
   isProviderAvailable,
@@ -37,6 +41,7 @@ import {
   type OrchestratorMcpUpdateScheduledTaskInput,
   type OrchestratorMcpListScheduledTasksInput,
   type ProjectId,
+  ScheduledTaskId,
   type OrchestratorMcpThreadDetail,
   type OrchestratorMcpThreadInterruptInput,
   type OrchestratorMcpThreadInterruptResult,
@@ -290,6 +295,9 @@ function scheduledTaskSummary(task: ScheduledTask, mayRun: boolean): Orchestrato
     enabled: task.enabled,
     projectId: task.projectId,
     boundThreadId: task.threadId,
+    ...(task.threadId !== null || scheduledTaskThreadMode(task) !== "new_thread"
+      ? {}
+      : { modelSelection: task.modelSelection }),
     freshSession: scheduledTaskThreadMode(task) === "fresh_session",
     schedule: task.schedule,
     nextRunAt: task.nextRunAt,
@@ -1652,7 +1660,7 @@ const make = Effect.gen(function* () {
   };
 
   const resolveTarget = Effect.fn("OrchestratorMcpService.resolveTarget")(function* (input: {
-    readonly parent: Pick<OrchestrationV2ThreadProjection, "thread">;
+    readonly parent: ModelTargetParent;
     readonly target: OrchestratorMcpTarget | undefined;
     readonly providers: ReadonlyArray<ServerProvider>;
     /** Receipt replays bypass current settings because they start no work. Dispatch must reuse the checked command ID. */
@@ -1792,6 +1800,11 @@ const make = Effect.gen(function* () {
       supportedRuntimeModes: provider.supportedRuntimeModes,
     };
   });
+
+  const resolveScheduledTaskExecution = scheduledTaskExecutionResolver(
+    loadProviders,
+    resolveTargetRechecking,
+  );
 
   const requestKey = (clientRequestId: string | undefined): Effect.Effect<string> =>
     clientRequestId === undefined ? random.uuidV4() : Effect.succeed(clientRequestId);
@@ -2366,6 +2379,28 @@ const make = Effect.gen(function* () {
       const { parent, limits } = yield* loadCaller(scope, ["runs"]);
       const projectId = yield* resolveProjectTarget(parent, input.projectId);
       yield* assertLiveCallerForOtherProject(scope, parent, projectId);
+      // Scope the idempotency key by provider session so two callers
+      // reusing the same clientRequestId cannot collide on one task row.
+      const commandId =
+        input.clientRequestId === undefined
+          ? undefined
+          : stableCommandId({
+              scope,
+              requestKey: input.clientRequestId,
+              operation: "schedule-task",
+            });
+      if (commandId !== undefined) {
+        const existingId = ScheduledTaskId.make(`scheduled-task:${commandId}`);
+        const existing = yield* scheduledTasks.list().pipe(
+          Effect.map(({ tasks }) => tasks.find((task) => task.id === existingId)),
+          Effect.mapError((error) =>
+            failure("orchestration_error", `Could not schedule task: ${error.message}`),
+          ),
+        );
+        if (existing !== undefined) {
+          return yield* summarizeScheduledTask(scope, { parent, limits }, existing);
+        }
+      }
       const project = yield* requireProject(projectId);
       const settings = yield* serverSettings.getSettings.pipe(
         Effect.mapError(() => failure("orchestration_error", "Unable to read server settings.")),
@@ -2383,8 +2418,15 @@ const make = Effect.gen(function* () {
             : "bindToCurrentThread binds to this thread, which belongs to a different project.",
         );
       }
-      const modelSelection =
-        parent?.thread.modelSelection ?? (yield* projectDefaultModelSelection(project));
+      const execution = yield* resolveScheduledTaskExecution({
+        input,
+        bindToCurrentThread,
+        runtimeMode: limits.runtimeMode,
+        inherited: parent?.thread.modelSelection,
+        projectDefault: projectDefaultModelSelection(project),
+        project,
+        settings,
+      });
       // Never end on a lone high surrogate, which renders as a broken character.
       const derivedTitle = (input.prompt.split("\n")[0]?.trim() ?? "")
         .slice(0, 80)
@@ -2403,22 +2445,11 @@ const make = Effect.gen(function* () {
             ? "continue"
             : "new_thread",
         workspaceStrategy: yield* automationWorkspace(projectId, bindToCurrentThread),
-        modelSelection,
-        runtimeMode: limits.runtimeMode,
+        ...execution,
         interactionMode: limits.interactionMode,
         createdBy: "agent",
         creationSource: "mcp",
-        // Scope the idempotency key by provider session so two callers
-        // reusing the same clientRequestId cannot collide on one task row.
-        ...(input.clientRequestId === undefined
-          ? {}
-          : {
-              commandId: stableCommandId({
-                scope,
-                requestKey: input.clientRequestId,
-                operation: "schedule-task",
-              }),
-            }),
+        ...(commandId === undefined ? {} : { commandId }),
       };
       const { task } = yield* scheduledTasks
         .upsert({ ...upsertInput, keepExistingOnReplay: true })
@@ -2479,6 +2510,12 @@ const make = Effect.gen(function* () {
             "To move this task to a new thread with fresh sessions, first unbind it with bindToCurrentThread: false, then set freshSession: true in a second call.",
           );
         }
+        if (input.freshSession === true && scheduledTaskThreadMode(existing) === "new_thread") {
+          return yield* failure(
+            "invalid_request",
+            "A new-thread scheduled task cannot switch to freshSession: true. Create a new task without a model override instead.",
+          );
+        }
         const threadId =
           input.bindToCurrentThread === undefined
             ? existing.threadId
@@ -2511,7 +2548,10 @@ const make = Effect.gen(function* () {
                   ? "new_thread"
                   : "continue",
           workspaceStrategy,
-          modelSelection: existing.modelSelection,
+          modelSelection:
+            input.bindToCurrentThread && parent !== undefined
+              ? parent.thread.modelSelection
+              : existing.modelSelection,
           runtimeMode: existing.runtimeMode,
           interactionMode: existing.interactionMode,
           createdBy: existing.createdBy,

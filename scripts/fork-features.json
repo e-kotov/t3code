@@ -189,10 +189,11 @@
     {
       "id": "automations",
       "group": "Providers and automations",
-      "summary": "scheduled task search and a configurable default destination for agent-created tasks",
+      "summary": "scheduled task search, a configurable default thread destination, and model and effort selection for agent-created tasks",
       "tests": [
         "packages/client-runtime/src/scheduledTaskSearch.test.ts",
         "apps/server/src/mcp/automationDestination.test.ts",
+        "apps/server/src/mcp/scheduledTaskExecution.test.ts",
         "packages/contracts/src/automationDestinationSettings.test.ts",
         "apps/server/src/telemetry/automationDestinationDimension.test.ts",
         "apps/server/src/scheduledTasks/scheduledTaskCreationReplay.test.ts"

@@ -10,6 +10,7 @@ import { readCaller } from "../../threadAccess.ts";
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
 import * as McpToolAccess from "../../McpToolAccess.ts";
 import * as OrchestratorMcpService from "../../OrchestratorMcpService.ts";
+import { rejectScheduledTaskModelUpdate } from "../../scheduledTaskExecution.ts";
 import * as ThreadMetadataMcpService from "../../ThreadMetadataMcpService.ts";
 
 const handlers = {
@@ -106,9 +107,19 @@ const handlers = {
       { refused: "schedule tasks in this environment" },
     ),
     McpToolAccess.writes(
-      ({ scheduledTaskId, prompt, title, schedule, enabled, freshSession, bindToCurrentThread }) =>
+      ({
+        scheduledTaskId,
+        prompt,
+        title,
+        schedule,
+        enabled,
+        freshSession,
+        bindToCurrentThread,
+        ...rest
+      }) =>
         Effect.gen(function* () {
           if (scheduledTaskId === undefined) return yield* Effect.die("unreachable");
+          yield* rejectScheduledTaskModelUpdate(rest.target);
           const scope = yield* McpInvocationContext.McpInvocationContext;
           const service = yield* OrchestratorMcpService.OrchestratorMcpService;
           return yield* service.updateScheduledTask(scope, {
