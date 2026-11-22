@@ -10,7 +10,7 @@ on:
       - "apps/mobile/deps/react-native-enriched-markdown-*.tgz"
       - "apps/mobile/src/native/assistantCitation*"
       - "apps/mobile/modules/t3-citation-passage/**"
-      - "apps/mobile/src/features/threads/AssistantCitationPassage.tsx"
+      - "apps/mobile/src/features/threads/AssistantCitationPassage*"
       - "apps/mobile/src/features/threads/useAssistantCitationSourceTarget.ts"
       - "apps/mobile/src/lib/assistantCitationPassage*"
       - "apps/mobile/src/components/AssistantCitationSheet.tsx"
@@ -19,6 +19,7 @@ on:
       - "apps/mobile/src/lib/assistantCitationDraft*"
       - "apps/mobile/src/components/forkComposerCitationSafety.test.tsx"
       - "scripts/fork-footprint-budget.json"
+      - "scripts/fork-robolectric-tests.gradle"
   pull_request:
     branches: [main]
     paths: *citation_paths
@@ -85,7 +86,7 @@ jobs:
           base=$(git merge-base refs/remotes/origin/main HEAD)
           if [ "$base" = "$(git rev-parse HEAD)" ]; then base=HEAD^; fi
           vp run check:changed "$base"
-          vp test run apps/mobile/src/components/forkComposerCitationSafety.test.tsx apps/mobile/src/lib/assistantCitationDraft.test.ts apps/mobile/src/lib/assistantCitationSelection.test.ts apps/mobile/src/lib/assistantCitationPassage.test.ts apps/mobile/src/lib/assistantCitationPassageBridge.test.ts packages/shared/src/assistantCitations.test.ts
+          vp test run apps/mobile/src/components/forkComposerCitationSafety.test.tsx apps/mobile/src/lib/assistantCitationDraft.test.ts apps/mobile/src/lib/assistantCitationSelection.test.ts apps/mobile/src/lib/assistantCitationPassage.test.ts apps/mobile/src/lib/assistantCitationPassageBridge.test.ts apps/mobile/src/native/assistantCitationLinkOwnership.test.tsx apps/mobile/src/features/threads/AssistantCitationPassage.test.tsx packages/shared/src/assistantCitations.test.ts
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -96,12 +97,9 @@ jobs:
       - name: Generate isolated Android project
         working-directory: apps/mobile
         run: vp exec expo prebuild --platform android --no-install
-      - name: Compile the native selection bridge and test its context
+      - name: Compile upstream Android markdown selection
         working-directory: apps/mobile/android
-        env: &robolectric_maven
-          JAVA_TOOL_OPTIONS: -Drobolectric.dependency.repo.url=https://repo.maven.apache.org/maven2
-        run: ./gradlew :react-native-enriched-markdown:testDebugUnitTest --tests '*CitationSelectionContextTest' --build-cache --max-workers=2
+        run: ./gradlew :react-native-enriched-markdown:compileDebugKotlin --build-cache --max-workers=2
       - name: Test native passage matching and highlighting
         working-directory: apps/mobile/android
-        env: *robolectric_maven
-        run: ./gradlew :t3-citation-passage:testDebugUnitTest --build-cache --max-workers=2
+        run: ./gradlew --init-script ../../../scripts/fork-robolectric-tests.gradle :t3-citation-passage:testDebugUnitTest --build-cache --max-workers=2

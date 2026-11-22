@@ -30,11 +30,6 @@ def configureAndroidCcache = { project, boolean disableReleaseVitalLint ->
 }
 
 gradle.beforeProject { project ->
-  // Use Gradle's Maven Central endpoint for Robolectric's separate SDK downloads.
-  project.tasks.withType(Test).configureEach {
-    systemProperty 'robolectric.dependency.repo.url', 'https://repo.maven.apache.org/maven2'
-  }
-
   project.plugins.withId('com.android.library') {
     configureAndroidCcache(project, false)
   }

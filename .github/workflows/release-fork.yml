@@ -311,6 +311,7 @@ jobs:
         working-directory: apps/mobile/android
         run: >-
           ./gradlew --init-script ../../../scripts/fork-sharing-tests.gradle
+          --init-script ../../../scripts/fork-robolectric-tests.gradle
           -Dorg.gradle.jvmargs="-Xmx8g -XX:MaxMetaspaceSize=1024m -XX:+UseParallelGC"
           :app:verifyPatchedNativeSharing
           :expo-sharing:testDebugUnitTest

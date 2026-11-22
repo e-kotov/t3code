@@ -123,7 +123,7 @@ jobs:
       - name: Verify patched native sharing and test the Android transcript and PDF parser
         if: github.event_name == 'workflow_dispatch' && inputs.native_checks
         working-directory: apps/mobile/android
-        run: ./gradlew --init-script ../../../scripts/fork-sharing-tests.gradle :app:verifyPatchedNativeSharing :expo-sharing:testDebugUnitTest --build-cache --max-workers=2
+        run: ./gradlew --init-script ../../../scripts/fork-sharing-tests.gradle --init-script ../../../scripts/fork-robolectric-tests.gradle :app:verifyPatchedNativeSharing :expo-sharing:testDebugUnitTest --build-cache --max-workers=2
       - name: Prove a share delivered without a resume fails before the fix
         run: |
           source=apps/mobile/src/features/sharing/forkIncomingShareEvents.ts
