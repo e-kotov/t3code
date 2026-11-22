@@ -343,7 +343,7 @@ export function claudeProviderTurnTokenUsage(
     ...(modelSelection
       ? { cacheScopeKey: `${modelSelection.instanceId}:${modelSelection.model}` }
       : {}),
-    cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
+    cacheCreationTokens: optionalClaudeUsageTokenCount(usage.cache_creation_input_tokens) ?? 0,
     usedTokens: inputTokens + outputTokens,
     maxTokens,
     inputTokens,

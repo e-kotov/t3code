@@ -1009,6 +1009,7 @@ describe("ClaudeAdapterV2 context usage", () => {
       "2026-08-29T00:03:00.000Z",
     );
     assert.deepEqual(decodeProviderTurnTokenUsage(partialUsage), {
+      cacheCreationTokens: 0,
       usedTokens: 1_200,
       maxTokens: 200_000,
       inputTokens: 1_200,

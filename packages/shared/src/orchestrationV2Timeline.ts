@@ -58,20 +58,17 @@ export function isOrchestrationV2TurnItemVisible(input: {
   readonly items: ReadonlyArray<TimelineTurnItem>;
 }): boolean {
   const { item } = input;
+  // Retained inputs can return to the queue; do not scan the runs twice.
   if (
     item.runId !== null &&
-    input.runs.some((run) => run.id === item.runId && run.status === "rolled_back")
+    input.runs.some(
+      (run) =>
+        run.id === item.runId &&
+        (run.status === "rolled_back" || isHiddenUserInput(item, run.status)),
+    )
   ) {
     return false;
   }
-
-  // A steer can return to the queue before delivery. Keep its retained item out
-  // of conversation history until its run starts; cancelled queued inputs stay hidden.
-  if (
-    item.runId !== null &&
-    input.runs.some((run) => run.id === item.runId && isHiddenUserInput(item, run.status))
-  )
-    return false;
 
   return !isOrchestrationV2SupersededInterrupt({
     item,
