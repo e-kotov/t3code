@@ -205,7 +205,11 @@ export const make = Effect.gen(function* () {
             messageRunIds: [runId],
             messageRoles: ["user"],
           })
-          .pipe(Effect.catchTag("ProjectionStoreThreadNotFoundError", () => Effect.succeed(null)));
+          .pipe(
+            Effect.catchTags({
+              ProjectionStoreThreadNotFoundError: () => Effect.succeed(null),
+            }),
+          );
         if (records === null) continue;
         const promptId = records.runs[0]?.userMessageId;
         const prompt = records.messages.find((message) => message.id === promptId);

@@ -25,7 +25,7 @@ export function isUserIdleTurn(message: OrchestrationV2ConversationMessage) {
   );
 }
 
-export function reportedIdleCacheExpiryMs(hud: OrchestrationV2CacheHud): number | undefined {
+function reportedIdleCacheExpiryMs(hud: OrchestrationV2CacheHud): number | undefined {
   if (hud.usage.promptCacheExpiresAt !== undefined)
     return Date.parse(hud.usage.promptCacheExpiresAt);
   if (hud.basis === "reported" && hud.ttlMs !== undefined)

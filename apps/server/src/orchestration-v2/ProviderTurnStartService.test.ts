@@ -3245,6 +3245,7 @@ effectIt.effect.each([
       previousMessages: ["Prior user context"],
       historyReadFailureAfterFallback: new Error("Unexpected recovery"),
     });
+    harness.tryHandlePromptCommand.mockReturnValue(Effect.succeed(false));
     const original = harness.projection();
     const run = original.runs.at(-1)!;
     const messageId = MessageId.make(id);
