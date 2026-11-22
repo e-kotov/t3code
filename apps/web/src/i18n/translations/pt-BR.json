@@ -12538,5 +12538,18 @@
   "17e44811aed5153f": "Buscar tarefas agendadas",
   "701964090d7b3438": "Limpar pesquisa",
   "a8753618b379e894": "Nenhuma tarefa correspondente",
-  "54de9e17b1153a9d": "Buscar também nos prompts"
+  "54de9e17b1153a9d": "Buscar também nos prompts",
+  "6c2f808e4cdaa393": "Conversas inativas",
+  "8777da986e05222b": "Durante a inatividade",
+  "52825bcdf85f2a49": "Manter cache ativo",
+  "0bde867dbbca0798": "Compactar",
+  "a3db4ce07b0e4aa9": "Escolha um modo",
+  "fb49f6f955d5e90e": "Selecione uma máquina para alterar suas configurações de inatividade.",
+  "f92653a6d95be0c3": "Escolha um modo para substituir as regras de inatividade desta máquina.",
+  "49bc4c2162f9f670": "Envia uma solicitação curta por conversa inativa. Isso consome a cota.",
+  "e637173c759c26af": "Compacta uma vez as conversas inativas longas quando o provedor permite.",
+  "53980144b6d12cd6": "Não realiza nenhuma ação durante a inatividade.",
+  "2ea863b484a0933c": "Tempo de inatividade (min)",
+  "3f3ea0441308a707": "Contexto mínimo (mil tokens)",
+  "fddfcd8a7c82f9c3": "{provider} · {setting}"
 }

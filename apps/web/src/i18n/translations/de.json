@@ -12539,5 +12539,18 @@
   "17e44811aed5153f": "Geplante Aufgaben suchen",
   "701964090d7b3438": "Suche leeren",
   "a8753618b379e894": "Keine passenden Aufgaben",
-  "54de9e17b1153a9d": "Auch in Prompts suchen"
+  "54de9e17b1153a9d": "Auch in Prompts suchen",
+  "6c2f808e4cdaa393": "Inaktive Threads",
+  "8777da986e05222b": "Bei Inaktivität",
+  "52825bcdf85f2a49": "Cache aktiv halten",
+  "0bde867dbbca0798": "Kompaktieren",
+  "a3db4ce07b0e4aa9": "Modus wählen",
+  "fb49f6f955d5e90e": "Wähle einen Rechner aus, um seine Leerlaufeinstellungen zu ändern.",
+  "f92653a6d95be0c3": "Wähle einen Modus, um die bisherigen Leerlaufregeln dieses Rechners zu ersetzen.",
+  "49bc4c2162f9f670": "Sendet eine kurze Anfrage pro inaktivem Thread. Das verbraucht Kontingent.",
+  "e637173c759c26af": "Komprimiert große inaktive Threads einmal, wenn der Anbieter dies unterstützt.",
+  "53980144b6d12cd6": "Führt bei Inaktivität keine Aktion aus.",
+  "2ea863b484a0933c": "Leerlaufzeit (Min.)",
+  "3f3ea0441308a707": "Mindestkontext (Tsd. Tokens)",
+  "fddfcd8a7c82f9c3": "{provider} · {setting}"
 }

@@ -3,7 +3,7 @@
     {
       "id": "cache-warming",
       "group": "Cache and context",
-      "summary": "per-thread cache warming for Claude, Codex and Gemini 4 Neon, with configurable warm times and idle compaction policies shared across clients",
+      "summary": "machine-wide idle policies with pluggable provider timers and context cutoffs for Claude, Codex and Antigravity",
       "docs": "docs/user/cache-warming.md",
       "tests": [
         "apps/server/src/orchestration-v2/CacheWarmingService.test.ts",

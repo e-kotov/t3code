@@ -12539,5 +12539,18 @@
   "17e44811aed5153f": "Rechercher des tâches planifiées",
   "701964090d7b3438": "Effacer la recherche",
   "a8753618b379e894": "Aucune tâche correspondante",
-  "54de9e17b1153a9d": "Rechercher aussi dans les prompts"
+  "54de9e17b1153a9d": "Rechercher aussi dans les prompts",
+  "6c2f808e4cdaa393": "Fils inactifs",
+  "8777da986e05222b": "En cas d’inactivité",
+  "52825bcdf85f2a49": "Garder le cache actif",
+  "0bde867dbbca0798": "Compacter",
+  "a3db4ce07b0e4aa9": "Choisir un mode",
+  "fb49f6f955d5e90e": "Sélectionnez une machine pour modifier ses réglages d’inactivité.",
+  "f92653a6d95be0c3": "Choisissez un mode pour remplacer les règles d’inactivité de cette machine.",
+  "49bc4c2162f9f670": "Envoie une courte requête par fil inactif. Elle consomme du quota.",
+  "e637173c759c26af": "Compacte une fois les longs fils inactifs si le fournisseur le permet.",
+  "53980144b6d12cd6": "N’effectue aucune action en cas d’inactivité.",
+  "2ea863b484a0933c": "Temps d’inactivité (min)",
+  "3f3ea0441308a707": "Contexte minimal (milliers de jetons)",
+  "fddfcd8a7c82f9c3": "{provider} · {setting}"
 }

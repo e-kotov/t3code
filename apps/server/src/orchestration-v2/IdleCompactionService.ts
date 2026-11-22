@@ -20,12 +20,6 @@ import { idleCompactionWindow } from "./IdleCompaction.ts";
 import * as Orchestrator from "./Orchestrator.ts";
 import * as ProjectionStore from "./ProjectionStore.ts";
 
-/**
- * Beta: when a run completes on a Claude instance set to compact before the
- * cache expires, waits until shortly before its prompt cache expires and sends
- * `/compact` as a visible T3 Code turn. Timers live in
- * memory, so a server restart skips compactions that were still waiting.
- */
 export const make = Effect.gen(function* () {
   const orchestrator = yield* Orchestrator.OrchestratorV2;
   const projections = yield* ProjectionStore.ProjectionStoreV2;
@@ -42,7 +36,7 @@ export const make = Effect.gen(function* () {
           ? current.providerInstances[thread.providerInstanceId]?.driver === "claudeAgent"
           : thread.providerInstanceId === "claudeAgent";
         if (
-          !claudeInstance ||
+          (current.machineIdlePolicy === undefined && !claudeInstance) ||
           resolveThreadIdleCompaction(current, threadId, thread.providerInstanceId) !==
             "beforeCacheExpires" ||
           !resolveProjectProviderInstanceEnabled(
@@ -102,7 +96,7 @@ export const make = Effect.gen(function* () {
           continue;
         }
         const nowMs = DateTime.toEpochMillis(yield* DateTime.now);
-        const window = idleCompactionWindow(records, nowMs);
+        const window = idleCompactionWindow(records, nowMs, current.machineIdlePolicy);
         if (window?.runId !== runId) return;
         if (nowMs < window.startMs) {
           yield* Effect.sleep(Duration.millis(window.startMs - nowMs));
@@ -119,7 +113,10 @@ export const make = Effect.gen(function* () {
           createdBy: "agent",
           creationSource: "server",
           idleCompaction: "beforeCacheExpires",
-          dispatchMode: { type: "start_immediately" },
+          dispatchMode:
+            current.machineIdlePolicy === undefined
+              ? { type: "start_immediately" }
+              : { type: "start_if_idle" },
         });
         return;
       }

@@ -35,6 +35,7 @@ import { ListActionRow as SettingsActionRow } from "../../components/ui/ListActi
 import { useSettingsEnvironmentMenu } from "./components/SettingsEnvironmentFilterHeader";
 import { SettingsScreen } from "./components/SettingsScreen";
 import { SettingsSection } from "./components/SettingsSection";
+import { MachineIdleSettings } from "./MachineIdleSettings";
 import { AddClaudeAccount, ClaudeAccount } from "./ClaudeAccounts";
 import { CLAUDE_DRIVER } from "./claude-accounts";
 import { useSettingsEnvironmentFilter, type SettingsTarget } from "./settings-environment-filter";
@@ -61,6 +62,7 @@ export function SettingsProviderAccountsRouteScreen() {
         ) : (
           selectedTargets.map((environment) => (
             <SettingsSection key={environment.environmentId} title={environment.label}>
+              <MachineIdleSettings environment={environment} />
               {!permittedEnvironments.has(environment.environmentId) ? (
                 <View className="gap-1 p-4">
                   <Text className="text-base text-foreground">

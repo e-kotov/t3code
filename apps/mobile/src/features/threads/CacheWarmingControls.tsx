@@ -53,6 +53,7 @@ function EnvironmentControl(props: {
     resolveCodexCacheWarmAfterMinutes(serverConfig),
     resolveNeonCacheWarmAfterMinutes(serverConfig),
   );
+  if (settings?.machineIdlePolicy !== undefined) return null;
   const enabled =
     hotThreadIds.length > 0 &&
     hotThreadIds.every((id) => settings?.cacheWarmingSessions?.[id] === true);
@@ -120,7 +121,7 @@ export function CacheWarmingMachineControl(props: { readonly environmentId: Envi
     resolveCodexCacheWarmAfterMinutes(serverConfig),
     resolveNeonCacheWarmAfterMinutes(serverConfig),
   );
-  if (hotThreadIds.length === 0) return null;
+  if (settings?.machineIdlePolicy !== undefined || hotThreadIds.length === 0) return null;
   const state = cacheWarmingState(hotThreadIds, settings?.cacheWarmingSessions);
   return (
     <Pressable

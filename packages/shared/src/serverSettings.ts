@@ -408,6 +408,7 @@ export function applyServerSettingsPatch(
     sourceControlHosts: sourceControlHostsPatch,
     usagePriceOverrides: usagePriceOverridesPatch,
     usageModelAliases: usageModelAliasesPatch,
+    machineIdlePolicy: _machineIdlePolicy,
     threadCachePolicies: _threadCachePolicies,
     cacheWarmingSessions: cacheWarmingSessionsPatch,
     cacheWarmingLastWindows: cacheWarmingLastWindowsPatch,

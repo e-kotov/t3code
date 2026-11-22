@@ -110,8 +110,7 @@ import { CodexSetupSection, CodexManagedRuntimeFields } from "./CodexSetupSectio
 import { readCodexSetupMode } from "./CodexSetupSection.logic";
 import { providerClients } from "./providerDriverMeta";
 import { useSearchableSetting } from "./settingsSearch";
-import { CompactIdleThreadsRow } from "./SettingsPanels";
-import { CacheWarmAfterSettings } from "./CodexCacheWarmAfterSetting";
+import { MachineIdleSettings } from "./MachineIdleSettings";
 import {
   backgroundActivityOverrideSettings,
   buildProviderInstanceUpdatePatch,
@@ -1237,8 +1236,7 @@ export function EnvironmentProviderSettings({
             </div>
           }
         />
-        <CompactIdleThreadsRow />
-        <CacheWarmAfterSettings />
+        <MachineIdleSettings />
       </SettingsSection>
 
       {isAddInstanceDialogOpen && !readOnly ? (

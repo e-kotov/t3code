@@ -12534,5 +12534,18 @@
   "17e44811aed5153f": "Buscar tareas programadas",
   "701964090d7b3438": "Borrar búsqueda",
   "a8753618b379e894": "No hay tareas que coincidan",
-  "54de9e17b1153a9d": "Buscar también en los prompts"
+  "54de9e17b1153a9d": "Buscar también en los prompts",
+  "6c2f808e4cdaa393": "Hilos inactivos",
+  "8777da986e05222b": "Durante la inactividad",
+  "52825bcdf85f2a49": "Mantener la caché activa",
+  "0bde867dbbca0798": "Compactar",
+  "a3db4ce07b0e4aa9": "Elige un modo",
+  "fb49f6f955d5e90e": "Elige un equipo para cambiar sus ajustes de inactividad.",
+  "f92653a6d95be0c3": "Elige un modo para reemplazar las reglas de inactividad de este equipo.",
+  "49bc4c2162f9f670": "Envía una solicitud breve por hilo inactivo. Esto consume cuota.",
+  "e637173c759c26af": "Compacta los hilos inactivos grandes una vez si el proveedor lo permite.",
+  "53980144b6d12cd6": "No realiza ninguna acción durante la inactividad.",
+  "2ea863b484a0933c": "Tiempo de inactividad (min)",
+  "3f3ea0441308a707": "Contexto mínimo (miles de tokens)",
+  "fddfcd8a7c82f9c3": "{provider} · {setting}"
 }

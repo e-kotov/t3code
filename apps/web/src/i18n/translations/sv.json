@@ -12546,5 +12546,18 @@
   "17e44811aed5153f": "Sök schemalagda uppgifter",
   "701964090d7b3438": "Rensa sökning",
   "a8753618b379e894": "Inga matchande uppgifter",
-  "54de9e17b1153a9d": "Sök även i instruktioner"
+  "54de9e17b1153a9d": "Sök även i instruktioner",
+  "6c2f808e4cdaa393": "Inaktiva trådar",
+  "8777da986e05222b": "Vid inaktivitet",
+  "52825bcdf85f2a49": "Håll cachen aktiv",
+  "0bde867dbbca0798": "Komprimera",
+  "a3db4ce07b0e4aa9": "Välj ett läge",
+  "fb49f6f955d5e90e": "Välj en maskin för att ändra dess inställningar för inaktivitet.",
+  "f92653a6d95be0c3": "Välj ett läge för att ersätta den här maskinens nuvarande regler för inaktivitet.",
+  "49bc4c2162f9f670": "Skickar en kort begäran per inaktiv tråd. Det använder din kvot.",
+  "e637173c759c26af": "Komprimerar stora inaktiva trådar en gång om leverantören stöder det.",
+  "53980144b6d12cd6": "Gör ingenting vid inaktivitet.",
+  "2ea863b484a0933c": "Inaktiv tid (min)",
+  "3f3ea0441308a707": "Minsta kontext (tusen token)",
+  "fddfcd8a7c82f9c3": "{provider} · {setting}"
 }

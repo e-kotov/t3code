@@ -2567,6 +2567,7 @@ export default function ChatView(props: ChatViewProps) {
     activeContextWindow &&
     pendingHandoff === null &&
     !freshSessionPending &&
+    settings.machineIdlePolicy === undefined &&
     resolveIdleCompaction(
       settings,
       activeProviderInstanceId ?? ProviderInstanceId.make("claudeAgent"),

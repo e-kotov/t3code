@@ -1,7 +1,10 @@
 import { isListedThreadLineage, type OrchestrationV2ThreadProjection } from "@t3tools/contracts";
 import { COMPACTION_SUGGESTION_MIN_TOKENS } from "@t3tools/shared/claudeCompaction";
+import { modelSelectionsEqual } from "@t3tools/shared/model";
 import { derivePendingBackgroundWork } from "@t3tools/shared/orchestrationV2PendingBackgroundWork";
+import { isIdleThreadProvider, type MachineIdlePolicy } from "@t3tools/shared/threadCachePolicy";
 import * as DateTime from "effect/DateTime";
+import { machineIdleWindow } from "./IdleThreadTiming.ts";
 
 // Claude Code's idleCompaction defaults to 200K and won't go below 100K. Below
 // that a cold re-read is cheap, so compacting mostly loses context for little
@@ -41,6 +44,7 @@ export function idleCompactionWindow(
     contextTransfers,
   }: IdleCompactionRecords,
   nowMs: number,
+  policy?: MachineIdlePolicy,
 ): {
   readonly runId: (typeof runs)[number]["id"];
   readonly startMs: number;
@@ -61,7 +65,12 @@ export function idleCompactionWindow(
   if (latestRun?.status !== "completed" || latestRun.completedAt === null) return null;
   const message = messages.find((candidate) => candidate.id === latestRun.userMessageId);
   // Never compact a compaction, so one idle spell compacts at most once.
-  if (message === undefined || message.text.trim().toLowerCase() === "/compact") return null;
+  if (
+    message === undefined ||
+    /^\/compact(?:\s|$)/i.test(message.text.trim()) ||
+    (policy !== undefined && (policy.mode !== "compact" || message.createdBy !== "user"))
+  )
+    return null;
   if (
     runtimeRequests.some((request) => request.status === "pending") ||
     // A pending merge-back belongs to the user's next message.
@@ -87,9 +96,15 @@ export function idleCompactionWindow(
   const providerThread = providerThreads.find(
     (candidate) => candidate.id === thread.activeProviderThreadId,
   );
-  // The thread's current selection receives the /compact, so it must still be this Claude session.
+  const driver: string | undefined = providerThread?.driver;
+  // The current selection must still target the session whose context was measured.
   if (
-    providerThread?.driver !== "claudeAgent" ||
+    providerThread === undefined ||
+    driver === undefined ||
+    !isIdleThreadProvider(driver) ||
+    (policy === undefined && driver !== "claudeAgent") ||
+    (policy !== undefined &&
+      !modelSelectionsEqual(latestRun.modelSelection, thread.modelSelection)) ||
     providerThread.id !== latestRun.providerThreadId ||
     providerThread.providerInstanceId !== thread.providerInstanceId ||
     latestRun.providerInstanceId !== thread.providerInstanceId
@@ -99,10 +114,17 @@ export function idleCompactionWindow(
     .filter((turn) => turn.providerThreadId === providerThread.id && turn.tokenUsage !== undefined)
     .map((turn) => turn.tokenUsage!)
     .toSorted((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt));
-  if ((usages[0]?.usedTokens ?? 0) < MIN_CONTEXT_TOKENS) return null;
+  const limits = policy?.[driver];
+  if ((usages[0]?.usedTokens ?? 0) < (limits?.minContextTokens ?? MIN_CONTEXT_TOKENS)) return null;
   // A request served fully from cache creates no cache entry and reports no
   // TTL, but it still refreshes the cache. Treat it as unknown and skip.
   const expiresAt = usages[0]?.promptCacheExpiresAt;
+  if (limits !== undefined) {
+    if (driver === "claudeAgent" && expiresAt === undefined) return null;
+    const window = machineIdleWindow(latestRun.completedAt, limits.idleMinutes, expiresAt);
+    if (!(window.endMs > Math.max(nowMs, window.startMs))) return null;
+    return { runId: latestRun.id, ...window };
+  }
   const endMs = expiresAt === undefined ? Number.NaN : Date.parse(expiresAt);
   if (!Number.isFinite(endMs) || nowMs >= endMs) return null;
   return { runId: latestRun.id, startMs: endMs - LEAD_MS, endMs };

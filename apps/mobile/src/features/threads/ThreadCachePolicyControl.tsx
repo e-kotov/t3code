@@ -38,11 +38,13 @@ export function useThreadCachePolicyMenu(thread: CacheThread) {
   const driver = settings
     ? cachePolicyDriver(settings, thread.modelSelection.instanceId, thread.cacheHud?.driver)
     : thread.cacheHud?.driver;
-  const supported = supportsThreadCachePolicy(
-    driver,
-    thread.modelSelection.model,
-    supportsNeonCacheWarming(serverConfig),
-  );
+  const supported =
+    settings?.machineIdlePolicy === undefined &&
+    supportsThreadCachePolicy(
+      driver,
+      thread.modelSelection.model,
+      supportsNeonCacheWarming(serverConfig),
+    );
   const choices = cachePolicyChoices(driver);
   const actions: MenuAction[] = supported
     ? choices.map((choice) => ({

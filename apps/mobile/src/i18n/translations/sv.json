@@ -5557,5 +5557,13 @@
   "8d545d54c0a9e950": "Dölj kommandon, redigeringar och sökningar som agenter kör. Dölj lyckade behåller misslyckanden. Zen visar bara slutliga svar. Godkännanden, frågor och fel visas alltid.",
   "17e44811aed5153f": "Sök schemalagda uppgifter",
   "a8753618b379e894": "Inga matchande uppgifter",
-  "54de9e17b1153a9d": "Sök även i instruktioner"
+  "54de9e17b1153a9d": "Sök även i instruktioner",
+  "8777da986e05222b": "Vid inaktivitet",
+  "52825bcdf85f2a49": "Håll cachen aktiv",
+  "0bde867dbbca0798": "Komprimera",
+  "f92653a6d95be0c3": "Välj ett läge för att ersätta den här maskinens nuvarande regler för inaktivitet.",
+  "49bc4c2162f9f670": "Skickar en kort begäran per inaktiv tråd. Det använder din kvot.",
+  "2ea863b484a0933c": "Inaktiv tid (min)",
+  "3f3ea0441308a707": "Minsta kontext (tusen token)",
+  "fddfcd8a7c82f9c3": "{provider} · {setting}"
 }

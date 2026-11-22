@@ -12548,5 +12548,18 @@
   "17e44811aed5153f": "Search scheduled tasks",
   "701964090d7b3438": "Clear search",
   "a8753618b379e894": "No matching tasks",
-  "54de9e17b1153a9d": "Search prompts too"
+  "54de9e17b1153a9d": "Search prompts too",
+  "6c2f808e4cdaa393": "Idle threads",
+  "8777da986e05222b": "While idle",
+  "52825bcdf85f2a49": "Keep warm",
+  "0bde867dbbca0798": "Compact",
+  "a3db4ce07b0e4aa9": "Choose a mode",
+  "fb49f6f955d5e90e": "Select one machine to change its idle settings.",
+  "f92653a6d95be0c3": "Choose a mode to replace this machine’s current idle rules.",
+  "49bc4c2162f9f670": "Send one short request per idle thread. This uses quota.",
+  "e637173c759c26af": "Compact large idle threads once when the provider supports it.",
+  "53980144b6d12cd6": "Take no idle action.",
+  "2ea863b484a0933c": "Idle time (min)",
+  "3f3ea0441308a707": "Minimum context (k tokens)",
+  "fddfcd8a7c82f9c3": "{provider} · {setting}"
 }

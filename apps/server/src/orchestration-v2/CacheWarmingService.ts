@@ -1,7 +1,9 @@
 import { CommandId, MessageId, type OrchestrationV2ThreadShell } from "@t3tools/contracts";
 import {
   isNeonCacheModel,
-  threadCachePolicy,
+  cacheWarmingEnabled,
+  isIdleThreadProvider,
+  type MachineIdlePolicy,
   legacyCacheWarmingMigration,
 } from "@t3tools/shared/threadCachePolicy";
 import {
@@ -18,6 +20,7 @@ import type * as Scope from "effect/Scope";
 
 import * as ServerSettings from "../serverSettings.ts";
 import { cacheWarmingRetired } from "./CacheWarmingDispatchGuard.ts";
+import { machineIdleWindow } from "./IdleThreadTiming.ts";
 import * as ThreadManagement from "./ThreadManagementService.ts";
 
 const CLAUDE_WARM_MARGIN_MS = 60_000;
@@ -42,14 +45,17 @@ export interface CacheWarmingCandidate {
     | "status"
     | "cacheHud"
     | "latestUserAuthoredMessageAt"
+    | "latestRunCompletedAt"
     | "modelSelection"
     | "activeProviderThreadId"
-  >;
+  > &
+    Partial<Pick<OrchestrationV2ThreadShell, "latestRunId">>;
   readonly nowMs: number;
   readonly enabled: boolean;
   readonly codexWarmAfterMinutes: number;
   readonly neonWarmAfterMinutes?: number;
   readonly alreadyWarmedWindow?: string;
+  readonly policy?: MachineIdlePolicy;
 }
 
 export interface CacheWarmingWindow {
@@ -79,14 +85,34 @@ export function cacheWarmingWindow(input: CacheWarmingCandidate): CacheWarmingWi
   const hud = thread.cacheHud;
   if (
     hud == null ||
-    hud.ttlMs === undefined ||
+    (input.policy === undefined && hud.ttlMs === undefined) ||
     ((hud.usage.cachedInputTokens ?? 0) <= 0 && (hud.usage.cacheCreationTokens ?? 0) <= 0)
   ) {
     return null;
   }
 
-  const neon = hud.driver === "antigravity";
+  const driver: string = hud.driver;
+  const neon = driver === "antigravity";
   if (neon && !isNeonCacheModel(thread.modelSelection.model)) return null;
+  if (input.policy !== undefined) {
+    if (
+      input.policy.mode !== "warm" ||
+      !isIdleThreadProvider(driver) ||
+      thread.latestRunId == null ||
+      thread.latestRunCompletedAt == null ||
+      thread.latestUserAuthoredMessageAt == null
+    )
+      return null;
+    const { startMs, endMs } = machineIdleWindow(
+      thread.latestRunCompletedAt,
+      input.policy[driver].idleMinutes,
+      hud.usage.promptCacheExpiresAt,
+    );
+    if (!(input.nowMs >= startMs && input.nowMs < endMs)) return null;
+    const fingerprint = thread.latestRunId;
+    if (input.alreadyWarmedWindow === fingerprint) return null;
+    return { fingerprint, marginMs: endMs - startMs };
+  }
   const windowMs = cacheWarmWindowMs(hud, input.codexWarmAfterMinutes, input.neonWarmAfterMinutes);
   if (windowMs === undefined) return null;
   const view = presentCacheHud({ ...hud, ttlMs: windowMs }, input.nowMs);
@@ -128,9 +154,10 @@ export const make = Effect.gen(function* () {
     const now = DateTime.toEpochMillis(yield* DateTime.now);
     for (const thread of snapshot.threads) {
       const latestSettings = yield* settingsService.getSettings;
-      const enabled = threadCachePolicy(latestSettings, thread.id) === "warm";
+      const enabled = cacheWarmingEnabled(latestSettings, thread.id);
       if (!enabled) continue;
       if (cacheWarmingRetired(thread, now)) {
+        if (latestSettings.machineIdlePolicy !== undefined) continue;
         yield* settingsService
           .updateSettings({ cacheWarmingSessions: { [thread.id]: false } })
           .pipe(
@@ -146,6 +173,9 @@ export const make = Effect.gen(function* () {
         enabled,
         codexWarmAfterMinutes: latestSettings.codexCacheWarmAfterMinutes,
         neonWarmAfterMinutes: latestSettings.neonCacheWarmAfterMinutes,
+        ...(latestSettings.machineIdlePolicy === undefined
+          ? {}
+          : { policy: latestSettings.machineIdlePolicy }),
         ...(latestSettings.cacheWarmingLastWindows[thread.id] === undefined
           ? {}
           : { alreadyWarmedWindow: latestSettings.cacheWarmingLastWindows[thread.id] }),
@@ -153,12 +183,15 @@ export const make = Effect.gen(function* () {
       if (window === null) continue;
 
       const submissionSettings = yield* settingsService.getSettings;
-      if (threadCachePolicy(submissionSettings, thread.id) !== "warm") continue;
+      if (!cacheWarmingEnabled(submissionSettings, thread.id)) continue;
       if (submissionSettings.cacheWarmingLastWindows[thread.id] === window.fingerprint) continue;
 
       // Give a rejected idle-only attempt a fresh receipt key on the next sweep.
       // Successful attempts are deduped persistently by the window marker below.
-      const key = `${thread.id}:${window.fingerprint}:${now}`;
+      const machinePolicy = latestSettings.machineIdlePolicy !== undefined;
+      const key = machinePolicy
+        ? `machine:${thread.id}:${window.fingerprint}`
+        : `${thread.id}:${window.fingerprint}:${now}`;
       const commandId = CommandId.make(`command:cache-warm:${key}`);
       const messageId = MessageId.make(`message:cache-warm:${key}`);
       yield* threads

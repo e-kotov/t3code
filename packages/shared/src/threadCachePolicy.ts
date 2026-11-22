@@ -1,4 +1,5 @@
 import {
+  globalIdleCompaction,
   resolveIdleCompaction,
   type IdleCompactionMode,
   type ProviderInstanceId,
@@ -6,9 +7,44 @@ import {
   type ServerSettingsPatch,
   type ThreadId,
 } from "@t3tools/contracts";
+import { COMPACTION_SUGGESTION_MIN_TOKENS } from "./claudeCompaction.ts";
 
 export type ThreadCachePolicy = ServerSettings["threadCachePolicies"][ThreadId];
 type PolicySettings = Pick<ServerSettings, "threadCachePolicies" | "cacheWarmingSessions">;
+export type MachineIdlePolicy = NonNullable<ServerSettings["machineIdlePolicy"]>;
+export type IdleThreadProvider = Exclude<keyof MachineIdlePolicy, "mode">;
+export const IDLE_THREAD_PROVIDERS = [
+  { driver: "claudeAgent", label: "Claude" },
+  { driver: "codex", label: "Codex" },
+  { driver: "antigravity", label: "Antigravity" },
+] as const satisfies ReadonlyArray<{ driver: IdleThreadProvider; label: string }>;
+
+export function isIdleThreadProvider(driver: string): driver is IdleThreadProvider {
+  return IDLE_THREAD_PROVIDERS.some((entry) => entry.driver === driver);
+}
+
+export function machineIdlePolicy(settings: ServerSettings): MachineIdlePolicy {
+  return (
+    settings.machineIdlePolicy ?? {
+      mode: globalIdleCompaction(settings) === "beforeCacheExpires" ? "compact" : "off",
+      claudeAgent: { idleMinutes: 55, minContextTokens: COMPACTION_SUGGESTION_MIN_TOKENS },
+      codex: {
+        idleMinutes: settings.codexCacheWarmAfterMinutes,
+        minContextTokens: COMPACTION_SUGGESTION_MIN_TOKENS,
+      },
+      antigravity: {
+        idleMinutes: 55,
+        minContextTokens: COMPACTION_SUGGESTION_MIN_TOKENS,
+      },
+    }
+  );
+}
+
+export function cacheWarmingEnabled(settings: ServerSettings, threadId: ThreadId): boolean {
+  return settings.machineIdlePolicy === undefined
+    ? threadCachePolicy(settings, threadId) === "warm"
+    : settings.machineIdlePolicy.mode === "warm";
+}
 
 const THREAD_CACHE_POLICIES = [
   {
@@ -46,6 +82,9 @@ export function resolveThreadIdleCompaction(
   threadId: ThreadId,
   instanceId: ProviderInstanceId,
 ): IdleCompactionMode {
+  if (settings.machineIdlePolicy !== undefined) {
+    return settings.machineIdlePolicy.mode === "compact" ? "beforeCacheExpires" : "off";
+  }
   switch (threadCachePolicy(settings, threadId)) {
     case "warm":
     case "off":
@@ -59,11 +98,25 @@ export function resolveThreadIdleCompaction(
 
 /** Old clients and bulk switches still write booleans. Keep both representations coherent. */
 export function threadCachePolicySettingsPatch(
-  current: PolicySettings,
+  current: ServerSettings,
   patch: ServerSettingsPatch,
 ) {
+  const idlePatch = patch.machineIdlePolicy;
+  const idle = machineIdlePolicy(current);
+  const machinePatch =
+    idlePatch === undefined
+      ? {}
+      : {
+          machineIdlePolicy: {
+            mode: idlePatch.mode ?? idle.mode,
+            claudeAgent: { ...idle.claudeAgent, ...idlePatch.claudeAgent },
+            codex: { ...idle.codex, ...idlePatch.codex },
+            antigravity: { ...idle.antigravity, ...idlePatch.antigravity },
+          },
+        };
   if (patch.cacheWarmingSessions === undefined && patch.threadCachePolicies === undefined)
     return {
+      ...machinePatch,
       threadCachePolicies: current.threadCachePolicies,
       cacheWarmingSessions: current.cacheWarmingSessions,
     };
@@ -79,7 +132,7 @@ export function threadCachePolicySettingsPatch(
     else policies[id] = policy;
     warming[id] = policy === "warm";
   }
-  return { threadCachePolicies: policies, cacheWarmingSessions: warming };
+  return { ...machinePatch, threadCachePolicies: policies, cacheWarmingSessions: warming };
 }
 
 export function isNeonCacheModel(model: string | undefined): boolean {

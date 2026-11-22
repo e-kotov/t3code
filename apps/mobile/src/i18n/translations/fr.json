@@ -5551,5 +5551,13 @@
   "8d545d54c0a9e950": "Masque les commandes, modifications et recherches lancées par les agents. Masquer les réussis garde les échecs. Zen n’affiche que les réponses finales. Les approbations, questions et erreurs s’affichent toujours.",
   "17e44811aed5153f": "Rechercher des tâches planifiées",
   "a8753618b379e894": "Aucune tâche correspondante",
-  "54de9e17b1153a9d": "Rechercher aussi dans les prompts"
+  "54de9e17b1153a9d": "Rechercher aussi dans les prompts",
+  "8777da986e05222b": "En cas d’inactivité",
+  "52825bcdf85f2a49": "Garder le cache actif",
+  "0bde867dbbca0798": "Compacter",
+  "f92653a6d95be0c3": "Choisissez un mode pour remplacer les règles d’inactivité de cette machine.",
+  "49bc4c2162f9f670": "Envoie une courte requête par fil inactif. Elle consomme du quota.",
+  "2ea863b484a0933c": "Temps d’inactivité (min)",
+  "3f3ea0441308a707": "Contexte minimal (milliers de jetons)",
+  "fddfcd8a7c82f9c3": "{provider} · {setting}"
 }

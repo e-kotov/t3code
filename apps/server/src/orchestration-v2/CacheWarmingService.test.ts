@@ -1,4 +1,11 @@
-import { ProviderDriverKind, ProviderInstanceId, ThreadId } from "@t3tools/contracts";
+import {
+  DEFAULT_SERVER_SETTINGS,
+  ProviderDriverKind,
+  ProviderInstanceId,
+  RunId,
+  ThreadId,
+} from "@t3tools/contracts";
+import { machineIdlePolicy } from "@t3tools/shared/threadCachePolicy";
 import * as DateTime from "effect/DateTime";
 import { describe, expect, it } from "vite-plus/test";
 import { cacheWarmingRetired } from "./CacheWarmingDispatchGuard.ts";
@@ -256,4 +263,22 @@ describe("cacheWarmingWindow", () => {
     });
     expect(cacheWarmingWindow({ ...enabled, thread: current })).toBeNull();
   });
+});
+
+it("warms a machine policy once, using the end of the last turn and the chosen delay", () => {
+  const latestRunId = RunId.make("machine-warm-run");
+  const policy = { ...machineIdlePolicy(DEFAULT_SERVER_SETTINGS), mode: "warm" as const };
+  const completedAt = NOW - 115 * 60_000;
+  const input = {
+    ...enabled,
+    policy,
+    thread: thread({
+      latestRunId,
+      latestRunCompletedAt: DateTime.makeUnsafe(completedAt),
+    }),
+  };
+  expect(cacheWarmingWindow({ ...input, nowMs: NOW - 1 })).toBeNull();
+  expect(cacheWarmingWindow(input)?.fingerprint).toBe(latestRunId);
+  expect(cacheWarmingWindow({ ...input, alreadyWarmedWindow: latestRunId })).toBeNull();
+  expect(cacheWarmingWindow({ ...input, nowMs: NOW + 5 * 60_000 })).toBeNull();
 });

@@ -152,6 +152,7 @@ export function ThreadCachePolicyControl(props: {
   const serverConfig = useAtomValue(serverEnvironment.configValueAtom(props.environmentId));
   const update = useUpdateEnvironmentSettings(props.environmentId);
   const canWrite = useEnvironmentScope(props.environmentId, AuthSettingsWriteScope);
+  if (serverConfig?.settings?.machineIdlePolicy !== undefined) return null;
   return (
     <ThreadCachePolicyMenu
       key={`${props.environmentId}:${props.threadId}`}
