@@ -135,7 +135,7 @@ import {
   shouldShowFileExplorer,
   workspaceAssetResource,
 } from "./filePreviewMode";
-import { setMarkdownTaskChecked } from "@t3tools/shared/markdownTaskList";
+import { setMarkdownTaskChecked } from "@t3tools/shared/markdownTaskEdits";
 import { changeFileSaveSession, useFileSaveSession } from "./fileSaveSessions";
 import { revisionedQuery } from "~/state/revisionedQuery";
 import {
@@ -353,6 +353,7 @@ export function WorkspaceBrowserPreview(props: {
       documentId={documentId}
       title={props.title}
       pdf={pdf}
+      threadRef={props.threadRef}
       pdfActions={
         <WorkspacePdfSaveAction
           environmentId={props.environmentId}
@@ -1441,6 +1442,25 @@ export default function FilePreviewPanel({
     !renderMermaid &&
     !(isMarkdown && renderMarkdown) &&
     !(tableDelimiter && renderTable);
+  const copyableContents =
+    previewPath !== null &&
+    !isMedia &&
+    !isDocument &&
+    !isPdf &&
+    file.data &&
+    !file.data.truncated &&
+    file.data.contents.length > 0
+      ? file.data.contents
+      : null;
+  const { copyToClipboard, isCopied } = useCopyToClipboard({
+    target: namedClipboardTarget(previewPath ?? ""),
+    onError: (error) =>
+      toastManager.add({
+        type: "error",
+        title: gt("Could not copy file"),
+        description: error.message,
+      }),
+  });
   const contentFocusRef = useRef<HTMLDivElement>(null);
   const fileEditorRef = useRef<FileEditor | null>(null);
   const focusEditorFromContent = () => {
@@ -1663,6 +1683,14 @@ export default function FilePreviewPanel({
               onPress={() => setWordWrapOverride(!wordWrap)}
             >
               <WrapTextIcon className="size-3.5" />
+            </FileSurfaceAction>
+          ) : null}
+          {copyableContents !== null ? (
+            <FileSurfaceAction
+              label={isCopied ? gt("Copied") : gt("Copy contents")}
+              onPress={() => copyToClipboard(copyableContents, undefined)}
+            >
+              {isCopied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
             </FileSurfaceAction>
           ) : null}
           {canOpenInBrowser ? (
