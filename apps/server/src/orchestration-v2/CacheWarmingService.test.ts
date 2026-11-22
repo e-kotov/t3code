@@ -25,6 +25,7 @@ function thread(overrides: Partial<WarmThread> = {}): WarmThread {
       relationshipToParent: null,
     },
     archivedAt: null,
+    settledAt: null,
     activeRunId: null,
     pendingRuntimeRequest: null,
     pendingBackgroundTasks: [],
@@ -279,6 +280,9 @@ it("warms a machine policy once, using the end of the last turn and the chosen d
   };
   expect(cacheWarmingWindow({ ...input, nowMs: NOW - 1 })).toBeNull();
   expect(cacheWarmingWindow(input)?.fingerprint).toBe(latestRunId);
+  expect(
+    cacheWarmingWindow({ ...input, thread: { ...input.thread, settledAt: userMessageAt } }),
+  ).toBeNull();
   expect(cacheWarmingWindow({ ...input, alreadyWarmedWindow: latestRunId })).toBeNull();
   expect(cacheWarmingWindow({ ...input, nowMs: NOW + 5 * 60_000 })).toBeNull();
 });

@@ -8491,6 +8491,49 @@ it.layer(layerTest)("ProjectionStoreV2", (it) => {
         assert.equal(shell.latestRunId, "run:clock:newer");
       }
 
+      const skippedRunId = RunId.make("run:clock:newer");
+      const warmMessageId = MessageId.make("message:cache-warm:machine:clock");
+      yield* projectionStore.apply({
+        id: EventId.make("event:clock:warm-message"),
+        type: "message.updated",
+        threadId,
+        occurredAt: later,
+        payload: {
+          id: warmMessageId,
+          threadId,
+          runId: skippedRunId,
+          nodeId: null,
+          role: "user",
+          text: "Cache warm check",
+          attachments: [],
+          streaming: false,
+          createdBy: "system",
+          creationSource: "server",
+          createdAt: later,
+          updatedAt: later,
+        },
+      });
+      yield* projectionStore.apply({
+        id: EventId.make("event:clock:skipped-warm"),
+        type: "run.updated",
+        threadId,
+        occurredAt: later,
+        payload: {
+          ...endedBeforeCancelProjection.runs.find((entry) => entry.id === skippedRunId)!,
+          userMessageId: warmMessageId,
+        },
+      });
+      for (const shell of [
+        (yield* projectionStore.getShellSnapshot()).threads.find((row) => row.id === threadId)!,
+        ProjectionStore.threadShellFromProjection(
+          yield* projectionStore.getThreadProjection(threadId),
+        ),
+      ]) {
+        assert.equal(shell.latestRunId, runId);
+        assert.equal(shell.status, "completed");
+        assert.deepEqual(shell.latestRunCompletedAt, now);
+      }
+
       yield* projectionStore.apply({
         id: EventId.make("event:clock:newer:held"),
         type: "run.updated",

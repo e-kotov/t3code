@@ -682,6 +682,7 @@ export const layer: Layer.Layer<
           readonly error: Error;
           readonly message?: string;
         }) {
+          if (backgroundIdle) return yield* skipIdleRun();
           yield* settleRunBeforeStart({
             run,
             rootNode,
@@ -830,7 +831,16 @@ export const layer: Layer.Layer<
           return;
         }
       }
-      const recreateResult = yield* Effect.result(restoreMissingWorktree(projection.thread));
+      const workspace = projection.thread.worktreePath;
+      if (
+        backgroundIdle &&
+        workspace !== null &&
+        !(yield* fileSystem.exists(workspace).pipe(Effect.orElseSucceed(() => false)))
+      )
+        return yield* skipIdleRun();
+      const recreateResult = yield* Effect.result(
+        backgroundIdle ? Effect.void : restoreMissingWorktree(projection.thread),
+      );
       if (recreateResult._tag === "Failure") {
         if (input.willRetry === true) return yield* recreateResult.failure;
         yield* settleStartFailure({
@@ -905,6 +915,7 @@ export const layer: Layer.Layer<
       const abandonedTurns = abandonedProviderTurns(projection, run, providerThread.id);
       const abandonedTurn = abandonedTurns.at(-1)?.turn;
       if (abandonedTurn !== undefined) {
+        if (backgroundIdle) return yield* skipIdleRun();
         const liveSession = yield* providerSessions.get(providerSessionId);
         if (Option.isSome(liveSession)) {
           // The run already ended without stopping its provider — a failed start, an
@@ -951,11 +962,9 @@ export const layer: Layer.Layer<
         if (!repaired.committed) return;
       }
       // Opening a session does not prompt the provider, so the workspace is still unchanged.
-      const baseline = yield* runExecution.forkBaseline({
-        appThread: projection.thread,
-        run,
-        checkpointScope,
-      });
+      const baseline = backgroundIdle
+        ? undefined
+        : yield* runExecution.forkBaseline({ appThread: projection.thread, run, checkpointScope });
       const brokenNativeThread = providerThread.status === "error";
       // Opened without the broken native id, a session that was not live starts fresh.
       const opensFreshSession =
@@ -1054,6 +1063,7 @@ export const layer: Layer.Layer<
         restartCancelledWork.length === 0
           ? ""
           : restartCancelledBackgroundWorkNote(restartCancelledWork);
+      if (backgroundIdle && restartNote !== "") return yield* skipIdleRun();
       const tokenCap = yield* handoffTokenCapConfig.pipe(
         Effect.orElseSucceed(() => DEFAULT_HANDOFF_TOKEN_CAP),
       );
@@ -2148,7 +2158,7 @@ export const layer: Layer.Layer<
         providerThread: runningProviderThread,
         attempt: runningAttempt,
         attemptId: attempt.id,
-        baseline,
+        ...(baseline === undefined ? {} : { baseline }),
         loadInheritedBackgroundTurnItems: runControls.loadInheritedBackgroundTurnItems,
         relatedThreadIds: routableSubagents.flatMap((subagent) =>
           subagent.childThreadId === null ? [] : [subagent.childThreadId],
@@ -2283,21 +2293,28 @@ export const layer: Layer.Layer<
           if (rootNode === undefined || attempt === undefined) {
             return yield* new ProviderTurnStartRunStateMissingError({ runId });
           }
+          const prompt = projection.messages.find((message) => message.id === run.userMessageId);
+          const backgroundIdle =
+            prompt !== undefined && isBackgroundIdleMessage({ ...prompt, messageId: prompt.id });
           yield* settleRunBeforeStart({
             run,
             rootNode,
             attempt,
             turnItems: projection.turnItems,
-            signal: "provider-turn-start-failure",
-            status: "failed",
+            signal: backgroundIdle ? "idle-maintenance-skipped" : "provider-turn-start-failure",
+            status: backgroundIdle ? "cancelled" : "failed",
             now: yield* DateTime.now,
             providerInstanceId: run.providerInstanceId,
             itemProviderThreadId: run.providerThreadId,
-            item: {
-              type: "error",
-              title: "Turn failed to start",
-              failure: makeProviderFailure({ message: START_GAVE_UP_MESSAGE }),
-            },
+            ...(backgroundIdle
+              ? {}
+              : {
+                  item: {
+                    type: "error",
+                    title: "Turn failed to start",
+                    failure: makeProviderFailure({ message: START_GAVE_UP_MESSAGE }),
+                  },
+                }),
           });
         },
         (effect, { runId }) =>

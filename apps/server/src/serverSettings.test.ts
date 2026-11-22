@@ -2830,6 +2830,41 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
       ),
     );
 
+    it.effect(
+      "preserves the Claude idle preference when editing an instance under machine policy",
+      () =>
+        Effect.gen(function* () {
+          const service = yield* ServerSettingsModule.ServerSettingsService;
+          const config = yield* ServerConfig.ServerConfig;
+          const fs = yield* FileSystem.FileSystem;
+          const instanceId = ProviderInstanceId.make("claudeAgent");
+          yield* fs.writeFileString(
+            config.settingsPath,
+            JSON.stringify({
+              providerInstances: {
+                [instanceId]: { driver: claude, config: { idleCompaction: "onReturn" } },
+              },
+            }),
+          );
+          const effective = yield* service.updateSettings({ machineIdlePolicy: { mode: "warm" } });
+          const instance = effective.providerInstances[instanceId]!;
+          assert.deepEqual(instance.config, {
+            binaryPath: "/opt/claude/bin/claude",
+            idleCompaction: "off",
+          });
+          yield* service.updateProviderInstance({
+            operation: "upsert",
+            instanceId,
+            instance: { ...instance, displayName: "Claude (work)" },
+          });
+          const stored = JSON.parse(yield* fs.readFileString(config.settingsPath));
+          assert.equal(stored.providerInstances[instanceId].displayName, "Claude (work)");
+          assert.deepEqual(stored.providerInstances[instanceId].config, {
+            idleCompaction: "onReturn",
+          });
+        }).pipe(Effect.provide(layerServerSettings(policy))),
+    );
+
     it.effect("pins instance fields at read time and refuses edits to locked ones", () =>
       Effect.gen(function* () {
         const service = yield* ServerSettingsModule.ServerSettingsService;

@@ -5,6 +5,7 @@ import { projectTurnItemForWire } from "./WireProjection.ts";
 import * as Stream from "effect/Stream";
 import * as NodeSqliteClient from "@t3tools/shared/nodeSqliteClient";
 import { makeThreadFind } from "./ThreadFind.ts";
+import { isBackgroundIdleMessage } from "./IdleCompactionOutcome.ts";
 import { unsentManualContinuationSource } from "@t3tools/shared/orchestrationV2ManualContinuation";
 import type {
   OrchestrationV2ThreadLinkMetadata,
@@ -1836,8 +1837,7 @@ export function threadShellFromProjection(
         (left, right) =>
           DateTime.toEpochMillis(right.updatedAt) - DateTime.toEpochMillis(left.updatedAt),
       )[0] ?? null;
-  // T3 Code's own idle compactions stay out of the shell unless they fail, so thread lists,
-  // notifications and the relay keep presenting the user's last turn.
+  // Silent idle maintenance leaves thread lists, notifications and the relay on the last visible turn.
   const runs = projection.runs.filter((run) => !isSilentRunForShell(run, projection));
   const latestRun =
     usageLimitRunPresentedAsLatest(
@@ -2033,11 +2033,17 @@ function isSilentRunForShell(
   run: OrchestrationV2ThreadProjection["runs"][number],
   projection: Pick<OrchestrationV2ThreadProjection, "messages" | "turnItems">,
 ): boolean {
+  const prompt = projection.messages.find((message) => message.id === run.userMessageId);
+  if (prompt === undefined) return false;
+  if (
+    run.status === "cancelled" &&
+    run.startedAt === null &&
+    isBackgroundIdleMessage({ ...prompt, messageId: prompt.id })
+  )
+    return true;
   return (
     run.status !== "failed" &&
-    projection.messages.some(
-      (message) => message.id === run.userMessageId && idleCompactionOf(message) !== undefined,
-    ) &&
+    idleCompactionOf(prompt) !== undefined &&
     !projection.turnItems.some(
       (item) => item.runId === run.id && item.type === "compaction" && item.status === "failed",
     )
@@ -8222,16 +8228,30 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
     const isSilentShellRun = (alias: string) => {
       const run = sql.literal(alias);
       return sql`(
-        ${run}.status <> 'failed'
-        AND EXISTS (
+        EXISTS (
           SELECT 1 FROM orchestration_v2_projection_messages prompt
           WHERE prompt.message_id = json_extract(${run}.payload_json, '$.userMessageId')
-            AND ${isIdleCompactionMessage("prompt")}
-        ) AND NOT EXISTS (
-          SELECT 1 FROM orchestration_v2_projection_turn_items compaction
-          WHERE compaction.thread_id = ${run}.thread_id AND compaction.run_id = ${run}.run_id
-            AND compaction.type = 'compaction'
-            AND compaction.status = 'failed'
+            AND (
+              (
+                ${run}.status = 'cancelled'
+                AND json_extract(${run}.payload_json, '$.startedAt') IS NULL
+                AND json_extract(prompt.payload_json, '$.creationSource') = 'server'
+                AND json_extract(prompt.payload_json, '$.createdBy') IS NOT 'user'
+                AND (
+                  prompt.message_id GLOB 'idle-compact:*'
+                  OR prompt.message_id GLOB 'message:cache-warm:*'
+                )
+              ) OR (
+                ${run}.status <> 'failed'
+                AND ${isIdleCompactionMessage("prompt")}
+                AND NOT EXISTS (
+                  SELECT 1 FROM orchestration_v2_projection_turn_items compaction
+                  WHERE compaction.thread_id = ${run}.thread_id AND compaction.run_id = ${run}.run_id
+                    AND compaction.type = 'compaction'
+                    AND compaction.status = 'failed'
+                )
+              )
+            )
         )
       )`;
     };

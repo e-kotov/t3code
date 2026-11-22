@@ -11,6 +11,7 @@ import {
   type MachineIdlePolicy,
   legacyCacheWarmingMigration,
 } from "@t3tools/shared/threadCachePolicy";
+import { modelSelectionsEqual } from "@t3tools/shared/model";
 import {
   CODEX_WARM_MARGIN_MS,
   NEON_WARM_MARGIN_MS,
@@ -39,6 +40,7 @@ export interface CacheWarmingCandidate {
     OrchestrationV2ThreadShell,
     | "lineage"
     | "archivedAt"
+    | "settledAt"
     | "settledOverride"
     | "snoozedUntil"
     | "activeRunId"
@@ -103,6 +105,7 @@ export function cacheWarmingWindow(input: CacheWarmingCandidate): CacheWarmingWi
   if (input.policy !== undefined) {
     if (
       input.policy.mode !== "warm" ||
+      thread.settledAt !== null ||
       !isIdleThreadProvider(driver) ||
       thread.latestRunId == null ||
       thread.latestRunCompletedAt == null ||
@@ -201,7 +204,8 @@ export const make = Effect.gen(function* () {
         }
         const records = yield* projections
           .getThreadRecords(thread.id, ["runs", "messages"], {
-            runIds: [runId],
+            runStatuses: [],
+            includeLatestExecutedRun: true,
             messageRunIds: [runId],
             messageRoles: ["user"],
           })
@@ -211,8 +215,18 @@ export const make = Effect.gen(function* () {
             }),
           );
         if (records === null) continue;
-        const promptId = records.runs[0]?.userMessageId;
-        const prompt = records.messages.find((message) => message.id === promptId);
+        const run = records.runs[0];
+        if (
+          run === undefined ||
+          run.id !== runId ||
+          records.thread.settledAt !== null ||
+          run.providerThreadId !== thread.activeProviderThreadId ||
+          run.providerThreadId !== records.thread.activeProviderThreadId ||
+          !modelSelectionsEqual(run.modelSelection, thread.modelSelection) ||
+          !modelSelectionsEqual(run.modelSelection, records.thread.modelSelection)
+        )
+          continue;
+        const prompt = records.messages.find((message) => message.id === run.userMessageId);
         if (prompt === undefined || !isUserIdleTurn(prompt)) {
           if (prompt !== undefined) rejectedNonUserRuns.add(runId);
           continue;

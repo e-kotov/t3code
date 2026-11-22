@@ -192,7 +192,30 @@ export function applyProviderInstanceMutation(
 ): ServerSettings {
   const providerInstances = { ...settings.providerInstances };
   if (mutation.operation === "upsert" || mutation.operation === "create") {
-    providerInstances[mutation.instanceId] = mutation.instance;
+    const { instance, instanceId } = mutation;
+    const stored = providerInstances[instanceId];
+    providerInstances[instanceId] = instance;
+    if (
+      mutation.operation === "upsert" &&
+      settings.machineIdlePolicy !== undefined &&
+      instance.driver === "claudeAgent" &&
+      (stored === undefined || stored.driver === instance.driver) &&
+      typeof instance.config === "object" &&
+      instance.config !== null &&
+      "idleCompaction" in instance.config &&
+      instance.config.idleCompaction === "off"
+    ) {
+      // Clients echo the inactive mode during unrelated edits. Keep the saved preference.
+      const { idleCompaction: _echoed, ...config } = instance.config;
+      const previous = stored?.config;
+      providerInstances[instanceId] = {
+        ...instance,
+        config:
+          typeof previous === "object" && previous !== null && "idleCompaction" in previous
+            ? { ...config, idleCompaction: previous.idleCompaction }
+            : config,
+      };
+    }
   } else {
     delete providerInstances[mutation.instanceId];
   }
