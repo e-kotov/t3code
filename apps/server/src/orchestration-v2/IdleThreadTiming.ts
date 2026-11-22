@@ -1,4 +1,8 @@
-import type { OrchestrationV2Run } from "@t3tools/contracts";
+import type {
+  OrchestrationV2CacheHud,
+  OrchestrationV2ConversationMessage,
+  OrchestrationV2Run,
+} from "@t3tools/contracts";
 import * as DateTime from "effect/DateTime";
 
 const IDLE_GRACE_MS = 5 * 60_000;
@@ -6,9 +10,26 @@ const IDLE_GRACE_MS = 5 * 60_000;
 export function machineIdleWindow(
   completedAt: NonNullable<OrchestrationV2Run["completedAt"]>,
   idleMinutes: number,
-  cacheExpiresAt?: string,
+  cacheExpiresAtMs = Infinity,
 ) {
   const startMs = DateTime.toEpochMillis(completedAt) + idleMinutes * 60_000;
-  const expiry = cacheExpiresAt === undefined ? Infinity : Date.parse(cacheExpiresAt);
-  return { startMs, endMs: Math.min(startMs + IDLE_GRACE_MS, expiry) };
+  return { startMs, endMs: Math.min(startMs + IDLE_GRACE_MS, cacheExpiresAtMs) };
+}
+
+export function isUserIdleTurn(
+  message: Pick<OrchestrationV2ConversationMessage, "createdBy" | "text">,
+) {
+  return message.createdBy === "user" && !/^\/compact(?:\s|$)/i.test(message.text.trim());
+}
+
+export function reportedIdleCacheExpiryMs(hud: OrchestrationV2CacheHud): number | undefined {
+  if (hud.usage.promptCacheExpiresAt !== undefined)
+    return Date.parse(hud.usage.promptCacheExpiresAt);
+  if (hud.basis === "reported" && hud.ttlMs !== undefined)
+    return Date.parse(hud.usage.updatedAt) + hud.ttlMs;
+  return undefined;
+}
+
+export function hasWarmCacheEvidence(hud: OrchestrationV2CacheHud): boolean {
+  return (hud.usage.cachedInputTokens ?? 0) > 0 || (hud.usage.cacheCreationTokens ?? 0) > 0;
 }

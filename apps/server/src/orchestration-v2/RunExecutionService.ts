@@ -45,6 +45,7 @@ import * as PreviewAgentActivity from "../preview/PreviewAgentActivity.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as CheckpointService from "./CheckpointService.ts";
 import * as EventSink from "./EventSink.ts";
+import { idleCompactionStartOutcome } from "./IdleCompactionOutcome.ts";
 import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
 import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
 import { PROVIDER_STOP_REASON_SIGNAL } from "@t3tools/provider-core/server/subagentProjection";
@@ -1103,17 +1104,19 @@ export const layer: Layer.Layer<
         const makeFailedTerminalEvent = (
           failure: OrchestrationV2ProviderFailure,
           failureItemOrdinal: number,
-        ): ProviderTerminalEvent => ({
-          type: "turn.terminal",
-          driver: input.providerThread.driver,
-          providerThreadId: input.providerThread.id,
-          providerTurnId: failedProviderTurnId,
-          runOrdinal: input.run.ordinal,
-          failureItemOrdinal,
-          status: "failed",
-          failure,
-          threadDisposition: "reusable",
-        });
+          startupCause?: unknown,
+        ): ProviderTerminalEvent =>
+          idleCompactionStartOutcome(input.message, startupCause, {
+            type: "turn.terminal",
+            driver: input.providerThread.driver,
+            providerThreadId: input.providerThread.id,
+            providerTurnId: failedProviderTurnId,
+            runOrdinal: input.run.ordinal,
+            failureItemOrdinal,
+            status: "failed",
+            failure,
+            threadDisposition: "reusable",
+          });
         const responseStreamingMode = yield* Effect.gen(function* () {
           const responseStreamingMode = yield* serverSettings.getSettings.pipe(
             Effect.map(
@@ -2315,6 +2318,7 @@ export const layer: Layer.Layer<
                               class: Exit.isFailure(shouldStart) ? "unknown" : "provider_error",
                             }),
                             latestItemOrdinal + 1,
+                            Cause.squash(cause),
                           ),
                           failureItemPersisted: false,
                           refreshAfterTurn,

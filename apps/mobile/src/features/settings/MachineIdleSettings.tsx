@@ -1,6 +1,7 @@
 import { AuthSettingsWriteScope, type ServerSettingsPatch } from "@t3tools/contracts";
 import { IDLE_THREAD_PROVIDERS, machineIdlePolicy } from "@t3tools/shared/threadCachePolicy";
 import { useGT } from "gt-react-native";
+import { useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import { AppText as Text } from "../../components/ui/AppText";
 import { serverEnvironment } from "../../state/server";
@@ -63,29 +64,32 @@ export function MachineIdleSettings({ environment }: { readonly environment: Set
           {gt("Send one short request per idle thread. This uses quota.")}
         </Text>
       ) : null}
-      {IDLE_THREAD_PROVIDERS.map(({ driver, label }) => (
-        <View key={driver} className="gap-2 border-t border-border pt-3">
-          <Text className="font-medium">{label}</Text>
-          <IdleNumber
-            label={gt("Idle time (min)")}
-            provider={label}
-            value={policy[driver].idleMinutes}
-            max={720}
-            editable={canWrite && configured && policy.mode !== "off"}
-            onSave={(idleMinutes) => save({ [driver]: { idleMinutes } })}
-          />
-          {configured && policy.mode === "compact" ? (
+      {configured &&
+        IDLE_THREAD_PROVIDERS.map(({ driver, label }) => (
+          <View key={driver} className="gap-2 border-t border-border pt-3">
+            <Text className="font-medium">{label}</Text>
             <IdleNumber
-              label={gt("Minimum context (k tokens)")}
+              key={`idle-${policy[driver].idleMinutes}`}
+              label={gt("Idle time (min)")}
               provider={label}
-              value={policy[driver].minContextTokens / 1_000}
-              max={10_000}
-              editable={canWrite}
-              onSave={(value) => save({ [driver]: { minContextTokens: value * 1_000 } })}
+              value={policy[driver].idleMinutes}
+              max={720}
+              editable={canWrite && policy.mode !== "off"}
+              onSave={(idleMinutes) => save({ [driver]: { idleMinutes } })}
             />
-          ) : null}
-        </View>
-      ))}
+            {policy.mode === "compact" ? (
+              <IdleNumber
+                key={`context-${policy[driver].minContextTokens}`}
+                label={gt("Minimum context (k tokens)")}
+                provider={label}
+                value={policy[driver].minContextTokens / 1_000}
+                max={10_000}
+                editable={canWrite}
+                onSave={(value) => save({ [driver]: { minContextTokens: value * 1_000 } })}
+              />
+            ) : null}
+          </View>
+        ))}
     </View>
   );
 }
@@ -99,11 +103,11 @@ function IdleNumber(props: {
   readonly onSave: (value: number) => void;
 }) {
   const gt = useGT();
+  const [draft, setDraft] = useState(String(props.value));
   return (
     <View className="flex-row items-center justify-between gap-2">
       <Text className="text-foreground-muted">{props.label}</Text>
       <TextInput
-        key={props.value}
         accessibilityLabel={gt("{provider} · {setting}", {
           provider: props.provider,
           setting: props.label,
@@ -111,11 +115,16 @@ function IdleNumber(props: {
         editable={props.editable}
         className="min-w-20 rounded-lg border border-border px-3 py-2 text-right text-foreground"
         keyboardType="number-pad"
-        defaultValue={String(props.value)}
+        value={draft}
+        onChangeText={setDraft}
         onEndEditing={({ nativeEvent }) => {
           const value = Number(nativeEvent.text);
-          if (Number.isInteger(value) && value >= 1 && value <= props.max && value !== props.value)
-            props.onSave(value);
+          if (!Number.isInteger(value) || value < 1 || value > props.max) {
+            setDraft(String(props.value));
+            return;
+          }
+          setDraft(String(value));
+          if (value !== props.value) props.onSave(value);
         }}
       />
     </View>

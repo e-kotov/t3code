@@ -2,7 +2,7 @@ import type { ServerSettingsPatch } from "@t3tools/contracts";
 import { IDLE_THREAD_PROVIDERS, machineIdlePolicy } from "@t3tools/shared/threadCachePolicy";
 import { useGT } from "gt-react";
 import { Input } from "../ui/input";
-import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
+import { Toggle, ToggleGroup } from "../ui/toggle-group";
 import { CacheWarmAfterSettings } from "./CodexCacheWarmAfterSetting";
 import { CompactIdleThreadsRow } from "./SettingsPanels";
 import { useOptionalSettingsScope, useSettingsScope } from "./SettingsScopeContext";
@@ -53,7 +53,6 @@ function ScopedMachineIdleSettings() {
         {...setting("machine-idle-policy")}
         serverScoped
         settingKeys={["machineIdlePolicy"]}
-        title={gt("While idle")}
         description={
           settings.machineIdlePolicy === undefined
             ? gt("Choose a mode to replace this machine’s current idle rules.")
@@ -64,60 +63,57 @@ function ScopedMachineIdleSettings() {
                 : gt("Take no idle action.")
         }
         control={
-          <Select
+          <ToggleGroup
+            aria-label={gt("While idle")}
             disabled={!canWrite}
-            value={settings.machineIdlePolicy === undefined ? null : policy.mode}
-            onValueChange={(value) => {
-              if (value === "off" || value === "warm" || value === "compact") save({ mode: value });
+            value={settings.machineIdlePolicy === undefined ? [] : [policy.mode]}
+            onValueChange={([mode]) => {
+              if (mode === "off" || mode === "warm" || mode === "compact") save({ mode });
             }}
           >
-            <SelectTrigger size="sm" aria-label={gt("While idle")}>
-              <SelectValue placeholder={gt("Choose a mode")}>
-                {(value: keyof typeof labels | null) =>
-                  value === null ? gt("Choose a mode") : labels[value]
-                }
-              </SelectValue>
-            </SelectTrigger>
-            <SelectPopup align="end" alignItemWithTrigger={false}>
-              <SelectItem value="off">{labels.off}</SelectItem>
-              <SelectItem value="warm">{labels.warm}</SelectItem>
-              <SelectItem value="compact">{labels.compact}</SelectItem>
-            </SelectPopup>
-          </Select>
+            <Toggle value="off">{labels.off}</Toggle>
+            <Toggle value="warm">{labels.warm}</Toggle>
+            <Toggle value="compact">{labels.compact}</Toggle>
+          </ToggleGroup>
         }
       />
-      {IDLE_THREAD_PROVIDERS.map(({ driver, label }) => (
-        <SettingsRow
-          key={driver}
-          serverScoped
-          managedPaths={[`machineIdlePolicy.${driver}`]}
-          title={label}
-          control={
-            <div className="grid gap-2 sm:grid-flow-col">
-              <IdleNumber
-                label={gt("Idle time (min)")}
-                provider={label}
-                value={policy[driver].idleMinutes}
-                max={720}
-                disabled={
-                  !canWrite || settings.machineIdlePolicy === undefined || policy.mode === "off"
-                }
-                onSave={(idleMinutes) => save({ [driver]: { idleMinutes } })}
-              />
-              {policy.mode === "compact" && settings.machineIdlePolicy !== undefined ? (
+      {settings.machineIdlePolicy === undefined ? (
+        <>
+          <CompactIdleThreadsRow />
+          <CacheWarmAfterSettings />
+        </>
+      ) : (
+        IDLE_THREAD_PROVIDERS.map(({ driver, label }) => (
+          <SettingsRow
+            key={driver}
+            serverScoped
+            managedPaths={[`machineIdlePolicy.${driver}`]}
+            title={label}
+            control={
+              <div className="grid gap-2 sm:grid-flow-col">
                 <IdleNumber
-                  label={gt("Minimum context (k tokens)")}
+                  label={gt("Idle time (min)")}
                   provider={label}
-                  value={policy[driver].minContextTokens / 1_000}
-                  max={10_000}
-                  disabled={!canWrite}
-                  onSave={(value) => save({ [driver]: { minContextTokens: value * 1_000 } })}
+                  value={policy[driver].idleMinutes}
+                  max={720}
+                  disabled={!canWrite || policy.mode === "off"}
+                  onSave={(idleMinutes) => save({ [driver]: { idleMinutes } })}
                 />
-              ) : null}
-            </div>
-          }
-        />
-      ))}
+                {policy.mode === "compact" ? (
+                  <IdleNumber
+                    label={gt("Minimum context (k tokens)")}
+                    provider={label}
+                    value={policy[driver].minContextTokens / 1_000}
+                    max={10_000}
+                    disabled={!canWrite}
+                    onSave={(value) => save({ [driver]: { minContextTokens: value * 1_000 } })}
+                  />
+                ) : null}
+              </div>
+            }
+          />
+        ))
+      )}
     </>
   );
 }

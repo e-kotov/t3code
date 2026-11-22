@@ -14,7 +14,13 @@ import {
   ThreadId,
 } from "@t3tools/contracts";
 import * as DateTime from "effect/DateTime";
+import {
+  ProviderAdapterTurnStartError,
+  ProviderCompactionUnsupportedError,
+} from "@t3tools/provider-core/server/ProviderAdapter";
+import { makeProviderFailure } from "@t3tools/provider-core/server/failure";
 
+import { idleCompactionStartOutcome } from "./IdleCompactionOutcome.ts";
 import { type IdleCompactionRecords } from "./IdleCompaction.ts";
 
 import { applyServerSettingsPatch } from "@t3tools/shared/serverSettings";
@@ -129,6 +135,7 @@ function records(
         completedAt: at(),
         tokenUsage: {
           usedTokens: usage.usedTokens ?? 250_000,
+          cachedInputTokens: 120_000,
           ...(usage.cacheExpiresInMs === undefined
             ? {}
             : { promptCacheExpiresAt: DateTime.formatIso(at(usage.cacheExpiresInMs)) }),
@@ -269,10 +276,30 @@ it("blocks stale machine warm commands and compaction after a synthetic warm tur
   const due = NOW_MS + 55 * MINUTE_MS;
   const command = {
     ...compactCommand(),
-    commandId: CommandId.make(`command:cache-warm:machine:${threadId}:${runId}`),
+    commandId: CommandId.make(`command:cache-warm:machine:${threadId}:${runId}:${due}`),
   };
   expect(backgroundCacheCommandAllowed(settings, projection, command, due - 1)).toBe(false);
   expect(backgroundCacheCommandAllowed(settings, projection, command, due)).toBe(true);
+  const expired = records();
+  const latestTurn = expired.providerTurns[0]!;
+  expired.providerTurns = [
+    {
+      ...latestTurn,
+      id: ProviderTurnId.make("earlier-cache-write"),
+      tokenUsage: {
+        ...latestTurn.tokenUsage!,
+        updatedAt: DateTime.formatIso(at(-MINUTE_MS)),
+        promptCacheTtlMs: 5 * MINUTE_MS,
+      },
+    },
+    { ...latestTurn, ordinal: 2 },
+  ];
+  expect(backgroundCacheCommandAllowed(settings, expired, command, due)).toBe(false);
+  const afterManual = {
+    ...projection,
+    messages: [{ ...projection.messages[0]!, text: "/compact" }],
+  };
+  expect(backgroundCacheCommandAllowed(settings, afterManual, command, due)).toBe(false);
   const off = applyServerSettingsPatch(settings, { machineIdlePolicy: { mode: "off" } });
   expect(backgroundCacheCommandAllowed(off, projection, command, due)).toBe(false);
   const afterWarm = {
@@ -282,4 +309,45 @@ it("blocks stale machine warm commands and compaction after a synthetic warm tur
   expect(backgroundCacheCommandAllowed(settings, afterWarm, command, due)).toBe(false);
   const compact = applyServerSettingsPatch(settings, { machineIdlePolicy: { mode: "compact" } });
   expect(backgroundCacheCommandAllowed(compact, afterWarm, compactCommand(), due)).toBe(false);
+});
+
+it("skips unsupported automatic compaction without suppressing manual compaction errors", () => {
+  const driver = ProviderDriverKind.make("antigravity");
+  const cause = new ProviderAdapterTurnStartError({
+    driver,
+    threadId,
+    providerThreadId,
+    runId,
+    cause: new ProviderCompactionUnsupportedError({ driver, providerThreadId }),
+  });
+  const terminal = {
+    type: "turn.terminal",
+    driver,
+    providerThreadId,
+    providerTurnId: ProviderTurnId.make("unsupported-compaction"),
+    runOrdinal: 2,
+    failureItemOrdinal: 1,
+    status: "failed",
+    failure: makeProviderFailure({ cause, class: "provider_error" }),
+    threadDisposition: "reusable",
+  } as const;
+  const message = {
+    messageId: MessageId.make(`idle-compact:${threadId}:${runId}`),
+    text: "/compact",
+    attachments: [],
+    createdBy: "agent",
+    creationSource: "server",
+  } as const;
+  expect(idleCompactionStartOutcome(message, cause, terminal)).toMatchObject({
+    status: "cancelled",
+    failure: null,
+  });
+  expect(idleCompactionStartOutcome(message, new Error("transient"), terminal)).toBe(terminal);
+  expect(
+    idleCompactionStartOutcome(
+      { ...message, createdBy: "user", creationSource: "web" },
+      cause,
+      terminal,
+    ),
+  ).toBe(terminal);
 });

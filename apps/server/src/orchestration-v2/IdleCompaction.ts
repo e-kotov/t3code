@@ -4,7 +4,7 @@ import { modelSelectionsEqual } from "@t3tools/shared/model";
 import { derivePendingBackgroundWork } from "@t3tools/shared/orchestrationV2PendingBackgroundWork";
 import { isIdleThreadProvider, type MachineIdlePolicy } from "@t3tools/shared/threadCachePolicy";
 import * as DateTime from "effect/DateTime";
-import { machineIdleWindow } from "./IdleThreadTiming.ts";
+import { isUserIdleTurn, machineIdleWindow } from "./IdleThreadTiming.ts";
 
 // Claude Code's idleCompaction defaults to 200K and won't go below 100K. Below
 // that a cold re-read is cheap, so compacting mostly loses context for little
@@ -67,8 +67,8 @@ export function idleCompactionWindow(
   // Never compact a compaction, so one idle spell compacts at most once.
   if (
     message === undefined ||
-    /^\/compact(?:\s|$)/i.test(message.text.trim()) ||
-    (policy !== undefined && (policy.mode !== "compact" || message.createdBy !== "user"))
+    message.text.trim().toLowerCase() === "/compact" ||
+    (policy !== undefined && (policy.mode !== "compact" || !isUserIdleTurn(message)))
   )
     return null;
   if (
@@ -121,7 +121,11 @@ export function idleCompactionWindow(
   const expiresAt = usages[0]?.promptCacheExpiresAt;
   if (limits !== undefined) {
     if (driver === "claudeAgent" && expiresAt === undefined) return null;
-    const window = machineIdleWindow(latestRun.completedAt, limits.idleMinutes, expiresAt);
+    const window = machineIdleWindow(
+      latestRun.completedAt,
+      limits.idleMinutes,
+      expiresAt === undefined ? undefined : Date.parse(expiresAt),
+    );
     if (!(window.endMs > Math.max(nowMs, window.startMs))) return null;
     return { runId: latestRun.id, ...window };
   }

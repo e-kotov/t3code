@@ -5,9 +5,15 @@ import {
   isNeonCacheModel,
   resolveThreadIdleCompaction,
 } from "@t3tools/shared/threadCachePolicy";
+import { deriveCacheHud } from "@t3tools/shared/cacheHud";
 import { modelSelectionsEqual } from "@t3tools/shared/model";
 import { latestExecutedRun } from "@t3tools/shared/orchestrationV2ThreadError";
-import { machineIdleWindow } from "./IdleThreadTiming.ts";
+import {
+  hasWarmCacheEvidence,
+  isUserIdleTurn,
+  machineIdleWindow,
+  reportedIdleCacheExpiryMs,
+} from "./IdleThreadTiming.ts";
 import { idleCompactionWindow, type IdleCompactionRecords } from "./IdleCompaction.ts";
 
 import * as DateTime from "effect/DateTime";
@@ -54,20 +60,26 @@ export function backgroundCacheCommandAllowed(
       provider.providerInstanceId !== projection.thread.providerInstanceId ||
       (driver === "antigravity" && !isNeonCacheModel(projection.thread.modelSelection.model)) ||
       !projection.messages.some(
-        (message) => message.id === latest.userMessageId && message.createdBy === "user",
+        (message) => message.id === latest.userMessageId && isUserIdleTurn(message),
       ) ||
       settings.cacheWarmingLastWindows[command.threadId] === latest.id ||
-      command.commandId !== `command:cache-warm:machine:${command.threadId}:${latest.id}`
+      !command.commandId.startsWith(`command:cache-warm:machine:${command.threadId}:${latest.id}:`)
     )
       return false;
-    const usage = projection.providerTurns
-      .filter((turn) => turn.providerThreadId === provider.id && turn.tokenUsage !== undefined)
-      .map((turn) => turn.tokenUsage!)
-      .toSorted((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt))[0];
+    const hud = deriveCacheHud(
+      provider.driver,
+      projection.providerTurns.flatMap((turn) =>
+        turn.providerThreadId === provider.id && turn.tokenUsage !== undefined
+          ? [turn.tokenUsage]
+          : [],
+      ),
+      projection.thread.modelSelection,
+    );
+    if (hud === null || !hasWarmCacheEvidence(hud)) return false;
     const { startMs, endMs } = machineIdleWindow(
       latest.completedAt,
       policy[driver].idleMinutes,
-      usage?.promptCacheExpiresAt,
+      reportedIdleCacheExpiryMs(hud),
     );
     return nowMs >= startMs && nowMs < endMs;
   }

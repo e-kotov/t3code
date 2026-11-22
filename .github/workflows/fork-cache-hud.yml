@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/fork-cache-hud.yml"
       - "packages/shared/src/cacheHud*"
+      - "apps/web/src/components/settings/MachineIdleSettings.tsx"
       - "apps/server/src/orchestration-v2/ProjectionCacheHud*"
       - "apps/server/src/orchestration-v2/Adapters/AntigravityTurnUsage*"
       - "apps/web/src/components/ChatView.tsx"
@@ -69,6 +70,16 @@ jobs:
           vp test run packages/shared/src/cacheHud.test.ts
           vp test run apps/server/src/orchestration-v2/ProjectionCacheHud.test.ts
           vp test run apps/server/src/orchestration-v2/Adapters/AntigravityTurnUsage.test.ts
+      - name: Capture idle settings controls
+        env:
+          VITE_MACHINE_IDLE_CAPTURE: "1"
+        run: |
+          vp test run apps/web/src/components/settings/CodexCacheWarmAfterSetting.browser.test.tsx -t 'edits a provider cutoff'
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: idle-policy-settings
+          path: .t3/idle-policy-evidence/*.png
+          retention-days: 7
       - name: Capture formatting fixes
         if: failure()
         run: |

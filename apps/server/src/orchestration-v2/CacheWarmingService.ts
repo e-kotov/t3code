@@ -20,7 +20,11 @@ import type * as Scope from "effect/Scope";
 
 import * as ServerSettings from "../serverSettings.ts";
 import { cacheWarmingRetired } from "./CacheWarmingDispatchGuard.ts";
-import { machineIdleWindow } from "./IdleThreadTiming.ts";
+import {
+  hasWarmCacheEvidence,
+  machineIdleWindow,
+  reportedIdleCacheExpiryMs,
+} from "./IdleThreadTiming.ts";
 import * as ThreadManagement from "./ThreadManagementService.ts";
 
 const CLAUDE_WARM_MARGIN_MS = 60_000;
@@ -86,7 +90,7 @@ export function cacheWarmingWindow(input: CacheWarmingCandidate): CacheWarmingWi
   if (
     hud == null ||
     (input.policy === undefined && hud.ttlMs === undefined) ||
-    ((hud.usage.cachedInputTokens ?? 0) <= 0 && (hud.usage.cacheCreationTokens ?? 0) <= 0)
+    !hasWarmCacheEvidence(hud)
   ) {
     return null;
   }
@@ -106,7 +110,7 @@ export function cacheWarmingWindow(input: CacheWarmingCandidate): CacheWarmingWi
     const { startMs, endMs } = machineIdleWindow(
       thread.latestRunCompletedAt,
       input.policy[driver].idleMinutes,
-      hud.usage.promptCacheExpiresAt,
+      reportedIdleCacheExpiryMs(hud),
     );
     if (!(input.nowMs >= startMs && input.nowMs < endMs)) return null;
     const fingerprint = thread.latestRunId;
@@ -190,7 +194,7 @@ export const make = Effect.gen(function* () {
       // Successful attempts are deduped persistently by the window marker below.
       const machinePolicy = latestSettings.machineIdlePolicy !== undefined;
       const key = machinePolicy
-        ? `machine:${thread.id}:${window.fingerprint}`
+        ? `machine:${thread.id}:${window.fingerprint}:${now}`
         : `${thread.id}:${window.fingerprint}:${now}`;
       const commandId = CommandId.make(`command:cache-warm:${key}`);
       const messageId = MessageId.make(`message:cache-warm:${key}`);
