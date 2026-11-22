@@ -2,7 +2,8 @@ import { DEFAULT_SERVER_SETTINGS, EnvironmentId, type ServerSettings } from "@t3
 import { applyServerSettingsPatch } from "@t3tools/shared/serverSettings";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
-import { userEvent } from "vite-plus/test/browser";
+import { page, userEvent } from "vite-plus/test/browser";
+import "~/index.css";
 
 import { render } from "../../../test/render";
 
@@ -216,6 +217,7 @@ it.each([false, true])(
 it("edits a provider cutoff in thousands of tokens on the selected machine", async () => {
   state.update.mockReset();
   const capture = import.meta.env.VITE_MACHINE_IDLE_CAPTURE === "1";
+  const capturePanel = page.getByTestId("idle-settings-capture");
   if (capture) {
     state.environments = [
       {
@@ -227,9 +229,13 @@ it("edits a provider cutoff in thousands of tokens on the selected machine", asy
         neonCacheWarmAfterMinutes: 50,
       },
     ];
-    await using before = await render(<CacheWarmAfterSettings />);
+    await using before = await render(
+      <section data-testid="idle-settings-capture" className="max-w-xl p-4">
+        <CacheWarmAfterSettings />
+      </section>,
+    );
     await expect.element(before.getByRole("combobox", { name: "Warm Codex after" })).toBeVisible();
-    await before.locator.screenshot({ path: "../../../../../.t3/idle-policy-evidence/before.png" });
+    await capturePanel.screenshot({ path: "../../../../../.t3/idle-policy-evidence/before.png" });
   }
   state.environments = [
     {
@@ -241,11 +247,15 @@ it("edits a provider cutoff in thousands of tokens on the selected machine", asy
       }).machineIdlePolicy,
     },
   ];
-  await using screen = await render(<MachineIdleSettings />);
+  await using screen = await render(
+    <section data-testid="idle-settings-capture" className="max-w-xl p-4">
+      <MachineIdleSettings />
+    </section>,
+  );
   const cutoff = screen.getByRole("spinbutton", { name: "Claude · Minimum context (k tokens)" });
   await expect.element(cutoff).toHaveValue(200);
   if (capture) {
-    await screen.locator.screenshot({ path: "../../../../../.t3/idle-policy-evidence/after.png" });
+    await capturePanel.screenshot({ path: "../../../../../.t3/idle-policy-evidence/after.png" });
   }
   await userEvent.clear(cutoff);
   await userEvent.type(cutoff, "150");

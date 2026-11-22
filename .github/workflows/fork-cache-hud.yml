@@ -76,11 +76,13 @@ jobs:
         env:
           VITE_MACHINE_IDLE_CAPTURE: "1"
         run: |
+          mkdir -p .t3/idle-policy-evidence
           vp test run apps/web/src/components/settings/CodexCacheWarmAfterSetting.browser.test.tsx -t 'edits a provider cutoff'
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: idle-policy-settings
           path: .t3/idle-policy-evidence/*.png
+          include-hidden-files: true
           retention-days: 7
       - name: Capture formatting fixes
         if: failure()
