@@ -187,6 +187,7 @@
     "apps/web/src/components/settings/ProviderSettingsForm.tsx": 19,
     "apps/web/src/components/settings/ProviderSettingsPanel.tsx": 4,
     "apps/web/src/components/settings/ScheduledTasksSettings.tsx": 30,
+    "apps/web/src/components/settings/SettingsPanels.logic.ts": 2,
     "apps/web/src/components/settings/SettingsPanels.tsx": 6,
     "apps/web/src/components/settings/SettingsScopeSentence.tsx": 1,
     "apps/web/src/components/settings/SettingsSidebarNav.tsx": 2,
