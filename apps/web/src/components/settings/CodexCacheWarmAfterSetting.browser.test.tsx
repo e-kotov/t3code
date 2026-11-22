@@ -2,6 +2,7 @@ import { DEFAULT_SERVER_SETTINGS, EnvironmentId, type ServerSettings } from "@t3
 import { applyServerSettingsPatch } from "@t3tools/shared/serverSettings";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
+import { userEvent } from "vite-plus/test/browser";
 
 import { render } from "../../../test/render";
 
@@ -246,8 +247,9 @@ it("edits a provider cutoff in thousands of tokens on the selected machine", asy
   if (capture) {
     await screen.locator.screenshot({ path: "../../../../../.t3/idle-policy-evidence/after.png" });
   }
-  await cutoff.fill("150");
-  await cutoff.press("Enter");
+  await userEvent.clear(cutoff);
+  await userEvent.type(cutoff, "150");
+  await userEvent.keyboard("{Enter}");
   expect(state.update).toHaveBeenCalledExactlyOnceWith({
     machineIdlePolicy: { claudeAgent: { minContextTokens: 150_000 } },
   });

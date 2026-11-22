@@ -8,6 +8,7 @@ on:
       - ".github/workflows/fork-cache-hud.yml"
       - "packages/shared/src/cacheHud*"
       - "apps/web/src/components/settings/MachineIdleSettings.tsx"
+      - "apps/web/src/components/settings/CodexCacheWarmAfterSetting.browser.test.tsx"
       - "apps/server/src/orchestration-v2/ProjectionCacheHud*"
       - "apps/server/src/orchestration-v2/IdleCompaction*"
       - "apps/server/src/orchestration-v2/Adapters/AntigravityTurnUsage*"
