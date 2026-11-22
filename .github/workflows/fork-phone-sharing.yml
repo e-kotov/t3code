@@ -9,6 +9,7 @@ on:
       - ".github/actions/build-fork-tailnet/**"
       - "scripts/build-tailnet-android.sh"
       - "scripts/fork-sharing-tests.gradle"
+      - "scripts/fork-robolectric-tests.gradle"
       - "apps/mobile/modules/t3-tailnet/**"
       - "apps/mobile/src/features/built-in-tailnet/**"
 
@@ -78,7 +79,7 @@ jobs:
             echo 'exec "$@"'
           } > "$RUNNER_TEMP/ccache-bin/ccache"
           chmod +x "$RUNNER_TEMP/ccache-bin/ccache"
-          PATH="$RUNNER_TEMP/ccache-bin:$PATH" CCACHE_DIR="$RUNNER_TEMP/ccache-dir"             ./gradlew --init-script ../../../scripts/fork-sharing-tests.gradle :app:verifyPatchedNativeSharing :t3-tailnet:testDebugUnitTest --build-cache --max-workers=2
+          PATH="$RUNNER_TEMP/ccache-bin:$PATH" CCACHE_DIR="$RUNNER_TEMP/ccache-dir"             ./gradlew --init-script ../../../scripts/fork-sharing-tests.gradle --init-script ../../../scripts/fork-robolectric-tests.gradle :app:verifyPatchedNativeSharing :t3-tailnet:testDebugUnitTest --build-cache --max-workers=2
       - name: Capture formatting fixes
         if: failure()
         run: |

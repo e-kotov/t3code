@@ -1,4 +1,3 @@
-import { shouldHandleComposerAttachmentPaste } from "./composerAttachmentFiles";
 import {
   pasteTextToFocusComposer as pastePlainTextToFocusComposer,
   shouldRedirectInputToComposer,
@@ -19,10 +18,7 @@ export function shouldPreferClipboardTextForPaste(input: {
     input.bypassAutoAttachment &&
     input.plainText.length > 0 &&
     input.folders.length === 0 &&
-    shouldHandleComposerAttachmentPaste({
-      files: input.files,
-      plainText: input.plainText,
-    });
+    input.files.length > 0;
   if (preferClipboardText) markTextOnlyPasteEvent(input.event);
   return preferClipboardText;
 }
