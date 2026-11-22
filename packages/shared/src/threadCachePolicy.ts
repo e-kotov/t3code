@@ -4,6 +4,7 @@ import {
   withIdleCompaction,
   type IdleCompactionMode,
   type MessageId,
+  type ProviderInstanceConfig,
   ProviderInstanceId,
   type ServerSettings,
   type ServerSettingsPatch,
@@ -76,6 +77,31 @@ export function effectiveLegacyIdleSettings(settings: ServerSettings): ServerSet
     providerInstances,
     threadCachePolicies: {},
     cacheWarmingSessions: {},
+  };
+}
+
+/** Older clients echo the inactive mode when saving an unrelated Claude instance edit. */
+export function preserveEchoedIdleCompaction(
+  stored: ProviderInstanceConfig | undefined,
+  instance: ProviderInstanceConfig,
+): ProviderInstanceConfig {
+  if (
+    instance.driver !== "claudeAgent" ||
+    (stored !== undefined && stored.driver !== instance.driver) ||
+    typeof instance.config !== "object" ||
+    instance.config === null ||
+    !("idleCompaction" in instance.config) ||
+    instance.config.idleCompaction !== "off"
+  )
+    return instance;
+  const { idleCompaction: _echoed, ...config } = instance.config;
+  const previous = stored?.config;
+  return {
+    ...instance,
+    config:
+      typeof previous === "object" && previous !== null && "idleCompaction" in previous
+        ? { ...config, idleCompaction: previous.idleCompaction }
+        : config,
   };
 }
 

@@ -9,6 +9,8 @@
         "apps/server/src/orchestration-v2/CacheWarmingService.test.ts",
         "apps/server/src/orchestration-v2/CacheWarmingDispatch.integration.test.ts",
         "apps/server/src/orchestration-v2/ProviderTurnStartService.test.ts",
+        "apps/server/src/orchestration-v2/ProjectionStore.test.ts",
+        "apps/server/src/serverSettings.test.ts",
         "packages/shared/src/orchestrationV2Timeline.test.ts",
         "apps/server/src/orchestration-v2/ThreadCachePolicyService.test.ts",
         "apps/server/src/orchestration-v2/ThreadCachePolicyDispatch.test.ts",

@@ -43,7 +43,10 @@ import * as Semaphore from "effect/Semaphore";
 import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 import * as SqlClient from "effect/sql/SqlClient";
-import { effectiveLegacyIdleSettings } from "@t3tools/shared/threadCachePolicy";
+import {
+  effectiveLegacyIdleSettings,
+  preserveEchoedIdleCompaction,
+} from "@t3tools/shared/threadCachePolicy";
 import { writeFileStringAtomically } from "@t3tools/shared/atomicWrite";
 import { resolveSymlinkTarget } from "@t3tools/shared/symlink";
 import * as ServerConfig from "./config.ts";
@@ -192,30 +195,10 @@ export function applyProviderInstanceMutation(
 ): ServerSettings {
   const providerInstances = { ...settings.providerInstances };
   if (mutation.operation === "upsert" || mutation.operation === "create") {
-    const { instance, instanceId } = mutation;
-    const stored = providerInstances[instanceId];
-    providerInstances[instanceId] = instance;
-    if (
-      mutation.operation === "upsert" &&
-      settings.machineIdlePolicy !== undefined &&
-      instance.driver === "claudeAgent" &&
-      (stored === undefined || stored.driver === instance.driver) &&
-      typeof instance.config === "object" &&
-      instance.config !== null &&
-      "idleCompaction" in instance.config &&
-      instance.config.idleCompaction === "off"
-    ) {
-      // Clients echo the inactive mode during unrelated edits. Keep the saved preference.
-      const { idleCompaction: _echoed, ...config } = instance.config;
-      const previous = stored?.config;
-      providerInstances[instanceId] = {
-        ...instance,
-        config:
-          typeof previous === "object" && previous !== null && "idleCompaction" in previous
-            ? { ...config, idleCompaction: previous.idleCompaction }
-            : config,
-      };
-    }
+    providerInstances[mutation.instanceId] =
+      mutation.operation === "upsert" && settings.machineIdlePolicy !== undefined
+        ? preserveEchoedIdleCompaction(providerInstances[mutation.instanceId], mutation.instance)
+        : mutation.instance;
   } else {
     delete providerInstances[mutation.instanceId];
   }
