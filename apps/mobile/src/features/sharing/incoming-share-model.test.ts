@@ -130,7 +130,7 @@ describe("incoming native shares", () => {
     expect(persistFile).toHaveBeenCalledWith("file:///cache/resized.png", "screenshot");
     expect(draft.attachments).toEqual([
       {
-        id: "share-resize-image-0",
+        id: "share-resize_image_0",
         type: "image",
         name: "screenshot",
         mimeType: "image/png",

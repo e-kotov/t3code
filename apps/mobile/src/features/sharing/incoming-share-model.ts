@@ -444,7 +444,7 @@ export async function buildIncomingShareDraft(input: {
           continue;
         }
         attachments.push({
-          id: `${input.id}-image-${index}`,
+          id: `${input.id}_image_${index}`,
           type: "image",
           name,
           mimeType,
