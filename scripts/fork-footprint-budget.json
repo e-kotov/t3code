@@ -112,7 +112,7 @@
     "apps/server/src/orchestration-v2/IdleCompactionService.ts": 60,
     "apps/server/src/orchestration-v2/Orchestrator.ts": 29,
     "apps/server/src/orchestration-v2/ProjectionStore.ts": 10,
-    "apps/server/src/orchestration-v2/ProviderTurnStartService.test.ts": 44,
+    "apps/server/src/orchestration-v2/ProviderTurnStartService.test.ts": 45,
     "apps/server/src/orchestration-v2/ProviderTurnStartService.ts": 93,
     "apps/server/src/orchestration-v2/RunExecutionService.ts": 35,
     "apps/server/src/orchestration-v2/ThreadLaunchService.test.ts": 85,
