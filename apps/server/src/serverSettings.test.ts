@@ -2830,9 +2830,9 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
       ),
     );
 
-    it.effect(
-      "preserves the Claude idle preference when editing an instance under machine policy",
-      () =>
+    it.effect.each(["instance mutation", "full provider map"] as const)(
+      "preserves the Claude idle preference when editing through a %s under machine policy",
+      (write) =>
         Effect.gen(function* () {
           const service = yield* ServerSettingsModule.ServerSettingsService;
           const config = yield* ServerConfig.ServerConfig;
@@ -2852,11 +2852,12 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
             binaryPath: "/opt/claude/bin/claude",
             idleCompaction: "off",
           });
-          yield* service.updateProviderInstance({
-            operation: "upsert",
-            instanceId,
-            instance: { ...instance, displayName: "Claude (work)" },
-          });
+          const edited = { ...instance, displayName: "Claude (work)" };
+          yield* write === "instance mutation"
+            ? service.updateProviderInstance({ operation: "upsert", instanceId, instance: edited })
+            : service.updateSettings({
+                providerInstances: { ...effective.providerInstances, [instanceId]: edited },
+              });
           const stored = JSON.parse(yield* fs.readFileString(config.settingsPath));
           assert.equal(stored.providerInstances[instanceId].displayName, "Claude (work)");
           assert.deepEqual(stored.providerInstances[instanceId].config, {

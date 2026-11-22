@@ -27,7 +27,10 @@ import {
 import * as Option from "effect/Option";
 import * as Predicate from "effect/Predicate";
 import * as Schema from "effect/Schema";
-import { threadCachePolicySettingsPatch } from "./threadCachePolicy.ts";
+import {
+  preserveIdleCompactionInProviderMap,
+  threadCachePolicySettingsPatch,
+} from "./threadCachePolicy.ts";
 import { deepMerge } from "./Struct.ts";
 import { fromLenientJson } from "./schemaJson.ts";
 import { createModelSelection, readCustomModelEntries } from "./model.ts";
@@ -547,7 +550,7 @@ export function applyServerSettingsPatch(
       ? { backgroundActivity: backgroundActivityPatch }
       : {}),
     ...(patch.providerInstances !== undefined
-      ? { providerInstances: patch.providerInstances }
+      ? { providerInstances: preserveIdleCompactionInProviderMap(current, patch.providerInstances) }
       : {}),
     ...(patch.worktreesDirectory !== undefined &&
     patch.worktreesDirectory !== current.worktreesDirectory

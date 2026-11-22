@@ -105,6 +105,22 @@ export function preserveEchoedIdleCompaction(
   };
 }
 
+export function preserveIdleCompactionInProviderMap(
+  current: ServerSettings,
+  providerInstances: ServerSettings["providerInstances"],
+): ServerSettings["providerInstances"] {
+  if (current.machineIdlePolicy === undefined) return providerInstances;
+  return Object.fromEntries(
+    Object.entries(providerInstances).map(([id, instance]) => {
+      const previous = current.providerInstances[ProviderInstanceId.make(id)];
+      return [
+        id,
+        previous === undefined ? instance : preserveEchoedIdleCompaction(previous, instance),
+      ];
+    }),
+  );
+}
+
 export function cacheWarmingEnabled(settings: ServerSettings, threadId: ThreadId): boolean {
   return settings.machineIdlePolicy === undefined
     ? threadCachePolicy(settings, threadId) === "warm"

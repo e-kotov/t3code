@@ -1864,7 +1864,21 @@ export function threadShellFromProjection(
   );
 
   const userMessages = projection.messages
-    .filter((message) => message.role === "user" && idleCompactionOf(message) === undefined)
+    .filter(
+      (message) =>
+        message.role === "user" &&
+        idleCompactionOf(message) === undefined &&
+        !(
+          isBackgroundIdleMessage({ ...message, messageId: message.id }) &&
+          projection.runs.some(
+            (run) =>
+              run.id === message.runId &&
+              run.userMessageId === message.id &&
+              run.status === "cancelled" &&
+              run.startedAt === null,
+          )
+        ),
+    )
     .toSorted(
       (left, right) =>
         DateTime.toEpochMillis(right.updatedAt) - DateTime.toEpochMillis(left.updatedAt),
@@ -8224,6 +8238,32 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
         )
       )`;
     };
+    const isSkippedIdlePrompt = (runAlias: string, promptAlias: string) => {
+      const run = sql.literal(runAlias);
+      const prompt = sql.literal(promptAlias);
+      return sql`(
+        ${run}.status = 'cancelled'
+        AND json_extract(${run}.payload_json, '$.startedAt') IS NULL
+        AND json_extract(${prompt}.payload_json, '$.creationSource') = 'server'
+        AND json_extract(${prompt}.payload_json, '$.createdBy') IS NOT 'user'
+        AND (
+          ${prompt}.message_id GLOB 'idle-compact:*'
+          OR ${prompt}.message_id GLOB 'message:cache-warm:*'
+        )
+      )`;
+    };
+    const isSilentActivityPrompt = (alias: string) => {
+      const prompt = sql.literal(alias);
+      return sql`(
+        ${isIdleCompactionMessage(alias)}
+        OR EXISTS (
+          SELECT 1 FROM orchestration_v2_projection_runs skipped
+          WHERE skipped.run_id = ${prompt}.run_id
+            AND json_extract(skipped.payload_json, '$.userMessageId') = ${prompt}.message_id
+            AND ${isSkippedIdlePrompt("skipped", alias)}
+        )
+      )`;
+    };
     // Mirrors isSilentRunForShell.
     const isSilentShellRun = (alias: string) => {
       const run = sql.literal(alias);
@@ -8232,16 +8272,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
           SELECT 1 FROM orchestration_v2_projection_messages prompt
           WHERE prompt.message_id = json_extract(${run}.payload_json, '$.userMessageId')
             AND (
-              (
-                ${run}.status = 'cancelled'
-                AND json_extract(${run}.payload_json, '$.startedAt') IS NULL
-                AND json_extract(prompt.payload_json, '$.creationSource') = 'server'
-                AND json_extract(prompt.payload_json, '$.createdBy') IS NOT 'user'
-                AND (
-                  prompt.message_id GLOB 'idle-compact:*'
-                  OR prompt.message_id GLOB 'message:cache-warm:*'
-                )
-              ) OR (
+              ${isSkippedIdlePrompt(alias, "prompt")} OR (
                 ${run}.status <> 'failed'
                 AND ${isIdleCompactionMessage("prompt")}
                 AND NOT EXISTS (
@@ -8450,7 +8481,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
                 FROM orchestration_v2_projection_messages message
                 WHERE message.thread_id = t.thread_id
                   AND message.role = 'user'
-                  AND NOT ${isIdleCompactionMessage("message")}
+                  AND NOT ${isSilentActivityPrompt("message")}
                 ORDER BY message.updated_at DESC, message.message_id DESC
                 LIMIT 1
               ) AS latest_user_message_at,
@@ -8752,7 +8783,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
                 SELECT message.updated_at
                 FROM orchestration_v2_projection_messages message
                 WHERE message.thread_id = t.thread_id AND message.role = 'user'
-                  AND NOT ${isIdleCompactionMessage("message")}
+                  AND NOT ${isSilentActivityPrompt("message")}
                 ORDER BY message.updated_at DESC, message.message_id DESC
                 LIMIT 1
               ) AS latest_user_message_at,
