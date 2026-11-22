@@ -261,7 +261,9 @@ export const withAntigravityTurnUsage = Effect.fn("withAntigravityTurnUsage")(fu
     const enrichStream = <E>(events: Stream.Stream<AdapterEvent, E>) =>
       events.pipe(Stream.mapEffect(enrich), Stream.flattenIterable);
     const withTurnUsage = (send: ProviderAdapter.ProviderAdapterV2SessionRuntime["startTurn"]) =>
-      Effect.fn("AntigravityTurnUsage.startTurn")(function* (turnInput) {
+      Effect.fn("AntigravityTurnUsage.startTurn")(function* (
+        turnInput: ProviderAdapter.ProviderAdapterV2TurnInput,
+      ) {
         const sessionId = turnInput.providerThread.nativeThreadRef?.nativeId ?? undefined;
         const baselineRowId =
           sessionId === undefined
