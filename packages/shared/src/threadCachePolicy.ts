@@ -82,6 +82,22 @@ export function threadCachePolicySettingsPatch(
   return { threadCachePolicies: policies, cacheWarmingSessions: warming };
 }
 
+export function isNeonCacheModel(model: string | undefined): boolean {
+  return model !== undefined && /^gemini-4-neon(?:-(?:low|medium|high|xhigh))?$/.test(model);
+}
+
+export function supportsThreadCachePolicy(
+  driver: string | null | undefined,
+  model?: string,
+  neonCacheWarming?: boolean,
+): boolean {
+  return (
+    driver === "codex" ||
+    driver === "claudeAgent" ||
+    (driver === "antigravity" && neonCacheWarming === true && isNeonCacheModel(model))
+  );
+}
+
 export function cachePolicyChoices(driver: string | null | undefined) {
   return THREAD_CACHE_POLICIES.filter(
     (choice) => choice.value !== "compact" || driver === "claudeAgent",
@@ -106,8 +122,9 @@ export function cachePolicyDriver(
     (instanceId === undefined
       ? undefined
       : (settings.providerInstances[instanceId]?.driver ??
-        (instanceId === "codex" || instanceId === "claudeAgent" ? instanceId : fallback))) ??
-    fallback
+        (instanceId === "codex" || instanceId === "claudeAgent" || instanceId === "antigravity"
+          ? instanceId
+          : fallback))) ?? fallback
   );
 }
 

@@ -9,4 +9,11 @@ export const CODEX_CACHE_WARM_AFTER_SEARCH_ITEMS = [
     scope: "environment-defaults",
     searchTerms: [msg("keep warm prompt cache codex idle interval minutes hours expiry billable")],
   },
+  {
+    id: "neon-cache-warm-after",
+    title: msg("Warm Neon after"),
+    to: "/settings/providers",
+    scope: "environment-defaults",
+    searchTerms: [msg("Idle cache policy")],
+  },
 ] as const satisfies ReadonlyArray<SettingsSearchItem>;

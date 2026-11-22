@@ -16,11 +16,11 @@ Update both the client and connected server to a build with per-thread cache pol
   conversation.
 
 New conversations use Default. Existing warming opt-ins carry over as Keep warm.
-Codex supports Default, Keep warm and Off; Claude’s idle compaction is not offered
-for Codex. Manual compaction and compaction at the provider’s context limit remain
+Codex and Antigravity’s Gemini 4 Neon support Default, Keep warm and Off.
+Compact before expiry is available for Claude. Manual compaction and compaction at the provider’s context limit remain
 available under every policy.
 
-The machine-wide **Warm all** switch updates currently hot Codex/Claude
+The machine-wide **Warm all** switch updates currently hot Codex, Claude and Neon
 conversations to Keep warm or back to Default. Each conversation can then be
 changed independently. Mixed means some eligible conversations have Keep warm
 selected and others do not. Default can still use automatic compaction.
@@ -35,11 +35,12 @@ conversations are warmed once they have been idle for **Settings → Providers �
 Warm Codex after** (default 1 h 55 min) and skipped once five more minutes pass.
 Older un-upgraded servers still warm Codex after 55 minutes; Settings identifies
 servers that need an upgrade.
-Claude conversations are warmed within one minute of their reported expiry. The
-Codex time is a choice, not a retention guarantee. Only a new usage report can
-confirm reuse. The conversation HUD keeps its one-hour Codex estimate, so it can
-show unknown cache status before the warm turn is due. Only a
-fresh cache with observed cached or cache-creation tokens qualifies. Unsupported
+Claude conversations are warmed within one minute of their reported expiry.
+For Gemini 4 Neon, **Settings → Providers → Warm Neon after** defaults to 50
+minutes. The server skips the warm turn after five more minutes pass and sends
+at most one warm turn per user turn. Both Codex and Neon use a one-hour cache
+estimate in the conversation display. A new usage report confirms whether
+tokens were reused. Warming requires fresh, observed cache reads or writes. Unsupported
 providers, expired or unknown caches, subagents, archived conversations, active
 work, pending approvals or background work, failures and usage-limit recovery
 are skipped. An unchanged cache window is warmed at most once, including across

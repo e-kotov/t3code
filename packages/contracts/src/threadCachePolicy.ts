@@ -8,9 +8,14 @@ const ThreadCachePolicy = Schema.Literals(["default", "warm", "compact", "off"])
 const DEFAULT_CODEX_CACHE_WARM_AFTER_MINUTES = 115;
 const CodexCacheWarmAfterMinutes = Schema.Int.check(Schema.isBetween({ minimum: 5, maximum: 720 }));
 
+const NeonCacheWarmAfterMinutes = Schema.Int.check(Schema.isBetween({ minimum: 5, maximum: 55 }));
+
 export const threadCachePolicySettings = {
   threadCachePolicies: Schema.Record(ThreadId, ThreadCachePolicy).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
+  ),
+  neonCacheWarmAfterMinutes: NeonCacheWarmAfterMinutes.pipe(
+    Schema.withDecodingDefault(Effect.succeed(50)),
   ),
   codexCacheWarmAfterMinutes: CodexCacheWarmAfterMinutes.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_CODEX_CACHE_WARM_AFTER_MINUTES)),
@@ -22,4 +27,5 @@ export const threadCachePolicyPatch = {
     Schema.Record(ThreadId, Schema.NullOr(ThreadCachePolicy)),
   ),
   codexCacheWarmAfterMinutes: Schema.optionalKey(CodexCacheWarmAfterMinutes),
+  neonCacheWarmAfterMinutes: Schema.optionalKey(NeonCacheWarmAfterMinutes),
 };

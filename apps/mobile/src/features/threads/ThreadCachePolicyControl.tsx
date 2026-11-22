@@ -10,8 +10,10 @@ import {
   CACHE_CHIP_MODIFIERS,
   cachePolicyChoices,
   cachePolicyDriver,
+  supportsThreadCachePolicy,
   threadCachePolicy,
 } from "@t3tools/shared/threadCachePolicy";
+import { supportsNeonCacheWarming } from "@t3tools/shared/cacheHud";
 import { Pressable } from "react-native";
 import Svg, { Path, Defs, ClipPath } from "react-native-svg";
 import { ThreadCachePolicyMenu as Menu } from "./ThreadCachePolicyMenu";
@@ -26,6 +28,7 @@ type CacheThread = Pick<
 >;
 
 export function useThreadCachePolicyMenu(thread: CacheThread) {
+  const serverConfig = useAtomValue(serverEnvironment.configValueAtom(thread.environmentId));
   const settings = useAtomValue(serverEnvironment.settingsValueAtom(thread.environmentId));
   const canWrite = useEnvironmentScope(thread.environmentId, AuthSettingsWriteScope);
   const update = useAtomCommand(serverEnvironment.updateSettings, {
@@ -35,7 +38,11 @@ export function useThreadCachePolicyMenu(thread: CacheThread) {
   const driver = settings
     ? cachePolicyDriver(settings, thread.modelSelection.instanceId, thread.cacheHud?.driver)
     : thread.cacheHud?.driver;
-  const supported = driver === "codex" || driver === "claudeAgent";
+  const supported = supportsThreadCachePolicy(
+    driver,
+    thread.modelSelection.model,
+    supportsNeonCacheWarming(serverConfig),
+  );
   const choices = cachePolicyChoices(driver);
   const actions: MenuAction[] = supported
     ? choices.map((choice) => ({
@@ -48,7 +55,7 @@ export function useThreadCachePolicyMenu(thread: CacheThread) {
     : [];
   const handleAction = (event: string) => {
     const choice = choices.find((entry) => event === `cache-policy:${entry.value}`);
-    if (!choice) return false;
+    if (!supported || !choice) return false;
     if (canWrite)
       void update({
         environmentId: thread.environmentId,

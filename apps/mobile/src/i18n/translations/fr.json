@@ -4175,7 +4175,7 @@
   "342a892bf3b5424d": "Non démarré",
   "bfac56a3105d4a22": "Week",
   "2cbb2f3eb7228554": "Model effort: {value1}",
-  "c9be08e5a2e04e3d": "{machine} · Codex/Claude · billable turns",
+  "0c1bac8f7db17afb": "{machine} · tours facturables",
   "5feea52185478442": "Disable warming for all hot conversations on {machine}",
   "795a922c06178906": "Enable warming for all hot conversations on {machine}",
   "1c90d6adfc53a25f": "May send a short visible, billable cache-warm turn near cache expiry when enabled for this conversation. Updates each hot conversation's toggle.",

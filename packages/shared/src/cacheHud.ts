@@ -10,11 +10,14 @@ import type {
 } from "@t3tools/contracts";
 import * as DateTime from "effect/DateTime";
 
+import { isNeonCacheModel } from "./threadCachePolicy.ts";
 import { formatResetsIn } from "./usageLimitsCopy.ts";
 
 // A user-selected freshness estimate, not a provider-reported retention guarantee.
 const CODEX_BASELINE_MS = 60 * 60_000;
 export const CODEX_WARM_MARGIN_MS = 5 * 60_000;
+const NEON_CACHE_ESTIMATE_MS = 60 * 60_000;
+export const NEON_WARM_MARGIN_MS = 5 * 60_000;
 export const LEGACY_CODEX_CACHE_WARM_AFTER_MINUTES = 55;
 
 export interface CodexCacheWarmConfig {
@@ -53,12 +56,48 @@ export function resolveCodexCacheWarmAfterMinutes(
     : LEGACY_CODEX_CACHE_WARM_AFTER_MINUTES;
 }
 
-/** Window the warmer and Warm all act on. Codex reports no lifetime, so it ends a margin after
- * the machine's warm-after setting instead of at the HUD's one-hour freshness estimate. */
-export function cacheWarmWindowMs(hud: OrchestrationV2CacheHud, codexWarmAfterMinutes: number) {
-  return hud.driver === "codex" && hud.basis === "estimated"
-    ? codexWarmAfterMinutes * 60_000 + CODEX_WARM_MARGIN_MS
-    : hud.ttlMs;
+interface NeonCacheWarmConfig {
+  readonly environment?:
+    | {
+        readonly capabilities?: { readonly neonCacheWarming?: boolean | undefined } | undefined;
+      }
+    | null
+    | undefined;
+  readonly settings?: { readonly neonCacheWarmAfterMinutes: number } | null | undefined;
+}
+
+export function supportsNeonCacheWarming(config: NeonCacheWarmConfig | null | undefined): boolean {
+  return config?.environment?.capabilities?.neonCacheWarming === true;
+}
+
+export function resolveNeonCacheWarmAfterMinutes(config: NeonCacheWarmConfig | null | undefined) {
+  return supportsNeonCacheWarming(config) ? config?.settings?.neonCacheWarmAfterMinutes : undefined;
+}
+
+export function cacheHudSupportsWarming(hud: OrchestrationV2CacheHud | null | undefined): boolean {
+  return (
+    hud?.driver === "codex" ||
+    hud?.driver === "claudeAgent" ||
+    (hud?.driver === "antigravity" && hud.basis === "estimated")
+  );
+}
+
+/** Estimated providers accept warm turns for five minutes after the selected idle time. */
+export function cacheWarmWindowMs(
+  hud: OrchestrationV2CacheHud,
+  codexWarmAfterMinutes: number,
+  neonWarmAfterMinutes?: number,
+) {
+  if (!cacheHudSupportsWarming(hud)) return undefined;
+  if (hud.basis === "estimated") {
+    if (hud.driver === "codex") return codexWarmAfterMinutes * 60_000 + CODEX_WARM_MARGIN_MS;
+    if (hud.driver === "antigravity") {
+      return neonWarmAfterMinutes === undefined
+        ? undefined
+        : neonWarmAfterMinutes * 60_000 + NEON_WARM_MARGIN_MS;
+    }
+  }
+  return hud.ttlMs;
 }
 
 /** Derive one compact server-owned summary, not transcript data, for every client. */
@@ -118,6 +157,13 @@ export function deriveCacheHud(
       : { driver, usage, ttlMs: reported, basis: "reported" };
   }
   if (driver === "codex") return { driver, usage, ttlMs: CODEX_BASELINE_MS, basis: "estimated" };
+  if (
+    driver === "antigravity" &&
+    isNeonCacheModel(modelSelection.model) &&
+    request.cacheScopeKey === scope
+  ) {
+    return { driver, usage, ttlMs: NEON_CACHE_ESTIMATE_MS, basis: "estimated" };
+  }
   return { driver, usage, basis: "unknown" };
 }
 
@@ -190,7 +236,7 @@ export function presentCacheHud(hud: OrchestrationV2CacheHud, nowMs: number) {
   const remainingMs =
     hud.ttlMs === undefined ? null : Math.max(0, Date.parse(usage.updatedAt) + hud.ttlMs - nowMs);
   const observedCold = cached === 0 && (usage.cacheCreationTokens ?? 0) === 0;
-  const estimateElapsed = hud.driver === "codex" && hud.basis === "estimated" && remainingMs === 0;
+  const estimateElapsed = hud.basis === "estimated" && remainingMs === 0;
   const state = observedCold
     ? "cold"
     : estimateElapsed ||
@@ -219,7 +265,7 @@ export function presentCacheHud(hud: OrchestrationV2CacheHud, nowMs: number) {
   const max = usage.maxTokens;
   const contextText = `${formatHudTokens(usage.usedTokens)}/${max ? formatHudTokens(max) : "?"}`;
   const contextPercentage = max ? Math.min(100, Math.round((usage.usedTokens / max) * 100)) : null;
-  const description = `Context tokens: ${usage.usedTokens}/${max ?? "unknown"}${contextPercentage === null ? "" : ` (${contextPercentage}%)`}. Last-request cached tokens: ${cached ?? "unknown"}${percentage === null ? "" : ` (${percentage}%)`}.${usage.cacheCreationTokens === undefined ? "" : ` Cache-write tokens: ${usage.cacheCreationTokens}.`} Cache expiry${remainingMs === null ? "" : ` at ${clock} (device local time)`} is an estimate${hud.basis === "reported" ? " based on Claude's reported lifetime" : hud.basis === "estimated" ? " using Codex's assumed one-hour window" : "; lifetime is unknown"}. Prefix changes and eviction can make it cold earlier.`;
+  const description = `Context tokens: ${usage.usedTokens}/${max ?? "unknown"}${contextPercentage === null ? "" : ` (${contextPercentage}%)`}. Last-request cached tokens: ${cached ?? "unknown"}${percentage === null ? "" : ` (${percentage}%)`}.${usage.cacheCreationTokens === undefined ? "" : ` Cache-write tokens: ${usage.cacheCreationTokens}.`} Cache expiry${remainingMs === null ? "" : ` at ${clock} (device local time)`} is an estimate${hud.basis === "reported" ? " based on Claude's reported lifetime" : hud.basis === "estimated" ? " using an assumed one-hour window" : "; lifetime is unknown"}. Prefix changes and eviction can make it cold earlier.`;
   return { state, cacheText, contextText, contextPercentage, description, remainingMs };
 }
 
@@ -296,13 +342,15 @@ function threadWarmWindowMs(
     readonly archivedAt: string | null;
   },
   codexWarmAfterMinutes: number,
+  neonWarmAfterMinutes?: number,
 ): { readonly updatedAtMs: number; readonly windowMs: number } | null {
   const hud = thread.cacheHud;
-  const windowMs = hud ? cacheWarmWindowMs(hud, codexWarmAfterMinutes) : undefined;
+  const windowMs = hud
+    ? cacheWarmWindowMs(hud, codexWarmAfterMinutes, neonWarmAfterMinutes)
+    : undefined;
   if (
     thread.archivedAt !== null ||
     !hud ||
-    (hud.driver !== "codex" && hud.driver !== "claudeAgent") ||
     (hud.usage.cachedInputTokens ?? 0) + (hud.usage.cacheCreationTokens ?? 0) <= 0 ||
     windowMs === undefined
   ) {
@@ -312,7 +360,7 @@ function threadWarmWindowMs(
   return Number.isFinite(updatedAtMs) ? { updatedAtMs, windowMs } : null;
 }
 
-/** Conversations whose Claude/Codex prompt cache is still warm, so warming them can help. */
+/** Conversations inside a supported warm window whose last request reused or wrote cache. */
 export function hotCacheThreadIds(
   threads: ReadonlyArray<{
     readonly id: ThreadId;
@@ -321,10 +369,11 @@ export function hotCacheThreadIds(
   }>,
   nowMs: number,
   codexWarmAfterMinutes: number,
+  neonWarmAfterMinutes?: number,
 ): ThreadId[] {
   return threads
     .filter((thread) => {
-      const window = threadWarmWindowMs(thread, codexWarmAfterMinutes);
+      const window = threadWarmWindowMs(thread, codexWarmAfterMinutes, neonWarmAfterMinutes);
       return window !== null && nowMs - window.updatedAtMs < window.windowMs;
     })
     .map((thread) => thread.id);
@@ -338,10 +387,11 @@ export function nextCacheWarmExpiry(
   }>,
   afterMs: number,
   codexWarmAfterMinutes: number,
+  neonWarmAfterMinutes?: number,
 ): number | null {
   let earliest: number | null = null;
   for (const thread of threads) {
-    const window = threadWarmWindowMs(thread, codexWarmAfterMinutes);
+    const window = threadWarmWindowMs(thread, codexWarmAfterMinutes, neonWarmAfterMinutes);
     if (window === null) continue;
     const expiry = window.updatedAtMs + window.windowMs;
     if (Number.isFinite(expiry) && expiry > afterMs && (earliest === null || expiry < earliest)) {

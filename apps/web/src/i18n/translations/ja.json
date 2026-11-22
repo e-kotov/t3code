@@ -1667,13 +1667,13 @@
   "fbe70c0fc4ac3d4c": "Warm all: Off",
   "b581304ad7214cfa": "Keep warm may send a short visible, billable turn near cache expiry for this conversation.",
   "2e2488fdb89aa2c7": "Warm prompt cache",
-  "75bfdc3b7bc9276d": [
+  "96409065369db69c": [
     {
       "i": 1,
       "k": "_gt_value_1",
       "v": "v"
     },
-    " · Codex/Claude · billable turns"
+    " · 課金対象のターン"
   ],
   "3b4ca180fef92e21": "インサイト",
   "cc8cdd1ece34cd75": "メモ",
@@ -7979,6 +7979,10 @@
   "f2d967e7e3a1f724": "Keep warm に設定された会話が対象です。Codex はプロンプトキャッシュの保持時間を報告しないため、このアイドル時間が経過するとウォームアップのターンを送信し、さらに 5 分が過ぎるとスキップします。Claude は報告されたキャッシュ有効期間を使用します。",
   "11457908284789d4": "Codex のウォームアップ時間をデフォルトにリセット",
   "8e350c21788560fa": "Codex をウォームアップするまでの時間",
+  "a94ce8c7972c9ac3": "Neon キャッシュを維持するまでの時間",
+  "eacb9a1a048d0bcf": "「キャッシュを維持」が設定された Neon の会話が対象です。T3 はユーザーターンごとに最大 1 回のキャッシュ維持ターンを送信します。",
+  "f8ebf33901ef9e30": "Neon キャッシュを維持するには、{environments} の T3 Code を更新してください。",
+  "875197e011a562ef": "Neon の待機時間を既定値に戻す",
   "d3ad545e7b45d509": "この設定を変更するには {environments} の T3 Code を更新してください。古いサーバーは引き続き 55 分後に Codex をウォームします。",
   "cd67d110c09bfdf4": "アカウントのメールアドレスの表示を切り替え",
   "6b2ce50ea6a13f57": "クリックしてメールアドレスを表示",

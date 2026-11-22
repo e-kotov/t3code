@@ -9,6 +9,8 @@ interface MockEnv {
   readonly label: string;
   readonly codexCacheWarmAfter?: boolean;
   readonly codexCacheWarmAfterMinutes: number;
+  readonly neonCacheWarming?: boolean;
+  readonly neonCacheWarmAfterMinutes?: number;
 }
 
 const state = vi.hoisted(() => ({
@@ -25,14 +27,15 @@ vi.mock(import("./SettingsScopeContext"), async (original) => ({
       label: env.label,
       serverConfig: {
         environment: {
-          capabilities:
-            env.codexCacheWarmAfter === undefined
-              ? {}
-              : { codexCacheWarmAfter: env.codexCacheWarmAfter },
+          capabilities: {
+            codexCacheWarmAfter: env.codexCacheWarmAfter,
+            neonCacheWarming: env.neonCacheWarming,
+          },
         },
         settings: {
           ...DEFAULT_SERVER_SETTINGS,
           codexCacheWarmAfterMinutes: env.codexCacheWarmAfterMinutes,
+          neonCacheWarmAfterMinutes: env.neonCacheWarmAfterMinutes ?? 50,
         } satisfies ServerSettings,
       },
     }));
@@ -86,7 +89,10 @@ vi.mock(import("./settingsLayout"), async (original) => ({
   ),
 }));
 
-import { CodexCacheWarmAfterSetting } from "./CodexCacheWarmAfterSetting";
+import {
+  CodexCacheWarmAfterSetting,
+  NeonCacheWarmAfterSetting,
+} from "./CodexCacheWarmAfterSetting";
 
 describe("CodexCacheWarmAfterSetting", () => {
   it("shows 55 min, disables changes, and explains the upgrade on legacy servers", async () => {
@@ -164,3 +170,32 @@ describe("CodexCacheWarmAfterSetting", () => {
     expect(state.update).toHaveBeenCalledExactlyOnceWith({ codexCacheWarmAfterMinutes: 115 });
   });
 });
+
+it.each([false, true])(
+  "only changes the Neon interval on an upgraded server (%s)",
+  async (supported) => {
+    state.update.mockReset();
+    state.environments = [
+      {
+        environmentId: EnvironmentId.make("mac"),
+        label: "Mac",
+        codexCacheWarmAfterMinutes: 115,
+        neonCacheWarmAfterMinutes: 40,
+        neonCacheWarming: supported,
+      },
+    ];
+
+    await using screen = await render(<NeonCacheWarmAfterSetting />);
+    const trigger = screen.getByRole("combobox", { name: "Warm Neon after" });
+    if (!supported) {
+      await expect.element(trigger).toBeDisabled();
+      await expect
+        .element(screen.getByTestId("codex-warm-status"))
+        .toHaveTextContent("Upgrade T3 Code on Mac to warm Neon.");
+      return;
+    }
+    await expect.element(trigger).toHaveTextContent("40 min");
+    await screen.getByRole("button", { name: "Reset Neon warm time to default" }).click();
+    expect(state.update).toHaveBeenCalledExactlyOnceWith({ neonCacheWarmAfterMinutes: 50 });
+  },
+);

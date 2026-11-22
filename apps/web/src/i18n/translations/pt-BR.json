@@ -1668,13 +1668,13 @@
   "fbe70c0fc4ac3d4c": "Warm all: Off",
   "b581304ad7214cfa": "Keep warm may send a short visible, billable turn near cache expiry for this conversation.",
   "2e2488fdb89aa2c7": "Warm prompt cache",
-  "75bfdc3b7bc9276d": [
+  "96409065369db69c": [
     {
       "i": 1,
       "k": "_gt_value_1",
       "v": "v"
     },
-    " · Codex/Claude · billable turns"
+    " · turnos faturáveis"
   ],
   "3b4ca180fef92e21": "Insight",
   "cc8cdd1ece34cd75": "Nota",
@@ -8016,6 +8016,10 @@
   "f2d967e7e3a1f724": "Para conversas definidas como Keep warm. O Codex não informa quanto tempo dura o cache de prompts, então o turno de aquecimento é enviado após esse tempo ocioso e ignorado quando mais cinco minutos se passam. O Claude usa a duração de cache que informa.",
   "11457908284789d4": "Redefinir o tempo de aquecimento do Codex para o padrão",
   "8e350c21788560fa": "Aquecer o Codex após",
+  "a94ce8c7972c9ac3": "Manter o cache do Neon aquecido após",
+  "eacb9a1a048d0bcf": "Para conversas do Neon com Manter aquecido. O T3 envia no máximo um turno de aquecimento por turno do usuário.",
+  "f8ebf33901ef9e30": "Atualize o T3 Code em {environments} para manter o cache do Neon aquecido.",
+  "875197e011a562ef": "Restaurar o tempo de espera padrão do Neon",
   "d3ad545e7b45d509": "Atualize o T3 Code em {environments} para alterar esta configuração; servidores mais antigos ainda aquecem o Codex após 55 minutos.",
   "cd67d110c09bfdf4": "Alternar a visibilidade do e-mail da conta",
   "6b2ce50ea6a13f57": "Clique para revelar o e-mail",

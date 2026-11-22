@@ -232,6 +232,7 @@ export const make = Effect.gen(function* () {
       issues: true,
       linkedThreadRefreshes: true,
       codexCacheWarmAfter: true,
+      neonCacheWarming: true,
       issueLinkedThreads: true,
       sideChats: true,
       vcsBranchStatus: true,

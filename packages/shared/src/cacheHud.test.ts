@@ -48,6 +48,28 @@ function hud(overrides: Partial<OrchestrationV2CacheHud> = {}): OrchestrationV2C
 }
 
 describe("deriveCacheHud", () => {
+  it("estimates one hour for scoped Antigravity Neon usage", () => {
+    const driver = ProviderDriverKind.make("antigravity");
+    const instanceId = ProviderInstanceId.make("antigravity");
+    const request = { ...hud().usage, cacheScopeKey: "antigravity:gemini-4-neon" };
+    const neon = deriveCacheHud(driver, [request], { instanceId, model: "gemini-4-neon" });
+    expect(neon).toMatchObject({ basis: "estimated", ttlMs: 60 * 60_000 });
+    expect(presentCacheHud(neon!, start + 60 * 60_000).state).toBe("unknown");
+
+    const candidate = { id: ThreadId.make("neon"), cacheHud: neon, archivedAt: null };
+    expect(hotCacheThreadIds([candidate], start + 54 * 60_000, 115, 50)).toEqual([candidate.id]);
+    expect(nextCacheWarmExpiry([candidate], start, 115, 50)).toBe(start + 55 * 60_000);
+    expect(hotCacheThreadIds([candidate], start + 55 * 60_000, 115, 50)).toEqual([]);
+    expect(hotCacheThreadIds([candidate], start, 115)).toEqual([]);
+
+    expect(
+      deriveCacheHud(driver, [{ ...request, cacheScopeKey: "antigravity:gemini-4-hydrogen" }], {
+        instanceId,
+        model: "gemini-4-hydrogen",
+      }),
+    ).toMatchObject({ basis: "unknown" });
+  });
+
   it.each([
     [102_152, 101_760, 25_656, "26k/475k"],
     [231_901, 13_312, 25_411, "25k/475k"],

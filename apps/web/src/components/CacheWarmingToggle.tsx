@@ -7,6 +7,7 @@ import {
   hotCacheThreadIds,
   nextCacheWarmExpiry,
   resolveCodexCacheWarmAfterMinutes,
+  resolveNeonCacheWarmAfterMinutes,
 } from "@t3tools/shared/cacheHud";
 import { T, Var, msg, useGT } from "gt-react";
 import { useState } from "react";
@@ -31,22 +32,43 @@ type CacheThread = Pick<EnvironmentThreadShell, "id" | "cacheHud" | "archivedAt"
 function useEnvironmentWarming(environmentId: EnvironmentId, threads: readonly CacheThread[]) {
   const serverConfig = useAtomValue(serverEnvironment.configValueAtom(environmentId));
   const codexWarmAfterMinutes = resolveCodexCacheWarmAfterMinutes(serverConfig);
+  const neonWarmAfterMinutes = resolveNeonCacheWarmAfterMinutes(serverConfig);
   // Re-sample the clock when threads or the warm interval change, as well as when the
   // next expiry deadline passes, so shortening the interval drops expired chats at once.
-  const readClock = () => ({ threads, codexWarmAfterMinutes, nowMs: Date.now() });
+  const readClock = () => ({
+    threads,
+    codexWarmAfterMinutes,
+    neonWarmAfterMinutes,
+    nowMs: Date.now(),
+  });
   const [clock, setClock] = useState(readClock);
-  const nextExpiry = nextCacheWarmExpiry(threads, clock.nowMs, codexWarmAfterMinutes);
+  const nextExpiry = nextCacheWarmExpiry(
+    threads,
+    clock.nowMs,
+    codexWarmAfterMinutes,
+    neonWarmAfterMinutes,
+  );
   const expired = useDeadlinePassed(nextExpiry);
-  if (clock.threads !== threads || clock.codexWarmAfterMinutes !== codexWarmAfterMinutes) {
+  if (
+    clock.threads !== threads ||
+    clock.codexWarmAfterMinutes !== codexWarmAfterMinutes ||
+    clock.neonWarmAfterMinutes !== neonWarmAfterMinutes
+  ) {
     setClock(readClock);
   } else if (expired && nextExpiry !== null) {
     setClock(() => ({
       threads,
       codexWarmAfterMinutes,
+      neonWarmAfterMinutes,
       nowMs: Math.max(nextExpiry, Date.now()),
     }));
   }
-  const activeIds = hotCacheThreadIds(threads, clock.nowMs, codexWarmAfterMinutes);
+  const activeIds = hotCacheThreadIds(
+    threads,
+    clock.nowMs,
+    codexWarmAfterMinutes,
+    neonWarmAfterMinutes,
+  );
   const cacheWarmingSessions = useEnvironmentSettings(
     environmentId,
     (settings) => settings.cacheWarmingSessions,
@@ -56,7 +78,12 @@ function useEnvironmentWarming(environmentId: EnvironmentId, threads: readonly C
   const canWrite = useEnvironmentScope(environmentId, AuthSettingsWriteScope);
   const toggleAll = () => {
     const currentNow = Date.now();
-    const currentIds = hotCacheThreadIds(threads, currentNow, codexWarmAfterMinutes);
+    const currentIds = hotCacheThreadIds(
+      threads,
+      currentNow,
+      codexWarmAfterMinutes,
+      neonWarmAfterMinutes,
+    );
     if (nextExpiry !== null && currentNow >= nextExpiry) {
       deadlineStore(nextExpiry).refresh();
     }
@@ -160,7 +187,7 @@ function EnvironmentToggle(props: {
         </span>
         <span className="block text-3xs opacity-75">
           <T>
-            <Var>{machineLabel}</Var> · Codex/Claude · billable turns
+            <Var>{machineLabel}</Var> · billable turns
           </T>
         </span>
       </span>
