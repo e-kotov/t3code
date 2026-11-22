@@ -22,6 +22,19 @@ gradle.beforeProject { project ->
   def sdks = projectSdks[project.path]
   if (sdks == null) return
 
+  // The large SDK jars were getting HTTP 429 from Central on hosted runners.
+  // Route only this test artifact to Google's official Maven Central mirror.
+  project.repositories.exclusiveContent {
+    forRepository {
+      project.repositories.maven {
+        name = 'forkRobolectricCentralMirror'
+        url = 'https://maven-central.storage-download.googleapis.com/maven2/'
+        metadataSources { artifact() }
+      }
+    }
+    filter { includeModule('org.robolectric', 'android-all-instrumented') }
+  }
+
   // A configuration per version prevents Gradle from selecting just the highest SDK.
   def dependencies = sdks.collect { sdk ->
     def jar = project.dependencies.create(
