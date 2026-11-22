@@ -216,6 +216,7 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   linkedThreadRefreshes: Schema.optionalKey(Schema.Boolean),
   /** Honors `codexCacheWarmAfterMinutes`; older servers warm Codex after 55 minutes. */
   codexCacheWarmAfter: Schema.optionalKey(Schema.Boolean),
+  neonCacheWarming: Schema.optionalKey(Schema.Boolean),
   /** Answers `issues.linkedThreads`, the threads an issue is linked to. */
   issueLinkedThreads: Schema.optionalKey(Schema.Boolean),
 });

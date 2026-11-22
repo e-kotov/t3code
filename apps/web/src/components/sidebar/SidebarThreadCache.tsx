@@ -48,6 +48,7 @@ export function SidebarThreadCachePolicy(props: { readonly thread: CacheThread }
       environmentId={props.thread.environmentId}
       threadId={props.thread.id}
       instanceId={props.thread.modelSelection.instanceId}
+      model={props.thread.modelSelection.model}
       driver={props.thread.cacheHud?.driver}
       reveal
     />

@@ -1,3 +1,4 @@
+import { useAtomValue } from "@effect/atom-react";
 import { useGT, T, Var } from "gt-react";
 import { useId, useState } from "react";
 import {
@@ -12,9 +13,12 @@ import {
   CACHE_CHIP_MODIFIERS,
   cachePolicyChoices,
   cachePolicyDriver,
+  supportsThreadCachePolicy,
   threadCachePolicy,
   type ThreadCachePolicy,
 } from "@t3tools/shared/threadCachePolicy";
+import { supportsNeonCacheWarming } from "@t3tools/shared/cacheHud";
+import { serverEnvironment } from "../state/server";
 import { useEnvironmentSettings, useUpdateEnvironmentSettings } from "../hooks/useSettings";
 import { useEnvironmentScope } from "../state/session";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "./ui/tooltip";
@@ -60,13 +64,15 @@ function CacheChip({ policy }: { readonly policy: ThreadCachePolicy }) {
 export function ThreadCachePolicyMenu(props: {
   readonly policy: ThreadCachePolicy;
   readonly driver: string | null | undefined;
+  readonly model?: string | undefined;
+  readonly neonCacheWarming?: boolean;
   readonly canWrite: boolean;
   readonly onChange: (policy: ThreadCachePolicy) => void;
   readonly reveal?: boolean | undefined;
 }) {
   const gt = useGT();
   const [open, setOpen] = useState(false);
-  if (props.driver !== "codex" && props.driver !== "claudeAgent") return null;
+  if (!supportsThreadCachePolicy(props.driver, props.model, props.neonCacheWarming)) return null;
   const label =
     cachePolicyChoices(props.driver).find((choice) => choice.value === props.policy)?.label ??
     "Compact before expiry (Claude only)";
@@ -133,6 +139,7 @@ export function ThreadCachePolicyControl(props: {
   readonly environmentId: EnvironmentId;
   readonly threadId: ThreadId;
   readonly instanceId?: ProviderInstanceId;
+  readonly model?: string | undefined;
   readonly driver?: string | null | undefined;
   readonly reveal?: boolean | undefined;
 }) {
@@ -142,6 +149,7 @@ export function ThreadCachePolicyControl(props: {
   const driver = useEnvironmentSettings(props.environmentId, (settings) =>
     cachePolicyDriver(settings, props.instanceId, props.driver),
   );
+  const serverConfig = useAtomValue(serverEnvironment.configValueAtom(props.environmentId));
   const update = useUpdateEnvironmentSettings(props.environmentId);
   const canWrite = useEnvironmentScope(props.environmentId, AuthSettingsWriteScope);
   return (
@@ -149,6 +157,8 @@ export function ThreadCachePolicyControl(props: {
       key={`${props.environmentId}:${props.threadId}`}
       policy={policy}
       driver={driver}
+      model={props.model}
+      neonCacheWarming={supportsNeonCacheWarming(serverConfig)}
       canWrite={canWrite}
       reveal={props.reveal}
       onChange={(value) => {

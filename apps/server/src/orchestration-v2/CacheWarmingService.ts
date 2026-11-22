@@ -1,6 +1,15 @@
 import { CommandId, MessageId, type OrchestrationV2ThreadShell } from "@t3tools/contracts";
-import { threadCachePolicy, legacyCacheWarmingMigration } from "@t3tools/shared/threadCachePolicy";
-import { CODEX_WARM_MARGIN_MS, cacheWarmWindowMs, presentCacheHud } from "@t3tools/shared/cacheHud";
+import {
+  isNeonCacheModel,
+  threadCachePolicy,
+  legacyCacheWarmingMigration,
+} from "@t3tools/shared/threadCachePolicy";
+import {
+  CODEX_WARM_MARGIN_MS,
+  NEON_WARM_MARGIN_MS,
+  cacheWarmWindowMs,
+  presentCacheHud,
+} from "@t3tools/shared/cacheHud";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -39,6 +48,7 @@ export interface CacheWarmingCandidate {
   readonly nowMs: number;
   readonly enabled: boolean;
   readonly codexWarmAfterMinutes: number;
+  readonly neonWarmAfterMinutes?: number;
   readonly alreadyWarmedWindow?: string;
 }
 
@@ -69,25 +79,31 @@ export function cacheWarmingWindow(input: CacheWarmingCandidate): CacheWarmingWi
   const hud = thread.cacheHud;
   if (
     hud == null ||
-    (hud.driver !== "codex" && hud.driver !== "claudeAgent") ||
     hud.ttlMs === undefined ||
     ((hud.usage.cachedInputTokens ?? 0) <= 0 && (hud.usage.cacheCreationTokens ?? 0) <= 0)
   ) {
     return null;
   }
 
-  const windowMs = cacheWarmWindowMs(hud, input.codexWarmAfterMinutes);
+  const neon = hud.driver === "antigravity";
+  if (neon && !isNeonCacheModel(thread.modelSelection.model)) return null;
+  const windowMs = cacheWarmWindowMs(hud, input.codexWarmAfterMinutes, input.neonWarmAfterMinutes);
   if (windowMs === undefined) return null;
   const view = presentCacheHud({ ...hud, ttlMs: windowMs }, input.nowMs);
   if (view.remainingMs === null || view.remainingMs <= 0) return null;
-  const marginMs = hud.driver === "codex" ? CODEX_WARM_MARGIN_MS : CLAUDE_WARM_MARGIN_MS;
+  const marginMs = neon
+    ? NEON_WARM_MARGIN_MS
+    : hud.driver === "codex"
+      ? CODEX_WARM_MARGIN_MS
+      : CLAUDE_WARM_MARGIN_MS;
   if (view.remainingMs > marginMs) return null;
 
   const lastUserMessageAt = thread.latestUserAuthoredMessageAt;
   if (lastUserMessageAt == null) return null;
   const fingerprint = [
     DateTime.toEpochMillis(lastUserMessageAt),
-    Date.parse(hud.usage.updatedAt),
+    // One Neon warm turn per user turn, even if the synthetic reply refreshes the cache.
+    neon ? "neon" : Date.parse(hud.usage.updatedAt),
     hud.usage.cacheScopeKey ?? "",
     thread.activeProviderThreadId ?? "",
   ].join("|");
@@ -129,6 +145,7 @@ export const make = Effect.gen(function* () {
         nowMs: now,
         enabled,
         codexWarmAfterMinutes: latestSettings.codexCacheWarmAfterMinutes,
+        neonWarmAfterMinutes: latestSettings.neonCacheWarmAfterMinutes,
         ...(latestSettings.cacheWarmingLastWindows[thread.id] === undefined
           ? {}
           : { alreadyWarmedWindow: latestSettings.cacheWarmingLastWindows[thread.id] }),

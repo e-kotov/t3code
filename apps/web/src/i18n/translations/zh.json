@@ -1668,13 +1668,13 @@
   "fbe70c0fc4ac3d4c": "Warm all: Off",
   "b581304ad7214cfa": "Keep warm may send a short visible, billable turn near cache expiry for this conversation.",
   "2e2488fdb89aa2c7": "Warm prompt cache",
-  "75bfdc3b7bc9276d": [
+  "96409065369db69c": [
     {
       "i": 1,
       "k": "_gt_value_1",
       "v": "v"
     },
-    " · Codex/Claude · billable turns"
+    " · 计费轮次"
   ],
   "3b4ca180fef92e21": "见解",
   "cc8cdd1ece34cd75": "注意",
@@ -8034,6 +8034,10 @@
   "f2d967e7e3a1f724": "适用于设为 Keep warm 的会话。Codex 不报告其提示缓存的保留时长，因此会在空闲达到此时长后发送预热轮次，再过五分钟则跳过。Claude 使用其报告的缓存有效期。",
   "11457908284789d4": "将 Codex 预热时间重置为默认值",
   "8e350c21788560fa": "Codex 预热时间",
+  "a94ce8c7972c9ac3": "Neon 缓存保活等待时间",
+  "eacb9a1a048d0bcf": "适用于设为“保持缓存”的 Neon 对话。每个用户轮次，T3 最多发送一次保活请求。",
+  "f8ebf33901ef9e30": "请升级 {environments} 上的 T3 Code，以保持 Neon 缓存。",
+  "875197e011a562ef": "将 Neon 保活等待时间重置为默认值",
   "d3ad545e7b45d509": "请更新 {environments} 上的 T3 Code 以更改此设置；旧版服务器仍会在 55 分钟后预热 Codex。",
   "cd67d110c09bfdf4": "显示或隐藏账户邮箱",
   "6b2ce50ea6a13f57": "点击显示邮箱",

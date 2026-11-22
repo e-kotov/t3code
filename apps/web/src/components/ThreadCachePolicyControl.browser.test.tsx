@@ -4,9 +4,24 @@ import type { ThreadCachePolicy } from "@t3tools/shared/threadCachePolicy";
 import { render } from "../../test/render";
 import { ThreadCachePolicyMenu } from "./ThreadCachePolicyControl";
 
-function PolicyPicker({ driver = "claudeAgent" }: { readonly driver?: string }) {
+function PolicyPicker({
+  driver = "claudeAgent",
+  model,
+}: {
+  readonly driver?: string;
+  readonly model?: string;
+}) {
   const [policy, setPolicy] = useState<ThreadCachePolicy>("default");
-  return <ThreadCachePolicyMenu policy={policy} driver={driver} canWrite onChange={setPolicy} />;
+  return (
+    <ThreadCachePolicyMenu
+      policy={policy}
+      driver={driver}
+      model={model}
+      neonCacheWarming={model !== undefined}
+      canWrite
+      onChange={setPolicy}
+    />
+  );
 }
 
 it("lets a user switch between warming, compaction, Off and inherited settings", async () => {
@@ -25,16 +40,19 @@ it("lets a user switch between warming, compaction, Off and inherited settings",
   }
 });
 
-it("offers only supported actions on Codex and opens the same policy menu with a right click", async () => {
-  await using screen = await render(<PolicyPicker driver="codex" />);
-  await screen
-    .getByRole("button", { name: "Idle cache policy: Default" })
-    .click({ button: "right" });
-  await expect.element(screen.getByRole("menuitemradio", { name: /^Keep warm/ })).toBeVisible();
-  await expect
-    .element(screen.getByRole("menuitemradio", { name: /^Compact before expiry/ }))
-    .not.toBeInTheDocument();
-});
+it.each([{ driver: "codex" }, { driver: "antigravity", model: "gemini-4-neon" }])(
+  "offers only supported actions on $driver and opens the same policy menu with a right click",
+  async (props) => {
+    await using screen = await render(<PolicyPicker {...props} />);
+    await screen
+      .getByRole("button", { name: "Idle cache policy: Default" })
+      .click({ button: "right" });
+    await expect.element(screen.getByRole("menuitemradio", { name: /^Keep warm/ })).toBeVisible();
+    await expect
+      .element(screen.getByRole("menuitemradio", { name: /^Compact before expiry/ }))
+      .not.toBeInTheDocument();
+  },
+);
 
 it("does not change settings on a connection without settings permission", async () => {
   const change = vi.fn();

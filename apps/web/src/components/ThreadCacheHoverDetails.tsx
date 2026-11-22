@@ -4,7 +4,11 @@ import { useAtomValue } from "@effect/atom-react";
 import { serverEnvironment } from "~/state/server";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import type { ServerProviderUsageWindow } from "@t3tools/contracts";
-import { describeCacheHud, describeUsageWindows } from "@t3tools/shared/cacheHud";
+import {
+  cacheHudSupportsWarming,
+  describeCacheHud,
+  describeUsageWindows,
+} from "@t3tools/shared/cacheHud";
 import {
   ChartPieIcon,
   DatabaseIcon,
@@ -42,7 +46,7 @@ export function ThreadCacheHoverDetails(props: {
   const limits = describeUsageWindows(usageWindows, openedAt);
   if (!hud && limits.length === 0) return null;
   const details = hud ? describeCacheHud(hud, openedAt) : null;
-  const supportsWarming = hud?.driver === "codex" || hud?.driver === "claudeAgent";
+  const supportsWarming = cacheHudSupportsWarming(hud);
   return (
     <div className="grid gap-1.5 border-t border-border/60 pt-1.5" data-thread-cache-details="true">
       {details ? (

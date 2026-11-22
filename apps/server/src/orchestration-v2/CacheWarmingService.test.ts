@@ -1,4 +1,4 @@
-import { ProviderDriverKind, ThreadId } from "@t3tools/contracts";
+import { ProviderDriverKind, ProviderInstanceId, ThreadId } from "@t3tools/contracts";
 import * as DateTime from "effect/DateTime";
 import { describe, expect, it } from "vite-plus/test";
 import { cacheWarmingRetired } from "./CacheWarmingDispatchGuard.ts";
@@ -205,6 +205,49 @@ describe("cacheWarmingWindow", () => {
     expect(
       cacheWarmingWindow({ ...enabled, codexWarmAfterMinutes: 115, thread: current })?.marginMs,
     ).toBe(60_000);
+  });
+
+  it("warms Neon once per user turn inside the configured window", () => {
+    const base = thread();
+    const idleFor = (minutes: number, model = "gemini-4-neon") =>
+      thread({
+        modelSelection: { instanceId: ProviderInstanceId.make("antigravity"), model },
+        cacheHud: {
+          ...base.cacheHud!,
+          driver: ProviderDriverKind.make("antigravity"),
+          usage: {
+            ...base.cacheHud!.usage,
+            cacheScopeKey: `antigravity:${model}`,
+            updatedAt: isoAt(NOW - minutes * 60_000),
+          },
+        },
+      });
+    const settings = { ...enabled, neonWarmAfterMinutes: 50 };
+    const window = cacheWarmingWindow({ ...settings, thread: idleFor(50) });
+    expect(window?.marginMs).toBe(5 * 60_000);
+    expect(cacheWarmingWindow({ ...settings, thread: idleFor(49) })).toBeNull();
+    expect(cacheWarmingWindow({ ...settings, thread: idleFor(55) })).toBeNull();
+    expect(
+      cacheWarmingWindow({ ...settings, thread: idleFor(50, "gemini-4-hydrogen") }),
+    ).toBeNull();
+
+    expect(
+      cacheWarmingWindow({
+        ...settings,
+        thread: idleFor(51),
+        alreadyWarmedWindow: window!.fingerprint,
+      }),
+    ).toBeNull();
+    expect(
+      cacheWarmingWindow({
+        ...settings,
+        thread: {
+          ...idleFor(51),
+          latestUserAuthoredMessageAt: DateTime.makeUnsafe(NOW - 52 * 60_000),
+        },
+        alreadyWarmedWindow: window!.fingerprint,
+      }),
+    ).not.toBeNull();
   });
 
   it("leaves other providers unsupported", () => {
