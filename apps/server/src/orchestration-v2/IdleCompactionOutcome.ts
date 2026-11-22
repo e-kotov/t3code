@@ -1,4 +1,5 @@
 import { idleCompactionOf } from "@t3tools/contracts";
+import { isIdleMaintenanceMessageId } from "@t3tools/shared/threadCachePolicy";
 import {
   ProviderAdapterTurnStartError,
   ProviderCompactionUnsupportedError,
@@ -9,6 +10,18 @@ import * as Schema from "effect/Schema";
 
 type Terminal = Extract<ProviderAdapterV2Event, { readonly type: "turn.terminal" }>;
 
+export const IDLE_MAINTENANCE_SKIPPED = "Idle maintenance skipped before provider delivery";
+
+export function isBackgroundIdleMessage(
+  message: Pick<ProviderAdapterV2TurnMessage, "messageId" | "createdBy" | "creationSource">,
+): boolean {
+  return (
+    message.creationSource === "server" &&
+    message.createdBy !== "user" &&
+    isIdleMaintenanceMessageId(message.messageId)
+  );
+}
+
 const isTurnStartError = Schema.is(ProviderAdapterTurnStartError);
 const isCompactionUnsupportedError = Schema.is(ProviderCompactionUnsupportedError);
 
@@ -18,7 +31,7 @@ export function idleCompactionStartOutcome(
   terminal: Terminal,
 ): Terminal {
   if (
-    !message.messageId.startsWith("idle-compact:") ||
+    !isBackgroundIdleMessage(message) ||
     idleCompactionOf({ ...message, role: "user" }) === undefined
   )
     return terminal;
@@ -34,6 +47,7 @@ export function idleCompactionStartOutcome(
     runOrdinal: terminal.runOrdinal,
     status: "cancelled",
     failure: null,
+    reason: IDLE_MAINTENANCE_SKIPPED,
     threadDisposition: "reusable",
   };
 }

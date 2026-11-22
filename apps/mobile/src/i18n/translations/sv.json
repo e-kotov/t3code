@@ -5565,5 +5565,7 @@
   "49bc4c2162f9f670": "Skickar en kort begäran per inaktiv tråd. Det använder din kvot.",
   "2ea863b484a0933c": "Inaktiv tid (min)",
   "3f3ea0441308a707": "Minsta kontext (tusen token)",
-  "fddfcd8a7c82f9c3": "{provider} · {setting}"
+  "fddfcd8a7c82f9c3": "{provider} · {setting}",
+  "e637173c759c26af": "Komprimerar stora inaktiva trådar en gång om leverantören stöder det.",
+  "53980144b6d12cd6": "Gör ingenting vid inaktivitet."
 }

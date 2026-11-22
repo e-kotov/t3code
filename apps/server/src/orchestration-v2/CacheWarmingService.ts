@@ -1,4 +1,9 @@
-import { CommandId, MessageId, type OrchestrationV2ThreadShell } from "@t3tools/contracts";
+import {
+  CommandId,
+  MessageId,
+  type OrchestrationV2ThreadShell,
+  type RunId,
+} from "@t3tools/contracts";
 import {
   isNeonCacheModel,
   cacheWarmingEnabled,
@@ -20,11 +25,8 @@ import type * as Scope from "effect/Scope";
 
 import * as ServerSettings from "../serverSettings.ts";
 import { cacheWarmingRetired } from "./CacheWarmingDispatchGuard.ts";
-import {
-  hasWarmCacheEvidence,
-  machineIdleWindow,
-  reportedIdleCacheExpiryMs,
-} from "./IdleThreadTiming.ts";
+import { hasWarmCacheEvidence, isUserIdleTurn, machineWarmWindow } from "./IdleThreadTiming.ts";
+import * as ProjectionStore from "./ProjectionStore.ts";
 import * as ThreadManagement from "./ThreadManagementService.ts";
 
 const CLAUDE_WARM_MARGIN_MS = 60_000;
@@ -107,11 +109,13 @@ export function cacheWarmingWindow(input: CacheWarmingCandidate): CacheWarmingWi
       thread.latestUserAuthoredMessageAt == null
     )
       return null;
-    const { startMs, endMs } = machineIdleWindow(
+    const window = machineWarmWindow(
       thread.latestRunCompletedAt,
       input.policy[driver].idleMinutes,
-      reportedIdleCacheExpiryMs(hud),
+      hud,
     );
+    if (window === null) return null;
+    const { startMs, endMs } = window;
     if (!(input.nowMs >= startMs && input.nowMs < endMs)) return null;
     const fingerprint = thread.latestRunId;
     if (input.alreadyWarmedWindow === fingerprint) return null;
@@ -149,11 +153,15 @@ class CacheWarmingService extends Context.Service<
 export const make = Effect.gen(function* () {
   const settingsService = yield* ServerSettings.ServerSettingsService;
   const threads = yield* ThreadManagement.ThreadManagementService;
+  const projections = yield* ProjectionStore.ProjectionStoreV2;
 
   const migration = legacyCacheWarmingMigration(yield* settingsService.getSettings);
   if (migration !== null) yield* settingsService.updateSettings(migration);
 
+  let rejectedNonUserRuns = new Set<RunId>();
   const sweep = Effect.gen(function* () {
+    const previousNonUserRuns = rejectedNonUserRuns;
+    rejectedNonUserRuns = new Set<RunId>();
     const snapshot = yield* threads.getShellSnapshot();
     const now = DateTime.toEpochMillis(yield* DateTime.now);
     for (const thread of snapshot.threads) {
@@ -185,6 +193,27 @@ export const make = Effect.gen(function* () {
           : { alreadyWarmedWindow: latestSettings.cacheWarmingLastWindows[thread.id] }),
       });
       if (window === null) continue;
+      if (latestSettings.machineIdlePolicy !== undefined && thread.latestRunId !== null) {
+        const runId = thread.latestRunId;
+        if (previousNonUserRuns.has(runId)) {
+          rejectedNonUserRuns.add(runId);
+          continue;
+        }
+        const records = yield* projections
+          .getThreadRecords(thread.id, ["runs", "messages"], {
+            runIds: [runId],
+            messageRunIds: [runId],
+            messageRoles: ["user"],
+          })
+          .pipe(Effect.catchTag("ProjectionStoreThreadNotFoundError", () => Effect.succeed(null)));
+        if (records === null) continue;
+        const promptId = records.runs[0]?.userMessageId;
+        const prompt = records.messages.find((message) => message.id === promptId);
+        if (prompt === undefined || !isUserIdleTurn(prompt)) {
+          if (prompt !== undefined) rejectedNonUserRuns.add(runId);
+          continue;
+        }
+      }
 
       const submissionSettings = yield* settingsService.getSettings;
       if (!cacheWarmingEnabled(submissionSettings, thread.id)) continue;

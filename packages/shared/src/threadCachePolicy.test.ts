@@ -3,6 +3,7 @@ import {
   DEFAULT_SERVER_SETTINGS,
   MessageId,
   ProviderInstanceId,
+  resolveIdleCompaction,
   ServerSettings,
   ServerSettingsPatch,
   ThreadId,
@@ -10,6 +11,7 @@ import {
 import * as Schema from "effect/Schema";
 import { applyServerSettingsPatch } from "./serverSettings.ts";
 import {
+  effectiveLegacyIdleSettings,
   legacyCacheWarmingMigration,
   cachePolicyChoices,
   cachePolicyDriver,
@@ -126,4 +128,30 @@ it("only shows a machine idle compaction placeholder while it can still produce 
   expect(showIdleCompactionPlaceholder(skipped, true)).toBe(true);
   expect(showIdleCompactionPlaceholder(skipped, false)).toBe(false);
   expect(showIdleCompactionPlaceholder(MessageId.make("manual-compact"), false)).toBe(true);
+});
+
+it("projects legacy idle controls as off after adoption and preserves stored preferences", () => {
+  const preferences = decodeSettings({
+    idleCompaction: "onReturn",
+    cacheWarmingSessions: { [id]: true },
+    neonCacheWarmAfterMinutes: 45,
+    providerInstances: {
+      [instanceId]: { driver: "claudeAgent", config: { idleCompaction: "beforeCacheExpires" } },
+    },
+  });
+  expect(effectiveLegacyIdleSettings(preferences)).toBe(preferences);
+  const adopted = applyServerSettingsPatch(preferences, { machineIdlePolicy: { mode: "warm" } });
+  const effective = effectiveLegacyIdleSettings(adopted);
+  expect(resolveIdleCompaction(effective, instanceId)).toBe("off");
+  expect(effective.cacheWarmingSessions).toEqual({});
+  expect(effective.machineIdlePolicy?.antigravity.idleMinutes).toBe(45);
+  expect(resolveIdleCompaction(adopted, instanceId)).toBe("beforeCacheExpires");
+  expect(adopted.cacheWarmingSessions[id]).toBe(true);
+});
+
+it("reads future idle settings without accepting unknown modes in updates", () => {
+  expect(
+    decodeSettings({ machineIdlePolicy: { mode: "future" } }).machineIdlePolicy,
+  ).toBeUndefined();
+  expect(() => decodePatch({ machineIdlePolicy: { mode: "future" } })).toThrow();
 });

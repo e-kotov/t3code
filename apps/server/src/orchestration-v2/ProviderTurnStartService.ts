@@ -60,6 +60,7 @@ import {
 } from "@t3tools/provider-core/server/handoffBudget";
 import { deliverContextHandoffs, withInlineContext } from "./ContextHandoffDelivery.ts";
 import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
+import { isBackgroundIdleMessage } from "./IdleCompactionOutcome.ts";
 import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
 import * as ProjectionStore from "./ProjectionStore.ts";
 import { unsentManualContinuationSource } from "@t3tools/shared/orchestrationV2ManualContinuation";
@@ -421,12 +422,12 @@ export const layer: Layer.Layer<
         readonly attempt: OrchestrationV2RunAttempt;
         readonly turnItems: ReadonlyArray<OrchestrationV2TurnItem>;
         readonly signal: string;
-        readonly status: "completed" | "failed";
+        readonly status: "completed" | "failed" | "cancelled";
         readonly now: DateTime.Utc;
         readonly startedAt?: DateTime.Utc;
         readonly providerInstanceId: OrchestrationV2Run["providerInstanceId"];
         readonly itemProviderThreadId: OrchestrationV2ProviderThread["id"] | null;
-        readonly item:
+        readonly item?:
           | Pick<Extract<OrchestrationV2TurnItem, { type: "error" }>, "type" | "title" | "failure">
           | Pick<
               Extract<OrchestrationV2TurnItem, { type: "command_execution" }>,
@@ -437,28 +438,31 @@ export const layer: Layer.Layer<
         const { run, rootNode, attempt, turnItems, now, status } = input;
         const runId = run.id;
         const started = input.startedAt === undefined ? {} : { startedAt: input.startedAt };
-        const item: OrchestrationV2TurnItem = {
-          id: idAllocator.derive.runSignalTurnItem({ runId, signal: input.signal }),
-          threadId: run.threadId,
-          runId,
-          nodeId: rootNode.id,
-          providerThreadId: input.itemProviderThreadId,
-          providerTurnId: null,
-          nativeItemRef: null,
-          parentItemId: null,
-          ordinal:
-            Math.max(
-              0,
-              ...turnItems.filter((item) => item.runId === runId).map((item) => item.ordinal),
-            ) + 1,
-          status,
-          startedAt: now,
-          completedAt: now,
-          updatedAt: now,
-          ...input.item,
-        };
+        const item: OrchestrationV2TurnItem | undefined =
+          input.item === undefined || status === "cancelled"
+            ? undefined
+            : {
+                id: idAllocator.derive.runSignalTurnItem({ runId, signal: input.signal }),
+                threadId: run.threadId,
+                runId,
+                nodeId: rootNode.id,
+                providerThreadId: input.itemProviderThreadId,
+                providerTurnId: null,
+                nativeItemRef: null,
+                parentItemId: null,
+                ordinal:
+                  Math.max(
+                    0,
+                    ...turnItems.filter((item) => item.runId === runId).map((item) => item.ordinal),
+                  ) + 1,
+                status,
+                startedAt: now,
+                completedAt: now,
+                updatedAt: now,
+                ...input.item,
+              };
         const eventPayloads = [
-          { type: "turn-item.updated", payload: item },
+          ...(item === undefined ? [] : [{ type: "turn-item.updated" as const, payload: item }]),
           { type: "run.updated", payload: { ...run, status, ...started, completedAt: now } },
           {
             type: "run-attempt.updated",
@@ -648,6 +652,29 @@ export const layer: Layer.Layer<
           ? projection.messages.find((source) => source.id === resumeSource.userMessageId)
           : undefined;
       const providerMessage = unsentResumeMessage ?? message;
+      const backgroundIdle = isBackgroundIdleMessage({ ...message, messageId: message.id });
+      const skipIdleRun = Effect.fn("ProviderTurnStartService.skipIdleRun")(function* () {
+        yield* settleRunBeforeStart({
+          run,
+          rootNode,
+          attempt,
+          turnItems: projection.turnItems,
+          signal: "idle-maintenance-skipped",
+          status: "cancelled",
+          now: yield* DateTime.now,
+          providerInstanceId: run.providerInstanceId,
+          itemProviderThreadId: providerThread.id,
+        });
+      });
+      if (
+        backgroundIdle &&
+        (providerThread.nativeThreadRef === null ||
+          providerThread.status === "error" ||
+          nativeForkTransfer !== undefined ||
+          sideChatHandoff !== undefined ||
+          handoffs.length > 0)
+      )
+        return yield* skipIdleRun();
       const settleStartFailure = Effect.fn("ProviderTurnStartService.settleStartFailure")(
         function* (failed: {
           readonly signal: string;
@@ -956,6 +983,7 @@ export const layer: Layer.Layer<
         }),
       );
       if (sessionResult._tag === "Failure") {
+        if (backgroundIdle) return yield* skipIdleRun();
         const failure = sessionResult.failure;
         const requiresSignIn =
           "cause" in failure &&
@@ -1558,11 +1586,26 @@ export const layer: Layer.Layer<
                 importedNativeSession,
               }),
         );
+        if (
+          backgroundIdle &&
+          (resumed._tag === "Failure" ||
+            resumed.success.nativeThreadRef?.nativeId !== providerThread.nativeThreadRef.nativeId)
+        ) {
+          yield* skipIdleRun();
+          return undefined;
+        }
         if (resumed._tag === "Success") {
           const context = handoffContextForThread(resumed.success);
           context.budget = yield* Effect.cached(context.budget);
           resumedHandoffContext = context;
           resumedRetryHandoff = yield* prepareRetryHandoff(context);
+          if (
+            backgroundIdle &&
+            (resumedRetryHandoff.handoffs.length > 0 || resumedRetryHandoff.attachments.length > 0)
+          ) {
+            yield* skipIdleRun();
+            return undefined;
+          }
           const fits = yield* deliverContextHandoffs({
             handoffs: [...handoffs, ...resumedRetryHandoff.handoffs],
             providerThread: { ...resumed.success, id: providerThread.id },
@@ -1575,6 +1618,10 @@ export const layer: Layer.Layer<
             Effect.catchTags({ ContextHandoffBudgetError: () => Effect.succeed(false) }),
           );
           if (fits) return resumed.success;
+          if (backgroundIdle) {
+            yield* skipIdleRun();
+            return undefined;
+          }
           const freshThread = { ...resumed.success, nativeThreadRef: null };
           const freshContext = handoffContextForThread(freshThread);
           const { handoff } = yield* recoveryHandoff;

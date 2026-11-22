@@ -1,4 +1,4 @@
-import type { OrchestrationV2Command, ServerSettings as Settings } from "@t3tools/contracts";
+import { type OrchestrationV2Command, type ServerSettings as Settings } from "@t3tools/contracts";
 import {
   cacheWarmingEnabled,
   isIdleThreadProvider,
@@ -8,12 +8,8 @@ import {
 import { deriveCacheHud } from "@t3tools/shared/cacheHud";
 import { modelSelectionsEqual } from "@t3tools/shared/model";
 import { latestExecutedRun } from "@t3tools/shared/orchestrationV2ThreadError";
-import {
-  hasWarmCacheEvidence,
-  isUserIdleTurn,
-  machineIdleWindow,
-  reportedIdleCacheExpiryMs,
-} from "./IdleThreadTiming.ts";
+import { hasWarmCacheEvidence, isUserIdleTurn, machineWarmWindow } from "./IdleThreadTiming.ts";
+import { isActiveRun } from "./CommandPolicy.ts";
 import { idleCompactionWindow, type IdleCompactionRecords } from "./IdleCompaction.ts";
 
 import * as DateTime from "effect/DateTime";
@@ -76,12 +72,8 @@ export function backgroundCacheCommandAllowed(
       projection.thread.modelSelection,
     );
     if (hud === null || !hasWarmCacheEvidence(hud)) return false;
-    const { startMs, endMs } = machineIdleWindow(
-      latest.completedAt,
-      policy[driver].idleMinutes,
-      reportedIdleCacheExpiryMs(hud),
-    );
-    return nowMs >= startMs && nowMs < endMs;
+    const window = machineWarmWindow(latest.completedAt, policy[driver].idleMinutes, hud);
+    return window !== null && nowMs >= window.startMs && nowMs < window.endMs;
   }
   const window = idleCompactionWindow(projection, nowMs, settings.machineIdlePolicy);
   return (
@@ -92,7 +84,7 @@ export function backgroundCacheCommandAllowed(
     ) === "beforeCacheExpires" &&
     window !== null &&
     nowMs >= window.startMs &&
-    !projection.runs.some((run) => run.status === "queued") &&
+    !projection.runs.some((run) => run.status === "queued" || isActiveRun(run)) &&
     command.commandId === `server:idle-compact:${command.threadId}:${window.runId}`
   );
 }

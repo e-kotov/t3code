@@ -5565,5 +5565,7 @@
   "49bc4c2162f9f670": "Sendet eine kurze Anfrage pro inaktivem Thread. Das verbraucht Kontingent.",
   "2ea863b484a0933c": "Leerlaufzeit (Min.)",
   "3f3ea0441308a707": "Mindestkontext (Tsd. Tokens)",
-  "fddfcd8a7c82f9c3": "{provider} · {setting}"
+  "fddfcd8a7c82f9c3": "{provider} · {setting}",
+  "e637173c759c26af": "Komprimiert große inaktive Threads einmal, wenn der Anbieter dies unterstützt.",
+  "53980144b6d12cd6": "Führt bei Inaktivität keine Aktion aus."
 }

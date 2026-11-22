@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { ThreadId } from "./baseSchemas.ts";
+import { ForwardCompatibleOptional, ThreadId } from "./baseSchemas.ts";
 
 const ThreadCachePolicy = Schema.Literals(["default", "warm", "compact", "off"]);
 
@@ -34,7 +34,7 @@ const MachineIdlePolicyPatch = Schema.Struct({
 });
 
 export const threadCachePolicySettings = {
-  machineIdlePolicy: Schema.optionalKey(MachineIdlePolicy),
+  machineIdlePolicy: ForwardCompatibleOptional(MachineIdlePolicy),
   threadCachePolicies: Schema.Record(ThreadId, ThreadCachePolicy).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
   ),

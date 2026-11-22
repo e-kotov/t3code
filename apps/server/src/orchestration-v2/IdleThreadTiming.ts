@@ -18,7 +18,11 @@ export function machineIdleWindow(
 }
 
 export function isUserIdleTurn(message: OrchestrationV2ConversationMessage) {
-  return message.createdBy === "user" && !isCompactionCommandMessage(message);
+  return (
+    message.createdBy === "user" &&
+    message.scheduledTaskId === undefined &&
+    !isCompactionCommandMessage(message)
+  );
 }
 
 export function reportedIdleCacheExpiryMs(hud: OrchestrationV2CacheHud): number | undefined {
@@ -27,6 +31,17 @@ export function reportedIdleCacheExpiryMs(hud: OrchestrationV2CacheHud): number 
   if (hud.basis === "reported" && hud.ttlMs !== undefined)
     return Date.parse(hud.usage.updatedAt) + hud.ttlMs;
   return undefined;
+}
+
+export function machineWarmWindow(
+  completedAt: NonNullable<OrchestrationV2Run["completedAt"]>,
+  idleMinutes: number,
+  hud: OrchestrationV2CacheHud,
+) {
+  const expiry = reportedIdleCacheExpiryMs(hud);
+  if (hud.driver === "claudeAgent" && (expiry === undefined || !Number.isFinite(expiry)))
+    return null;
+  return machineIdleWindow(completedAt, idleMinutes, expiry);
 }
 
 export function hasWarmCacheEvidence(hud: OrchestrationV2CacheHud): boolean {

@@ -1,9 +1,10 @@
 import {
   globalIdleCompaction,
   resolveIdleCompaction,
+  withIdleCompaction,
   type IdleCompactionMode,
   type MessageId,
-  type ProviderInstanceId,
+  ProviderInstanceId,
   type ServerSettings,
   type ServerSettingsPatch,
   type ThreadId,
@@ -21,6 +22,10 @@ export const IDLE_THREAD_PROVIDERS = [
 ] as const satisfies ReadonlyArray<{ driver: IdleThreadProvider; label: string }>;
 
 export const MACHINE_IDLE_COMPACTION_MESSAGE_PREFIX = "idle-compact:machine:";
+
+export function isIdleMaintenanceMessageId(messageId: MessageId): boolean {
+  return messageId.startsWith("idle-compact:") || messageId.startsWith("message:cache-warm:");
+}
 
 export function showIdleCompactionPlaceholder(messageId: MessageId, active: boolean): boolean {
   return active || !messageId.startsWith(MACHINE_IDLE_COMPACTION_MESSAGE_PREFIX);
@@ -40,11 +45,38 @@ export function machineIdlePolicy(settings: ServerSettings): MachineIdlePolicy {
         minContextTokens: COMPACTION_SUGGESTION_MIN_TOKENS,
       },
       antigravity: {
-        idleMinutes: 55,
+        idleMinutes:
+          settings.neonCacheWarmAfterMinutes === 50 ? 55 : settings.neonCacheWarmAfterMinutes,
         minContextTokens: COMPACTION_SUGGESTION_MIN_TOKENS,
       },
     }
   );
+}
+
+export function effectiveLegacyIdleSettings(settings: ServerSettings): ServerSettings {
+  if (settings.machineIdlePolicy === undefined) return settings;
+  const providerInstances = { ...settings.providerInstances };
+  for (const [key, instance] of Object.entries(providerInstances)) {
+    if (
+      instance.driver !== "claudeAgent" ||
+      typeof instance.config !== "object" ||
+      instance.config === null ||
+      Array.isArray(instance.config)
+    )
+      continue;
+    const config = instance.config as Record<string, unknown>;
+    if (config.idleCompaction === undefined || config.idleCompaction === "off") continue;
+    providerInstances[ProviderInstanceId.make(key)] = {
+      ...instance,
+      config: { ...config, idleCompaction: "off" },
+    };
+  }
+  return {
+    ...withIdleCompaction(settings, "off"),
+    providerInstances,
+    threadCachePolicies: {},
+    cacheWarmingSessions: {},
+  };
 }
 
 export function cacheWarmingEnabled(settings: ServerSettings, threadId: ThreadId): boolean {

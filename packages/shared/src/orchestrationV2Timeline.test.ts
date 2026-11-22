@@ -1,4 +1,4 @@
-import { NodeId, RunId } from "@t3tools/contracts";
+import { MessageId, NodeId, RunId } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
@@ -30,6 +30,29 @@ describe.each([
       createOrchestrationV2TurnItemVisibility(input)(input.item),
   ],
 ] as const)("%s timeline visibility", (_, isVisible) => {
+  it.each(["idle-compact:machine:r", "message:cache-warm:machine:r"])(
+    "removes cancelled server maintenance input from the feed for %s",
+    (id) => {
+      const item = { type: "user_message", runId, nodeId, messageId: MessageId.make(id) } as const;
+      expect(
+        isVisible({
+          item,
+          runs: [{ id: runId, status: "cancelled" }],
+          attempts: [],
+          items: [item],
+        }),
+      ).toBe(false);
+      expect(
+        isVisible({
+          item,
+          runs: [{ id: runId, status: "completed" }],
+          attempts: [],
+          items: [item],
+        }),
+      ).toBe(true);
+    },
+  );
+
   it("hides unpaired interruption results from superseded attempts", () => {
     expect(
       isVisible({

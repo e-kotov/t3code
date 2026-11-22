@@ -280,6 +280,7 @@ it("blocks stale machine warm commands and compaction after a synthetic warm tur
   };
   expect(backgroundCacheCommandAllowed(settings, projection, command, due - 1)).toBe(false);
   expect(backgroundCacheCommandAllowed(settings, projection, command, due)).toBe(true);
+  expect(backgroundCacheCommandAllowed(settings, records(), command, due)).toBe(false);
   const expired = records();
   const latestTurn = expired.providerTurns[0]!;
   expired.providerTurns = [
@@ -309,6 +310,29 @@ it("blocks stale machine warm commands and compaction after a synthetic warm tur
   expect(backgroundCacheCommandAllowed(settings, afterWarm, command, due)).toBe(false);
   const compact = applyServerSettingsPatch(settings, { machineIdlePolicy: { mode: "compact" } });
   expect(backgroundCacheCommandAllowed(compact, afterWarm, compactCommand(), due)).toBe(false);
+});
+
+it("keeps a pending native run from racing an already eligible machine compaction", () => {
+  const settings = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
+    machineIdlePolicy: { mode: "compact" },
+  });
+  const projection = records({ cacheExpiresInMs: 60 * MINUTE_MS });
+  const due = NOW_MS + 55 * MINUTE_MS;
+  const older = {
+    ...projection.runs[0]!,
+    id: RunId.make("older-running"),
+    ordinal: 1,
+    status: "running" as const,
+  };
+  expect(backgroundCacheCommandAllowed(settings, projection, compactCommand(), due)).toBe(true);
+  expect(
+    backgroundCacheCommandAllowed(
+      settings,
+      { ...projection, runs: [older, { ...projection.runs[0]!, ordinal: 2 }] },
+      compactCommand(),
+      due,
+    ),
+  ).toBe(false);
 });
 
 it("skips unsupported automatic compaction without suppressing manual compaction errors", () => {

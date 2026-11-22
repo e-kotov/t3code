@@ -298,3 +298,18 @@ it("skips a machine warm when an earlier Claude report gives the cache a short l
   });
   expect(cacheWarmingWindow({ ...enabled, policy, thread: claude })).toBeNull();
 });
+
+it("requires a reported lifetime before warming Claude under a machine policy", () => {
+  const completedAt = NOW - 55 * 60_000;
+  const policy = { ...machineIdlePolicy(DEFAULT_SERVER_SETTINGS), mode: "warm" as const };
+  const candidate = thread({
+    latestRunId: RunId.make("claude-warm-unknown"),
+    latestRunCompletedAt: DateTime.makeUnsafe(completedAt),
+    cacheHud: {
+      driver: ProviderDriverKind.make("claudeAgent"),
+      basis: "unknown",
+      usage: { usedTokens: 200_000, cachedInputTokens: 180_000, updatedAt: isoAt(completedAt) },
+    },
+  });
+  expect(cacheWarmingWindow({ ...enabled, policy, thread: candidate })).toBeNull();
+});

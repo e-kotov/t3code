@@ -19,6 +19,7 @@ import * as Stream from "effect/Stream";
 
 import { forkParked } from "../serverActivation.ts";
 import * as ServerSettings from "../serverSettings.ts";
+import { retryableCachePolicyRejection } from "./ThreadCachePolicyDispatch.ts";
 import { idleCompactionWindow } from "./IdleCompaction.ts";
 import * as Orchestrator from "./Orchestrator.ts";
 import * as ProjectionStore from "./ProjectionStore.ts";
@@ -105,24 +106,30 @@ export const make = Effect.gen(function* () {
           yield* Effect.sleep(Duration.millis(window.startMs - nowMs));
           continue;
         }
-        yield* orchestrator.dispatch({
-          type: "message.dispatch",
-          // One compaction per completed run, even across duplicate events.
-          commandId: CommandId.make(`server:idle-compact:${threadId}:${runId}`),
-          messageId: MessageId.make(
-            `${current.machineIdlePolicy === undefined ? "idle-compact:" : MACHINE_IDLE_COMPACTION_MESSAGE_PREFIX}${threadId}:${runId}`,
-          ),
-          threadId,
-          text: IDLE_COMPACTION_TEXT,
-          attachments: [],
-          createdBy: "agent",
-          creationSource: "server",
-          idleCompaction: "beforeCacheExpires",
-          dispatchMode:
-            current.machineIdlePolicy === undefined
-              ? { type: "start_immediately" }
-              : { type: "start_if_idle" },
-        });
+        const submission = yield* Effect.result(
+          orchestrator.dispatch({
+            type: "message.dispatch",
+            // One compaction per completed run, even across duplicate events.
+            commandId: CommandId.make(`server:idle-compact:${threadId}:${runId}`),
+            messageId: MessageId.make(
+              `${current.machineIdlePolicy === undefined ? "idle-compact:" : MACHINE_IDLE_COMPACTION_MESSAGE_PREFIX}${threadId}:${runId}`,
+            ),
+            threadId,
+            text: IDLE_COMPACTION_TEXT,
+            attachments: [],
+            createdBy: "agent",
+            creationSource: "server",
+            idleCompaction: "beforeCacheExpires",
+            dispatchMode: { type: "start_immediately" },
+          }),
+        );
+        if (submission._tag === "Failure") {
+          if (!retryableCachePolicyRejection(submission.failure)) return yield* submission.failure;
+          const retryMs = Math.min(30_000, window.endMs - nowMs);
+          if (retryMs <= 0) return;
+          yield* Effect.sleep(Duration.millis(retryMs));
+          continue;
+        }
         return;
       }
     },

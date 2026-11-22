@@ -20,9 +20,10 @@ export function MachineIdleSettings({ environment }: { readonly environment: Set
   const settings = serverConfig.settings;
   const policy = machineIdlePolicy(settings);
   const configured = settings.machineIdlePolicy !== undefined;
-  const save = (patch: NonNullable<ServerSettingsPatch["machineIdlePolicy"]>) => {
-    if (!canWrite) return;
-    void update({ environmentId, input: { patch: { machineIdlePolicy: patch } } });
+  const save = async (patch: NonNullable<ServerSettingsPatch["machineIdlePolicy"]>) => {
+    if (!canWrite) return false;
+    const outcome = await update({ environmentId, input: { patch: { machineIdlePolicy: patch } } });
+    return outcome._tag === "Success";
   };
   const modes = [
     { value: "off", label: gt("Off") },
@@ -46,7 +47,9 @@ export function MachineIdleSettings({ environment }: { readonly environment: Set
                   ? "min-h-11 flex-1 justify-center rounded-lg bg-primary"
                   : "min-h-11 flex-1 justify-center rounded-lg border border-border"
               }
-              onPress={() => save({ mode: value })}
+              onPress={() => {
+                void save({ mode: value });
+              }}
             >
               <Text className={selected ? "text-center text-primary-foreground" : "text-center"}>
                 {label}
@@ -59,11 +62,15 @@ export function MachineIdleSettings({ environment }: { readonly environment: Set
         <Text className="text-sm text-foreground-muted">
           {gt("Choose a mode to replace this machine’s current idle rules.")}
         </Text>
-      ) : policy.mode === "warm" ? (
+      ) : (
         <Text className="text-sm text-foreground-muted">
-          {gt("Send one short request per idle thread. This uses quota.")}
+          {policy.mode === "warm"
+            ? gt("Send one short request per idle thread. This uses quota.")
+            : policy.mode === "compact"
+              ? gt("Compact large idle threads once when the provider supports it.")
+              : gt("Take no idle action.")}
         </Text>
-      ) : null}
+      )}
       {configured &&
         IDLE_THREAD_PROVIDERS.map(({ driver, label }) => (
           <View key={driver} className="gap-2 border-t border-border pt-3">
@@ -100,7 +107,7 @@ function IdleNumber(props: {
   readonly value: number;
   readonly max: number;
   readonly editable: boolean;
-  readonly onSave: (value: number) => void;
+  readonly onSave: (value: number) => Promise<boolean>;
 }) {
   const gt = useGT();
   const [draft, setDraft] = useState(String(props.value));
@@ -124,7 +131,13 @@ function IdleNumber(props: {
             return;
           }
           setDraft(String(value));
-          if (value !== props.value) props.onSave(value);
+          if (value !== props.value) {
+            const restore = () =>
+              setDraft((current) => (current === String(value) ? String(props.value) : current));
+            void props.onSave(value).then((saved) => {
+              if (!saved) restore();
+            }, restore);
+          }
         }}
       />
     </View>

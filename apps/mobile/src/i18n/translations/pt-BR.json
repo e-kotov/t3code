@@ -5559,5 +5559,7 @@
   "49bc4c2162f9f670": "Envia uma solicitação curta por conversa inativa. Isso consome a cota.",
   "2ea863b484a0933c": "Tempo de inatividade (min)",
   "3f3ea0441308a707": "Contexto mínimo (mil tokens)",
-  "fddfcd8a7c82f9c3": "{provider} · {setting}"
+  "fddfcd8a7c82f9c3": "{provider} · {setting}",
+  "e637173c759c26af": "Compacta uma vez as conversas inativas longas quando o provedor permite.",
+  "53980144b6d12cd6": "Não realiza nenhuma ação durante a inatividade."
 }
