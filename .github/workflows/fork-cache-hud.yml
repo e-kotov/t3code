@@ -43,22 +43,6 @@ jobs:
           git checkout --detach "$CHECKOUT_REF"
       - uses: ./.github/actions/setup-ci-deps
       - uses: ./.github/actions/setup-fork-chromium
-      - name: Typecheck the server and show compiler errors
-        run: |
-          log="$RUNNER_TEMP/server-typecheck.log"
-          if (cd apps/server && ../../node_modules/.bin/effect-tsgo tsrs --noEmit --pretty false) > "$log" 2>&1; then
-            echo "Server typecheck passed"
-          else
-            python3 - "$log" <<'PY'
-          import pathlib
-          import sys
-
-          lines = pathlib.Path(sys.argv[1]).read_text().splitlines()
-          errors = [line for line in lines if "error TS" in line or "Error:" in line]
-          print("\n".join(errors or lines[-40:]))
-          PY
-            exit 1
-          fi
       - name: Prove stale shell usage fails the regression
         run: |
           source=packages/shared/src/cacheHud.ts

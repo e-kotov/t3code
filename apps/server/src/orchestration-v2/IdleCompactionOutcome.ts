@@ -5,8 +5,12 @@ import {
   type ProviderAdapterV2Event,
   type ProviderAdapterV2TurnMessage,
 } from "@t3tools/provider-core/server/ProviderAdapter";
+import * as Schema from "effect/Schema";
 
 type Terminal = Extract<ProviderAdapterV2Event, { readonly type: "turn.terminal" }>;
+
+const isTurnStartError = Schema.is(ProviderAdapterTurnStartError);
+const isCompactionUnsupportedError = Schema.is(ProviderCompactionUnsupportedError);
 
 export function idleCompactionStartOutcome(
   message: ProviderAdapterV2TurnMessage,
@@ -19,8 +23,8 @@ export function idleCompactionStartOutcome(
   )
     return terminal;
 
-  if (cause instanceof ProviderAdapterTurnStartError) cause = cause.cause;
-  if (!(cause instanceof ProviderCompactionUnsupportedError)) return terminal;
+  const startupError = isTurnStartError(cause) ? cause.cause : cause;
+  if (!isCompactionUnsupportedError(startupError)) return terminal;
 
   return {
     type: terminal.type,
