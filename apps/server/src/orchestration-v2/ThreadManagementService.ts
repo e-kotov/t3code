@@ -911,8 +911,12 @@ const make = Effect.gen(function* () {
     }
 
     // Turn start would fail on its own after the send reported success; a replay keeps its answer.
-    // A live steer and a receipt replay without a target turn need no workspace.
-    if (!missingSteeringTarget && dispatchMode.type !== "steer_active") {
+    // A live steer, idle-only check and receipt replay without a target turn need no restore.
+    if (
+      !missingSteeringTarget &&
+      dispatchMode.type !== "steer_active" &&
+      dispatchMode.type !== "start_if_idle"
+    ) {
       yield* worktreeRestore
         .restore(target.thread)
         .pipe(

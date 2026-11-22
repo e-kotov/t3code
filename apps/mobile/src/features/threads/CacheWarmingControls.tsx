@@ -13,6 +13,7 @@ import {
   cacheWarmingState,
   hotCacheThreadIds,
   resolveCodexCacheWarmAfterMinutes,
+  resolveNeonCacheWarmAfterMinutes,
 } from "@t3tools/shared/cacheHud";
 import { environmentThreadShells } from "../../state/threads";
 import { useSavedRemoteConnection } from "../../state/use-remote-environment-registry";
@@ -50,7 +51,9 @@ function EnvironmentControl(props: {
     props.threads.filter((thread) => thread.environmentId === props.environmentId),
     now,
     resolveCodexCacheWarmAfterMinutes(serverConfig),
+    resolveNeonCacheWarmAfterMinutes(serverConfig),
   );
+  if (settings?.machineIdlePolicy !== undefined) return null;
   const enabled =
     hotThreadIds.length > 0 &&
     hotThreadIds.every((id) => settings?.cacheWarmingSessions?.[id] === true);
@@ -61,7 +64,7 @@ function EnvironmentControl(props: {
           <T>Warm cache</T>
         </Text>
         <Text className="text-[9px] text-muted-foreground">
-          {gt("{machine} · Codex/Claude · billable turns", { machine: machineLabel })}
+          {gt("{machine} · billable turns", { machine: machineLabel })}
         </Text>
       </View>
       <Pressable
@@ -116,8 +119,9 @@ export function CacheWarmingMachineControl(props: { readonly environmentId: Envi
     threads.filter((thread) => thread.environmentId === props.environmentId),
     now,
     resolveCodexCacheWarmAfterMinutes(serverConfig),
+    resolveNeonCacheWarmAfterMinutes(serverConfig),
   );
-  if (hotThreadIds.length === 0) return null;
+  if (settings?.machineIdlePolicy !== undefined || hotThreadIds.length === 0) return null;
   const state = cacheWarmingState(hotThreadIds, settings?.cacheWarmingSessions);
   return (
     <Pressable

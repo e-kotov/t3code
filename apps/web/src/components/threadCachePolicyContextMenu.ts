@@ -12,8 +12,10 @@ import { runAtomCommand } from "@t3tools/client-runtime/state/runtime";
 import {
   cachePolicyChoices,
   cachePolicyDriver,
+  supportsThreadCachePolicy,
   threadCachePolicy,
 } from "@t3tools/shared/threadCachePolicy";
+import { supportsNeonCacheWarming } from "@t3tools/shared/cacheHud";
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { serverEnvironment } from "../state/server";
 import { readEnvironmentScope } from "../state/session";
@@ -33,13 +35,19 @@ async function showCachePolicyMenu<T extends string>(
   const api = readLocalApi();
   if (!api) return null;
   const settings = appAtomRegistry.get(serverEnvironment.settingsValueAtom(thread.environmentId));
-  if (!settings) return api.contextMenu.show(items, position, source);
+  if (!settings || settings.machineIdlePolicy !== undefined)
+    return api.contextMenu.show(items, position, source);
   const driver = cachePolicyDriver(
     settings,
     thread.modelSelection.instanceId,
     thread.cacheHud?.driver,
   );
-  if (driver !== "codex" && driver !== "claudeAgent")
+  const neonCacheWarming =
+    driver === "antigravity" &&
+    supportsNeonCacheWarming(
+      appAtomRegistry.get(serverEnvironment.configValueAtom(thread.environmentId)),
+    );
+  if (!supportsThreadCachePolicy(driver, thread.modelSelection.model, neonCacheWarming))
     return api.contextMenu.show(items, position, source);
   const policy = threadCachePolicy(settings, thread.id);
   const canWrite = readEnvironmentScope(thread.environmentId, AuthSettingsWriteScope);

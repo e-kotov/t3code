@@ -4177,7 +4177,7 @@
   "342a892bf3b5424d": "未启动",
   "bfac56a3105d4a22": "Week",
   "2cbb2f3eb7228554": "Model effort: {value1}",
-  "c9be08e5a2e04e3d": "{machine} · Codex/Claude · billable turns",
+  "0c1bac8f7db17afb": "{machine} · 计费轮次",
   "5feea52185478442": "Disable warming for all hot conversations on {machine}",
   "795a922c06178906": "Enable warming for all hot conversations on {machine}",
   "1c90d6adfc53a25f": "May send a short visible, billable cache-warm turn near cache expiry when enabled for this conversation. Updates each hot conversation's toggle.",
@@ -5542,5 +5542,15 @@
   "8d545d54c0a9e950": "隐藏智能体执行的命令、编辑和搜索。“隐藏成功的调用”仍保留失败项；“专注模式”仅显示最终回答。审批、提问和错误始终显示。",
   "17e44811aed5153f": "搜索定时任务",
   "a8753618b379e894": "没有匹配的任务",
-  "54de9e17b1153a9d": "同时搜索提示词"
+  "54de9e17b1153a9d": "同时搜索提示词",
+  "8777da986e05222b": "空闲时",
+  "52825bcdf85f2a49": "保持缓存",
+  "0bde867dbbca0798": "压缩",
+  "f92653a6d95be0c3": "选择一种模式以替换此机器当前的空闲规则。",
+  "49bc4c2162f9f670": "为每个空闲会话发送一次简短请求。这会消耗配额。",
+  "2ea863b484a0933c": "空闲时间（分钟）",
+  "3f3ea0441308a707": "最小上下文（千词元）",
+  "fddfcd8a7c82f9c3": "{provider} · {setting}",
+  "e637173c759c26af": "在提供方支持时，对较长的空闲会话压缩一次。",
+  "53980144b6d12cd6": "空闲时不执行操作。"
 }

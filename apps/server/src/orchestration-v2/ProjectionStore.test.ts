@@ -8491,6 +8491,71 @@ it.layer(layerTest)("ProjectionStoreV2", (it) => {
         assert.equal(shell.latestRunId, "run:clock:newer");
       }
 
+      const skippedRunId = RunId.make("run:clock:newer");
+      const warmMessageId = MessageId.make("message:cache-warm:machine:clock");
+      for (const [id, messageRunId, at, createdBy, creationSource, text] of [
+        [run.userMessageId, runId, now, "user", "web", "Check the diff"],
+        [warmMessageId, skippedRunId, later, "system", "server", "Cache warm check"],
+      ] as const) {
+        yield* projectionStore.apply({
+          id: EventId.make("event:clock:prompt:" + id),
+          type: "message.updated",
+          threadId,
+          occurredAt: at,
+          payload: {
+            id,
+            threadId,
+            runId: messageRunId,
+            nodeId: null,
+            role: "user",
+            text,
+            attachments: [],
+            streaming: false,
+            createdBy,
+            creationSource,
+            createdAt: at,
+            updatedAt: at,
+          },
+        });
+      }
+      yield* projectionStore.apply({
+        id: EventId.make("event:clock:skipped-warm"),
+        type: "run.updated",
+        threadId,
+        occurredAt: later,
+        payload: {
+          ...endedBeforeCancelProjection.runs.find((entry) => entry.id === skippedRunId)!,
+          userMessageId: warmMessageId,
+        },
+      });
+      for (const shell of [
+        (yield* projectionStore.getShellSnapshot()).threads.find((row) => row.id === threadId)!,
+        ProjectionStore.threadShellFromProjection(
+          yield* projectionStore.getThreadProjection(threadId),
+        ),
+      ]) {
+        assert.equal(shell.latestRunId, runId);
+        assert.equal(shell.status, "completed");
+        assert.deepEqual(shell.latestRunCompletedAt, now);
+        assert.deepEqual(shell.latestUserMessageAt, now);
+      }
+      yield* projectionStore.apply({
+        id: EventId.make("event:clock:resolved-question"),
+        type: "runtime-request.updated",
+        threadId,
+        occurredAt: later,
+        payload: {
+          ...endedBeforeCancelProjection.runtimeRequests.find(
+            (request) => request.id === requestId,
+          )!,
+          status: "resolved",
+          resolvedAt: later,
+        },
+      });
+      const [settlementCandidate] = yield* projectionStore.getSettlementCandidates(threadId);
+      assert.exists(settlementCandidate);
+      assert.deepEqual(settlementCandidate!.latestUserMessageAt, now);
+
       yield* projectionStore.apply({
         id: EventId.make("event:clock:newer:held"),
         type: "run.updated",

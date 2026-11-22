@@ -1,4 +1,11 @@
-import { ProviderDriverKind, ThreadId } from "@t3tools/contracts";
+import {
+  DEFAULT_SERVER_SETTINGS,
+  ProviderDriverKind,
+  ProviderInstanceId,
+  RunId,
+  ThreadId,
+} from "@t3tools/contracts";
+import { machineIdlePolicy } from "@t3tools/shared/threadCachePolicy";
 import * as DateTime from "effect/DateTime";
 import { describe, expect, it } from "vite-plus/test";
 import { cacheWarmingRetired } from "./CacheWarmingDispatchGuard.ts";
@@ -18,6 +25,7 @@ function thread(overrides: Partial<WarmThread> = {}): WarmThread {
       relationshipToParent: null,
     },
     archivedAt: null,
+    settledAt: null,
     activeRunId: null,
     pendingRuntimeRequest: null,
     pendingBackgroundTasks: [],
@@ -207,10 +215,105 @@ describe("cacheWarmingWindow", () => {
     ).toBe(60_000);
   });
 
+  it("warms Neon once per user turn inside the configured window", () => {
+    const base = thread();
+    const idleFor = (minutes: number, model = "gemini-4-neon") =>
+      thread({
+        modelSelection: { instanceId: ProviderInstanceId.make("antigravity"), model },
+        cacheHud: {
+          ...base.cacheHud!,
+          driver: ProviderDriverKind.make("antigravity"),
+          usage: {
+            ...base.cacheHud!.usage,
+            cacheScopeKey: `antigravity:${model}`,
+            updatedAt: isoAt(NOW - minutes * 60_000),
+          },
+        },
+      });
+    const settings = { ...enabled, neonWarmAfterMinutes: 50 };
+    const window = cacheWarmingWindow({ ...settings, thread: idleFor(50) });
+    expect(window?.marginMs).toBe(5 * 60_000);
+    expect(cacheWarmingWindow({ ...settings, thread: idleFor(49) })).toBeNull();
+    expect(cacheWarmingWindow({ ...settings, thread: idleFor(55) })).toBeNull();
+    expect(
+      cacheWarmingWindow({ ...settings, thread: idleFor(50, "gemini-4-hydrogen") }),
+    ).toBeNull();
+
+    expect(
+      cacheWarmingWindow({
+        ...settings,
+        thread: idleFor(51),
+        alreadyWarmedWindow: window!.fingerprint,
+      }),
+    ).toBeNull();
+    expect(
+      cacheWarmingWindow({
+        ...settings,
+        thread: {
+          ...idleFor(51),
+          latestUserAuthoredMessageAt: DateTime.makeUnsafe(NOW - 52 * 60_000),
+        },
+        alreadyWarmedWindow: window!.fingerprint,
+      }),
+    ).not.toBeNull();
+  });
+
   it("leaves other providers unsupported", () => {
     const current = thread({
       cacheHud: { ...thread().cacheHud!, driver: ProviderDriverKind.make("cursor") },
     });
     expect(cacheWarmingWindow({ ...enabled, thread: current })).toBeNull();
   });
+});
+
+it("warms a machine policy once, using the end of the last turn and the chosen delay", () => {
+  const latestRunId = RunId.make("machine-warm-run");
+  const policy = { ...machineIdlePolicy(DEFAULT_SERVER_SETTINGS), mode: "warm" as const };
+  const completedAt = NOW - 115 * 60_000;
+  const input = {
+    ...enabled,
+    policy,
+    thread: thread({
+      latestRunId,
+      latestRunCompletedAt: DateTime.makeUnsafe(completedAt),
+    }),
+  };
+  expect(cacheWarmingWindow({ ...input, nowMs: NOW - 1 })).toBeNull();
+  expect(cacheWarmingWindow(input)?.fingerprint).toBe(latestRunId);
+  expect(
+    cacheWarmingWindow({ ...input, thread: { ...input.thread, settledAt: userMessageAt } }),
+  ).toBeNull();
+  expect(cacheWarmingWindow({ ...input, alreadyWarmedWindow: latestRunId })).toBeNull();
+  expect(cacheWarmingWindow({ ...input, nowMs: NOW + 5 * 60_000 })).toBeNull();
+});
+
+it("skips a machine warm when an earlier Claude report gives the cache a short lifetime", () => {
+  const completedAt = NOW - 55 * 60_000;
+  const policy = { ...machineIdlePolicy(DEFAULT_SERVER_SETTINGS), mode: "warm" as const };
+  const claude = thread({
+    latestRunId: RunId.make("claude-warm"),
+    latestRunCompletedAt: DateTime.makeUnsafe(completedAt),
+    cacheHud: {
+      driver: ProviderDriverKind.make("claudeAgent"),
+      basis: "reported",
+      ttlMs: 5 * 60_000,
+      usage: { usedTokens: 200_000, cachedInputTokens: 180_000, updatedAt: isoAt(completedAt) },
+    },
+  });
+  expect(cacheWarmingWindow({ ...enabled, policy, thread: claude })).toBeNull();
+});
+
+it("requires a reported lifetime before warming Claude under a machine policy", () => {
+  const completedAt = NOW - 55 * 60_000;
+  const policy = { ...machineIdlePolicy(DEFAULT_SERVER_SETTINGS), mode: "warm" as const };
+  const candidate = thread({
+    latestRunId: RunId.make("claude-warm-unknown"),
+    latestRunCompletedAt: DateTime.makeUnsafe(completedAt),
+    cacheHud: {
+      driver: ProviderDriverKind.make("claudeAgent"),
+      basis: "unknown",
+      usage: { usedTokens: 200_000, cachedInputTokens: 180_000, updatedAt: isoAt(completedAt) },
+    },
+  });
+  expect(cacheWarmingWindow({ ...enabled, policy, thread: candidate })).toBeNull();
 });

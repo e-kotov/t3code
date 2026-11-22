@@ -5,6 +5,7 @@ import { projectTurnItemForWire } from "./WireProjection.ts";
 import * as Stream from "effect/Stream";
 import * as NodeSqliteClient from "@t3tools/shared/nodeSqliteClient";
 import { makeThreadFind } from "./ThreadFind.ts";
+import { isBackgroundIdleMessage } from "./IdleCompactionOutcome.ts";
 import { unsentManualContinuationSource } from "@t3tools/shared/orchestrationV2ManualContinuation";
 import type {
   OrchestrationV2ThreadLinkMetadata,
@@ -1836,8 +1837,7 @@ export function threadShellFromProjection(
         (left, right) =>
           DateTime.toEpochMillis(right.updatedAt) - DateTime.toEpochMillis(left.updatedAt),
       )[0] ?? null;
-  // T3 Code's own idle compactions stay out of the shell unless they fail, so thread lists,
-  // notifications and the relay keep presenting the user's last turn.
+  // Silent idle maintenance leaves thread lists, notifications and the relay on the last visible turn.
   const runs = projection.runs.filter((run) => !isSilentRunForShell(run, projection));
   const latestRun =
     usageLimitRunPresentedAsLatest(
@@ -1864,7 +1864,21 @@ export function threadShellFromProjection(
   );
 
   const userMessages = projection.messages
-    .filter((message) => message.role === "user" && idleCompactionOf(message) === undefined)
+    .filter(
+      (message) =>
+        message.role === "user" &&
+        idleCompactionOf(message) === undefined &&
+        !(
+          isBackgroundIdleMessage({ ...message, messageId: message.id }) &&
+          projection.runs.some(
+            (run) =>
+              run.id === message.runId &&
+              run.userMessageId === message.id &&
+              run.status === "cancelled" &&
+              run.startedAt === null,
+          )
+        ),
+    )
     .toSorted(
       (left, right) =>
         DateTime.toEpochMillis(right.updatedAt) - DateTime.toEpochMillis(left.updatedAt),
@@ -2033,11 +2047,17 @@ function isSilentRunForShell(
   run: OrchestrationV2ThreadProjection["runs"][number],
   projection: Pick<OrchestrationV2ThreadProjection, "messages" | "turnItems">,
 ): boolean {
+  const prompt = projection.messages.find((message) => message.id === run.userMessageId);
+  if (prompt === undefined) return false;
+  if (
+    run.status === "cancelled" &&
+    run.startedAt === null &&
+    isBackgroundIdleMessage({ ...prompt, messageId: prompt.id })
+  )
+    return true;
   return (
     run.status !== "failed" &&
-    projection.messages.some(
-      (message) => message.id === run.userMessageId && idleCompactionOf(message) !== undefined,
-    ) &&
+    idleCompactionOf(prompt) !== undefined &&
     !projection.turnItems.some(
       (item) => item.runId === run.id && item.type === "compaction" && item.status === "failed",
     )
@@ -8218,20 +8238,51 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
         )
       )`;
     };
+    const isSkippedIdlePrompt = (runAlias: string, promptAlias: string) => {
+      const run = sql.literal(runAlias);
+      const prompt = sql.literal(promptAlias);
+      return sql`(
+        ${run}.status = 'cancelled'
+        AND json_extract(${run}.payload_json, '$.startedAt') IS NULL
+        AND json_extract(${prompt}.payload_json, '$.creationSource') = 'server'
+        AND json_extract(${prompt}.payload_json, '$.createdBy') IS NOT 'user'
+        AND (
+          ${prompt}.message_id GLOB 'idle-compact:*'
+          OR ${prompt}.message_id GLOB 'message:cache-warm:*'
+        )
+      )`;
+    };
+    const isSilentActivityPrompt = (alias: string) => {
+      const prompt = sql.literal(alias);
+      return sql`(
+        ${isIdleCompactionMessage(alias)}
+        OR EXISTS (
+          SELECT 1 FROM orchestration_v2_projection_runs skipped
+          WHERE skipped.run_id = ${prompt}.run_id
+            AND json_extract(skipped.payload_json, '$.userMessageId') = ${prompt}.message_id
+            AND ${isSkippedIdlePrompt("skipped", alias)}
+        )
+      )`;
+    };
     // Mirrors isSilentRunForShell.
     const isSilentShellRun = (alias: string) => {
       const run = sql.literal(alias);
       return sql`(
-        ${run}.status <> 'failed'
-        AND EXISTS (
+        EXISTS (
           SELECT 1 FROM orchestration_v2_projection_messages prompt
           WHERE prompt.message_id = json_extract(${run}.payload_json, '$.userMessageId')
-            AND ${isIdleCompactionMessage("prompt")}
-        ) AND NOT EXISTS (
-          SELECT 1 FROM orchestration_v2_projection_turn_items compaction
-          WHERE compaction.thread_id = ${run}.thread_id AND compaction.run_id = ${run}.run_id
-            AND compaction.type = 'compaction'
-            AND compaction.status = 'failed'
+            AND (
+              ${isSkippedIdlePrompt(alias, "prompt")} OR (
+                ${run}.status <> 'failed'
+                AND ${isIdleCompactionMessage("prompt")}
+                AND NOT EXISTS (
+                  SELECT 1 FROM orchestration_v2_projection_turn_items compaction
+                  WHERE compaction.thread_id = ${run}.thread_id AND compaction.run_id = ${run}.run_id
+                    AND compaction.type = 'compaction'
+                    AND compaction.status = 'failed'
+                )
+              )
+            )
         )
       )`;
     };
@@ -8430,7 +8481,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
                 FROM orchestration_v2_projection_messages message
                 WHERE message.thread_id = t.thread_id
                   AND message.role = 'user'
-                  AND NOT ${isIdleCompactionMessage("message")}
+                  AND NOT ${isSilentActivityPrompt("message")}
                 ORDER BY message.updated_at DESC, message.message_id DESC
                 LIMIT 1
               ) AS latest_user_message_at,
@@ -8732,7 +8783,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
                 SELECT message.updated_at
                 FROM orchestration_v2_projection_messages message
                 WHERE message.thread_id = t.thread_id AND message.role = 'user'
-                  AND NOT ${isIdleCompactionMessage("message")}
+                  AND NOT ${isSilentActivityPrompt("message")}
                 ORDER BY message.updated_at DESC, message.message_id DESC
                 LIMIT 1
               ) AS latest_user_message_at,

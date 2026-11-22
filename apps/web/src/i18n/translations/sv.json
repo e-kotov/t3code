@@ -1668,13 +1668,13 @@
   "fbe70c0fc4ac3d4c": "Warm all: Off",
   "b581304ad7214cfa": "Keep warm may send a short visible, billable turn near cache expiry for this conversation.",
   "2e2488fdb89aa2c7": "Warm prompt cache",
-  "75bfdc3b7bc9276d": [
+  "96409065369db69c": [
     {
       "i": 1,
       "k": "_gt_value_1",
       "v": "v"
     },
-    " · Codex/Claude · billable turns"
+    " · debiterbara omgångar"
   ],
   "3b4ca180fef92e21": "Insikt",
   "cc8cdd1ece34cd75": "Obs",
@@ -8022,6 +8022,10 @@
   "f2d967e7e3a1f724": "För konversationer inställda på Keep warm. Codex rapporterar inte hur länge dess promptcache varar, så uppvärmningsturen skickas efter så här lång inaktivitet och hoppas över när ytterligare fem minuter har gått. Claude använder sin rapporterade cachelivslängd.",
   "11457908284789d4": "Återställ uppvärmningstid för Codex till standard",
   "8e350c21788560fa": "Värm Codex efter",
+  "a94ce8c7972c9ac3": "Håll Neons cache varm efter",
+  "eacb9a1a048d0bcf": "För Neon-konversationer med Håll varm. T3 skickar högst en uppvärmningsomgång per användaromgång.",
+  "f8ebf33901ef9e30": "Uppgradera T3 Code på {environments} för att hålla Neons cache varm.",
+  "875197e011a562ef": "Återställ Neons uppvärmningstid till standardvärdet",
   "d3ad545e7b45d509": "Uppdatera T3 Code på {environments} för att ändra den här inställningen; äldre servrar värmer fortfarande Codex efter 55 minuter.",
   "cd67d110c09bfdf4": "Växla synlighet för kontots e-postadress",
   "6b2ce50ea6a13f57": "Klicka för att visa e-postadressen",
@@ -12542,5 +12546,17 @@
   "17e44811aed5153f": "Sök schemalagda uppgifter",
   "701964090d7b3438": "Rensa sökning",
   "a8753618b379e894": "Inga matchande uppgifter",
-  "54de9e17b1153a9d": "Sök även i instruktioner"
+  "54de9e17b1153a9d": "Sök även i instruktioner",
+  "6c2f808e4cdaa393": "Inaktiva trådar",
+  "8777da986e05222b": "Vid inaktivitet",
+  "52825bcdf85f2a49": "Håll cachen aktiv",
+  "0bde867dbbca0798": "Komprimera",
+  "fb49f6f955d5e90e": "Välj en maskin för att ändra dess inställningar för inaktivitet.",
+  "f92653a6d95be0c3": "Välj ett läge för att ersätta den här maskinens nuvarande regler för inaktivitet.",
+  "49bc4c2162f9f670": "Skickar en kort begäran per inaktiv tråd. Det använder din kvot.",
+  "e637173c759c26af": "Komprimerar stora inaktiva trådar en gång om leverantören stöder det.",
+  "53980144b6d12cd6": "Gör ingenting vid inaktivitet.",
+  "2ea863b484a0933c": "Inaktiv tid (min)",
+  "3f3ea0441308a707": "Minsta kontext (tusen token)",
+  "fddfcd8a7c82f9c3": "{provider} · {setting}"
 }

@@ -4172,7 +4172,7 @@
   "342a892bf3b5424d": "未開始",
   "bfac56a3105d4a22": "Week",
   "2cbb2f3eb7228554": "Model effort: {value1}",
-  "c9be08e5a2e04e3d": "{machine} · Codex/Claude · billable turns",
+  "0c1bac8f7db17afb": "{machine} · 課金対象のターン",
   "5feea52185478442": "Disable warming for all hot conversations on {machine}",
   "795a922c06178906": "Enable warming for all hot conversations on {machine}",
   "1c90d6adfc53a25f": "May send a short visible, billable cache-warm turn near cache expiry when enabled for this conversation. Updates each hot conversation's toggle.",
@@ -5533,5 +5533,15 @@
   "8d545d54c0a9e950": "エージェントが実行するコマンド、編集、検索を非表示にします。「成功したものを非表示」では失敗は表示されます。Zen では最終的な回答だけを表示します。承認、質問、エラーは常に表示されます。",
   "17e44811aed5153f": "スケジュールタスクを検索",
   "a8753618b379e894": "一致するタスクはありません",
-  "54de9e17b1153a9d": "プロンプトも検索"
+  "54de9e17b1153a9d": "プロンプトも検索",
+  "8777da986e05222b": "待機時の動作",
+  "52825bcdf85f2a49": "キャッシュを維持",
+  "0bde867dbbca0798": "圧縮する",
+  "f92653a6d95be0c3": "このマシンの現在の待機ルールを置き換えるモードを選択してください。",
+  "49bc4c2162f9f670": "待機中の各スレッドに短いリクエストを1回送ります。利用枠を消費します。",
+  "2ea863b484a0933c": "待機時間（分）",
+  "3f3ea0441308a707": "最小コンテキスト（千トークン）",
+  "fddfcd8a7c82f9c3": "{provider} · {setting}",
+  "e637173c759c26af": "プロバイダーが対応している場合、長い待機スレッドを1回圧縮します。",
+  "53980144b6d12cd6": "待機中は何もしません。"
 }

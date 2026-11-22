@@ -11,6 +11,7 @@ import * as ProjectionStore from "./ProjectionStore.ts";
 const encodePolicySettings = Schema.encodeEffect(
   Schema.fromJsonString(
     Schema.Struct({
+      machineIdlePolicy: SettingsSchema.fields.machineIdlePolicy,
       threadCachePolicies: SettingsSchema.fields.threadCachePolicies,
       cacheWarmingSessions: SettingsSchema.fields.cacheWarmingSessions,
       idleCompaction: SettingsSchema.fields.idleCompaction,

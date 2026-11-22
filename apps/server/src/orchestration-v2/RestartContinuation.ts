@@ -20,6 +20,7 @@ import type {
 
 import * as ServerSettings from "../serverSettings.ts";
 import { isNativeMaintenanceCommand } from "./CommandPolicy.ts";
+import { isBackgroundIdleMessage } from "./IdleCompactionOutcome.ts";
 import * as ThreadManagementService from "./ThreadManagementService.ts";
 import {
   awaitingProviderThreadId,
@@ -309,7 +310,12 @@ export const continueRestartedRun = Effect.fn("RestartContinuation.continueResta
     const sourceMessage = (yield* threads.getThreadRecords(input.threadId, ["messages"], {
       messageIds: [source.userMessageId],
     })).messages.find((message) => message.id === source.userMessageId);
-    if (sourceMessage !== undefined && isNativeMaintenanceCommand(sourceMessage)) return;
+    if (
+      sourceMessage !== undefined &&
+      (isNativeMaintenanceCommand(sourceMessage) ||
+        isBackgroundIdleMessage({ ...sourceMessage, messageId: sourceMessage.id }))
+    )
+      return;
     const note = restartContinuationNote(
       source,
       projection.runs,

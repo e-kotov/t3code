@@ -1,5 +1,8 @@
 import { useState, type ReactNode } from "react";
 import * as Option from "effect/Option";
+import { useAtomValue } from "@effect/atom-react";
+import { Atom } from "effect/reactivity";
+import { serverEnvironment } from "../../state/server";
 import * as Schema from "effect/Schema";
 import {
   acceptsSecretReference,
@@ -891,6 +894,14 @@ function ProviderSettingsFieldRow({
   );
 }
 
+const machineIdlePolicyEnabledAtom = Atom.family((environmentId: EnvironmentId | undefined) =>
+  Atom.make(
+    (get) =>
+      environmentId !== undefined &&
+      get(serverEnvironment.settingsValueAtom(environmentId))?.machineIdlePolicy !== undefined,
+  ),
+);
+
 export function ProviderSettingsForm({
   definition,
   value,
@@ -901,7 +912,13 @@ export function ProviderSettingsForm({
   environmentId,
 }: ProviderSettingsFormProps) {
   const resolve = useMessages();
-  const fields = deriveProviderSettingsFields(definition, value, resolve);
+  const hideIdleCompaction = useAtomValue(machineIdlePolicyEnabledAtom(environmentId));
+  const fields = deriveProviderSettingsFields(definition, value, resolve).filter(
+    (field) =>
+      !hideIdleCompaction ||
+      definition.driverKind !== "claudeAgent" ||
+      field.key !== "idleCompaction",
+  );
   const isLocalAcp =
     definition.driverKind === "acpRegistry" &&
     readProviderConfigString(value, "source") === "local";

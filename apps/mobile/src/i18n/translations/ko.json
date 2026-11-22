@@ -4176,7 +4176,7 @@
   "342a892bf3b5424d": "시작되지 않음",
   "bfac56a3105d4a22": "Week",
   "2cbb2f3eb7228554": "Model effort: {value1}",
-  "c9be08e5a2e04e3d": "{machine} · Codex/Claude · billable turns",
+  "0c1bac8f7db17afb": "{machine} · 과금되는 턴",
   "5feea52185478442": "Disable warming for all hot conversations on {machine}",
   "795a922c06178906": "Enable warming for all hot conversations on {machine}",
   "1c90d6adfc53a25f": "May send a short visible, billable cache-warm turn near cache expiry when enabled for this conversation. Updates each hot conversation's toggle.",
@@ -5537,5 +5537,15 @@
   "8d545d54c0a9e950": "에이전트가 실행하는 명령, 편집, 검색을 숨깁니다. 성공한 항목 숨기기는 실패를 남겨 둡니다. Zen은 최종 답변만 표시합니다. 승인, 질문, 오류는 항상 표시됩니다.",
   "17e44811aed5153f": "예약된 작업 검색",
   "a8753618b379e894": "일치하는 작업 없음",
-  "54de9e17b1153a9d": "프롬프트도 검색"
+  "54de9e17b1153a9d": "프롬프트도 검색",
+  "8777da986e05222b": "유휴 상태일 때",
+  "52825bcdf85f2a49": "캐시 유지",
+  "0bde867dbbca0798": "압축",
+  "f92653a6d95be0c3": "이 컴퓨터의 현재 유휴 규칙을 바꿀 모드를 선택하세요.",
+  "49bc4c2162f9f670": "유휴 스레드마다 짧은 요청을 한 번 보냅니다. 할당량을 사용합니다.",
+  "2ea863b484a0933c": "유휴 시간(분)",
+  "3f3ea0441308a707": "최소 컨텍스트(천 토큰)",
+  "fddfcd8a7c82f9c3": "{provider} · {setting}",
+  "e637173c759c26af": "공급자가 지원하면 긴 유휴 스레드를 한 번 압축합니다.",
+  "53980144b6d12cd6": "유휴 상태에서 아무 작업도 하지 않습니다."
 }

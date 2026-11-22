@@ -301,7 +301,7 @@ export function compactBeforeSendTokens(input: {
   readonly providers: ReadonlyArray<ServerProvider>;
   readonly settings: Pick<
     ServerSettings,
-    "providerInstances" | "compactIdleThreads" | "idleCompaction"
+    "providerInstances" | "compactIdleThreads" | "idleCompaction" | "machineIdlePolicy"
   >;
   readonly text: string;
   readonly threadIdle: boolean;
@@ -313,6 +313,7 @@ export function compactBeforeSendTokens(input: {
     provider === undefined ||
     !input.threadIdle ||
     COMPACT_COMMAND_PATTERN.test(input.text) ||
+    input.settings.machineIdlePolicy !== undefined ||
     resolveIdleCompaction(input.settings, provider.instanceId) === "off" ||
     !provider.slashCommands.some((command) => command.name === "compact") ||
     resolvePendingHandoff(projection, input.selection, input.providers) !== null ||

@@ -3,11 +3,17 @@
     {
       "id": "cache-warming",
       "group": "Cache and context",
-      "summary": "per-thread cache warming with a configurable Codex warm time, and idle compaction policies, shared across clients",
+      "summary": "machine-wide idle policies with pluggable provider timers and context cutoffs for Claude, Codex and Antigravity",
       "docs": "docs/user/cache-warming.md",
       "tests": [
         "apps/server/src/orchestration-v2/CacheWarmingService.test.ts",
         "apps/server/src/orchestration-v2/CacheWarmingDispatch.integration.test.ts",
+        "apps/server/src/orchestration-v2/ProviderTurnStartService.test.ts",
+        "apps/server/src/orchestration-v2/ProjectionStore.test.ts",
+        "apps/server/src/orchestration-v2/RestartContinuation.test.ts",
+        "apps/server/src/orchestration-v2/ThreadManagementService.test.ts",
+        "apps/server/src/serverSettings.test.ts",
+        "packages/shared/src/orchestrationV2Timeline.test.ts",
         "apps/server/src/orchestration-v2/ThreadCachePolicyService.test.ts",
         "apps/server/src/orchestration-v2/ThreadCachePolicyDispatch.test.ts",
         "apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.idleCachePolicy.test.ts",
@@ -24,7 +30,7 @@
     {
       "id": "cache-hud",
       "group": "Cache and context",
-      "summary": "Claude/Codex context and cache HUDs with cache-expiry sorting",
+      "summary": "Claude, Codex and Gemini 4 Neon context and cache HUDs with cache-expiry sorting",
       "tests": [
         "apps/server/src/orchestration-v2/ProjectionCacheHud.test.ts",
         "apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.cacheUsage.test.ts",

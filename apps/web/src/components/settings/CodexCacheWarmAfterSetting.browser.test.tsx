@@ -1,14 +1,20 @@
 import { DEFAULT_SERVER_SETTINGS, EnvironmentId, type ServerSettings } from "@t3tools/contracts";
+import { applyServerSettingsPatch } from "@t3tools/shared/serverSettings";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
+import { page, userEvent } from "vite-plus/test/browser";
+import "~/index.css";
 
 import { render } from "../../../test/render";
 
 interface MockEnv {
   readonly environmentId: EnvironmentId;
   readonly label: string;
+  readonly machineIdlePolicy?: ServerSettings["machineIdlePolicy"];
   readonly codexCacheWarmAfter?: boolean;
   readonly codexCacheWarmAfterMinutes: number;
+  readonly neonCacheWarming?: boolean;
+  readonly neonCacheWarmAfterMinutes?: number;
 }
 
 const state = vi.hoisted(() => ({
@@ -25,14 +31,19 @@ vi.mock(import("./SettingsScopeContext"), async (original) => ({
       label: env.label,
       serverConfig: {
         environment: {
-          capabilities:
-            env.codexCacheWarmAfter === undefined
-              ? {}
-              : { codexCacheWarmAfter: env.codexCacheWarmAfter },
+          capabilities: {
+            machineIdlePolicy: env.machineIdlePolicy !== undefined,
+            codexCacheWarmAfter: env.codexCacheWarmAfter,
+            neonCacheWarming: env.neonCacheWarming,
+          },
         },
         settings: {
           ...DEFAULT_SERVER_SETTINGS,
+          ...(env.machineIdlePolicy === undefined
+            ? {}
+            : { machineIdlePolicy: env.machineIdlePolicy }),
           codexCacheWarmAfterMinutes: env.codexCacheWarmAfterMinutes,
+          neonCacheWarmAfterMinutes: env.neonCacheWarmAfterMinutes ?? 50,
         } satisfies ServerSettings,
       },
     }));
@@ -58,22 +69,26 @@ vi.mock(import("./useScopedSettings"), async (original) => ({
           codexCacheWarmAfterMinutes: state.environments[0].codexCacheWarmAfterMinutes,
         }
       : DEFAULT_SERVER_SETTINGS) as never,
+  useScopedSettingsWriteAllowed: () => true,
   useUpdateScopedSettings: (() => state.update) as never,
 }));
 vi.mock(import("./settingsLayout"), async (original) => ({
   ...(await original()),
   SettingsRow: ({
+    title,
     mixed,
     status,
     resetAction,
     control,
   }: {
+    title?: ReactNode;
     mixed?: boolean;
     status?: ReactNode;
     resetAction?: ReactNode;
     control?: ReactNode;
   }) => (
     <div data-testid="codex-warm-row" data-mixed={String(Boolean(mixed))}>
+      {title}
       {status ? <div data-testid="codex-warm-status">{status}</div> : null}
       {resetAction ? <div data-testid="codex-warm-reset">{resetAction}</div> : null}
       {control}
@@ -86,7 +101,12 @@ vi.mock(import("./settingsLayout"), async (original) => ({
   ),
 }));
 
-import { CodexCacheWarmAfterSetting } from "./CodexCacheWarmAfterSetting";
+import {
+  CacheWarmAfterSettings,
+  CodexCacheWarmAfterSetting,
+  NeonCacheWarmAfterSetting,
+} from "./CodexCacheWarmAfterSetting";
+import { MachineIdleSettings } from "./MachineIdleSettings";
 
 describe("CodexCacheWarmAfterSetting", () => {
   it("shows 55 min, disables changes, and explains the upgrade on legacy servers", async () => {
@@ -162,5 +182,85 @@ describe("CodexCacheWarmAfterSetting", () => {
     await expect.element(screen.getByTestId("codex-warm-status")).not.toBeInTheDocument();
     await screen.getByRole("button", { name: "Reset Codex warm time to default" }).click();
     expect(state.update).toHaveBeenCalledExactlyOnceWith({ codexCacheWarmAfterMinutes: 115 });
+  });
+});
+
+it.each([false, true])(
+  "only changes the Neon interval on an upgraded server (%s)",
+  async (supported) => {
+    state.update.mockReset();
+    state.environments = [
+      {
+        environmentId: EnvironmentId.make("mac"),
+        label: "Mac",
+        codexCacheWarmAfterMinutes: 115,
+        neonCacheWarmAfterMinutes: 40,
+        neonCacheWarming: supported,
+      },
+    ];
+
+    await using screen = await render(<NeonCacheWarmAfterSetting />);
+    const trigger = screen.getByRole("combobox", { name: "Warm Neon after" });
+    if (!supported) {
+      await expect.element(trigger).toBeDisabled();
+      await expect
+        .element(screen.getByTestId("codex-warm-status"))
+        .toHaveTextContent("Upgrade T3 Code on Mac to warm Neon.");
+      return;
+    }
+    await expect.element(trigger).toHaveTextContent("40 min");
+    await screen.getByRole("button", { name: "Reset Neon warm time to default" }).click();
+    expect(state.update).toHaveBeenCalledExactlyOnceWith({ neonCacheWarmAfterMinutes: 50 });
+  },
+);
+
+it("edits a provider cutoff in thousands of tokens on the selected machine", async () => {
+  state.update.mockReset();
+  const capture = import.meta.env.VITE_MACHINE_IDLE_CAPTURE === "1";
+  const capturePanel = page.getByTestId("idle-settings-capture");
+  if (capture) {
+    state.environments = [
+      {
+        environmentId: EnvironmentId.make("mac"),
+        label: "Mac",
+        codexCacheWarmAfter: true,
+        codexCacheWarmAfterMinutes: 115,
+        neonCacheWarming: true,
+        neonCacheWarmAfterMinutes: 50,
+      },
+    ];
+    await using before = await render(
+      <section data-testid="idle-settings-capture" className="max-w-xl p-4">
+        <CacheWarmAfterSettings />
+      </section>,
+    );
+    await expect.element(before.getByRole("combobox", { name: "Warm Codex after" })).toBeVisible();
+    await capturePanel.screenshot({ path: "../../../../../.t3/idle-policy-evidence/before.png" });
+  }
+  state.environments = [
+    {
+      environmentId: EnvironmentId.make("mac"),
+      label: "Mac",
+      codexCacheWarmAfterMinutes: 115,
+      machineIdlePolicy: applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
+        machineIdlePolicy: { mode: "compact" },
+      }).machineIdlePolicy,
+    },
+  ];
+  await using screen = await render(
+    <section data-testid="idle-settings-capture" className="max-w-xl p-4">
+      <MachineIdleSettings />
+    </section>,
+  );
+  const cutoff = screen.getByRole("spinbutton", { name: "Claude · Minimum context (k tokens)" });
+  await expect.element(cutoff).toHaveValue(200);
+  if (capture) {
+    await capturePanel.screenshot({ path: "../../../../../.t3/idle-policy-evidence/after.png" });
+  }
+  await userEvent.clear(cutoff);
+  await userEvent.type(cutoff, "150");
+  await userEvent.keyboard("{Enter}");
+  expect(state.update).toHaveBeenCalledExactlyOnceWith({
+    machineIdlePolicy: { claudeAgent: { minContextTokens: 150_000 } },
   });
 });

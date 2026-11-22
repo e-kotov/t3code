@@ -649,7 +649,7 @@ const layerThreadSettlementWorker = Layer.effectDiscard(
 
 const layerCacheWarmingWorker = Layer.effectDiscard(
   CacheWarmingService.make.pipe(Effect.flatMap((service) => service.start())),
-);
+).pipe(Layer.provide(ProjectionStoreV2.layer));
 const layerIdleCompactionWorker = Layer.effectDiscard(
   IdleCompactionService.make.pipe(Effect.flatMap((service) => service.start())),
 ).pipe(Layer.provide(ProjectionStoreV2.layer));

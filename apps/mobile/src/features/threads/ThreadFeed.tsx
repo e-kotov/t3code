@@ -71,6 +71,7 @@ import {
   type ThreadCheckpointSummary,
 } from "@t3tools/client-runtime/state/thread-checkpoints";
 import { formatDiffCount } from "@t3tools/client-runtime/diff-count";
+import { showIdleCompactionPlaceholder } from "@t3tools/shared/threadCachePolicy";
 import type { WorkflowOpening } from "@t3tools/client-runtime/state/subagentRuntime";
 import {
   AuthFilesystemReadScope,
@@ -2299,6 +2300,7 @@ function renderFeedEntry(
     if (isCompactionCommandFeedEntry(entry)) {
       // Stands in for the compaction item until the provider reports it.
       const active = props.unsettledTurnId !== null && message.runId === props.unsettledTurnId;
+      if (!showIdleCompactionPlaceholder(message.id, active)) return null;
       const reason = idleCompactionOf(message);
       return (
         <ThreadContextDivider

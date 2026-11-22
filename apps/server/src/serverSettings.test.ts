@@ -2830,6 +2830,42 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
       ),
     );
 
+    it.effect.each(["instance mutation", "full provider map"] as const)(
+      "preserves the Claude idle preference when editing through a %s under machine policy",
+      (write) =>
+        Effect.gen(function* () {
+          const service = yield* ServerSettingsModule.ServerSettingsService;
+          const config = yield* ServerConfig.ServerConfig;
+          const fs = yield* FileSystem.FileSystem;
+          const instanceId = ProviderInstanceId.make("claudeAgent");
+          yield* fs.writeFileString(
+            config.settingsPath,
+            JSON.stringify({
+              providerInstances: {
+                [instanceId]: { driver: claude, config: { idleCompaction: "onReturn" } },
+              },
+            }),
+          );
+          const effective = yield* service.updateSettings({ machineIdlePolicy: { mode: "warm" } });
+          const instance = effective.providerInstances[instanceId]!;
+          assert.deepEqual(instance.config, {
+            binaryPath: "/opt/claude/bin/claude",
+            idleCompaction: "off",
+          });
+          const edited = { ...instance, displayName: "Claude (work)" };
+          yield* write === "instance mutation"
+            ? service.updateProviderInstance({ operation: "upsert", instanceId, instance: edited })
+            : service.updateSettings({
+                providerInstances: { ...effective.providerInstances, [instanceId]: edited },
+              });
+          const stored = JSON.parse(yield* fs.readFileString(config.settingsPath));
+          assert.equal(stored.providerInstances[instanceId].displayName, "Claude (work)");
+          assert.deepEqual(stored.providerInstances[instanceId].config, {
+            idleCompaction: "onReturn",
+          });
+        }).pipe(Effect.provide(layerServerSettings(policy))),
+    );
+
     it.effect("pins instance fields at read time and refuses edits to locked ones", () =>
       Effect.gen(function* () {
         const service = yield* ServerSettingsModule.ServerSettingsService;

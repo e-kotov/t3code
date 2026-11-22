@@ -4175,7 +4175,7 @@
   "342a892bf3b5424d": "Não iniciado",
   "bfac56a3105d4a22": "Week",
   "2cbb2f3eb7228554": "Model effort: {value1}",
-  "c9be08e5a2e04e3d": "{machine} · Codex/Claude · billable turns",
+  "0c1bac8f7db17afb": "{machine} · turnos faturáveis",
   "5feea52185478442": "Disable warming for all hot conversations on {machine}",
   "795a922c06178906": "Enable warming for all hot conversations on {machine}",
   "1c90d6adfc53a25f": "May send a short visible, billable cache-warm turn near cache expiry when enabled for this conversation. Updates each hot conversation's toggle.",
@@ -5551,5 +5551,15 @@
   "8d545d54c0a9e950": "Oculta os comandos, edições e pesquisas que os agentes executam. \"Ocultar bem-sucedidas\" mantém as falhas. Zen mostra só as respostas finais. Aprovações, perguntas e erros sempre aparecem.",
   "17e44811aed5153f": "Buscar tarefas agendadas",
   "a8753618b379e894": "Nenhuma tarefa correspondente",
-  "54de9e17b1153a9d": "Buscar também nos prompts"
+  "54de9e17b1153a9d": "Buscar também nos prompts",
+  "8777da986e05222b": "Durante a inatividade",
+  "52825bcdf85f2a49": "Manter cache ativo",
+  "0bde867dbbca0798": "Compactar",
+  "f92653a6d95be0c3": "Escolha um modo para substituir as regras de inatividade desta máquina.",
+  "49bc4c2162f9f670": "Envia uma solicitação curta por conversa inativa. Isso consome a cota.",
+  "2ea863b484a0933c": "Tempo de inatividade (min)",
+  "3f3ea0441308a707": "Contexto mínimo (mil tokens)",
+  "fddfcd8a7c82f9c3": "{provider} · {setting}",
+  "e637173c759c26af": "Compacta uma vez as conversas inativas longas quando o provedor permite.",
+  "53980144b6d12cd6": "Não realiza nenhuma ação durante a inatividade."
 }

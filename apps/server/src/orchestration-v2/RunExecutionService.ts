@@ -45,6 +45,7 @@ import * as PreviewAgentActivity from "../preview/PreviewAgentActivity.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as CheckpointService from "./CheckpointService.ts";
 import * as EventSink from "./EventSink.ts";
+import { IDLE_MAINTENANCE_SKIPPED, idleCompactionStartOutcome } from "./IdleCompactionOutcome.ts";
 import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
 import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
 import { PROVIDER_STOP_REASON_SIGNAL } from "@t3tools/provider-core/server/subagentProjection";
@@ -747,8 +748,13 @@ export const layer: Layer.Layer<
         };
       }) {
         const completedAt = input.completedAt ?? (yield* DateTime.now);
+        const skippedIdle =
+          input.terminal.status === "cancelled" &&
+          input.terminal.reason === IDLE_MAINTENANCE_SKIPPED;
+        const unstarted = skippedIdle ? { startedAt: null } : {};
         const finalizedAttempt: OrchestrationV2RunAttempt = {
           ...input.attempt,
+          ...unstarted,
           status: input.terminal.status,
           completedAt,
         };
@@ -825,11 +831,13 @@ export const layer: Layer.Layer<
           input.run;
         const finalizedRun: OrchestrationV2Run = {
           ...runWithoutDelegatedCompletion,
+          ...unstarted,
           status: persistedStatus,
           completedAt: input.terminal.status === "completed" ? null : completedAt,
         };
         const finalizedRootNode: OrchestrationV2ExecutionNode = {
           ...input.rootNode,
+          ...unstarted,
           status: persistedStatus,
           completedAt: input.terminal.status === "completed" ? null : completedAt,
           checkpointScopeId: input.checkpointScope.id,
@@ -850,7 +858,7 @@ export const layer: Layer.Layer<
           effects:
             input.terminal.status === "completed" ||
             input.terminal.status === "interrupted" ||
-            input.terminal.status === "cancelled"
+            (input.terminal.status === "cancelled" && !skippedIdle)
               ? [
                   {
                     id: `effect:checkpoint.capture:${input.run.id}`,
@@ -1103,17 +1111,19 @@ export const layer: Layer.Layer<
         const makeFailedTerminalEvent = (
           failure: OrchestrationV2ProviderFailure,
           failureItemOrdinal: number,
-        ): ProviderTerminalEvent => ({
-          type: "turn.terminal",
-          driver: input.providerThread.driver,
-          providerThreadId: input.providerThread.id,
-          providerTurnId: failedProviderTurnId,
-          runOrdinal: input.run.ordinal,
-          failureItemOrdinal,
-          status: "failed",
-          failure,
-          threadDisposition: "reusable",
-        });
+          startupCause?: unknown,
+        ): ProviderTerminalEvent =>
+          idleCompactionStartOutcome(input.message, startupCause, {
+            type: "turn.terminal",
+            driver: input.providerThread.driver,
+            providerThreadId: input.providerThread.id,
+            providerTurnId: failedProviderTurnId,
+            runOrdinal: input.run.ordinal,
+            failureItemOrdinal,
+            status: "failed",
+            failure,
+            threadDisposition: "reusable",
+          });
         const responseStreamingMode = yield* Effect.gen(function* () {
           const responseStreamingMode = yield* serverSettings.getSettings.pipe(
             Effect.map(
@@ -2315,6 +2325,7 @@ export const layer: Layer.Layer<
                               class: Exit.isFailure(shouldStart) ? "unknown" : "provider_error",
                             }),
                             latestItemOrdinal + 1,
+                            Cause.squash(cause),
                           ),
                           failureItemPersisted: false,
                           refreshAfterTurn,

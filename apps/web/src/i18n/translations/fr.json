@@ -1668,13 +1668,13 @@
   "fbe70c0fc4ac3d4c": "Warm all: Off",
   "b581304ad7214cfa": "Keep warm may send a short visible, billable turn near cache expiry for this conversation.",
   "2e2488fdb89aa2c7": "Warm prompt cache",
-  "75bfdc3b7bc9276d": [
+  "96409065369db69c": [
     {
       "i": 1,
       "k": "_gt_value_1",
       "v": "v"
     },
-    " · Codex/Claude · billable turns"
+    " · tours facturables"
   ],
   "3b4ca180fef92e21": "Analyse",
   "cc8cdd1ece34cd75": "Remarque",
@@ -8017,6 +8017,10 @@
   "f2d967e7e3a1f724": "Pour les conversations réglées sur Keep warm. Codex n’indique pas combien de temps dure son cache de prompt : le tour de préchauffage est donc envoyé après ce temps d’inactivité, puis ignoré une fois cinq minutes de plus écoulées. Claude utilise la durée de cache qu’il indique.",
   "11457908284789d4": "Réinitialiser le délai de préchauffage de Codex à la valeur par défaut",
   "8e350c21788560fa": "Préchauffer Codex après",
+  "a94ce8c7972c9ac3": "Maintenir Neon actif après",
+  "eacb9a1a048d0bcf": "Pour les conversations Neon configurées sur Maintenir actif. T3 envoie au maximum un tour de réchauffement par tour utilisateur.",
+  "f8ebf33901ef9e30": "Mettez T3 Code à jour sur {environments} pour maintenir le cache de Neon actif.",
+  "875197e011a562ef": "Rétablir le délai par défaut de Neon",
   "d3ad545e7b45d509": "Mettez à jour T3 Code sur {environments} pour modifier ce réglage ; les serveurs plus anciens préchauffent toujours Codex après 55 minutes.",
   "cd67d110c09bfdf4": "Afficher/masquer l’adresse e-mail du compte",
   "6b2ce50ea6a13f57": "Cliquez pour afficher l’adresse e-mail",
@@ -12535,5 +12539,17 @@
   "17e44811aed5153f": "Rechercher des tâches planifiées",
   "701964090d7b3438": "Effacer la recherche",
   "a8753618b379e894": "Aucune tâche correspondante",
-  "54de9e17b1153a9d": "Rechercher aussi dans les prompts"
+  "54de9e17b1153a9d": "Rechercher aussi dans les prompts",
+  "6c2f808e4cdaa393": "Fils inactifs",
+  "8777da986e05222b": "En cas d’inactivité",
+  "52825bcdf85f2a49": "Garder le cache actif",
+  "0bde867dbbca0798": "Compacter",
+  "fb49f6f955d5e90e": "Sélectionnez une machine pour modifier ses réglages d’inactivité.",
+  "f92653a6d95be0c3": "Choisissez un mode pour remplacer les règles d’inactivité de cette machine.",
+  "49bc4c2162f9f670": "Envoie une courte requête par fil inactif. Elle consomme du quota.",
+  "e637173c759c26af": "Compacte une fois les longs fils inactifs si le fournisseur le permet.",
+  "53980144b6d12cd6": "N’effectue aucune action en cas d’inactivité.",
+  "2ea863b484a0933c": "Temps d’inactivité (min)",
+  "3f3ea0441308a707": "Contexte minimal (milliers de jetons)",
+  "fddfcd8a7c82f9c3": "{provider} · {setting}"
 }

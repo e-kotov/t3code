@@ -1,14 +1,131 @@
 import {
+  globalIdleCompaction,
   resolveIdleCompaction,
+  withIdleCompaction,
   type IdleCompactionMode,
-  type ProviderInstanceId,
+  type MessageId,
+  type ProviderInstanceConfig,
+  ProviderInstanceId,
   type ServerSettings,
   type ServerSettingsPatch,
   type ThreadId,
 } from "@t3tools/contracts";
+import { COMPACTION_SUGGESTION_MIN_TOKENS } from "./claudeCompaction.ts";
 
 export type ThreadCachePolicy = ServerSettings["threadCachePolicies"][ThreadId];
 type PolicySettings = Pick<ServerSettings, "threadCachePolicies" | "cacheWarmingSessions">;
+export type MachineIdlePolicy = NonNullable<ServerSettings["machineIdlePolicy"]>;
+export type IdleThreadProvider = Exclude<keyof MachineIdlePolicy, "mode">;
+export const IDLE_THREAD_PROVIDERS = [
+  { driver: "claudeAgent", label: "Claude" },
+  { driver: "codex", label: "Codex" },
+  { driver: "antigravity", label: "Antigravity" },
+] as const satisfies ReadonlyArray<{ driver: IdleThreadProvider; label: string }>;
+
+export const MACHINE_IDLE_COMPACTION_MESSAGE_PREFIX = "idle-compact:machine:";
+
+export function isIdleMaintenanceMessageId(messageId: MessageId): boolean {
+  return messageId.startsWith("idle-compact:") || messageId.startsWith("message:cache-warm:");
+}
+
+export function showIdleCompactionPlaceholder(messageId: MessageId, active: boolean): boolean {
+  return active || !messageId.startsWith(MACHINE_IDLE_COMPACTION_MESSAGE_PREFIX);
+}
+
+export function isIdleThreadProvider(driver: string): driver is IdleThreadProvider {
+  return IDLE_THREAD_PROVIDERS.some((entry) => entry.driver === driver);
+}
+
+export function machineIdlePolicy(settings: ServerSettings): MachineIdlePolicy {
+  return (
+    settings.machineIdlePolicy ?? {
+      mode: globalIdleCompaction(settings) === "beforeCacheExpires" ? "compact" : "off",
+      claudeAgent: { idleMinutes: 55, minContextTokens: COMPACTION_SUGGESTION_MIN_TOKENS },
+      codex: {
+        idleMinutes: settings.codexCacheWarmAfterMinutes,
+        minContextTokens: COMPACTION_SUGGESTION_MIN_TOKENS,
+      },
+      antigravity: {
+        idleMinutes:
+          settings.neonCacheWarmAfterMinutes === 50 ? 55 : settings.neonCacheWarmAfterMinutes,
+        minContextTokens: COMPACTION_SUGGESTION_MIN_TOKENS,
+      },
+    }
+  );
+}
+
+export function effectiveLegacyIdleSettings(settings: ServerSettings): ServerSettings {
+  if (settings.machineIdlePolicy === undefined) return settings;
+  const providerInstances = { ...settings.providerInstances };
+  for (const [key, instance] of Object.entries(providerInstances)) {
+    if (
+      instance.driver !== "claudeAgent" ||
+      typeof instance.config !== "object" ||
+      instance.config === null ||
+      Array.isArray(instance.config)
+    )
+      continue;
+    const config = instance.config as Record<string, unknown>;
+    if (config.idleCompaction === undefined || config.idleCompaction === "off") continue;
+    providerInstances[ProviderInstanceId.make(key)] = {
+      ...instance,
+      config: { ...config, idleCompaction: "off" },
+    };
+  }
+  return {
+    ...withIdleCompaction(settings, "off"),
+    providerInstances,
+    threadCachePolicies: {},
+    cacheWarmingSessions: {},
+  };
+}
+
+/** Older clients echo the inactive mode when saving an unrelated Claude instance edit. */
+export function preserveEchoedIdleCompaction(
+  stored: ProviderInstanceConfig | undefined,
+  instance: ProviderInstanceConfig,
+): ProviderInstanceConfig {
+  if (
+    instance.driver !== "claudeAgent" ||
+    (stored !== undefined && stored.driver !== instance.driver) ||
+    typeof instance.config !== "object" ||
+    instance.config === null ||
+    !("idleCompaction" in instance.config) ||
+    instance.config.idleCompaction !== "off"
+  )
+    return instance;
+  const { idleCompaction: _echoed, ...config } = instance.config;
+  const previous = stored?.config;
+  return {
+    ...instance,
+    config:
+      typeof previous === "object" && previous !== null && "idleCompaction" in previous
+        ? { ...config, idleCompaction: previous.idleCompaction }
+        : config,
+  };
+}
+
+export function preserveIdleCompactionInProviderMap(
+  current: ServerSettings,
+  providerInstances: ServerSettings["providerInstances"],
+): ServerSettings["providerInstances"] {
+  if (current.machineIdlePolicy === undefined) return providerInstances;
+  return Object.fromEntries(
+    Object.entries(providerInstances).map(([id, instance]) => {
+      const previous = current.providerInstances[ProviderInstanceId.make(id)];
+      return [
+        id,
+        previous === undefined ? instance : preserveEchoedIdleCompaction(previous, instance),
+      ];
+    }),
+  );
+}
+
+export function cacheWarmingEnabled(settings: ServerSettings, threadId: ThreadId): boolean {
+  return settings.machineIdlePolicy === undefined
+    ? threadCachePolicy(settings, threadId) === "warm"
+    : settings.machineIdlePolicy.mode === "warm";
+}
 
 const THREAD_CACHE_POLICIES = [
   {
@@ -46,6 +163,9 @@ export function resolveThreadIdleCompaction(
   threadId: ThreadId,
   instanceId: ProviderInstanceId,
 ): IdleCompactionMode {
+  if (settings.machineIdlePolicy !== undefined) {
+    return settings.machineIdlePolicy.mode === "compact" ? "beforeCacheExpires" : "off";
+  }
   switch (threadCachePolicy(settings, threadId)) {
     case "warm":
     case "off":
@@ -59,11 +179,25 @@ export function resolveThreadIdleCompaction(
 
 /** Old clients and bulk switches still write booleans. Keep both representations coherent. */
 export function threadCachePolicySettingsPatch(
-  current: PolicySettings,
+  current: ServerSettings,
   patch: ServerSettingsPatch,
 ) {
+  const idlePatch = patch.machineIdlePolicy;
+  const idle = machineIdlePolicy(current);
+  const machinePatch =
+    idlePatch === undefined
+      ? {}
+      : {
+          machineIdlePolicy: {
+            mode: idlePatch.mode ?? idle.mode,
+            claudeAgent: { ...idle.claudeAgent, ...idlePatch.claudeAgent },
+            codex: { ...idle.codex, ...idlePatch.codex },
+            antigravity: { ...idle.antigravity, ...idlePatch.antigravity },
+          },
+        };
   if (patch.cacheWarmingSessions === undefined && patch.threadCachePolicies === undefined)
     return {
+      ...machinePatch,
       threadCachePolicies: current.threadCachePolicies,
       cacheWarmingSessions: current.cacheWarmingSessions,
     };
@@ -79,7 +213,23 @@ export function threadCachePolicySettingsPatch(
     else policies[id] = policy;
     warming[id] = policy === "warm";
   }
-  return { threadCachePolicies: policies, cacheWarmingSessions: warming };
+  return { ...machinePatch, threadCachePolicies: policies, cacheWarmingSessions: warming };
+}
+
+export function isNeonCacheModel(model: string | undefined): boolean {
+  return model !== undefined && /^gemini-4-neon(?:-(?:low|medium|high|xhigh))?$/.test(model);
+}
+
+export function supportsThreadCachePolicy(
+  driver: string | null | undefined,
+  model?: string,
+  neonCacheWarming?: boolean,
+): boolean {
+  return (
+    driver === "codex" ||
+    driver === "claudeAgent" ||
+    (driver === "antigravity" && neonCacheWarming === true && isNeonCacheModel(model))
+  );
 }
 
 export function cachePolicyChoices(driver: string | null | undefined) {
@@ -106,8 +256,9 @@ export function cachePolicyDriver(
     (instanceId === undefined
       ? undefined
       : (settings.providerInstances[instanceId]?.driver ??
-        (instanceId === "codex" || instanceId === "claudeAgent" ? instanceId : fallback))) ??
-    fallback
+        (instanceId === "codex" || instanceId === "claudeAgent" || instanceId === "antigravity"
+          ? instanceId
+          : fallback))) ?? fallback
   );
 }
 

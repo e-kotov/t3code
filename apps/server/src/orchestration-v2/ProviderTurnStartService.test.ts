@@ -3231,6 +3231,51 @@ effectIt.effect("checks the run's status without loading the thread's history", 
   }),
 );
 
+effectIt.effect.each([
+  {
+    id: "message:cache-warm:machine:test",
+    text: "Cache warm check only",
+    createdBy: "system" as const,
+  },
+  { id: "idle-compact:machine:test", text: "/compact", createdBy: "agent" as const },
+])("skips $id when its original provider session cannot be resumed", ({ id, text, createdBy }) =>
+  Effect.gen(function* () {
+    const harness = makeLocalCommandHarness({
+      text,
+      previousMessages: ["Prior user context"],
+      historyReadFailureAfterFallback: new Error("Unexpected recovery"),
+    });
+    harness.tryHandlePromptCommand.mockReturnValue(Effect.succeed(false));
+    const original = harness.projection();
+    const run = original.runs.at(-1)!;
+    const messageId = MessageId.make(id);
+    harness.setProjection({
+      ...original,
+      runs: original.runs.map((candidate) =>
+        candidate.id === run.id ? { ...candidate, userMessageId: messageId } : candidate,
+      ),
+      messages: original.messages.map((message) =>
+        message.id === run.userMessageId
+          ? { ...message, id: messageId, createdBy, creationSource: "server" }
+          : message,
+      ),
+    });
+
+    yield* harness.startWithRetry;
+    expect(harness.open).toHaveBeenCalledOnce();
+    expect(harness.fallbackEnsureThread).not.toHaveBeenCalled();
+    expect(harness.startRootRun).not.toHaveBeenCalled();
+    expect(harness.projection().runs.at(-1)).toMatchObject({
+      status: "cancelled",
+      startedAt: null,
+    });
+    expect(harness.projection().providerThreads.at(-1)?.nativeThreadRef?.nativeId).toBe(
+      "native-resume-thread",
+    );
+    expect(harness.projection().contextHandoffs).toEqual([]);
+  }),
+);
+
 effectIt.effect("fails the run instead of replacing a native thread another client holds", () =>
   Effect.gen(function* () {
     const detail = "This conversation is open in another Codex client.";
