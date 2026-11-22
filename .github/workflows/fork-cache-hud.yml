@@ -9,6 +9,7 @@ on:
       - "packages/shared/src/cacheHud*"
       - "apps/web/src/components/settings/MachineIdleSettings.tsx"
       - "apps/server/src/orchestration-v2/ProjectionCacheHud*"
+      - "apps/server/src/orchestration-v2/IdleCompaction*"
       - "apps/server/src/orchestration-v2/Adapters/AntigravityTurnUsage*"
       - "apps/web/src/components/ChatView.tsx"
       - "apps/mobile/src/features/threads/CacheThreadHeader.tsx"

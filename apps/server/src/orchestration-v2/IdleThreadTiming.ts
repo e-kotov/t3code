@@ -1,7 +1,8 @@
-import type {
-  OrchestrationV2CacheHud,
-  OrchestrationV2ConversationMessage,
-  OrchestrationV2Run,
+import {
+  isCompactionCommandMessage,
+  type OrchestrationV2CacheHud,
+  type OrchestrationV2ConversationMessage,
+  type OrchestrationV2Run,
 } from "@t3tools/contracts";
 import * as DateTime from "effect/DateTime";
 
@@ -16,10 +17,8 @@ export function machineIdleWindow(
   return { startMs, endMs: Math.min(startMs + IDLE_GRACE_MS, cacheExpiresAtMs) };
 }
 
-export function isUserIdleTurn(
-  message: Pick<OrchestrationV2ConversationMessage, "createdBy" | "text">,
-) {
-  return message.createdBy === "user" && !/^\/compact(?:\s|$)/i.test(message.text.trim());
+export function isUserIdleTurn(message: OrchestrationV2ConversationMessage) {
+  return message.createdBy === "user" && !isCompactionCommandMessage(message);
 }
 
 export function reportedIdleCacheExpiryMs(hud: OrchestrationV2CacheHud): number | undefined {

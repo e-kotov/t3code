@@ -1,6 +1,7 @@
 import { expect, it } from "vite-plus/test";
 import {
   DEFAULT_SERVER_SETTINGS,
+  MessageId,
   ProviderInstanceId,
   ServerSettings,
   ServerSettingsPatch,
@@ -13,6 +14,7 @@ import {
   cachePolicyChoices,
   cachePolicyDriver,
   resolveThreadIdleCompaction,
+  showIdleCompactionPlaceholder,
   threadCachePolicy,
 } from "./threadCachePolicy.ts";
 
@@ -117,4 +119,11 @@ it("migrates a legacy master pause once without discarding a new explicit warm p
   expect(threadCachePolicy(next, id)).toBe("warm");
   expect(threadCachePolicy(next, other)).toBe("default");
   expect(legacyCacheWarmingMigration(next)).toBeNull();
+});
+
+it("only shows a machine idle compaction placeholder while it can still produce a result", () => {
+  const skipped = MessageId.make("idle-compact:machine:thread:run");
+  expect(showIdleCompactionPlaceholder(skipped, true)).toBe(true);
+  expect(showIdleCompactionPlaceholder(skipped, false)).toBe(false);
+  expect(showIdleCompactionPlaceholder(MessageId.make("manual-compact"), false)).toBe(true);
 });

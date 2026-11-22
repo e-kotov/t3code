@@ -67,8 +67,9 @@ export function idleCompactionWindow(
   // Never compact a compaction, so one idle spell compacts at most once.
   if (
     message === undefined ||
-    message.text.trim().toLowerCase() === "/compact" ||
-    (policy !== undefined && (policy.mode !== "compact" || !isUserIdleTurn(message)))
+    (policy === undefined
+      ? message.text.trim().toLowerCase() === "/compact"
+      : policy.mode !== "compact" || !isUserIdleTurn(message))
   )
     return null;
   if (

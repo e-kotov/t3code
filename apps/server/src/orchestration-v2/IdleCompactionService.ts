@@ -6,7 +6,10 @@ import {
   type RunId,
   type ThreadId,
 } from "@t3tools/contracts";
-import { resolveThreadIdleCompaction } from "@t3tools/shared/threadCachePolicy";
+import {
+  MACHINE_IDLE_COMPACTION_MESSAGE_PREFIX,
+  resolveThreadIdleCompaction,
+} from "@t3tools/shared/threadCachePolicy";
 import { watchThreadCachePolicies } from "./ThreadCachePolicyService.ts";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
@@ -106,7 +109,9 @@ export const make = Effect.gen(function* () {
           type: "message.dispatch",
           // One compaction per completed run, even across duplicate events.
           commandId: CommandId.make(`server:idle-compact:${threadId}:${runId}`),
-          messageId: MessageId.make(`idle-compact:${threadId}:${runId}`),
+          messageId: MessageId.make(
+            `${current.machineIdlePolicy === undefined ? "idle-compact:" : MACHINE_IDLE_COMPACTION_MESSAGE_PREFIX}${threadId}:${runId}`,
+          ),
           threadId,
           text: IDLE_COMPACTION_TEXT,
           attachments: [],

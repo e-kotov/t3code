@@ -2,6 +2,7 @@ import {
   globalIdleCompaction,
   resolveIdleCompaction,
   type IdleCompactionMode,
+  type MessageId,
   type ProviderInstanceId,
   type ServerSettings,
   type ServerSettingsPatch,
@@ -18,6 +19,12 @@ export const IDLE_THREAD_PROVIDERS = [
   { driver: "codex", label: "Codex" },
   { driver: "antigravity", label: "Antigravity" },
 ] as const satisfies ReadonlyArray<{ driver: IdleThreadProvider; label: string }>;
+
+export const MACHINE_IDLE_COMPACTION_MESSAGE_PREFIX = "idle-compact:machine:";
+
+export function showIdleCompactionPlaceholder(messageId: MessageId, active: boolean): boolean {
+  return active || !messageId.startsWith(MACHINE_IDLE_COMPACTION_MESSAGE_PREFIX);
+}
 
 export function isIdleThreadProvider(driver: string): driver is IdleThreadProvider {
   return IDLE_THREAD_PROVIDERS.some((entry) => entry.driver === driver);

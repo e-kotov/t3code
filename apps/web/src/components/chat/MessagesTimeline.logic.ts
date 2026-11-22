@@ -9,6 +9,7 @@ import {
 import * as Equal from "effect/Equal";
 import { shallow } from "zustand/vanilla/shallow";
 import { claudeResumeCompactionAge } from "@t3tools/shared/claudeCompaction";
+import { showIdleCompactionPlaceholder } from "@t3tools/shared/threadCachePolicy";
 import {
   IDLE_COMPACTING_LABELS,
   IDLE_COMPACTION_TITLES,
@@ -2280,6 +2281,7 @@ export function deriveMessagesTimelineRows(
     if (compactionRun) {
       if (!compactedRunIds.has(compactionRunId) && compactionRunId !== activeCompactionRunId) {
         const pending = compactionRunId === runningCompactionRunId;
+        if (!showIdleCompactionPlaceholder(timelineEntry.message.id, pending)) continue;
         const reason = compactionRuns.get(compactionRunId);
         nextRows.push({
           kind: "context-compaction",
