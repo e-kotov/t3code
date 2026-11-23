@@ -6,6 +6,7 @@ on:
     branches: [main, feat/device-commands, feat/device-utilities]
     paths:
       - ".github/workflows/fork-device-commands.yml"
+      - "scripts/fork-robolectric-tests.gradle"
       - "apps/desktop/src/deviceCommands/**"
       - "apps/desktop/src/deviceUtilities/**"
       - "apps/web/src/deviceUtilities/**"
@@ -82,4 +83,7 @@ jobs:
       - name: Test Termux result handling
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         working-directory: apps/mobile/android
-        run: ./gradlew :t3-termux-command:testDebugUnitTest :t3-native-controls:compileDebugKotlin --build-cache --max-workers=2
+        run: >-
+          ./gradlew --init-script ../../../scripts/fork-robolectric-tests.gradle
+          :t3-termux-command:testDebugUnitTest :t3-native-controls:compileDebugKotlin
+          --build-cache --max-workers=2
