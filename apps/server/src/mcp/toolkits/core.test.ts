@@ -1029,6 +1029,8 @@ it.effect("hides act-as-caller tools from a client caller", () =>
   ),
 );
 
+const decodeScheduledTask = Schema.decodeSync(ScheduledTask);
+
 it.effect("a caller cannot rewrite a scheduled task that runs above its own modes", () =>
   Effect.gen(function* () {
     const server = yield* McpServer.McpServer;
@@ -1051,11 +1053,20 @@ it.effect("a caller cannot rewrite a scheduled task that runs above its own mode
       enabled: false,
     });
     expect(allowed.isError).toBe(false);
-    const fresh = yield* call("schedule_task", {
+    const rejected = yield* call("schedule_task", {
       scheduledTaskId: "task-auto",
       freshSession: true,
     });
-    expect(fresh.structuredContent).toMatchObject({ freshSession: true });
+    expect(declaredFailure(rejected)).toMatchObject({ code: "invalid_request" });
+    const fresh = yield* call("schedule_task", {
+      scheduledTaskId: "task-auto-bound",
+      freshSession: true,
+    });
+    expect(fresh.isError).toBe(false);
+    expect(fresh.structuredContent).toMatchObject({
+      freshSession: true,
+      boundThreadId: "bound-task-thread",
+    });
     const incomplete = yield* call("schedule_task", { prompt: "Run nightly" });
     expect(declaredFailure(incomplete)).toMatchObject({ code: "invalid_request" });
   }).pipe(
@@ -1063,7 +1074,19 @@ it.effect("a caller cannot rewrite a scheduled task that runs above its own mode
       layerOrchestratorToolkit.pipe(
         Layer.provideMerge(McpHttpServer.layerInProcessMcpServer),
         Layer.provide(NodeCrypto.layer),
-        Layer.provide(Layer.mock(ThreadManagement.ThreadManagementService)({})),
+        Layer.provide(
+          Layer.mock(ThreadManagement.ThreadManagementService)({
+            getThreadShell: (id) =>
+              Effect.succeed(
+                id === "bound-task-thread"
+                  ? {
+                      ...McpToolAccessTestkit.liveThreadShell(id, { runtimeMode: "auto" }),
+                      projectId: ProjectId.make("project-a"),
+                    }
+                  : null,
+              ),
+          }),
+        ),
         Layer.provide(ServerSettings.layerTest()),
         Layer.provide(Layer.mock(ProviderRegistry.ProviderRegistry)({})),
         Layer.provide(Layer.mock(ProviderAdapterRegistry.ProviderAdapterRegistryV2)({})),
@@ -1074,6 +1097,12 @@ it.effect("a caller cannot rewrite a scheduled task that runs above its own mode
                 tasks: [
                   scheduledTask("task-full-access", "full-access"),
                   scheduledTask("task-auto", "auto"),
+                  decodeScheduledTask({
+                    ...decodeScheduledTask(scheduledTask("task-auto-bound", "auto")),
+                    threadId: "bound-task-thread",
+                    threadMode: "continue",
+                    workspaceStrategy: { type: "root" },
+                  }),
                 ],
               }),
             upsert: (input) =>
