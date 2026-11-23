@@ -156,6 +156,13 @@ async function mount() {
   }
 }
 
+async function openAddProjectFromSidebar(app: Awaited<ReturnType<typeof mount>>["app"]) {
+  await userEvent.click(
+    app.getByRole("combobox", { name: /^Filter threads by project or machine/ }),
+  );
+  await userEvent.click(page.getByRole("option", { name: "Add project", exact: true }));
+}
+
 it("toggles machine filters with Shift-click and Shift+Enter without closing the picker", async () => {
   await using screen = await mount();
   await userEvent.click(
@@ -196,7 +203,7 @@ it("toggles machine filters with Shift-click and Shift+Enter without closing the
 
 it("shows reconnecting machines and Slurm time remaining when adding a project", async () => {
   await using screen = await mount();
-  await userEvent.click(screen.app.getByRole("button", { name: "Add project", exact: true }));
+  await openAddProjectFromSidebar(screen.app);
   const gwdg = page.getByRole("option", { name: /GWDG/ });
   const capture = import.meta.env.VITE_MACHINE_FILTER_CAPTURE;
   if (capture === "before") {
@@ -244,7 +251,7 @@ it.skipIf(import.meta.env.VITE_MACHINE_FILTER_CAPTURE === "before")(
       ...presentation,
       connection: { ...presentation.connection, phase: "reconnecting" },
     }));
-    await userEvent.click(screen.app.getByRole("button", { name: "Add project", exact: true }));
+    await openAddProjectFromSidebar(screen.app);
     await expect
       .element(page.getByRole("option", { name: /Connect an environment/ }))
       .toBeVisible();

@@ -1,8 +1,10 @@
 import type { EnvironmentId, ProjectId, ScopedThreadRef } from "@t3tools/contracts";
+import { splitMarkdown } from "@t3tools/shared/markdownChunks";
 import { useGT } from "gt-react";
 import { MessageCircle, QuoteIcon, X } from "lucide-react";
 import {
   type ComponentProps,
+  type KeyboardEventHandler,
   type MouseEvent as ReactMouseEvent,
   useEffect,
   useLayoutEffect,
@@ -13,6 +15,7 @@ import { createPortal } from "react-dom";
 
 import { DiffCommentAnnotation } from "~/components/diffs/DiffCommentAnnotation";
 import { Button } from "~/components/ui/button";
+import { ScrollArea } from "~/components/ui/scroll-area";
 import { type DraftId, useComposerDraftStore } from "~/composerDraftStore";
 import { observeResize } from "~/lib/observeResize";
 import {
@@ -22,6 +25,7 @@ import {
   type SelectionActionPoint,
 } from "~/lib/selectionActions";
 import type { ReviewCommentContext } from "~/reviewCommentContext";
+import { ChunkedMarkdown } from "./ChunkedMarkdown";
 import { FileMarkdownPreview } from "./FileMarkdownPreview";
 import { nextFileCommentId } from "./fileCommentAnnotations";
 import {
@@ -561,5 +565,25 @@ export function ForkCommentableMarkdownPreview({
           )
         : null}
     </div>
+  );
+}
+
+export function ForkWorkspaceMarkdownPreview({
+  commentTarget,
+  onKeyDown,
+  text,
+  ...previewProps
+}: ComponentProps<typeof ForkCommentableMarkdownPreview> & {
+  readonly onKeyDown: KeyboardEventHandler<HTMLDivElement>;
+}) {
+  // Exact rendered quotes need one complete DOM. Keep that mode bounded; larger Markdown
+  // uses upstream virtualization and can still be commented on in the source view.
+  if (text.length > 32 * 1024) {
+    return <ChunkedMarkdown {...splitMarkdown(text)} {...previewProps} onKeyDown={onKeyDown} />;
+  }
+  return (
+    <ScrollArea className="min-h-0 flex-1" onKeyDown={onKeyDown}>
+      <ForkCommentableMarkdownPreview text={text} commentTarget={commentTarget} {...previewProps} />
+    </ScrollArea>
   );
 }

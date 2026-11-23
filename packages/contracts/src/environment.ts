@@ -226,8 +226,12 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   codexCacheWarmAfter: Schema.optionalKey(Schema.Boolean),
   neonCacheWarming: Schema.optionalKey(Schema.Boolean),
   machineIdlePolicy: Schema.optionalKey(Schema.Boolean),
+  /** Honors the `agentFeedback` setting; older servers drop it, so hide its switch where absent. */
+  agentFeedback: Schema.optionalKey(Schema.Boolean),
   /** Answers `issues.linkedThreads`, the threads an issue is linked to. */
   issueLinkedThreads: Schema.optionalKey(Schema.Boolean),
+  /** Keeps more than one account per standalone issue tracker; older servers keep one. */
+  issueTrackerAccounts: Schema.optionalKey(Schema.Boolean),
 });
 export type ExecutionEnvironmentCapabilities = typeof ExecutionEnvironmentCapabilities.Type;
 

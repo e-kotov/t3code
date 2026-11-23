@@ -106,7 +106,7 @@ import {
   CheckIcon,
   ChevronDownIcon,
   FolderIcon,
-  ListFilterIcon,
+  FolderPlusIcon,
   PlusIcon,
   SettingsIcon,
 } from "lucide-react";
@@ -224,6 +224,7 @@ import {
   buildBulkTitleRegenerationContextMenuItem,
   buildBulkUnpinContextMenuItem,
   deleteSelectedThreadEntries,
+  ADD_PROJECT_SCOPE_ITEM_VALUE,
   filterSidebarProjectScopeItems,
   firstValidTimestampMs,
   isSidebarNestedLinkClick,
@@ -890,6 +891,7 @@ function useSidebarLookups() {
     projectGroups.map((project) => [project.projectKey, project] as const),
   );
   const projectScopeItems = [
+    { kind: "action" as const, value: ADD_PROJECT_SCOPE_ITEM_VALUE, label: gt("Add project") },
     {
       kind: "machine" as const,
       value: "all-machines",
@@ -1296,7 +1298,9 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
             item.value ===
             (projectScopeKeys[0] ??
               (environmentScopeId === null ? "all" : `machine:${environmentScopeId}`)),
-        ) ?? null);
+        ) ??
+        projectScopeItems.find((item) => item.value === "all") ??
+        null);
   const filteredProjectScopeItems = filterSidebarProjectScopeItems({
     items: projectScopeItems,
     query: projectScopeMenuState.query,
@@ -1733,7 +1737,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
       rangeSelectTo(threadKey, orderedThreadKeysRef.current);
       return;
     }
-    if (isTrailingDoubleClick(event.detail)) {
+    // macOS keeps counting quick clicks across rows, so only the open row's trailing click is a double-click.
+    if (isTrailingDoubleClick(event.detail) && routeThreadKey === threadKey) {
       return;
     }
     navigateToThread(threadRef);
@@ -3221,7 +3226,10 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                       return;
                     }
                     if (!item) return;
-                    if (item.kind === "machine") {
+                    if (item.kind === "action") {
+                      dispatchProjectScopeMenu({ type: "open-changed", open: false });
+                      openAddProjectCommandPalette();
+                    } else if (item.kind === "machine") {
                       if (
                         item.environmentId !== null &&
                         eventDetails.event instanceof MouseEvent &&
@@ -3297,7 +3305,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                         className="size-4"
                       />
                     ) : (
-                      <ListFilterIcon className="size-4" />
+                      <FolderIcon className="size-4" />
                     )}
                   </ComboboxTrigger>
                   {/* Refocusing the trigger after a pointer close shows its focus ring and opens its tooltip. */}
@@ -3369,6 +3377,16 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                     </ComboboxEmpty>
                     <ComboboxList aria-multiselectable>
                       {(item: (typeof projectScopeItems)[number]) => {
+                        if (item.kind === "action") {
+                          return (
+                            <ComboboxItem key={item.value} hideIndicator value={item}>
+                              <FolderPlusIcon className="size-4 shrink-0" />
+                              <span className="min-w-0 truncate text-sm">{item.label}</span>
+                              {/* Keeps "Add project" as tall as the project rows. */}
+                              <span className="ml-auto size-7 shrink-0 sm:size-6" />
+                            </ComboboxItem>
+                          );
+                        }
                         const project =
                           item.kind === "project"
                             ? (projectGroupByScopeKey.get(item.value) ?? null)
@@ -3489,7 +3507,6 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                   </ComboboxPopup>
                 </Combobox>
               }
-              onNewProject={openAddProjectCommandPalette}
               onNewThread={handleNewThreadClick}
               newThreadDisabled={projects.length === 0}
               newThreadShortcutLabel={newThreadShortcutLabel}
