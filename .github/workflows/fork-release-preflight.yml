@@ -1,0 +1,77 @@
+name: Fork release preflight
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/fork-release-preflight.yml"
+      - ".github/workflows/release-fork.yml"
+      - ".github/workflows/release-desktop.yml"
+      - "apps/desktop/scripts/build-apple-speech.mjs"
+      - "native/apple-speech/**"
+      - "apps/server/src/mcp/McpWebhookTransport.ts"
+      - "apps/server/scripts/cli.ts"
+      - "apps/server/vite.config.ts"
+      - "scripts/lib/cli-executable-imports.ts"
+      - "scripts/lib/cli-external-packages.ts"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-release-preflight-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    if: github.repository == 'e-kotov/t3code'
+    name: Linux single-executable
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout without vendored gitlinks
+        env:
+          CHECKOUT_REF: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git init -q .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git fetch -q --no-tags --depth=1 origin "$CHECKOUT_REF"
+          git checkout -q --detach FETCH_HEAD
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          install-args: --filter=t3... --filter=@t3tools/scripts...
+      - name: Test webhook delivery and address validation
+        run: |
+          vp test run \
+            apps/server/src/mcp/McpWebhookTransport.test.ts \
+            apps/server/src/milestones/MilestoneEvents.test.ts
+      - name: Build and run the single-executable
+        run: |
+          node apps/server/scripts/cli.ts build-exe
+          apps/server/dist-exe/t3 --version
+
+  mac:
+    if: github.repository == 'e-kotov/t3code'
+    name: macOS Apple Speech helper
+    runs-on: macos-26
+    timeout-minutes: 12
+    steps:
+      - name: Checkout Apple Speech helper sources
+        env:
+          CHECKOUT_REF: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git init -q .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          git sparse-checkout set --no-cone /apps/desktop/scripts/build-apple-speech.mjs /native/apple-speech/
+          git fetch -q --no-tags --depth=1 origin "$CHECKOUT_REF"
+          git checkout -q --detach FETCH_HEAD
+      - name: Compile the required arm64 helper using the release compiler
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          node apps/desktop/scripts/build-apple-speech.mjs --arch arm64 --output "$RUNNER_TEMP/t3-apple-speech"
+          test -x "$RUNNER_TEMP/t3-apple-speech"
+          xcrun lipo -verify_arch arm64 "$RUNNER_TEMP/t3-apple-speech"
