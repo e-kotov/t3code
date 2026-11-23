@@ -117,6 +117,7 @@
     "apps/server/src/orchestration-v2/RestartContinuation.test.ts": 14,
     "apps/server/src/orchestration-v2/RestartContinuation.ts": 8,
     "apps/server/src/orchestration-v2/RunExecutionService.ts": 35,
+    "apps/server/src/orchestration-v2/SteeringCompletion.integration.test.ts": 9,
     "apps/server/src/orchestration-v2/ThreadLaunchService.test.ts": 85,
     "apps/server/src/orchestration-v2/ThreadLaunchService.ts": 8,
     "apps/server/src/orchestration-v2/ThreadManagementService.test.ts": 18,
