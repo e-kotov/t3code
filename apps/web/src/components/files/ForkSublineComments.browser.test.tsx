@@ -206,6 +206,20 @@ function shadow(screen: Screen) {
   return screen.container.querySelector("diffs-container")?.shadowRoot;
 }
 
+it("uses the large Markdown preview and retains full-document task offsets", async () => {
+  using _settings = setup(true);
+  await page.viewport(1200, 900);
+  const intro = "# Guide\n\n~~~text\n" + "x".repeat(4_500) + "\n~~~\n";
+  const task = "# Review\n\n- [ ] Verify the chunk offset\n";
+  const tail = "# Appendix\n\n~~~text\n" + "y".repeat(34_000) + "\n~~~\n";
+  const text = intro + "\n" + task + "\n" + tail;
+  await using screen = await render(preview("docs/large-guide.md", text));
+  await expect.element(screen.getByRole("heading", { name: "Guide" })).toBeVisible();
+  expect(screen.container.querySelector("[data-markdown-comment-surface]")).toBeNull();
+  await userEvent.click(screen.getByRole("checkbox"));
+  await vi.waitFor(() => expect(state.optimistic?.contents).toBe(text.replace("- [ ]", "- [x]")));
+});
+
 it("creates, highlights, views, and deletes a subline comment in rendered Markdown", async () => {
   using _settings = setup(true);
   await page.viewport(1200, 900);

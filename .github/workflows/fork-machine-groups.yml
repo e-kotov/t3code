@@ -120,12 +120,13 @@ jobs:
         run: VITE_MACHINE_FOLD_CAPTURE=after vp test run apps/web/src/components/sidebar/MachineGroupFolding.app.browser.test.tsx
       - name: Capture machine pickers before the change
         run: |
-          # Sidebar and SidebarDraftBlock changed props together; do not test a mixed-version pair.
+          # Keep the sidebar, scope logic, and child component props on the same baseline.
           files=(
             apps/web/src/components/Sidebar.tsx
             apps/web/src/components/Sidebar.logic.ts
             apps/web/src/components/CommandPalette.tsx
             apps/web/src/components/sidebar/SidebarDraftBlock.tsx
+            apps/web/src/components/sidebar/SidebarThreadHeader.tsx
           )
           for file in "${files[@]}"; do cp "$file" "$RUNNER_TEMP/$(basename "$file")"; done
           restore() {
