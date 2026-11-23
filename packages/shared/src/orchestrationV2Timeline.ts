@@ -1,15 +1,28 @@
 import type {
+  MessageId,
   OrchestrationV2Run,
   OrchestrationV2RunAttempt,
   OrchestrationV2TurnItem,
   OrchestrationV2UserMessageInputIntent,
 } from "@t3tools/contracts";
+import { isIdleMaintenanceMessageId } from "./threadCachePolicy.ts";
 
 type TimelineRun = Pick<OrchestrationV2Run, "id" | "status">;
 type TimelineRunAttempt = Pick<OrchestrationV2RunAttempt, "runId" | "rootNodeId" | "status">;
 type TimelineTurnItem = Pick<OrchestrationV2TurnItem, "type" | "runId" | "nodeId"> & {
   readonly inputIntent?: OrchestrationV2UserMessageInputIntent;
+  readonly messageId?: MessageId;
 };
+
+function isHiddenUserInput(item: TimelineTurnItem, status: TimelineRun["status"] | undefined) {
+  return (
+    item.type === "user_message" &&
+    ((item.inputIntent === "queued_turn" && (status === "queued" || status === "cancelled")) ||
+      (status === "cancelled" &&
+        item.messageId !== undefined &&
+        isIdleMaintenanceMessageId(item.messageId)))
+  );
+}
 
 function isOrchestrationV2SupersededInterrupt(input: {
   readonly item: TimelineTurnItem;
@@ -45,21 +58,13 @@ export function isOrchestrationV2TurnItemVisible(input: {
   readonly items: ReadonlyArray<TimelineTurnItem>;
 }): boolean {
   const { item } = input;
+  // Retained inputs can return to the queue; do not scan the runs twice.
   if (
-    item.runId !== null &&
-    input.runs.some((run) => run.id === item.runId && run.status === "rolled_back")
-  ) {
-    return false;
-  }
-
-  // A steer can return to the queue before delivery. Keep its retained item out
-  // of conversation history until its run starts; cancelled queued inputs stay hidden.
-  if (
-    item.type === "user_message" &&
-    item.inputIntent === "queued_turn" &&
     item.runId !== null &&
     input.runs.some(
-      (run) => run.id === item.runId && (run.status === "queued" || run.status === "cancelled"),
+      (run) =>
+        run.id === item.runId &&
+        (run.status === "rolled_back" || isHiddenUserInput(item, run.status)),
     )
   ) {
     return false;
@@ -103,12 +108,7 @@ export function createOrchestrationV2TurnItemVisibility(input: {
   return (item) => {
     const status = item.runId === null ? undefined : statuses.get(item.runId);
     if (status === "rolled_back") return false;
-    if (
-      (status === "queued" || status === "cancelled") &&
-      item.type === "user_message" &&
-      item.inputIntent === "queued_turn"
-    )
-      return false;
+    if (isHiddenUserInput(item, status)) return false;
     return !(
       item.type === "run_interrupt_result" &&
       item.runId !== null &&

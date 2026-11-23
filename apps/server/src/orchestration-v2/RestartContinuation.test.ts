@@ -1230,7 +1230,7 @@ it.effect("does not continue a run the user asked to stop before the restart", (
   }),
 );
 
-it.effect("does not continue a cut /compact or /logout turn", () =>
+it.effect("does not continue a cut maintenance turn", () =>
   Effect.gen(function* () {
     for (const text of ["/compact", " /LOGOUT "]) {
       const texts = yield* continuationTexts({
@@ -1239,6 +1239,18 @@ it.effect("does not continue a cut /compact or /logout turn", () =>
       } as unknown as OrchestrationV2ThreadProjection);
       assert.deepEqual(texts, [], text);
     }
+    const warm = {
+      id: MessageId.make("message:cache-warm:machine:restart"),
+      createdBy: "system",
+      creationSource: "server",
+      text: "Cache warm check only. Reply with exactly: cache warm.",
+      attachments: [],
+    };
+    const warmTexts = yield* continuationTexts({
+      ...cutMidTurn({ userMessageId: warm.id }),
+      messages: [warm],
+    } as unknown as OrchestrationV2ThreadProjection);
+    assert.deepEqual(warmTexts, []);
     const texts = yield* continuationTexts({
       ...cutMidTurn(),
       messages: [{ id: MessageId.make("message:user"), text: "/compact later", attachments: [] }],

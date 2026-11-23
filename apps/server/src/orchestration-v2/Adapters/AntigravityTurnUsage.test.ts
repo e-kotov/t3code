@@ -148,6 +148,7 @@ const setup = Effect.gen(function* () {
   const runtime = {
     events: Stream.fromQueue(events),
     startTurn: () => Effect.void,
+    compactThread: () => Effect.void,
   } as unknown as ProviderAdapter.ProviderAdapterV2SessionRuntime;
   const adapter = yield* withAntigravityTurnUsage(
     {
@@ -164,11 +165,12 @@ const setup = Effect.gen(function* () {
   const session = yield* adapter.openSession(
     {} as ProviderAdapter.ProviderAdapterV2OpenSessionInput,
   );
-  const startTurn = () =>
-    session.startTurn({
-      providerThread,
-      modelSelection,
-    } as unknown as ProviderAdapter.ProviderAdapterV2TurnInput);
+  const input = {
+    providerThread,
+    modelSelection,
+  } as unknown as ProviderAdapter.ProviderAdapterV2TurnInput;
+  const startTurn = () => session.startTurn(input);
+  const compactThread = () => session.compactThread!(input);
   const emit = (
     emitted: ReadonlyArray<ProviderAdapter.ProviderAdapterV2Event>,
     outputs = emitted.length,
@@ -180,23 +182,26 @@ const setup = Effect.gen(function* () {
   return {
     database: path.join(conversations, `${sessionId}.db`),
     startTurn,
+    compactThread,
     emit,
   };
 });
 
 const layer = Layer.mergeAll(NodeServices.layer, NodeCrypto.layer);
 
-it.effect("reports the first generation (idx=0) on a fresh session", () =>
-  Effect.gen(function* () {
-    const { database, startTurn, emit } = yield* setup;
-    yield* startTurn();
-    yield* insertGeneration(database, finalRequest);
-    const [, settled] = yield* emit([
-      threadEvent(contextUsage, "2026-10-27T14:59:00.000Z"),
-      turnEvent("provider-turn:1", "completed", DateTime.makeUnsafe("2026-10-27T15:00:00.000Z")),
-    ]);
-    assert.deepStrictEqual(tokenUsageOf(settled), finalRequestUsage("2026-10-27T15:00:00.000Z"));
-  }).pipe(Effect.scoped, Effect.provide(layer)),
+it.effect.each(["startTurn", "compactThread"] as const)(
+  "reports the first generation (idx=0) on a fresh session after %s",
+  (operation) =>
+    Effect.gen(function* () {
+      const { database, emit, ...turns } = yield* setup;
+      yield* turns[operation]();
+      yield* insertGeneration(database, finalRequest);
+      const [, settled] = yield* emit([
+        threadEvent(contextUsage, "2026-10-27T14:59:00.000Z"),
+        turnEvent("provider-turn:1", "completed", DateTime.makeUnsafe("2026-10-27T15:00:00.000Z")),
+      ]);
+      assert.deepStrictEqual(tokenUsageOf(settled), finalRequestUsage("2026-10-27T15:00:00.000Z"));
+    }).pipe(Effect.scoped, Effect.provide(layer)),
 );
 
 it.effect("reports the turn's newest generation as its last request", () =>

@@ -421,7 +421,7 @@ class T3WorkspaceNavigationView(
   }
 
   private fun expandedTabTitle(tab: String) =
-    if (tab == "pullRequests") "Pull Requests" else tabTitle(tab)
+    if (tab == "pullRequests") "Pull requests" else tabTitle(tab)
 
   @Composable
   private fun navigationIcon(tab: String, tint: Color = androidx.compose.material3.LocalContentColor.current, modifier: Modifier = Modifier) =

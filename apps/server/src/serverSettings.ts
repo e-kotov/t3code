@@ -43,6 +43,10 @@ import * as Semaphore from "effect/Semaphore";
 import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 import * as SqlClient from "effect/sql/SqlClient";
+import {
+  effectiveLegacyIdleSettings,
+  preserveEchoedIdleCompaction,
+} from "@t3tools/shared/threadCachePolicy";
 import { writeFileStringAtomically } from "@t3tools/shared/atomicWrite";
 import { resolveSymlinkTarget } from "@t3tools/shared/symlink";
 import * as ServerConfig from "./config.ts";
@@ -191,7 +195,10 @@ export function applyProviderInstanceMutation(
 ): ServerSettings {
   const providerInstances = { ...settings.providerInstances };
   if (mutation.operation === "upsert" || mutation.operation === "create") {
-    providerInstances[mutation.instanceId] = mutation.instance;
+    providerInstances[mutation.instanceId] =
+      mutation.operation === "upsert" && settings.machineIdlePolicy !== undefined
+        ? preserveEchoedIdleCompaction(providerInstances[mutation.instanceId], mutation.instance)
+        : mutation.instance;
   } else {
     delete providerInstances[mutation.instanceId];
   }
@@ -683,7 +690,7 @@ const make = Effect.gen(function* () {
   // Locks are laid over every settings value that leaves this service, never persisted.
   const toEffective = (settings: ServerSettings) =>
     resolveTextGenerationProvider(
-      managedProviders.applyLimits(managed.applyLocks(settings)),
+      effectiveLegacyIdleSettings(managedProviders.applyLimits(managed.applyLocks(settings))),
       managedProviders.isDriverAllowed,
     );
   const writeSemaphore = yield* Semaphore.make(1);

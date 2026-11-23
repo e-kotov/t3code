@@ -260,20 +260,10 @@ export const withAntigravityTurnUsage = Effect.fn("withAntigravityTurnUsage")(fu
     });
     const enrichStream = <E>(events: Stream.Stream<AdapterEvent, E>) =>
       events.pipe(Stream.mapEffect(enrich), Stream.flattenIterable);
-    return {
-      ...runtime,
-      events: enrichStream(runtime.events),
-      ...(runtime.subscribeEvents === undefined
-        ? {}
-        : {
-            subscribeEvents: runtime.subscribeEvents.pipe(
-              Effect.map((subscription) => ({
-                ...subscription,
-                events: enrichStream(subscription.events),
-              })),
-            ),
-          }),
-      startTurn: Effect.fn("AntigravityTurnUsage.startTurn")(function* (turnInput) {
+    const withTurnUsage = (send: ProviderAdapter.ProviderAdapterV2SessionRuntime["startTurn"]) =>
+      Effect.fn("AntigravityTurnUsage.startTurn")(function* (
+        turnInput: ProviderAdapter.ProviderAdapterV2TurnInput,
+      ) {
         const sessionId = turnInput.providerThread.nativeThreadRef?.nativeId ?? undefined;
         const baselineRowId =
           sessionId === undefined
@@ -287,8 +277,25 @@ export const withAntigravityTurnUsage = Effect.fn("withAntigravityTurnUsage")(fu
           running: undefined,
           settled: undefined,
         });
-        return yield* runtime.startTurn(turnInput);
-      }),
+        return yield* send(turnInput);
+      });
+    return {
+      ...runtime,
+      events: enrichStream(runtime.events),
+      ...(runtime.subscribeEvents === undefined
+        ? {}
+        : {
+            subscribeEvents: runtime.subscribeEvents.pipe(
+              Effect.map((subscription) => ({
+                ...subscription,
+                events: enrichStream(subscription.events),
+              })),
+            ),
+          }),
+      startTurn: withTurnUsage(runtime.startTurn),
+      ...(runtime.compactThread === undefined
+        ? {}
+        : { compactThread: withTurnUsage(runtime.compactThread) }),
     };
   };
 

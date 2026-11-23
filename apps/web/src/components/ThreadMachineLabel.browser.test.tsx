@@ -32,7 +32,8 @@ vi.mock("../state/presentation", async (importOriginal) => ({
     };
   },
 }));
-vi.mock("../state/entities", () => ({
+vi.mock("../state/entities", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../state/entities")>()),
   useThreadShell: () => null,
   useProject: () => null,
 }));

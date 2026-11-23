@@ -1,5 +1,15 @@
-import type { OrchestrationV2Command, ServerSettings as Settings } from "@t3tools/contracts";
-import { resolveThreadIdleCompaction, threadCachePolicy } from "@t3tools/shared/threadCachePolicy";
+import { type OrchestrationV2Command, type ServerSettings as Settings } from "@t3tools/contracts";
+import {
+  cacheWarmingEnabled,
+  isIdleThreadProvider,
+  isNeonCacheModel,
+  resolveThreadIdleCompaction,
+} from "@t3tools/shared/threadCachePolicy";
+import { deriveCacheHud } from "@t3tools/shared/cacheHud";
+import { modelSelectionsEqual } from "@t3tools/shared/model";
+import { latestExecutedRun } from "@t3tools/shared/orchestrationV2ThreadError";
+import { hasWarmCacheEvidence, isUserIdleTurn, machineWarmWindow } from "./IdleThreadTiming.ts";
+import { isActiveRun } from "./CommandPolicy.ts";
 import { idleCompactionWindow, type IdleCompactionRecords } from "./IdleCompaction.ts";
 
 import * as DateTime from "effect/DateTime";
@@ -24,9 +34,48 @@ export function backgroundCacheCommandAllowed(
   nowMs: number,
 ) {
   if (command.commandId.startsWith("command:cache-warm:")) {
-    return threadCachePolicy(settings, command.threadId) === "warm";
+    if (!cacheWarmingEnabled(settings, command.threadId)) return false;
+    const policy = settings.machineIdlePolicy;
+    const machineCommand = command.commandId.startsWith("command:cache-warm:machine:");
+    if (policy === undefined) return !machineCommand;
+    const latest = latestExecutedRun(projection.runs);
+    const provider = projection.providerThreads.find(
+      (entry) => entry.id === projection.thread.activeProviderThreadId,
+    );
+    const driver: string | undefined = provider?.driver;
+    if (
+      !machineCommand ||
+      latest?.status !== "completed" ||
+      latest.completedAt === null ||
+      provider === undefined ||
+      driver === undefined ||
+      !isIdleThreadProvider(driver) ||
+      projection.thread.settledAt !== null ||
+      !modelSelectionsEqual(latest.modelSelection, projection.thread.modelSelection) ||
+      latest.providerThreadId !== provider.id ||
+      provider.providerInstanceId !== projection.thread.providerInstanceId ||
+      (driver === "antigravity" && !isNeonCacheModel(projection.thread.modelSelection.model)) ||
+      !projection.messages.some(
+        (message) => message.id === latest.userMessageId && isUserIdleTurn(message),
+      ) ||
+      settings.cacheWarmingLastWindows[command.threadId] === latest.id ||
+      !command.commandId.startsWith(`command:cache-warm:machine:${command.threadId}:${latest.id}:`)
+    )
+      return false;
+    const hud = deriveCacheHud(
+      provider.driver,
+      projection.providerTurns.flatMap((turn) =>
+        turn.providerThreadId === provider.id && turn.tokenUsage !== undefined
+          ? [turn.tokenUsage]
+          : [],
+      ),
+      projection.thread.modelSelection,
+    );
+    if (hud === null || !hasWarmCacheEvidence(hud)) return false;
+    const window = machineWarmWindow(latest.completedAt, policy[driver].idleMinutes, hud);
+    return window !== null && nowMs >= window.startMs && nowMs < window.endMs;
   }
-  const window = idleCompactionWindow(projection, nowMs);
+  const window = idleCompactionWindow(projection, nowMs, settings.machineIdlePolicy);
   return (
     resolveThreadIdleCompaction(
       settings,
@@ -35,7 +84,7 @@ export function backgroundCacheCommandAllowed(
     ) === "beforeCacheExpires" &&
     window !== null &&
     nowMs >= window.startMs &&
-    !projection.runs.some((run) => run.status === "queued") &&
+    !projection.runs.some((run) => run.status === "queued" || isActiveRun(run)) &&
     command.commandId === `server:idle-compact:${command.threadId}:${window.runId}`
   );
 }

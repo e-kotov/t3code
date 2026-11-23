@@ -212,9 +212,10 @@ it.effect(
 );
 
 it.effect.each([
-  { label: "fails a send that starts a turn", running: false },
-  { label: "still steers a running turn", running: true },
-])("sendToThread with a missing worktree that cannot be recreated $label", ({ running }) => {
+  { label: "fails a send that starts a turn", running: false, mode: "auto" },
+  { label: "still steers a running turn", running: true, mode: "auto" },
+  { label: "still dispatches an idle-only check", running: false, mode: "idle-only" },
+] as const)("sendToThread with an unrestorable worktree $label", ({ running, mode }) => {
   const projectId = ProjectId.make("project:thread-management:worktree-gone");
   const threadId = ThreadId.make("thread:thread-management:worktree-gone");
   const dispatched: Array<string> = [];
@@ -291,18 +292,19 @@ it.effect.each([
         messageId: MessageId.make("message:thread-management:worktree-gone"),
         text: "Reply with ok.",
         attachments: [],
-        mode: "auto",
-        createdBy: "agent",
-        creationSource: "mcp",
+        mode,
+        createdBy: mode === "idle-only" ? "system" : "agent",
+        creationSource: mode === "idle-only" ? "server" : "mcp",
       }),
     );
     // The mock records no message, so a dispatched send ends in the projection read.
+    const reachesDispatch = running || mode === "idle-only";
     expect(error._tag).toBe(
-      running
+      reachesDispatch
         ? "ThreadManagementDurableRunProjectionError"
         : "ThreadManagementWorktreeRestoreError",
     );
-    expect(dispatched).toEqual(running ? ["message.dispatch"] : []);
+    expect(dispatched).toEqual(reachesDispatch ? ["message.dispatch"] : []);
   }).pipe(Effect.provide(layerTest));
 });
 
@@ -518,6 +520,53 @@ it.effect("waitForThread settles delegated work on a thread rolled back past its
       timedOut: false,
       run: { id: runId, status: "rolled_back" },
       resultRun: { id: runId, status: "rolled_back" },
+    });
+  }),
+);
+
+it.effect("waitForThread waits for output only from a run that was asked for one", () =>
+  Effect.gen(function* () {
+    const projectId = ProjectId.make("project:thread-management:wait-output");
+    const threadId = ThreadId.make("thread:thread-management:wait-output");
+    const askedRunId = RunId.make("run:thread-management:wait-output:asked");
+    const plainRunId = RunId.make("run:thread-management:wait-output:plain");
+    const layerTest = ThreadManagementService.layer.pipe(
+      Layer.provide(Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({})),
+      Layer.provide(
+        Layer.mock(Orchestrator.OrchestratorV2)({
+          getThreadEventSequence: () => Effect.succeed(0),
+          restartContinuationPending: () => Effect.succeed(false),
+          streamStoredEventsFrom: () => Stream.never,
+          getThreadRecords: () =>
+            Effect.succeed({
+              thread: { id: threadId, projectId, deletedAt: null },
+              runs: [
+                { id: askedRunId, status: "completed", outputSchema: { type: "object" } },
+                { id: plainRunId, status: "completed" },
+              ],
+            } as unknown as OrchestrationV2ThreadProjection),
+        }),
+      ),
+      Layer.provide(ServerSettings.layerTest()),
+      Layer.provide(layerReceiptsTest),
+    );
+    const service = yield* ThreadManagementService.ThreadManagementService.pipe(
+      Effect.provide(layerTest),
+    );
+    const wait = (runId: RunId) =>
+      service
+        .waitForThread({ projectId, threadId, runId, timeoutMs: 60_000, untilOutput: true })
+        .pipe(Effect.forkChild);
+    const asked = yield* wait(askedRunId);
+    const plain = yield* wait(plainRunId);
+    yield* TestClock.adjust(Duration.millis(60_000));
+
+    // A later turn may still submit the result the first run owes.
+    expect(yield* Fiber.join(asked)).toMatchObject({ timedOut: true, run: { id: askedRunId } });
+    // Nothing can submit one for a run that never asked, so its end is the answer.
+    expect(yield* Fiber.join(plain)).toMatchObject({
+      timedOut: false,
+      run: { id: plainRunId, status: "completed" },
     });
   }),
 );

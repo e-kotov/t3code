@@ -60,7 +60,7 @@ import {
   ThreadWorktreeRestore,
 } from "../workspace/restoreMissingWorktree.ts";
 import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
-import { layerRealGit } from "./ProviderTurnStartService.testkit.ts";
+import { layerNoTaskFolders, layerRealGit } from "./ProviderTurnStartService.testkit.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as ProviderAuthService from "../provider/ProviderAuthService.ts";
 import * as ServerSettings from "../serverSettings.ts";
@@ -186,6 +186,7 @@ function startWithMissingWorktree(
                 ),
         } as never),
         layerWorktreeLocation(),
+        layerNoTaskFolders,
         Layer.mock(GitWorkflow.GitWorkflowService)({
           pruneWorktrees,
           createWorktree,
@@ -306,6 +307,7 @@ const restoreLeaseCreateWorktree = vi.fn(() => Effect.succeed({} as never));
 const layerRestoreLeaseTest = layerThreadWorktreeRestore.pipe(
   Layer.provide(
     Layer.mergeAll(
+      layerNoTaskFolders,
       Layer.succeed(FileSystem.FileSystem, {
         exists: restoreLeaseExists,
         realPath: (target: string) => Effect.succeed(normalize(target)),
@@ -376,6 +378,7 @@ effectIt.effect("restores into a leftover worktree folder that cannot itself be 
       layerThreadWorktreeRestore.pipe(
         Layer.provide(
           Layer.mergeAll(
+            layerNoTaskFolders,
             Layer.succeed(FileSystem.FileSystem, {
               exists: (target: string) => Effect.succeed(!target.endsWith("/.git")),
               readDirectory: () => Effect.succeed(["node_modules"]),
@@ -424,6 +427,7 @@ it.each([
       layerThreadWorktreeRestore.pipe(
         Layer.provide(
           Layer.mergeAll(
+            layerNoTaskFolders,
             Layer.succeed(FileSystem.FileSystem, {
               exists: () => Effect.succeed(false),
               realPath: (target: string) => Effect.succeed(target),
@@ -1346,6 +1350,7 @@ function makeLocalCommandHarness(input: {
         IdAllocator.layer,
         Layer.mock(TurnItemPositionStore.TurnItemPositionStoreV2)({}),
         layerWorktreeLocation(input.worktreesDir),
+        layerNoTaskFolders,
         input.fileSystem === undefined
           ? FileSystem.layerNoop({ exists: () => Effect.succeed(true) })
           : Layer.succeed(FileSystem.FileSystem, input.fileSystem),
@@ -1368,7 +1373,7 @@ function makeLocalCommandHarness(input: {
           getRuntimeRecoveryProjection,
           getRun,
           getTurnStartHistory: () =>
-            input.sideChat !== undefined
+            input.sideChat !== undefined || input.previousTurn !== undefined
               ? Effect.succeed([])
               : Effect.fail(
                   new ProjectionStore.ProjectionStoreReadError({
@@ -2285,6 +2290,27 @@ effectIt.effect("refuses unsupported resume instead of manufacturing a user prom
 );
 
 effectIt.effect.each([
+  { contextRun: "current" },
+  { contextRun: "failed", switchedProvider: true },
+] as const)(
+  "a resume that carries pending context asks a provider without native resume to continue: %j",
+  (sideChat) =>
+    Effect.gen(function* () {
+      const harness = makeLocalCommandHarness({
+        text: "",
+        manualContinuation: true,
+        nativeResumeUnsupported: true,
+        sideChat,
+      });
+      yield* harness.start;
+      expect(harness.settledRuns).toEqual([]);
+      expect(harness.startTurn.mock.calls.map(([turn]) => turn.message.text)).toEqual([
+        withInlineContext("SIDE_CHAT_CONTEXT", "Continue where you left off."),
+      ]);
+    }),
+);
+
+effectIt.effect.each([
   { contextRun: "current", runtimeMode: "full-access", context: "SIDE_CHAT_CONTEXT" },
   { contextRun: "failed", runtimeMode: "full-access", context: "SIDE_CHAT_CONTEXT" },
   { contextRun: "cancelled", runtimeMode: "full-access", context: "SIDE_CHAT_CONTEXT" },
@@ -2521,7 +2547,7 @@ effectIt.effect.each(
     { ...choice, resuming: true },
   ]),
 )(
-  "$goalDriver goal prompts defer switched-provider history only with native support: $nativeGoals, resuming: $resuming",
+  "$goalDriver goal prompts go verbatim whether or not goals are native: $nativeGoals, resuming: $resuming",
   ({ goalDriver, nativeGoals, resuming }) =>
     Effect.gen(function* () {
       const harness = makeLocalCommandHarness({
@@ -2544,11 +2570,7 @@ effectIt.effect.each(
       }
       harness.tryHandlePromptCommand.mockReturnValue(Effect.succeed(false));
       yield* harness.start;
-      expect(harness.startTurn.mock.calls[0]?.[0].message.text.includes("SIDE_CHAT_CONTEXT")).toBe(
-        !nativeGoals,
-      );
-      if (nativeGoals)
-        expect(harness.startTurn.mock.calls[0]?.[0].message.text).toBe("/goal all tests pass");
+      expect(harness.startTurn.mock.calls[0]?.[0].message.text).toBe("/goal all tests pass");
     }),
 );
 
@@ -3141,6 +3163,40 @@ effectIt.effect("leaves the run starting when a session-open failure will be ret
   }),
 );
 
+effectIt.effect("fails rather than retries a provider thread request with an unknown outcome", () =>
+  Effect.gen(function* () {
+    const harness = makeLocalCommandHarness({
+      text: "Continue",
+      ensureThreadFailure: { _tag: "CodexAppServerUnresponsiveError", method: "thread/start" },
+    });
+
+    yield* harness.startWithRetry;
+
+    expect(harness.startRootRun).not.toHaveBeenCalled();
+    expect(harness.projection().runs.at(-1)?.status).toBe("failed");
+  }),
+);
+
+effectIt.effect("fails rather than starts a fresh thread when a resume outcome is unknown", () =>
+  Effect.gen(function* () {
+    const harness = makeLocalCommandHarness({
+      text: "Continue",
+      resumeFailure: new ProviderAdapter.ProviderAdapterEventStreamError({
+        driver: ProviderDriverKind.make("codex"),
+        providerSessionId: ProviderSessionId.make("resume-provider-session"),
+        cause: { _tag: "CodexAppServerUnresponsiveError", method: "thread/resume" },
+      }),
+    });
+
+    const exit = yield* Effect.exit(harness.startWithRetry);
+
+    expect(exit._tag).toBe("Success");
+    expect(harness.fallbackEnsureThread).not.toHaveBeenCalled();
+    expect(harness.startRootRun).not.toHaveBeenCalled();
+    expect(harness.projection().runs.at(-1)?.status).toBe("failed");
+  }),
+);
+
 effectIt.effect("fails the run without a retry when the provider needs sign-in", () =>
   Effect.gen(function* () {
     const harness = makeLocalCommandHarness({
@@ -3228,6 +3284,51 @@ effectIt.effect("checks the run's status without loading the thread's history", 
       harness.getRuntimeRecoveryProjection.mock.calls.length,
       "recovery projection reads beyond the inherited background items snapshot",
     ).toBe(1);
+  }),
+);
+
+effectIt.effect.each([
+  {
+    id: "message:cache-warm:machine:test",
+    text: "Cache warm check only",
+    createdBy: "system" as const,
+  },
+  { id: "idle-compact:machine:test", text: "/compact", createdBy: "agent" as const },
+])("skips $id when its original provider session cannot be resumed", ({ id, text, createdBy }) =>
+  Effect.gen(function* () {
+    const harness = makeLocalCommandHarness({
+      text,
+      previousMessages: ["Prior user context"],
+      historyReadFailureAfterFallback: new Error("Unexpected recovery"),
+    });
+    harness.tryHandlePromptCommand.mockReturnValue(Effect.succeed(false));
+    const original = harness.projection();
+    const run = original.runs.at(-1)!;
+    const messageId = MessageId.make(id);
+    harness.setProjection({
+      ...original,
+      runs: original.runs.map((candidate) =>
+        candidate.id === run.id ? { ...candidate, userMessageId: messageId } : candidate,
+      ),
+      messages: original.messages.map((message) =>
+        message.id === run.userMessageId
+          ? { ...message, id: messageId, createdBy, creationSource: "server" }
+          : message,
+      ),
+    });
+
+    yield* harness.startWithRetry;
+    expect(harness.open).toHaveBeenCalledOnce();
+    expect(harness.fallbackEnsureThread).not.toHaveBeenCalled();
+    expect(harness.startRootRun).not.toHaveBeenCalled();
+    expect(harness.projection().runs.at(-1)).toMatchObject({
+      status: "cancelled",
+      startedAt: null,
+    });
+    expect(harness.projection().providerThreads.at(-1)?.nativeThreadRef?.nativeId).toBe(
+      "native-resume-thread",
+    );
+    expect(harness.projection().contextHandoffs).toEqual([]);
   }),
 );
 

@@ -93,7 +93,13 @@ function useEnvironmentWarming(environmentId: EnvironmentId, threads: readonly C
       cacheWarmingSessions: Object.fromEntries(currentIds.map((id) => [id, value])),
     });
   };
-  return { activeIds, enabled, canWrite, toggleAll };
+  return {
+    activeIds,
+    enabled,
+    canWrite,
+    toggleAll,
+    legacy: serverConfig?.settings?.machineIdlePolicy === undefined,
+  };
 }
 
 /** Sidebar switch for the routed thread's environment, or the primary one off a thread. */
@@ -127,11 +133,11 @@ export function CacheWarmingMachineToggle(props: {
   const machineThreads = props.threads.filter(
     (thread) => thread.environmentId === props.environmentId,
   );
-  const { activeIds, enabled, canWrite, toggleAll } = useEnvironmentWarming(
+  const { activeIds, enabled, canWrite, toggleAll, legacy } = useEnvironmentWarming(
     props.environmentId,
     machineThreads,
   );
-  if (activeIds.length === 0) return null;
+  if (!legacy || activeIds.length === 0) return null;
   return (
     // The header is uppercase and tracked; keep the button's own lettering.
     <span className="flex shrink-0 normal-case tracking-normal">
@@ -171,7 +177,7 @@ function EnvironmentToggle(props: {
   threads: readonly CacheThread[];
 }) {
   const gt = useGT();
-  const { activeIds, enabled, canWrite, toggleAll } = useEnvironmentWarming(
+  const { activeIds, enabled, canWrite, toggleAll, legacy } = useEnvironmentWarming(
     props.environmentId,
     props.threads,
   );
@@ -179,6 +185,7 @@ function EnvironmentToggle(props: {
   const isMixed = enabled === "mixed";
   // Name the machine: with several connected, "this server" does not say which one it is.
   const machineLabel = useEnvironment(props.environmentId)?.label ?? gt("this server");
+  if (!legacy) return null;
   return (
     <div className="flex min-h-8 items-center gap-2 px-2 text-2xs text-sidebar-muted-foreground">
       <span className="min-w-0 flex-1 truncate">

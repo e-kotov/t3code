@@ -35,7 +35,8 @@ async function showCachePolicyMenu<T extends string>(
   const api = readLocalApi();
   if (!api) return null;
   const settings = appAtomRegistry.get(serverEnvironment.settingsValueAtom(thread.environmentId));
-  if (!settings) return api.contextMenu.show(items, position, source);
+  if (!settings || settings.machineIdlePolicy !== undefined)
+    return api.contextMenu.show(items, position, source);
   const driver = cachePolicyDriver(
     settings,
     thread.modelSelection.instanceId,

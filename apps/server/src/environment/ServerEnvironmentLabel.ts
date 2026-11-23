@@ -193,14 +193,18 @@ const isWsl = Effect.fn("isWsl")(function* () {
   return kernelRelease.toLowerCase().includes("microsoft");
 });
 
+// Names this environment instead of the machine, e.g. for staged demos and scenario captures.
+const labelOverride = Config.String("T3CODE_ENVIRONMENT_LABEL").pipe(
+  Config.option,
+  Config.map(Option.flatMap((label) => Option.fromNullishOr(normalizeLabel(label)))),
+);
+
 export const resolveServerEnvironmentLabel = Effect.fn("resolveServerEnvironmentLabel")(function* (
   input: ResolveServerEnvironmentLabelInput,
 ) {
-  // Fork: a fixed name for servers whose host changes, e.g. a GWDG Slurm job on any node.
-  const configured = yield* Config.String("T3CODE_ENVIRONMENT_LABEL").pipe(Config.option);
-  const configuredLabel = Option.isSome(configured) ? normalizeLabel(configured.value) : null;
-  if (configuredLabel) {
-    return configuredLabel;
+  const override = yield* labelOverride.pipe(Effect.orElseSucceed(() => Option.none<string>()));
+  if (Option.isSome(override)) {
+    return override.value;
   }
 
   const friendlyHostLabel = yield* resolveFriendlyHostLabel();

@@ -1,0 +1,56 @@
+// Robolectric 4.16.1 instrumented SDK coordinates. Resolve them through Gradle's
+// usual Maven cache rather than opening network connections in parallel test JVMs.
+def sdkVersions = [
+  24: '7.0.0_r1-robolectric-r1-i7',
+  25: '7.1.0_r7-robolectric-r1-i7',
+  26: '8.0.0_r4-robolectric-r1-i7',
+  31: '12-robolectric-7732740-i7',
+  33: '13-robolectric-9030017-i7',
+  34: '14-robolectric-10818077-i7',
+  35: '15-robolectric-13954326-i7',
+  36: '16-robolectric-13921718-i7',
+]
+def projectSdks = [
+  ':expo-sharing': [31, 36],
+  ':t3-agent-notifications': [24, 25, 26, 33, 34, 36],
+  ':t3-citation-passage': [35, 36],
+  ':t3-tailnet': [31, 36],
+  ':t3-termux-command': [35, 36],
+]
+
+gradle.beforeProject { project ->
+  def sdks = projectSdks[project.path]
+  if (sdks == null) return
+
+  // The large SDK jars were getting HTTP 429 from Central on hosted runners.
+  // Route only this test artifact to Google's official Maven Central mirror.
+  project.repositories.exclusiveContent {
+    forRepository {
+      project.repositories.maven {
+        name = 'forkRobolectricCentralMirror'
+        url = 'https://maven-central.storage-download.googleapis.com/maven2/'
+        metadataSources { artifact() }
+      }
+    }
+    filter { includeModule('org.robolectric', 'android-all-instrumented') }
+  }
+
+  // A configuration per version prevents Gradle from selecting just the highest SDK.
+  def dependencies = sdks.collect { sdk ->
+    def jar = project.dependencies.create(
+      "org.robolectric:android-all-instrumented:${sdkVersions[sdk]}@jar"
+    )
+    project.configurations.detachedConfiguration(jar).tap { transitive = false }
+  }
+  def sdkDirectory = project.layout.buildDirectory.dir('fork-robolectric-sdks')
+  def stageSdks = project.tasks.register('stageForkRobolectricSdks', Sync) {
+    from(dependencies)
+    into(sdkDirectory)
+  }
+  project.tasks.withType(Test).configureEach {
+    dependsOn(stageSdks)
+    inputs.dir(sdkDirectory)
+    systemProperty 'robolectric.dependency.dir', sdkDirectory.get().asFile.absolutePath
+    testLogging.exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+  }
+}
