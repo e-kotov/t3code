@@ -261,8 +261,8 @@ export const layer: Layer.Layer<
           ) {
             return;
           }
-          // Stop can be accepted after the provider terminal but before its checkpoint commits.
-          // A pending request still wins; a cancelled/interrupted run already settled its Stop.
+          // A Stop accepted once the provider's turn had ended stored only its request: the
+          // terminal already wrote `completed` (or legacy `waiting`). That Stop still wins here.
           const stopSignals =
             !legacyWaiting && currentRun.status !== "completed"
               ? []
@@ -273,10 +273,9 @@ export const layer: Layer.Layer<
           const stopRequest = stopSignals.some((item) => item.type === "run_interrupt_result")
             ? undefined
             : stopSignals.find((item) => item.type === "run_interrupt_request");
-          const settleRun = legacyWaiting || stopRequest !== undefined;
-          const settledAt = stopRequest === undefined ? capturedAt : yield* DateTime.now;
           const settledStatus =
             stopRequest === undefined ? ("completed" as const) : ("interrupted" as const);
+          const settlesRun = legacyWaiting || stopRequest !== undefined;
           // Omit delegatedCompletion to preserve cohort writes made after capture loaded the run.
           const { delegatedCompletion: _delegatedCompletion, ...runWithoutDelegatedCompletion } =
             currentRun;
@@ -356,14 +355,14 @@ export const layer: Layer.Layer<
                       runId: run.id,
                       nodeId: rootNode.id,
                       providerInstanceId: run.providerInstanceId,
-                      occurredAt: settledAt,
+                      occurredAt: capturedAt,
                       payload: makeInterruptResultTurnItem({
                         idAllocator: ids,
                         run,
                         rootNode,
                         providerThread,
                         reason: stopRequest.message,
-                        completedAt: settledAt,
+                        completedAt: capturedAt,
                       }),
                     },
                   ]),
@@ -374,17 +373,17 @@ export const layer: Layer.Layer<
                 runId: run.id,
                 nodeId: rootNode.id,
                 providerInstanceId: run.providerInstanceId,
-                occurredAt: settledAt,
-                payload: settleRun
+                occurredAt: capturedAt,
+                payload: settlesRun
                   ? {
                       ...runWithoutDelegatedCompletion,
                       status: settledStatus,
-                      completedAt: currentRun.completedAt ?? settledAt,
+                      completedAt: capturedAt,
                       checkpointId: checkpoint.id,
                     }
                   : { ...runWithoutDelegatedCompletion, checkpointId: checkpoint.id },
               },
-              ...(!settleRun
+              ...(!settlesRun
                 ? []
                 : [
                     {
@@ -394,11 +393,11 @@ export const layer: Layer.Layer<
                       runId: run.id,
                       nodeId: rootNode.id,
                       providerInstanceId: run.providerInstanceId,
-                      occurredAt: settledAt,
+                      occurredAt: capturedAt,
                       payload: {
                         ...rootNode,
                         status: settledStatus,
-                        completedAt: rootNode.completedAt ?? settledAt,
+                        completedAt: capturedAt,
                         checkpointScopeId: scope.id,
                       },
                     },

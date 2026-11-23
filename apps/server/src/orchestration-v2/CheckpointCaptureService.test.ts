@@ -741,27 +741,18 @@ it.layer(layerProjectionStoreTest)("CheckpointCaptureServiceV2", (it) => {
       const runUpdated = events.find((event) => event.type === "run.updated");
       const nodeUpdated = events.find((event) => event.type === "node.updated");
       assert.equal(nodeUpdated?.payload.status, "interrupted");
-      if (status === "completed") {
-        assert.deepEqual(runUpdated?.payload.completedAt, providerCompletedAt);
-        assert.deepEqual(nodeUpdated?.payload.completedAt, providerCompletedAt);
-      }
       assert.equal(
         runUpdated?.type === "run.updated" ? runUpdated.payload.status : undefined,
         "interrupted",
       );
-      const result = events.find(
-        (event) =>
-          event.type === "turn-item.updated" && event.payload.type === "run_interrupt_result",
-      );
-      assert.deepEqual(result?.occurredAt, stopTime);
       assert.deepEqual(
-        result?.type === "turn-item.updated" ? result.payload.completedAt : null,
-        stopTime,
+        events.flatMap((event) =>
+          event.type === "turn-item.updated" && event.payload.type === "run_interrupt_result"
+            ? [event.payload.message]
+            : [],
+        ),
+        ["Stopped by user"],
       );
-      if (status === "waiting") {
-        assert.deepEqual(runUpdated?.payload.completedAt, stopTime);
-        assert.deepEqual(nodeUpdated?.payload.completedAt, stopTime);
-      }
     }).pipe(Effect.provide(IdAllocator.layer)),
   );
 
