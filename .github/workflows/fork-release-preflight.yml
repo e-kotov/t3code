@@ -43,10 +43,11 @@ jobs:
         with:
           install-args: --filter=t3... --filter=@t3tools/scripts...
       - name: Test webhook delivery and address validation
+        working-directory: apps/server
         run: |
           vp test run \
-            apps/server/src/mcp/McpWebhookTransport.test.ts \
-            apps/server/src/milestones/MilestoneEvents.test.ts
+            src/mcp/McpWebhookTransport.test.ts \
+            src/milestones/MilestoneEvents.test.ts
       - name: Build and run the single-executable
         run: |
           node apps/server/scripts/cli.ts build-exe
@@ -74,4 +75,4 @@ jobs:
           xcodebuild -version
           node apps/desktop/scripts/build-apple-speech.mjs --arch arm64 --output "$RUNNER_TEMP/t3-apple-speech"
           test -x "$RUNNER_TEMP/t3-apple-speech"
-          xcrun lipo -verify_arch arm64 "$RUNNER_TEMP/t3-apple-speech"
+          test "$(xcrun lipo -archs "$RUNNER_TEMP/t3-apple-speech")" = arm64
