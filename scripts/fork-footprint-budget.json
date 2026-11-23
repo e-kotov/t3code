@@ -98,6 +98,7 @@
     "apps/server/src/mcp/McpHttpServer.ts": 4,
     "apps/server/src/mcp/OrchestratorMcpService.test.ts": 9,
     "apps/server/src/mcp/OrchestratorMcpService.ts": 97,
+    "apps/server/src/mcp/toolkits/core.test.ts": 35,
     "apps/server/src/mcp/toolkits/orchestrator/handlers.ts": 13,
     "apps/server/src/mcp/toolkits/orchestrator/tools.ts": 4,
     "apps/server/src/mcp/toolkits/preview/handlers.test.ts": 19,
