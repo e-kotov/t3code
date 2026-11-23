@@ -1,5 +1,6 @@
 {
   "files": {
+    ".github/workflows/ci.yml": 7,
     "AGENTS.md": 4,
     "apps/desktop/package.json": 2,
     "apps/desktop/src/electron/ElectronMenu.ts": 9,
@@ -95,6 +96,7 @@
     "apps/server/src/cli/update.ts": 13,
     "apps/server/src/cloud/pinnedRuntime.ts": 2,
     "apps/server/src/environment/ServerEnvironment.ts": 7,
+    "apps/server/src/mcp/McpWebhookTransport.ts": 5,
     "apps/server/src/mcp/McpHttpServer.ts": 4,
     "apps/server/src/mcp/OrchestratorMcpService.test.ts": 9,
     "apps/server/src/mcp/OrchestratorMcpService.ts": 97,
