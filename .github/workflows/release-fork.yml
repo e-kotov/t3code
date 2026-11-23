@@ -130,7 +130,7 @@ jobs:
         include:
           # Apple Silicon only; Intel Macs are not a target of this fork.
           - arch: arm64
-            runner: macos-15
+            runner: macos-26
             rust_target: aarch64-apple-darwin
             resource_key: darwin-arm64
     uses: ./.github/workflows/release-desktop.yml
@@ -232,6 +232,7 @@ jobs:
           mkdir -p apps/server/dist/resource-monitor/linux-x64
           cp native/resource-monitor/target/release/t3-resource-monitor apps/server/dist/resource-monitor/linux-x64/
       - run: node apps/server/scripts/cli.ts build-exe --verbose
+      - run: apps/server/dist-exe/t3 --version
       - run: node scripts/build-cli-archive.ts --platform linux --arch x64 --version "$RELEASE_VERSION" --output-dir release-cli
         env:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
