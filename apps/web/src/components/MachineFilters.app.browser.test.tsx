@@ -157,6 +157,15 @@ async function mount() {
 }
 
 async function openAddProjectFromSidebar(app: Awaited<ReturnType<typeof mount>>["app"]) {
+  // Capture can run against main from before Add project moved into the scope picker.
+  // The actual behavior tests below always use the new entry point.
+  if (import.meta.env.VITE_MACHINE_FILTER_CAPTURE === "before") {
+    const baselineButton = app.getByRole("button", { name: "Add project", exact: true });
+    if (baselineButton.query() !== null) {
+      await userEvent.click(baselineButton);
+      return;
+    }
+  }
   await userEvent.click(
     app.getByRole("combobox", { name: /^Filter threads by project or machine/ }),
   );
