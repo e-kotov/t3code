@@ -2,7 +2,12 @@ import type { AuthPairingLink } from "@t3tools/contracts";
 import * as DateTime from "effect/DateTime";
 import { describe, expect, it } from "vite-plus/test";
 
-import { connectDeviceApprovalPrompts, createApprovalPromptQueue } from "./connectDeviceApproval";
+import {
+  type DialogAnswer,
+  connectDeviceApprovalPrompts,
+  createApprovalPromptQueue,
+  createConnectDeviceDialogQueue,
+} from "./connectDeviceApproval";
 
 const link = (id: string, createdAtMs: number, request?: AuthPairingLink["connectDeviceRequest"]) =>
   ({
@@ -109,5 +114,42 @@ describe("createApprovalPromptQueue", () => {
     expect(shown).toEqual(["a", "c"]);
     // A dropped host's request can be offered again once the host is back.
     expect(queue.known.has("b")).toBe(false);
+  });
+});
+
+describe("createConnectDeviceDialogQueue", () => {
+  it("keeps one machine's approval visible when another machine signs in", () => {
+    const shown: string[] = [];
+    const pending: DialogAnswer[] = [];
+    const queue = createConnectDeviceDialogQueue((prompt, answer) => {
+      shown.push(prompt.pairingLinkId);
+      pending.push(answer);
+    });
+
+    queue.offer([{ kind: "approval", pairingLinkId: "mini:approval" }]);
+    queue.offer([{ kind: "notice", pairingLinkId: "laptop:notice" }]);
+    expect(shown).toEqual(["mini:approval"]);
+
+    pending.shift()!("done");
+    expect(shown).toEqual(["mini:approval", "laptop:notice"]);
+  });
+
+  it("shows waiting approvals before notices without replacing the current dialog", () => {
+    const shown: string[] = [];
+    const pending: DialogAnswer[] = [];
+    const queue = createConnectDeviceDialogQueue((prompt, answer) => {
+      shown.push(prompt.pairingLinkId);
+      pending.push(answer);
+    });
+
+    queue.offer([{ kind: "notice", pairingLinkId: "mini:notice-1" }]);
+    queue.offer([{ kind: "notice", pairingLinkId: "mini:notice-2" }]);
+    queue.offer([{ kind: "approval", pairingLinkId: "laptop:approval" }]);
+    expect(shown).toEqual(["mini:notice-1"]);
+
+    pending.shift()!("done");
+    expect(shown).toEqual(["mini:notice-1", "laptop:approval"]);
+    pending.shift()!("done");
+    expect(shown).toEqual(["mini:notice-1", "laptop:approval", "mini:notice-2"]);
   });
 });

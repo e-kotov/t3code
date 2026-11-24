@@ -18,8 +18,9 @@ import { useEnvironmentsWithScope } from "../../state/session";
 import { useAtomCommand } from "../../state/use-atom-command";
 import {
   type ConnectDeviceApprovalPrompt,
+  type DialogAnswer,
   connectDeviceApprovalPrompts,
-  createApprovalPromptQueue,
+  createConnectDeviceDialogQueue,
   describeConnectDevice,
 } from "./connectDeviceApproval";
 
@@ -62,6 +63,7 @@ export function ConnectDeviceApprovalCoordinator() {
 }
 
 interface NewDeviceNotice {
+  readonly kind: "notice";
   /** Keys the queue; a later notice for the same host carries a newer watermark. */
   readonly pairingLinkId: string;
   readonly environmentId: EnvironmentId;
@@ -88,7 +90,7 @@ const markConnectDevicesSeen = (environmentId: EnvironmentId, newest: number) =>
     },
   })).catch(() => undefined);
 
-const newDeviceNotices = createApprovalPromptQueue<NewDeviceNotice>((notice, answer) => {
+function presentNewDeviceNotice(notice: NewDeviceNotice, answer: DialogAnswer) {
   void (async () => {
     const host = announcedHosts.get(notice.environmentId);
     const seen = host ? await loadSeenThrough(notice.environmentId) : null;
@@ -124,7 +126,7 @@ const newDeviceNotices = createApprovalPromptQueue<NewDeviceNotice>((notice, ans
       { onDismiss: () => answer("later") },
     );
   })();
-});
+}
 
 /** Devices approved by hand are already known, so only `announce` hosts that skip approval. */
 function NewConnectDeviceWatcher(props: {
@@ -148,8 +150,12 @@ function NewConnectDeviceWatcher(props: {
       if (seen.seenThrough !== newest) await markConnectDevicesSeen(props.environmentId, newest);
       return;
     }
-    newDeviceNotices.offer([
-      { pairingLinkId: `${props.environmentId}:${newest}`, environmentId: props.environmentId },
+    connectDeviceDialogs.offer([
+      {
+        kind: "notice",
+        pairingLinkId: `notice:${props.environmentId}:${newest}`,
+        environmentId: props.environmentId,
+      },
     ]);
   });
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- a device this phone has not announced opens a native alert
@@ -161,7 +167,9 @@ function NewConnectDeviceWatcher(props: {
     const environmentId = props.environmentId;
     return () => {
       announcedHosts.delete(environmentId);
-      newDeviceNotices.drop((notice) => notice.environmentId === environmentId);
+      connectDeviceDialogs.drop(
+        (prompt) => prompt.kind === "notice" && prompt.environmentId === environmentId,
+      );
     };
   }, [props.environmentId]);
 
@@ -172,6 +180,7 @@ function NewConnectDeviceWatcher(props: {
 type ApprovalAnswer = "done" | "failed" | "gone";
 
 interface QueuedApprovalPrompt extends ConnectDeviceApprovalPrompt {
+  readonly kind: "approval";
   readonly environmentId: EnvironmentId;
   readonly approve: () => Promise<ApprovalAnswer>;
   readonly deny: () => Promise<ApprovalAnswer>;
@@ -179,8 +188,7 @@ interface QueuedApprovalPrompt extends ConnectDeviceApprovalPrompt {
 
 const watchedEnvironments = new Set<EnvironmentId>();
 
-// One queue for every host: a second Android alert would replace an unanswered first one.
-const approvalPrompts = createApprovalPromptQueue<QueuedApprovalPrompt>((prompt, answer) => {
+function presentApprovalPrompt(prompt: QueuedApprovalPrompt, answer: DialogAnswer) {
   const respond = (action: () => Promise<ApprovalAnswer>, failure: string) => () =>
     void action().then((outcome) => {
       // A host that went away or lost access cannot be retried; let the next prompt show.
@@ -221,7 +229,14 @@ const approvalPrompts = createApprovalPromptQueue<QueuedApprovalPrompt>((prompt,
     // Another dialog took the screen; offer the request again on the next update.
     { cancelable: false, onDismiss: () => answer("later") },
   );
-});
+}
+
+const connectDeviceDialogs = createConnectDeviceDialogQueue<QueuedApprovalPrompt | NewDeviceNotice>(
+  (prompt, answer) =>
+    prompt.kind === "approval"
+      ? presentApprovalPrompt(prompt, answer)
+      : presentNewDeviceNotice(prompt, answer),
+);
 
 function EnvironmentApprovalWatcher(props: {
   readonly environmentId: EnvironmentId;
@@ -239,11 +254,12 @@ function EnvironmentApprovalWatcher(props: {
     const prompts = connectDeviceApprovalPrompts({
       environmentLabel: props.environmentLabel,
       pairingLinks: links,
-      shownIds: approvalPrompts.known,
+      shownIds: connectDeviceDialogs.known,
     });
-    approvalPrompts.offer(
+    connectDeviceDialogs.offer(
       prompts.map((prompt) => ({
         ...prompt,
+        kind: "approval",
         environmentId: props.environmentId,
         approve: () =>
           approve({
@@ -266,7 +282,9 @@ function EnvironmentApprovalWatcher(props: {
     watchedEnvironments.add(environmentId);
     return () => {
       watchedEnvironments.delete(environmentId);
-      approvalPrompts.drop((prompt) => prompt.environmentId === environmentId);
+      connectDeviceDialogs.drop(
+        (prompt) => prompt.kind === "approval" && prompt.environmentId === environmentId,
+      );
     };
   }, [props.environmentId]);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- a new request on the access stream opens a native alert
