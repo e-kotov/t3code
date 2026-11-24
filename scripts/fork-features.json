@@ -182,6 +182,15 @@
       "tests": ["apps/server/src/provider/claudeArtifacts.test.ts"]
     },
     {
+      "id": "agent-telemetry-off",
+      "group": "Providers and automations",
+      "summary": "Codex and Pi launched with their own analytics, feedback uploads and telemetry off",
+      "tests": [
+        "apps/server/src/provider/forkCodexTelemetry.test.ts",
+        "packages/provider-pi/src/server/forkPiTelemetry.test.ts"
+      ]
+    },
+    {
       "id": "antigravity",
       "group": "Providers and automations",
       "summary": "Antigravity over ACP with a custom client name, token and cache context, quotas and a browser preflight",

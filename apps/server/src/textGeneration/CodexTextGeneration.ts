@@ -24,6 +24,7 @@ import {
   resolveCodexLaunchArgs,
 } from "../provider/codexLaunchArgs.ts";
 import { codexAppServerEnvironment } from "../provider/CodexProvider.ts";
+import { FORK_CODEX_TELEMETRY_OFF_ARGS } from "../provider/forkCodexTelemetry.ts";
 import * as TextGenerationOperations from "@t3tools/provider-core/server/textGenerationOperations";
 import {
   normalizeCliError,
@@ -319,6 +320,7 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
           ...execLaunchArgs,
           // A user's MCP server could act on the text-generation prompt.
           ...CODEX_NO_PLUGIN_ARGS,
+          ...FORK_CODEX_TELEMETRY_OFF_ARGS,
           ...(mcpServersOff && launchArgsSetMcpTable ? ["--config", mcpServersOff] : []),
           // After launch args, so a launch arg's enabled=true cannot turn a server back on.
           ...codexMcpServerOffFlags(enabledMcpServers),

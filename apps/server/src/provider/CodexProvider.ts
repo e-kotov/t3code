@@ -40,6 +40,7 @@ import {
 } from "@t3tools/shared/model";
 import { resolveSpawnCommand } from "@t3tools/shared/shell";
 import { codexAppServerArgs, resolveCodexLaunchArgs } from "./codexLaunchArgs.ts";
+import { withForkCodexTelemetryOff } from "./forkCodexTelemetry.ts";
 import {
   buildServerProvider,
   COMPACT_SLASH_COMMAND,
@@ -649,7 +650,7 @@ export const withCodexAppServerClient = Effect.fn("withCodexAppServerClient")(fu
   const environment = yield* codexProcessEnvironment(input);
   const spawnCommand = yield* resolveSpawnCommand(
     input.binaryPath,
-    codexAppServerArgs(input.launchArgs),
+    withForkCodexTelemetryOff(codexAppServerArgs(input.launchArgs)),
     { env: environment, extendEnv: true },
   );
   const child = yield* spawner
