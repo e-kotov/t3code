@@ -42,7 +42,6 @@ import {
   type OrchestratorMcpUpdateScheduledTaskInput,
   type OrchestratorMcpListScheduledTasksInput,
   type ProjectId,
-  ScheduledTaskId,
   type OrchestratorMcpThreadDetail,
   type OrchestratorMcpThreadInterruptInput,
   type OrchestratorMcpThreadInterruptResult,
@@ -144,6 +143,7 @@ import {
   taskPrompt,
 } from "./delegatedTaskModes.ts";
 import { assertTargetWithinLimits, isLiveCallerShell, threadNotFound } from "./threadAccess.ts";
+import { WITHHELD, withoutWebhookUrlToken } from "../scheduledTasks/webhookUrlToken.ts";
 import * as SecretRequests from "../secrets/SecretRequests.ts";
 import * as PeerForwarding from "../peer/PeerForwarding.ts";
 import * as RemoteDelegation from "../peer/RemoteDelegation.ts";
@@ -1134,6 +1134,19 @@ function jsonText(value: unknown): string {
   }
 }
 
+// Thread reads show a webhook's signing secret as withheld.
+
+const asRecord = (value: unknown) =>
+  typeof value === "object" && value !== null ? (value as Readonly<Record<string, unknown>>) : null;
+
+function withoutWebhookSigningSecret(toolInput: unknown): unknown {
+  const input = asRecord(toolInput);
+  const schedule = asRecord(input?.schedule);
+  const signature = asRecord(schedule?.signature);
+  if (typeof signature?.secret !== "string") return toolInput;
+  return { ...input, schedule: { ...schedule, signature: { ...signature, secret: WITHHELD } } };
+}
+
 function turnItemText(item: OrchestrationV2TurnItem): string | null {
   switch (item.type) {
     case "notification":
@@ -1199,7 +1212,11 @@ function turnItemText(item: OrchestrationV2TurnItem): string | null {
     case "subagent":
       return item.result ?? item.progress ?? item.prompt;
     case "dynamic_tool":
-      return jsonText({ toolName: item.toolName, input: item.input, output: item.output });
+      return jsonText({
+        toolName: item.toolName,
+        input: withoutWebhookSigningSecret(item.input),
+        output: item.output,
+      });
   }
 }
 
@@ -1218,7 +1235,8 @@ function timelineItem(input: {
   readonly textOffset?: number;
   readonly messagesByThreadId: ReadonlyMap<ThreadId, OrchestrationV2ThreadProjection["messages"]>;
 }): OrchestratorMcpThreadTimelineItem {
-  const text = turnItemText(input.row.item);
+  const itemText = turnItemText(input.row.item);
+  const text = itemText === null ? null : withoutWebhookUrlToken(itemText);
   const offset = input.textOffset ?? 0;
   const end = textPageEnd(text, offset, input.maxChars);
   const textTruncated = text !== null && text.length > end;
@@ -2388,6 +2406,21 @@ const make = Effect.gen(function* () {
     },
   );
 
+  const requireScheduledTaskWithinLimits = Effect.fn(
+    "OrchestratorMcpService.requireScheduledTaskWithinLimits",
+  )(function* (
+    task: ScheduledTask,
+    limits: {
+      readonly runtimeMode: RuntimeMode;
+      readonly interactionMode: ProviderInteractionMode;
+    },
+  ) {
+    for (const modes of yield* scheduledTaskRunModes(task)) {
+      yield* resolveRuntimeMode(limits.runtimeMode, modes.runtimeMode);
+      yield* resolveInteractionMode(limits.interactionMode, modes.interactionMode);
+    }
+  });
+
   /**
    * A scheduled task the caller may change: one whose runs execute at modes no
    * broader than the caller's own, so editing its prompt cannot run work above
@@ -2411,10 +2444,7 @@ const make = Effect.gen(function* () {
     if (task === undefined) {
       return yield* failure("task_not_found", `Scheduled task ${scheduledTaskId} was not found.`);
     }
-    for (const modes of yield* scheduledTaskRunModes(task)) {
-      yield* resolveRuntimeMode(limits.runtimeMode, modes.runtimeMode);
-      yield* resolveInteractionMode(limits.interactionMode, modes.interactionMode);
-    }
+    yield* requireScheduledTaskWithinLimits(task, limits);
     return task;
   });
 
@@ -2434,11 +2464,13 @@ const make = Effect.gen(function* () {
               operation: "schedule-task",
             });
       if (commandId !== undefined) {
-        const existingId = ScheduledTaskId.make(`scheduled-task:${commandId}`);
-        const existing = yield* scheduledTasks.list().pipe(
-          Effect.map(({ tasks }) => tasks.find((task) => task.id === existingId)),
-          Effect.mapError((error) =>
-            failure("orchestration_error", `Could not schedule task: ${error.message}`),
+        const existing = yield* loadScheduledTask(
+          ScheduledTaskService.scheduledTaskIdForCommand(commandId),
+          limits,
+        ).pipe(
+          Effect.catchIf(
+            (error) => error.code === "task_not_found",
+            () => Effect.undefined,
           ),
         );
         if (existing !== undefined) {

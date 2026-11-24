@@ -5,10 +5,12 @@ import "vite-plus/test/config";
 import { FORK_REACT_TESTS } from "./fork-react-tests";
 
 const reactTests = [
+  "src/features/browser/LocalPreviewRouteScreen.test.tsx",
   "src/features/threads/LinkedThreadSheet.test.tsx",
   "src/features/threads/ThreadGuestShareSheet.test.tsx",
   "src/features/threads/useSubmitAfterNativeImages.test.tsx",
   "src/features/threads/git/GitBranchesSheet.test.tsx",
+  "src/features/threads/git/GitConfirmSheet.test.tsx",
   "src/features/threads/new-task-flow-provider.test.tsx",
   "src/features/threads/NewTaskRouteScreen.test.tsx",
   "src/features/layout/workspace/workspace-tabs-state.test.ts",
@@ -40,6 +42,7 @@ const reactTests = [
   "src/components/ui/FilePreviewSession.test.tsx",
   "src/features/threads/UsageLimitRecoveryCard.test.tsx",
   "src/features/threads/PendingUserInputCard.test.tsx",
+  "src/features/threads/HtmlRenderWebView.test.tsx",
   "src/features/threads/NewTaskDraftRouteScreen.test.tsx",
   "src/native/NativeHeaderToolbar.test.tsx",
   "src/components/ComposerEditor.ios.test.tsx",

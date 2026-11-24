@@ -1,4 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import { ProviderInstanceId, type ModelSelection } from "@t3tools/contracts";
 import * as ClaudeAdapterV2 from "./ClaudeAdapterV2.ts";
 
@@ -35,6 +36,57 @@ describe("fork Claude cache usage", () => {
       reasoningOutputTokens: 0,
       updatedAt: "2026-08-29T00:00:00.000Z",
     });
+  });
+
+  it("keeps the cache deadline when accounting for only the final main-model sample", () => {
+    const usage = ClaudeAdapterV2.claudeProviderTurnTokenUsage(
+      {
+        input_tokens: 300,
+        cache_read_input_tokens: 90_000,
+        output_tokens: 40,
+        iterations: [
+          {
+            type: "message",
+            cache_creation: null,
+            cache_creation_input_tokens: 0,
+            input_tokens: 100,
+            cache_read_input_tokens: 40_000,
+            output_tokens: 10,
+          },
+          {
+            type: "advisor_message",
+            cache_creation: null,
+            cache_creation_input_tokens: 0,
+            cache_read_input_tokens: 0,
+            input_tokens: 120_000,
+            output_tokens: 500,
+            model: "claude-opus-4-6",
+          },
+          {
+            type: "message",
+            cache_creation: null,
+            cache_creation_input_tokens: 0,
+            input_tokens: 200,
+            cache_read_input_tokens: 50_000,
+            output_tokens: 30,
+          },
+        ],
+      },
+      200_000,
+      "2026-08-29T00:01:00.000Z",
+      "",
+      DateTime.makeUnsafe("2026-08-29T00:00:00.000Z"),
+      5 * 60_000,
+      CLAUDE_TEST_MODEL_SELECTION,
+    );
+
+    assert.strictEqual(usage.usedTokens, 50_230);
+    assert.strictEqual(usage.cachedInputTokens, 50_000);
+    assert.strictEqual(usage.promptCacheExpiresAt, "2026-08-29T00:05:00.000Z");
+    assert.strictEqual(
+      usage.cacheScopeKey,
+      `${CLAUDE_TEST_MODEL_SELECTION.instanceId}:${CLAUDE_TEST_MODEL_SELECTION.model}`,
+    );
   });
 
   it("reports the prompt cache TTL the response wrote", () => {
