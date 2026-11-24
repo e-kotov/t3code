@@ -149,6 +149,7 @@ import {
   selectProjectGroupingSettings,
 } from "@t3tools/client-runtime/state/project-grouping";
 import {
+  buildSidebarProjectPickerEntries,
   projectGroupsSpanEnvironments,
   resolveSidebarProjectScopeKeys,
   getSidebarProjectSettingsKey,
@@ -171,7 +172,7 @@ import { useSidebarProjectGroups } from "../hooks/useSidebarProjectGroups";
 import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
 import { registerSettleAndAdvance } from "../settleAndAdvance";
 import { useSettleNavigation } from "./sidebar/useSettleNavigation";
-import { startNewThreadFromContext } from "../lib/chatThreadActions";
+import { resolveThreadActionProjectRef, startNewThreadFromContext } from "../lib/chatThreadActions";
 import { useClientSettings } from "../hooks/useSettings";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { useLocalStorage } from "../hooks/useLocalStorage";
@@ -1385,11 +1386,25 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   );
   const startThreadInProjectFolder = useStableCallback((group: SidebarProjectSnapshot) => {
     if (isMobile) setOpenMobile(false);
-    const project =
-      (environmentScopeIds.length > 0
-        ? group.memberProjects.find((member) => includesEnvironment(member.environmentId))
-        : null) ?? group;
-    void handleNewThread(scopeProjectRef(project.environmentId, project.id));
+    const [entry] = buildSidebarProjectPickerEntries({
+      groups: [
+        {
+          ...group,
+          memberProjects: group.memberProjects.filter((member) =>
+            includesEnvironment(member.environmentId),
+          ),
+          memberProjectRefs: group.memberProjectRefs.filter((member) =>
+            includesEnvironment(member.environmentId),
+          ),
+        },
+      ],
+      preferredProjectRef: resolveThreadActionProjectRef({
+        ...newThreadContext,
+        activeThread: newThreadContext.activeThread ?? undefined,
+      }),
+    });
+    const target = entry?.targetProject ?? (environmentScopeIds.length === 0 ? group : undefined);
+    if (target) void handleNewThread(scopeProjectRef(target.environmentId, target.id));
   });
   const handleProjectFolderContextMenu = useStableCallback(
     (
@@ -2849,6 +2864,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
               canSnoozeNow: canSnooze(thread, { now: new Date().toISOString() }),
               isRegeneratingTitle,
               isRunning: !threadRuntimeCanArchive(thread.runtime),
+              hasCompletedRun: thread.latestRun?.completedAt != null,
               canShareWithGuest: appAtomRegistry.get(
                 canShareWithGuestAtom(threadRef.environmentId),
               ),

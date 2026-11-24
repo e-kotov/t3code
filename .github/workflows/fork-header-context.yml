@@ -77,6 +77,8 @@ jobs:
           git show "origin/main:$source" > "$source"
           VITE_HEADER_CONTEXT_CAPTURE=before vp test run apps/web/src/components/chat/HeaderContextLabels.app.browser.test.tsx
       - name: Check changed code
+        env:
+          CHECK_CHANGED_TIMEOUT: "1800"
         run: vp run check:changed origin/main
       - name: Capture the header states and verify shared connection behavior
         env:

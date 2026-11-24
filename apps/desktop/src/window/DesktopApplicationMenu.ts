@@ -189,8 +189,8 @@ export const make = Effect.gen(function* () {
   const clientSettings = yield* Effect.serviceOption(DesktopClientSettings.DesktopClientSettings);
   const context = yield* Effect.context<DesktopApplicationMenuRuntimeServices>();
   const runPromise = Effect.runPromiseWith(context);
-  const runSync = Effect.runSyncWith(context);
   const runFork = Effect.runForkWith(context);
+  const runSync = Effect.runSyncWith(context);
 
   const runMenuEffect = <E>(
     action: string,
@@ -221,8 +221,8 @@ export const make = Effect.gen(function* () {
       event: Electron.KeyboardEvent,
     ) => {
       if (event.triggeredByAccelerator === true) {
-        // Windows/Linux already paste through Chromium. On macOS, a renderer
-        // round trip can arrive after the terminal's clipboard read and paste twice.
+        // Chromium pastes this chord itself except on macOS. Paste synchronously there:
+        // a renderer round trip can land after the terminal's own clipboard read.
         if (environment.platform === "darwin") {
           runSync(electronMenu.pasteAndMatchStyle);
         }

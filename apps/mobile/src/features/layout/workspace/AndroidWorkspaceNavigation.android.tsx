@@ -1,5 +1,10 @@
-import { selectedNavigationTab, visibleNavigationTabs } from "./navigation-tab-order";
+import {
+  NAVIGATION_TAB_LABELS,
+  selectedNavigationTab,
+  visibleNavigationTabs,
+} from "./navigation-tab-order";
 import { requireNativeView } from "expo";
+import { msg, useGT, useMessages } from "gt-react-native";
 import { CommonActions, useNavigation } from "@react-navigation/native";
 import {
   Keyboard,
@@ -40,6 +45,9 @@ interface NativeNavigationProps extends ViewProps, UtilitiesNavigation {
   readonly rail: boolean;
   readonly floating: boolean;
   readonly tabs: readonly string[];
+  readonly tabTitles: Readonly<Record<string, string>>;
+  readonly expandedTabTitles: Readonly<Record<string, string>>;
+  readonly newThreadTitle: string;
   readonly selectedTab: AndroidWorkspaceNavigationTab;
   readonly dark: boolean;
   readonly textScale: number;
@@ -60,6 +68,13 @@ interface NativeNavigationProps extends ViewProps, UtilitiesNavigation {
   readonly onOverlayChange: (event: NativeSyntheticEvent<{ readonly overlay: boolean }>) => void;
 }
 
+const TAB_TITLES = {
+  ...NAVIGATION_TAB_LABELS,
+  threads: msg("Chats", { $context: "navigation tab, list of chat threads" }),
+  settings: msg("Settings"),
+  commands: msg("Utilities"),
+};
+
 const NativeNavigation = requireNativeView<NativeNavigationProps>("T3WorkspaceNavigation");
 
 function nativeColor(value: string) {
@@ -78,6 +93,8 @@ export function AndroidWorkspaceNavigation(props: {
   readonly onOverlayChange?: (overlay: boolean) => void;
 }) {
   const workspace = useWorkspaceTabs()!;
+  const gt = useGT();
+  const m = useMessages();
   const order = useNavigationTabOrder();
   const hidden = useHiddenNavigationTabs();
   const root = useAndroidWorkspaceRoot();
@@ -93,7 +110,11 @@ export function AndroidWorkspaceNavigation(props: {
   const window = useWindowDimensions();
   const rail = Boolean(props.rail);
   const floating = !rail && Boolean(props.floating);
-  const tabs = [...visibleNavigationTabs(order, hidden, rail ? 5 : 4), "commands", "settings"];
+  const tabs = [
+    ...visibleNavigationTabs(order, hidden, rail ? 5 : 4),
+    "commands",
+    "settings",
+  ] as const;
   const { containerColor, indicatorColor, selectedColor, unselectedColor } =
     androidWorkspaceNavigationColors(colors, rail, floating);
   const selectedTab = selectedNavigationTab(
@@ -127,6 +148,9 @@ export function AndroidWorkspaceNavigation(props: {
         rail={rail}
         floating={floating}
         tabs={tabs}
+        tabTitles={Object.fromEntries(tabs.map((tab) => [tab, m(TAB_TITLES[tab])]))}
+        expandedTabTitles={{ pullRequests: gt("Pull requests") }}
+        newThreadTitle={gt("New thread")}
         selectedTab={selectedTab}
         dark={themeAppearance === "dark"}
         textScale={scale}

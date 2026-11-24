@@ -5,24 +5,15 @@ import type {
   OrchestrationV2TurnItem,
   OrchestrationV2UserMessageInputIntent,
 } from "@t3tools/contracts";
-import { isIdleMaintenanceMessageId } from "./threadCachePolicy.ts";
+import * as ForkTimelineVisibility from "./forkTimelineVisibility.ts";
 
-type TimelineRun = Pick<OrchestrationV2Run, "id" | "status">;
+type TimelineRun = Pick<OrchestrationV2Run, "id" | "status"> &
+  Partial<Pick<OrchestrationV2Run, "startedAt">>;
 type TimelineRunAttempt = Pick<OrchestrationV2RunAttempt, "runId" | "rootNodeId" | "status">;
 type TimelineTurnItem = Pick<OrchestrationV2TurnItem, "type" | "runId" | "nodeId"> & {
   readonly inputIntent?: OrchestrationV2UserMessageInputIntent;
   readonly messageId?: MessageId;
 };
-
-function isHiddenUserInput(item: TimelineTurnItem, status: TimelineRun["status"] | undefined) {
-  return (
-    item.type === "user_message" &&
-    ((item.inputIntent === "queued_turn" && (status === "queued" || status === "cancelled")) ||
-      (status === "cancelled" &&
-        item.messageId !== undefined &&
-        isIdleMaintenanceMessageId(item.messageId)))
-  );
-}
 
 function isOrchestrationV2SupersededInterrupt(input: {
   readonly item: TimelineTurnItem;
@@ -61,11 +52,7 @@ export function isOrchestrationV2TurnItemVisible(input: {
   // Retained inputs can return to the queue; do not scan the runs twice.
   if (
     item.runId !== null &&
-    input.runs.some(
-      (run) =>
-        run.id === item.runId &&
-        (run.status === "rolled_back" || isHiddenUserInput(item, run.status)),
-    )
+    input.runs.some((run) => run.id === item.runId && ForkTimelineVisibility.isHidden(item, run))
   ) {
     return false;
   }
@@ -82,10 +69,10 @@ export function createOrchestrationV2TurnItemVisibility(input: {
   readonly attempts: ReadonlyArray<TimelineRunAttempt>;
   readonly items: ReadonlyArray<TimelineTurnItem>;
 }): (item: TimelineTurnItem) => boolean {
-  const statuses = new Map<TimelineRun["id"], TimelineRun["status"]>();
+  const statuses = new Map<TimelineRun["id"], ForkTimelineVisibility.TimelineVisibilityStatus>();
   for (const run of input.runs) {
-    if (run.status === "rolled_back" || run.status === "cancelled" || run.status === "queued")
-      statuses.set(run.id, run.status);
+    const status = ForkTimelineVisibility.runVisibilityStatus(run);
+    if (status !== undefined) statuses.set(run.id, status);
     else statuses.delete(run.id);
   }
   const supersededRoots = new Map<
@@ -108,7 +95,7 @@ export function createOrchestrationV2TurnItemVisibility(input: {
   return (item) => {
     const status = item.runId === null ? undefined : statuses.get(item.runId);
     if (status === "rolled_back") return false;
-    if (isHiddenUserInput(item, status)) return false;
+    if (ForkTimelineVisibility.isHiddenUserInput(item, status)) return false;
     return !(
       item.type === "run_interrupt_result" &&
       item.runId !== null &&
