@@ -30,6 +30,8 @@ import {
  */
 export function ConnectDeviceApprovalCoordinator() {
   const { environments } = useEnvironments();
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- resume queued alerts when another feature releases the Android dialog slot
+  useEffect(() => Dialog.subscribeDialogSlotIdle(connectDeviceDialogs.resume), []);
   const connected = environments.filter(
     (environment) =>
       environment.connection.phase === "connected" && environment.serverConfig !== undefined,
@@ -98,6 +100,8 @@ function presentNewDeviceNotice(notice: NewDeviceNotice, answer: DialogAnswer) {
     if (!current || seen === null || seen.seenThrough === undefined) return answer("done");
     const { unseen, newest } = unseenConnectDevices(current.devices, seen.seenThrough);
     if (unseen.length === 0) return answer("done");
+    // A different feature can open an alert while preferences are being read.
+    if (!Dialog.isDialogSlotIdle()) return answer("later");
     const [firstDevice = ""] = unseen.map(({ client: device }) => describeConnectDevice(device));
     Dialog.alert(
       m(msg("New device signed in to {environment}", { environment: current.label })),
@@ -195,6 +199,7 @@ function presentApprovalPrompt(prompt: QueuedApprovalPrompt, answer: DialogAnswe
       if (outcome === "done" || !watchedEnvironments.has(prompt.environmentId)) {
         return answer("done");
       }
+      if (!Dialog.isDialogSlotIdle()) return answer(outcome === "gone" ? "done" : "later");
       if (outcome === "gone") {
         return Dialog.alert(
           m(msg("Request no longer waiting")),
@@ -236,6 +241,7 @@ const connectDeviceDialogs = createConnectDeviceDialogQueue<QueuedApprovalPrompt
     prompt.kind === "approval"
       ? presentApprovalPrompt(prompt, answer)
       : presentNewDeviceNotice(prompt, answer),
+  Dialog.isDialogSlotIdle,
 );
 
 function EnvironmentApprovalWatcher(props: {
