@@ -3211,7 +3211,10 @@
     {
       "t": "span",
       "i": 2,
-      "c": [" ", "on the computer that opened this page"]
+      "c": [
+        " ",
+        "on the computer that opened this page"
+      ]
     }
   ],
   "b2d53b4d1d48fbef": [
@@ -3223,7 +3226,10 @@
     {
       "t": "span",
       "i": 2,
-      "c": [" ", "· whoever runs it gets this access"]
+      "c": [
+        " ",
+        "· whoever runs it gets this access"
+      ]
     }
   ],
   "c54cc9c75db9dc58": "Only approve a sign-in you just started.",
@@ -12807,6 +12813,9 @@
   ],
   "33d18dda74f6d7b3": "Cancel stack auto-merge",
   "012c67c7f1a99e33": "Auto-merge stack",
+  "4a18481bea4b4ad5": "New device signed in to {environmentLabel}",
+  "4144ab6aa487528a": "{device} connected through {product}. Not you? Review it.",
+  "a10cfdb27152c757": "{count, plural, one {{count} device} other {{count} devices}} connected through {product}. Not you? Review them.",
   "13efcb4956d61ea5": "{label} is connecting",
   "118cb7740a193475": "{label} is reconnecting",
   "76834037ef781877": "{label} is offline",
