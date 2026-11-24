@@ -31,9 +31,9 @@ reports on every connect, so a name typed into a client does not stick.
 Use the existing SSH or private Tailscale endpoint in Add Environment. These builds
 have no upstream cloud account/relay configuration. Desktop native update checking
 is disabled; use the Homebrew tap below.
-Product analytics are off by default, including in local development.
-`T3CODE_TELEMETRY_ENABLED=true` explicitly opts a server into PostHog analytics.
-For an older installed build, set `T3CODE_TELEMETRY_ENABLED=false` and restart it.
+Product analytics and agent feedback are always off, including in local development;
+`T3CODE_TELEMETRY_ENABLED=true` does not turn them on. For an older installed build, set
+`T3CODE_TELEMETRY_ENABLED=false` and restart it.
 
 ## Installing on a Mac with Homebrew
 
