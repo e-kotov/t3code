@@ -144,7 +144,7 @@ const launchStateKey = (command: ChildProcess.Command) =>
 // Runs the remote half of an SSH launch as a local shell
 // whose HOME is the given directory. Every launch after the first starts once
 // a server is running (or after 10s), which lines up the race deterministically.
-const localRemoteShellLayer = (home: string) =>
+const localRemoteShellLayer = (home: string, neverPublishes: boolean) =>
   Layer.effect(
     ChildProcessSpawner.ChildProcessSpawner,
     Effect.gen(function* () {
@@ -156,18 +156,37 @@ const localRemoteShellLayer = (home: string) =>
           launches++ === 0
             ? ""
             : 'i=0; while [ ! -s "$HOME/servers" ] && [ "$i" -lt 200 ]; do sleep 0.05; i=$((i+1)); done; ';
-        return spawner.spawn(
-          ChildProcess.make(
-            "sh",
-            ["-c", `${gate}exec sh -s -- "$1"`, "sh", launchStateKey(command) ?? ""],
-            {
-              ...command.options,
-              env: { ...command.options.env, HOME: home },
-              // Like an SSH session ending, the shell's exit leaves its nohup'd server running.
-              detached: false,
-            },
-          ),
-        );
+        return Effect.gen(function* () {
+          let stdin = command.options.stdin;
+          if (
+            neverPublishes &&
+            typeof stdin === "object" &&
+            "stream" in stdin &&
+            Stream.isStream(stdin.stream)
+          ) {
+            const script = yield* stdin.stream.pipe(Stream.decodeText(), Stream.mkString);
+            // Exercise the missing-record fallback without waiting out its production deadline.
+            const shortened = script.replace(
+              /(RECORD_DEADLINE=.* \+ )\d+/u,
+              (_match: string, prefix: string) => `${prefix}1`,
+            );
+            assert.notEqual(shortened, script);
+            stdin = { ...stdin, stream: Stream.make(new TextEncoder().encode(shortened)) };
+          }
+          return yield* spawner.spawn(
+            ChildProcess.make(
+              "sh",
+              ["-c", `${gate}exec sh -s -- "$1"`, "sh", launchStateKey(command) ?? ""],
+              {
+                ...command.options,
+                stdin,
+                env: { ...command.options.env, HOME: home },
+                // Like an SSH session ending, the shell's exit leaves its nohup'd server running.
+                detached: false,
+              },
+            ),
+          );
+        });
       });
     }),
   );
@@ -1291,9 +1310,13 @@ describe("ssh tunnel scripts", () => {
     }),
   );
 
-  it.live("concurrent launches on one remote home record the server that owns it", () =>
-    // The second row's server never publishes server-runtime.json.
-    Effect.forEach([1_500, null, "wrapper"] as const, (variant) =>
+  it.live.each([
+    { name: "delayed record", variant: 1_500 },
+    { name: "no record", variant: null },
+    { name: "node wrapper", variant: "wrapper" },
+  ] as const)(
+    "concurrent launches on one remote home record the server that owns it ($name)",
+    ({ variant }) =>
       Effect.gen(function* () {
         const publishDelayMs = variant === "wrapper" ? 0 : variant;
         const fs = yield* FileSystem.FileSystem;
@@ -1336,7 +1359,7 @@ child.on("exit", (code) => process.exit(code ?? 1));`,
               nodeScriptPath: variant === "wrapper" ? wrapperScript : serverScript,
             }),
           { concurrency: "unbounded" },
-        ).pipe(Effect.provide(localRemoteShellLayer(home)));
+        ).pipe(Effect.provide(localRemoteShellLayer(home, variant === null)));
 
         const ownerPid = Number(
           yield* fs.readFileString(path.join(home, ".t3", "userdata", "server.lock")),
@@ -1362,8 +1385,7 @@ child.on("exit", (code) => process.exit(code ?? 1));`,
           );
         }
         assert.isFalse(yield* fs.exists(launchLock));
-      }).pipe(Effect.scoped),
-    ).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
+      }).pipe(Effect.scoped, Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
   );
 });
 
