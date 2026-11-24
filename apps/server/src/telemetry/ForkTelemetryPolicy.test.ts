@@ -49,11 +49,10 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("EK telemetry pol
         const analytics = yield* AnalyticsService.AnalyticsService;
         yield* analytics.record("test.fork-policy");
         yield* analytics.flush;
-        if (enabled !== true) {
-          assert.isFalse(yield* fs.exists(config.anonymousIdPath));
-        }
+        assert.isFalse(yield* analytics.record("agent.feedback"));
+        assert.isFalse(yield* fs.exists(config.anonymousIdPath));
       }).pipe(Effect.provide(runtime));
-      assert.deepEqual(requests, enabled === true ? ["https://telemetry.example/batch/"] : []);
+      assert.deepEqual(requests, []);
     }),
   );
 });

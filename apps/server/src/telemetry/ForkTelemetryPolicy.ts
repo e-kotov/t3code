@@ -1,4 +1,4 @@
 import * as Config from "effect/Config";
 
-// Product analytics are opt-in in the EK fork, including local development.
-export const enabled = Config.Boolean("T3CODE_TELEMETRY_ENABLED").pipe(Config.withDefault(false));
+// The EK fork never sends product analytics or agent feedback; no setting turns them on.
+export const enabled = Config.succeed(false);
