@@ -158,12 +158,17 @@ const localRemoteShellLayer = (home: string, neverPublishes: boolean) =>
             : 'i=0; while [ ! -s "$HOME/servers" ] && [ "$i" -lt 200 ]; do sleep 0.05; i=$((i+1)); done; ';
         return Effect.gen(function* () {
           let stdin = command.options.stdin;
-          if (neverPublishes && typeof stdin === "object" && "stream" in stdin) {
+          if (
+            neverPublishes &&
+            typeof stdin === "object" &&
+            "stream" in stdin &&
+            Stream.isStream(stdin.stream)
+          ) {
             const script = yield* stdin.stream.pipe(Stream.decodeText(), Stream.mkString);
             // Exercise the missing-record fallback without waiting out its production deadline.
             const shortened = script.replace(
               /(RECORD_DEADLINE=.* \+ )\d+/u,
-              (_, prefix: string) => `${prefix}1`,
+              (_match: string, prefix: string) => `${prefix}1`,
             );
             assert.notEqual(shortened, script);
             stdin = { ...stdin, stream: Stream.make(new TextEncoder().encode(shortened)) };
