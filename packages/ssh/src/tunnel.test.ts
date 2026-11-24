@@ -1291,7 +1291,7 @@ describe("ssh tunnel scripts", () => {
     }),
   );
 
-  it.live("concurrent launches on one remote home record the server that owns it", () =>
+  const checkConcurrentLaunchOwnership = () =>
     // The second row's server never publishes server-runtime.json.
     Effect.forEach([1_500, null, "wrapper"] as const, (variant) =>
       Effect.gen(function* () {
@@ -1363,7 +1363,13 @@ child.on("exit", (code) => process.exit(code ?? 1));`,
         }
         assert.isFalse(yield* fs.exists(launchLock));
       }).pipe(Effect.scoped),
-    ).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
+    ).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)));
+
+  it.live(
+    "concurrent launches on one remote home record the server that owns it",
+    checkConcurrentLaunchOwnership,
+    // The missing-runtime-file variant waits for the real launcher fallback.
+    30_000,
   );
 });
 

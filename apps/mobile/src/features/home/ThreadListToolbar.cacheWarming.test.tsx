@@ -179,7 +179,7 @@ it("shows the Android sidebar's warm-all switch and updates only hot conversatio
   const toggle = screen.host.querySelector<HTMLButtonElement>('[role="switch"]');
   expect(toggle).not.toBeNull();
   expect(toggle?.disabled).toBe(false);
-  expect(screen.host.textContent).toContain("GWDG HPC · Codex/Claude · billable turns");
+  expect(screen.host.textContent).toContain("GWDG HPC · billable turns");
   expect(toggle?.getAttribute("aria-label")).toBe(
     "Enable warming for all hot conversations on GWDG HPC",
   );

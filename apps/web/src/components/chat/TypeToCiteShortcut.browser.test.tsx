@@ -6,7 +6,8 @@ import type { ChatComposerHandle } from "./ChatComposer";
 import { registerActiveCite } from "./forkCitationInputRouting";
 import { useChatShortcuts } from "./useChatShortcuts";
 
-vi.mock(import("~/hooks/useSettings"), () => ({
+vi.mock(import("~/hooks/useSettings"), async (importOriginal) => ({
+  ...(await importOriginal()),
   getClientSettings: () => ({ ...DEFAULT_CLIENT_SETTINGS, typingWithSelection: "cite" }),
 }));
 

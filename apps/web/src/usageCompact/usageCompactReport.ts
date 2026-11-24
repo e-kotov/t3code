@@ -1,6 +1,6 @@
 import { mFallback } from "gt-react";
 import type { MessageResolver } from "~/i18n/messages";
-import { collectLimitNotices, limitsNotice } from "@t3tools/shared/usageLimitsCopy";
+import { collectLimitNotices } from "@t3tools/shared/usageLimitsCopy";
 import { isProviderAvailable, type ServerProvider } from "@t3tools/contracts";
 import { collectLimitAccounts, type LimitPresentations } from "@t3tools/shared/usageLimits";
 import { COMPACT_USAGE_DRIVERS } from "./usageCompact";
@@ -61,7 +61,7 @@ export function compactUsageReport(
 ) {
   const authenticated = authenticatedPresentations(presentations);
   const drivers = new Set<string>();
-  const notices = [...collectLimitNotices(authenticated, resolve)];
+  const notices = collectLimitNotices(authenticated, resolve);
   const authNotices = new Set<string>();
   for (const presentation of authenticated.values()) {
     for (const provider of presentation.serverConfig?.providers ?? []) {
@@ -77,10 +77,6 @@ export function compactUsageReport(
     for (const source of presentation.serverConfig?.usageLimitSources ?? []) {
       for (const account of source.accounts) {
         drivers.add(account.driver);
-        if (account.usageLimits.unavailable?.reason !== "probeFailed") continue;
-        notices.push(
-          `${source.label} · ${account.email ?? account.id}: ${limitsNotice(account.usageLimits, resolve)}`,
-        );
       }
     }
   }

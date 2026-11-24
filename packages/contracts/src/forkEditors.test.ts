@@ -28,7 +28,9 @@ describe("fork editor contracts", () => {
         host: "gwdg",
         absolutePath: "/home/ek/my project/#results",
       }),
-    ).toBe("positron://vscode-remote/ssh-remote+gwdg/home/ek/my%20project/%23results");
+    ).toBe(
+      "positron://vscode-remote/ssh-remote+gwdg/home/ek/my%20project/%23results?windowId=_blank",
+    );
   });
 
   it("builds Gram's SSH URI with encoded host and path segments", () => {

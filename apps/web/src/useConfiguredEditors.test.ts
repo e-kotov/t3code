@@ -126,7 +126,7 @@ it("preserves upstream remote file targeting for configured built-in editors", a
   await open("/project", "vscode");
   expect(state.openExternal.mock.calls).toEqual([
     ["vscode://vscode-remote/ssh-remote+gwdg/project/file.ts:1:1"],
-    ["vscode://vscode-remote/ssh-remote+gwdg/project"],
+    ["vscode://vscode-remote/ssh-remote+gwdg/project?windowId=_blank"],
   ]);
 });
 
