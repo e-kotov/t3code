@@ -320,7 +320,6 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
           ...execLaunchArgs,
           // A user's MCP server could act on the text-generation prompt.
           ...CODEX_NO_PLUGIN_ARGS,
-          ...FORK_CODEX_TELEMETRY_OFF_ARGS,
           ...(mcpServersOff && launchArgsSetMcpTable ? ["--config", mcpServersOff] : []),
           // After launch args, so a launch arg's enabled=true cannot turn a server back on.
           ...codexMcpServerOffFlags(enabledMcpServers),
@@ -338,6 +337,7 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
           "--config",
           "features.hooks=false",
           ...(serviceTier ? ["--config", `service_tier="${serviceTier}"`] : []),
+          ...FORK_CODEX_TELEMETRY_OFF_ARGS,
           "--output-schema",
           schemaPath,
           "--output-last-message",
