@@ -34,5 +34,9 @@ jobs:
         run: python3 scripts/fork-feature-guard.test.py
       - name: Test Actions cache pruning
         run: python3 -B scripts/fork-prune-actions-caches.test.py
+      - name: Test the telemetry guard
+        run: python3 -B scripts/fork-telemetry-guard.test.py
+      - name: Check for new telemetry senders
+        run: python3 -B scripts/fork-telemetry-guard.py
       - name: Check the feature manifest and README
         run: python3 scripts/fork-feature-guard.py check

@@ -23,7 +23,7 @@ they are not tied to upstream stable releases.
 2. `tidy` formats the files mergiraf resolved, which it leaves unformatted, and commits the route
    tree that `scripts/fork-route-tree.mjs` regenerated with the web build's TanStack generator, so
    the fork's route files are listed again.
-3. `checks` first rejects any growth beyond the reviewed per-file upstream-edit budget or any budgeted fork mount dropped to 0 lines, then typechecks contracts, shared, client-runtime, SSH, server, web, mobile and desktop, then
+3. `checks` first rejects any growth beyond the reviewed per-file upstream-edit budget or any budgeted fork mount dropped to 0 lines, and any new telemetry vendor or endpoint reference in shipped code or change to the fork's always-off analytics policy (`scripts/fork-telemetry-guard.py`; only Egor accepts a new reference, with `--write`), then typechecks contracts, shared, client-runtime, SSH, server, web, mobile and desktop, then
    runs every test file the fork added or changed relative to upstream, plus the upstream tests
    beside upstream files the fork mounts into (listed in the script) and the mobile React
    Compiler coverage test. Web browser tests run in headless Chromium on the runner.

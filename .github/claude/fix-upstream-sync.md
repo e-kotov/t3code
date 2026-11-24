@@ -69,6 +69,9 @@ and verification needed, then follow step 5. Passing tests alone does not settle
    a file dropped to 0 lines, a fork mount was lost: restore it (see step 2) and do not `--write`
    it away; retiring the feature is a decision for step 5. A shrinkage warning is informational;
    check the feature is intact. Run
+   `python3 scripts/fork-telemetry-guard.py`; if it fails, upstream added a telemetry sender or
+   changed the fork's analytics policy: never run it with `--write` and never edit
+   `ForkTelemetryPolicy.ts`; stop and leave the failure for Egor. Run
    `python3 scripts/fork-feature-guard.py check --before refs/remotes/origin/main`: a missing
    fork-owned file means a fork feature was dropped, so restore it; a fork test outside
    `scripts/fork-features.json` must be registered there. A resolution that changes fork-owned
