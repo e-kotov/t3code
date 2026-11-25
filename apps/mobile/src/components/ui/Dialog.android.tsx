@@ -76,6 +76,25 @@ function subscribe(listener: () => void) {
   };
 }
 
+export function isDialogSlotIdle() {
+  return presented === null;
+}
+
+/** Wake after the closing dialog's callback had a chance to open a replacement. */
+export function subscribeDialogSlotIdle(onIdle: () => void) {
+  let subscribed = true;
+  const unsubscribe = subscribe(() => {
+    if (!isDialogSlotIdle()) return;
+    queueMicrotask(() => {
+      if (subscribed && isDialogSlotIdle()) onIdle();
+    });
+  });
+  return () => {
+    subscribed = false;
+    unsubscribe();
+  };
+}
+
 function getPresented() {
   return presented;
 }

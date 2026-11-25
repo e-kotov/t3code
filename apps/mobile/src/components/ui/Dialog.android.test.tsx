@@ -40,6 +40,7 @@ vi.mock("../../features/settings/appearance/useScaledTextRole", () => ({
 }));
 vi.mock("../../lib/mobileTheme", () => ({ themeColorWithContrast: () => "#ffffff" }));
 
+import { createConnectDeviceDialogQueue } from "../../features/connection/connectDeviceApproval";
 import * as Dialog from "./Dialog.android";
 
 const roots: Root[] = [];
@@ -157,4 +158,37 @@ it("ignores a late action from a dialog that a newer one replaced", () => {
 
   expect(olderAction).toHaveBeenCalledOnce();
   expect(container.textContent).toContain("Newer");
+});
+
+it("resumes a waiting Connect approval after an unrelated dialog closes", async () => {
+  const { container } = mountHost();
+  // Module-level dialogs survive Host unmounts, so clear any previous test's alert.
+  act(() => renderedClicks.at(-1)?.());
+  const queue = createConnectDeviceDialogQueue((dialog, answer) => {
+    Dialog.alert(dialog.pairingLinkId, undefined, [{ text: "OK", onPress: () => answer("done") }], {
+      onDismiss: () => answer("later"),
+    });
+  }, Dialog.isDialogSlotIdle);
+  const unsubscribe = Dialog.subscribeDialogSlotIdle(queue.resume);
+  try {
+    act(() => {
+      queue.offer([{ kind: "notice", pairingLinkId: "Laptop sign-in" }]);
+      queue.offer([{ kind: "approval", pairingLinkId: "Mac mini approval" }]);
+      Dialog.alert("Import failed", undefined, [{ text: "Dismiss" }]);
+      // An access refresh must not replace the unrelated dialog either.
+      queue.offer([]);
+    });
+    expect(container.textContent).toContain("Import failed");
+    expect(container.textContent).not.toContain("Mac mini approval");
+
+    await act(async () => renderedClicks.at(-1)!());
+    expect(container.textContent).toContain("Mac mini approval");
+
+    // The preempted notice was not marked as seen.
+    await act(async () => renderedClicks.at(-1)!());
+    expect(container.textContent).toContain("Laptop sign-in");
+    await act(async () => renderedClicks.at(-1)!());
+  } finally {
+    unsubscribe();
+  }
 });

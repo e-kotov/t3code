@@ -34,6 +34,15 @@ export function prompt(request: TextInputDialogRequest): void {
   );
 }
 
+// The shared single-slot host is Android-only.
+export function isDialogSlotIdle() {
+  return true;
+}
+
+export function subscribeDialogSlotIdle(_onIdle: () => void) {
+  return () => {};
+}
+
 export function Host() {
   return null;
 }

@@ -49,20 +49,25 @@ export function connectDeviceApprovalPrompts(input: {
     }));
 }
 
+export type DialogAnswer = (outcome: "done" | "retry" | "later") => void;
+
 /**
  * Shows approval prompts one at a time: an Android alert replaces the one on screen, which
  * would drop an unanswered request. A prompt answered with "retry" goes back to the front;
- * "later" puts it back without showing anything until the next offer.
+ * "later" puts it back without showing anything until the next offer or resume.
  */
 export function createApprovalPromptQueue<P extends { readonly pairingLinkId: string }>(
-  present: (prompt: P, answer: (outcome: "done" | "retry" | "later") => void) => void,
+  present: (prompt: P, answer: DialogAnswer) => void,
+  hasPriority?: (prompt: P) => boolean,
+  canPresent: () => boolean = () => true,
 ) {
   const known = new Set<string>();
   const waiting: P[] = [];
   let showing: { readonly prompt: P; dropped: boolean } | null = null;
   const next = () => {
-    if (showing) return;
-    const prompt = waiting.shift();
+    if (showing || !canPresent()) return;
+    const priorityIndex = hasPriority ? waiting.findIndex(hasPriority) : -1;
+    const [prompt] = waiting.splice(Math.max(0, priorityIndex), 1);
     if (prompt === undefined) return;
     const current = { prompt, dropped: false };
     showing = current;
@@ -78,6 +83,7 @@ export function createApprovalPromptQueue<P extends { readonly pairingLinkId: st
   };
   return {
     known: known as ReadonlySet<string>,
+    resume: next,
     /** Forgets waiting prompts that match, such as a host that went away. */
     drop(matches: (prompt: P) => boolean) {
       if (showing && matches(showing.prompt)) {
@@ -101,4 +107,12 @@ export function createApprovalPromptQueue<P extends { readonly pairingLinkId: st
       next();
     },
   };
+}
+
+// Both types use the same Android dialog slot. Prefer approvals among waiting
+// dialogs, but never interrupt a dialog already on screen.
+export function createConnectDeviceDialogQueue<
+  P extends { readonly pairingLinkId: string; readonly kind: "approval" | "notice" },
+>(present: (prompt: P, answer: DialogAnswer) => void, canPresent?: () => boolean) {
+  return createApprovalPromptQueue(present, (prompt) => prompt.kind === "approval", canPresent);
 }

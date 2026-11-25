@@ -161,6 +161,8 @@ export interface Preferences {
   readonly conversationMachineOrder?: readonly string[];
   readonly workingSidebarFirst?: boolean;
   readonly dismissedDatabaseStorageNotices?: readonly string[];
+  /** Per host, when the newest T3 Connect device this phone has announced first signed in. */
+  readonly connectDevicesSeenThrough?: Readonly<Record<string, number>>;
   /** Hardware-keyboard Return behavior in the composer. */
   readonly composerEnterBehavior?: ComposerEnterBehavior;
   readonly followUpBehavior?: FollowUpBehavior;
@@ -255,6 +257,7 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     conversationMachineOrder?: readonly string[];
     workingSidebarFirst?: boolean;
     dismissedDatabaseStorageNotices?: readonly string[];
+    connectDevicesSeenThrough?: Readonly<Record<string, number>>;
     composerEnterBehavior?: ComposerEnterBehavior;
     followUpBehavior?: FollowUpBehavior;
     language?: string;
@@ -371,6 +374,16 @@ function sanitizePreferences(parsed: Preferences): Preferences {
   if (Array.isArray(parsed.dismissedDatabaseStorageNotices)) {
     preferences.dismissedDatabaseStorageNotices = parsed.dismissedDatabaseStorageNotices.filter(
       (value): value is string => typeof value === "string",
+    );
+  }
+  if (
+    typeof parsed.connectDevicesSeenThrough === "object" &&
+    parsed.connectDevicesSeenThrough !== null
+  ) {
+    preferences.connectDevicesSeenThrough = Object.fromEntries(
+      Object.entries(parsed.connectDevicesSeenThrough).filter(
+        (entry): entry is [string, number] => typeof entry[1] === "number",
+      ),
     );
   }
   if (parsed.composerEnterBehavior === "send" || parsed.composerEnterBehavior === "newline") {
