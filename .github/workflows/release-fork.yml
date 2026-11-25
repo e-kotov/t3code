@@ -113,6 +113,9 @@ jobs:
           path: release-termux/*
           compression-level: 0
           if-no-files-found: error
+      # Stage only the expected hidden file so artifact upload keeps it.
+      - name: Stage web asset manifest
+        run: cp apps/server/dist/client/.vite/manifest.json apps/server/dist/client/vite-manifest.release.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: js-bundle
@@ -224,6 +227,11 @@ jobs:
         with:
           name: js-bundle
           path: apps
+      - name: Restore web asset manifest
+        run: |
+          client=apps/server/dist/client
+          mkdir -p "$client/.vite"
+          mv "$client/vite-manifest.release.json" "$client/.vite/manifest.json"
       - run: node scripts/update-release-package-versions.ts "$RELEASE_VERSION"
         env:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
@@ -233,6 +241,10 @@ jobs:
           cp native/resource-monitor/target/release/t3-resource-monitor apps/server/dist/resource-monitor/linux-x64/
       - run: node apps/server/scripts/cli.ts build-exe --verbose
       - run: node scripts/build-cli-archive.ts --platform linux --arch x64 --version "$RELEASE_VERSION" --output-dir release-cli
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      - name: Smoke test Linux CLI archive
+        run: node scripts/smoke-cli-archive.ts --archive release-cli/*.tar.gz --expect-version "$RELEASE_VERSION"
         env:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
