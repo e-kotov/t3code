@@ -11,6 +11,7 @@ import {
   T3_PI_RUNTIME_MODE_ENV,
   T3_PI_MCP_EXTENSION_PATH_ENV,
 } from "./mcpExtensionSource.ts";
+import { FORK_PI_TELEMETRY_OFF_ENV } from "./forkPiTelemetry.ts";
 
 const RESERVED_PI_LAUNCH_ARGUMENTS = new Set([
   "--continue",
@@ -302,6 +303,7 @@ export function buildPiRpcLaunch(input: {
     args,
     env: {
       ...environment,
+      ...FORK_PI_TELEMETRY_OFF_ENV,
       ...(hasT3Extension && input.extensionPath !== undefined
         ? { [T3_PI_MCP_EXTENSION_PATH_ENV]: input.extensionPath }
         : {}),

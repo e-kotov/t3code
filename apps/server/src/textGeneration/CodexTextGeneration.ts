@@ -24,6 +24,7 @@ import {
   resolveCodexLaunchArgs,
 } from "../provider/codexLaunchArgs.ts";
 import { codexAppServerEnvironment } from "../provider/CodexProvider.ts";
+import { FORK_CODEX_TELEMETRY_OFF_ARGS } from "../provider/forkCodexTelemetry.ts";
 import * as TextGenerationOperations from "@t3tools/provider-core/server/textGenerationOperations";
 import {
   normalizeCliError,
@@ -336,6 +337,7 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
           "--config",
           "features.hooks=false",
           ...(serviceTier ? ["--config", `service_tier="${serviceTier}"`] : []),
+          ...FORK_CODEX_TELEMETRY_OFF_ARGS,
           "--output-schema",
           schemaPath,
           "--output-last-message",
