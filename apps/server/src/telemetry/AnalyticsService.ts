@@ -1,5 +1,6 @@
 // T3 ingest retains events and forwards to PostHog; UUIDs deduplicate retries there.
 import * as HostProcess from "@t3tools/shared/HostProcess";
+import { isCiEnvironment, isDoNotTrackSet } from "@t3tools/shared/otelEnvironment";
 import type { ClientOs } from "@t3tools/contracts";
 import * as Clock from "effect/Clock";
 import * as Config from "effect/Config";
@@ -67,20 +68,21 @@ function retryDelayMs(failures: number, random: number): number {
   return Math.round(ceiling / 2 + (ceiling / 2) * random);
 }
 
-const TelemetryEnvConfig = Config.all({
-  posthogKey: Config.String("T3CODE_POSTHOG_KEY").pipe(
-    Config.withDefault("phc_XOWci4oZP4VvLiEyrFqkFjP4CZn55mjYYBMREK5Wd6m"),
-  ),
-  posthogHost: Config.String("T3CODE_POSTHOG_HOST").pipe(
-    Config.withDefault("https://ingest.t3.codes"),
-  ),
-  enabled: ForkTelemetryPolicy.enabled,
-  flushBatchSize: Config.Number("T3CODE_TELEMETRY_FLUSH_BATCH_SIZE").pipe(Config.withDefault(20)),
-  maxBufferedEvents: Config.Number("T3CODE_TELEMETRY_MAX_BUFFERED_EVENTS").pipe(
-    Config.withDefault(1_000),
-  ),
-  wslDistroName: Config.String("WSL_DISTRO_NAME").pipe(Config.option),
-});
+const telemetryEnvConfig = (enabled: Config.Config<Option.Option<boolean>>) =>
+  Config.all({
+    posthogKey: Config.String("T3CODE_POSTHOG_KEY").pipe(
+      Config.withDefault("phc_XOWci4oZP4VvLiEyrFqkFjP4CZn55mjYYBMREK5Wd6m"),
+    ),
+    posthogHost: Config.String("T3CODE_POSTHOG_HOST").pipe(
+      Config.withDefault("https://ingest.t3.codes"),
+    ),
+    enabled,
+    flushBatchSize: Config.Number("T3CODE_TELEMETRY_FLUSH_BATCH_SIZE").pipe(Config.withDefault(20)),
+    maxBufferedEvents: Config.Number("T3CODE_TELEMETRY_MAX_BUFFERED_EVENTS").pipe(
+      Config.withDefault(1_000),
+    ),
+    wslDistroName: Config.String("WSL_DISTRO_NAME").pipe(Config.option),
+  });
 
 export class AnalyticsService extends Context.Service<
   AnalyticsService,
@@ -121,24 +123,25 @@ function serverOsFromNodePlatform(platform: string): ClientOs {
   }
 }
 
-/** @public */
-/** @public */
-export const make = Effect.gen(function* () {
-  const telemetryConfig = yield* TelemetryEnvConfig;
+function* analyticsGenerator(enabled: Config.Config<Option.Option<boolean>>) {
+  const telemetryConfig = yield* telemetryEnvConfig(enabled);
   const hostEnvironment = yield* HostProcess.Environment;
   const awaitingShellConsent = hostEnvironment.T3CODE_DESKTOP_SHELL_DISCOVERY_PENDING === "1";
+  const enabledByDefault = !isCiEnvironment(hostEnvironment);
+  const enabledAtStartup = Option.getOrElse(telemetryConfig.enabled, () => enabledByDefault);
   // A managed policy can switch analytics off over the environment, never on.
   const policyAllows =
     ManagedPolicy.deniedBy(yield* ManagedPolicy.ManagedPolicy, "telemetry") === undefined;
   // A cached PATH does not establish consent from the current login shell.
   const telemetryEnabled = Effect.suspend(() => {
-    if (!telemetryConfig.enabled || !policyAllows) return Effect.succeed(false);
+    if (!enabledAtStartup || !policyAllows || isDoNotTrackSet(hostEnvironment))
+      return Effect.succeed(false);
     if (!awaitingShellConsent) return Effect.succeed(true);
     if (hostEnvironment.T3CODE_DESKTOP_SHELL_DISCOVERY_PENDING === "1")
       return Effect.succeed(false);
     const preference = hostEnvironment.T3CODE_TELEMETRY_ENABLED;
     return Config.Boolean("T3CODE_TELEMETRY_ENABLED").pipe(
-      Config.withDefault(true),
+      Config.withDefault(enabledByDefault),
       Effect.provideService(
         ConfigProvider.ConfigProvider,
         ConfigProvider.fromEnv({
@@ -150,7 +153,7 @@ export const make = Effect.gen(function* () {
   });
   const httpClient = yield* HttpClient.HttpClient;
   const serverConfig = yield* ServerConfig.ServerConfig;
-  const { distinctId, installId } = telemetryConfig.enabled
+  const { distinctId, installId } = enabledAtStartup
     ? yield* getTelemetryIdentity
     : { distinctId: null, installId: null };
   const crypto = yield* SecureRandom.SecureRandom;
@@ -216,22 +219,29 @@ export const make = Effect.gen(function* () {
         uuid: event.uuid,
         event: event.event,
         distinct_id: event.anonymous ? event.uuid : distinctId,
-        properties: {
-          ...event.properties,
-          ...(installId === null || event.anonymous ? {} : { installId }),
-          $process_person_profile: false,
-          platform: hostPlatform,
-          wsl: Option.getOrUndefined(telemetryConfig.wslDistroName),
-          arch: hostArchitecture,
-          t3CodeVersion: packageJson.version,
-          telemetryChannel: ServerConfig.telemetryChannel,
-          clientType,
-          serverOs: serverOsFromNodePlatform(hostPlatform),
-          serverArch: hostArchitecture,
-          serverWslDistro: Option.getOrUndefined(telemetryConfig.wslDistroName),
-          serverAppVersion: packageJson.version,
-          serverMode: serverConfig.mode,
-        },
+        properties: event.anonymous
+          ? {
+              ...event.properties,
+              $process_person_profile: false,
+              t3CodeVersion: packageJson.version,
+              telemetryChannel: ServerConfig.telemetryChannel,
+            }
+          : {
+              ...event.properties,
+              ...(installId === null ? {} : { installId }),
+              $process_person_profile: false,
+              platform: hostPlatform,
+              wsl: Option.getOrUndefined(telemetryConfig.wslDistroName),
+              arch: hostArchitecture,
+              t3CodeVersion: packageJson.version,
+              telemetryChannel: ServerConfig.telemetryChannel,
+              clientType,
+              serverOs: serverOsFromNodePlatform(hostPlatform),
+              serverArch: hostArchitecture,
+              serverWslDistro: Option.getOrUndefined(telemetryConfig.wslDistroName),
+              serverAppVersion: packageJson.version,
+              serverMode: serverConfig.mode,
+            },
         timestamp: event.capturedAt,
       })),
     };
@@ -244,9 +254,13 @@ export const make = Effect.gen(function* () {
     );
   });
 
+  // An anonymous event goes out alone, or the ingest could link it to the other events by request.
   const takeBatch = Ref.modify(bufferRef, (current) => {
-    const nextBatch = current.slice(0, telemetryConfig.flushBatchSize);
-    return [nextBatch, current.slice(nextBatch.length)] as const;
+    const next = current.findIndex((event) => event.anonymous);
+    if (next === 0) return [current.slice(0, 1), current.slice(1)] as const;
+    const linked = current.slice(0, next === -1 ? current.length : next);
+    const batch = linked.slice(0, telemetryConfig.flushBatchSize);
+    return [batch, current.slice(batch.length)] as const;
   });
 
   // Back off even after dropping rejected batches so bad API keys cannot drain the queue in a tight loop.
@@ -374,6 +388,14 @@ export const make = Effect.gen(function* () {
   );
 
   return AnalyticsService.of({ record, flush, recordOwners });
-});
+}
+
+/** @internal Used by the transport tests with a local test collector. */
+export const makeWithTelemetryConfig = Effect.fn("AnalyticsService.make")(analyticsGenerator);
+
+/** @public */
+export const make = makeWithTelemetryConfig(
+  ForkTelemetryPolicy.enabled.pipe(Config.map(Option.some)),
+);
 
 export const layer = Layer.effect(AnalyticsService, make);

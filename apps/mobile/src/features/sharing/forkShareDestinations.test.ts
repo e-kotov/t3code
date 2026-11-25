@@ -31,6 +31,7 @@ vi.mock("../layout/workspace/workspace-detail-selection", () => ({
   selectWorkspaceDetail: vi.fn(),
 }));
 
+import { rootNavigationRef } from "../../lib/rootNavigation";
 import { appAtomRegistry } from "../../state/atom-registry";
 import {
   forkShareDestinations,
@@ -63,6 +64,34 @@ it("keeps startup submissions locked until the inbox is known, then locks only r
     // A failed inbox read retains the same unknown snapshot for navigation events.
     presentForkShareDestinations([], true);
     expect(isForkShareSubmissionLocked("env:thread")).toBe(true);
+    presentForkShareDestinations([], false, true);
+    expect(isForkShareSubmissionLocked("env:thread")).toBe(false);
+    const unreserved = {
+      schemaVersion: 1 as const,
+      id: "active-draft-share",
+      createdAt: "2026-10-29",
+      text: "shared",
+      attachments: [],
+      warnings: [],
+    };
+    presentForkShareDestinations([unreserved], false, true);
+    expect(forkShareDestinations?.getSnapshot()).toBeNull();
+    presentForkShareDestinations(
+      [{ ...unreserved, destination: { environmentId: "env", projectId: "project" } }],
+      false,
+      true,
+      new Set([unreserved.id]),
+    );
+    expect(forkShareDestinations?.getSnapshot()).toBeNull();
+    // The owning route can remain below a pushed project picker.
+    presentForkShareDestinations(
+      [{ ...unreserved, destination: { environmentId: "env", projectId: "project" } }],
+      false,
+      false,
+      new Set([unreserved.id]),
+    );
+    expect(forkShareDestinations?.getSnapshot()).toBeNull();
+    expect(rootNavigationRef.dispatch).not.toHaveBeenCalled();
     presentForkShareDestinations(
       [
         {
@@ -76,6 +105,7 @@ it("keeps startup submissions locked until the inbox is known, then locks only r
         },
       ],
       false,
+      true,
     );
     expect(isForkShareSubmissionLocked("env:thread")).toBe(true);
     expect(isForkShareSubmissionLocked("env:other")).toBe(false);

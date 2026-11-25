@@ -130,14 +130,23 @@ function refreshLocks() {
   appAtomRegistry.set(forkShareSubmissionLocksAtom, keys);
 }
 
+export function forkSharePickerOwnsShare() {
+  return forkShareDestinations?.getSnapshot() != null;
+}
+
 export function presentForkShareDestinations(
   drafts: readonly IncomingShareDraft[],
   isLoading: boolean,
+  openDraft = false,
+  draftOwnedIds: ReadonlySet<string | undefined> = new Set(),
 ) {
   if (Platform.OS !== "android" || !forkShareDestinations) return false;
   if (isLoading) return true;
   latestShares = drafts;
-  forkShareDestinations.present(drafts);
+  forkShareDestinations.present(
+    drafts,
+    (share) => !draftOwnedIds.has(share.id) && (!openDraft || !!share.destination?.threadId),
+  );
   refreshLocks();
   return true;
 }
