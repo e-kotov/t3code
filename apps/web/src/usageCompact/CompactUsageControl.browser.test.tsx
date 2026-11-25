@@ -438,7 +438,14 @@ it("renders HTTP quota sources with compact counts in the widest quota popup", a
   expect(label.scrollWidth, "HTTP_QUOTA_LABEL_CLIPPED").toBeLessThanOrEqual(label.clientWidth);
 });
 
-it("keeps compact quota counts readable in a narrow window with several pools", async () => {
+it.each([
+  {
+    layout: "four sections in a narrow window",
+    width: 680,
+    drivers: ["codex", "claudeAgent", "antigravity"],
+  },
+  { layout: "three sections", width: 1280, drivers: ["codex", "claudeAgent"] },
+])("keeps quota pool counts readable with $layout", async ({ width, drivers }) => {
   const quotaWindow = (id: string, label: string, usedPercent: number) => ({
     id,
     kind: "other" as const,
@@ -480,11 +487,11 @@ it("keeps compact quota counts readable in a narrow window with several pools", 
       ],
     ]),
   );
-  await page.viewport(680, 800);
+  await page.viewport(width, 800);
   await using _screen = await render(
     <CompactUsageControl
       {...report}
-      accounts={["codex", "claudeAgent", "antigravity"].map((driver) =>
+      accounts={drivers.map((driver) =>
         account(driver, [{ id: "weekly", kind: "weekly", label: "Weekly", usedPercent: 50 }]),
       )}
       drivers={undefined}

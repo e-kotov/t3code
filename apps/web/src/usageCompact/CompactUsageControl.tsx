@@ -20,12 +20,13 @@ import {
 } from "./usageCompact";
 import { ResetAvailability } from "./ResetAvailability";
 
+// Four columns need the full popup width; narrower windows get two so quota labels stay readable.
 const GRID_COLUMNS = [
   "",
   "sm:grid-cols-1",
   "sm:grid-cols-2",
   "sm:grid-cols-3",
-  "sm:grid-cols-4",
+  "sm:grid-cols-2 lg:grid-cols-4",
 ] as const;
 
 /**
@@ -238,7 +239,7 @@ export function CompactUsageControl({
             totalSections >= 4
               ? "w-192"
               : totalSections === 3
-                ? "w-128"
+                ? "w-144"
                 : totalSections === 2
                   ? "w-92"
                   : "w-64",
