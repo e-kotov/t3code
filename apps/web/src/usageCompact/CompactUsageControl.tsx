@@ -1,6 +1,7 @@
 import { useGT, useLocale, useMessages, T } from "gt-react";
 import { ProviderDriverKind } from "@t3tools/contracts";
 import { formatDuration } from "@t3tools/shared/usageLimitsCopy";
+import { GaugeIcon } from "lucide-react";
 import { useState } from "react";
 import { useClientSettings } from "../hooks/useSettings";
 import { ProviderInstanceIcon } from "../components/chat/ProviderInstanceIcon";
@@ -8,13 +9,25 @@ import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "../componen
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
 import { useNowMinute } from "../hooks/useNowMinute";
 import { cn } from "../lib/utils";
-import { compactUsage, groupUsageWindows } from "./usageCompact";
+import {
+  compactHttpQuotas,
+  compactUsage,
+  groupUsageWindows,
+  type CompactHttpQuotaSource,
+} from "./usageCompact";
 import { ResetAvailability } from "./ResetAvailability";
 
-const GRID_COLUMNS = ["", "sm:grid-cols-1", "sm:grid-cols-2", "sm:grid-cols-3"] as const;
+const GRID_COLUMNS = [
+  "",
+  "sm:grid-cols-1",
+  "sm:grid-cols-2",
+  "sm:grid-cols-3",
+  "sm:grid-cols-4",
+] as const;
 
 export function CompactUsageControl({
   accounts,
+  quotaSources = [],
   drivers,
   notices = [],
   authNotices = [],
@@ -27,6 +40,7 @@ export function CompactUsageControl({
   onOpenFullView,
 }: {
   accounts: Parameters<typeof compactUsage>[0];
+  quotaSources?: readonly CompactHttpQuotaSource[];
   drivers?: Parameters<typeof compactUsage>[2];
   notices?: readonly string[];
   authNotices?: readonly string[];
@@ -57,10 +71,13 @@ export function CompactUsageControl({
   const nowMinute = useNowMinute();
   const now = explicitNow ?? Date.parse(`${nowMinute}:00Z`);
   const providers = compactUsage(accounts, now, drivers, activeModel, activeDriver);
-  if (providers.length === 0) return null;
-  const summary = providers
-    .map((provider) => `${provider.label} ${percent(provider.remaining)}`)
-    .join(", ");
+  const customQuotas = compactHttpQuotas(quotaSources);
+  const totalSections = providers.length + customQuotas.length;
+  if (totalSections === 0) return null;
+  const summary = [
+    ...providers.map((provider) => `${provider.label} ${percent(provider.remaining)}`),
+    ...customQuotas.map((quota) => `${quota.label} ${percent(quota.remaining)}`),
+  ].join(", ");
   return (
     <Popover
       open={popupEnabled ? open : false}
@@ -146,6 +163,44 @@ export function CompactUsageControl({
             ) : null}
           </span>
         ))}
+        {customQuotas.map((quota) => (
+          <span key={quota.key} aria-hidden className="flex items-center gap-1">
+            <span className="max-w-14 truncate font-mono text-3xs font-semibold text-muted-foreground">
+              {quota.label}
+            </span>
+            {quota.bars.length > 0 ? (
+              <span className="flex flex-col justify-center gap-0.5 py-0.5">
+                {quota.bars.map((bar) => (
+                  <span key={bar.label} className="flex items-center gap-0.5">
+                    <span className="w-2.5 text-right font-mono text-4xs font-semibold uppercase text-muted-foreground">
+                      {bar.label}
+                    </span>
+                    <span className="h-0.5 w-3 overflow-hidden rounded-full bg-muted">
+                      <span
+                        className={cn("block h-full rounded-full", barFillColor(bar.remaining))}
+                        style={{ width: `${bar.remaining}%` }}
+                      />
+                    </span>
+                    <span
+                      className={cn(
+                        "font-mono text-4xs whitespace-nowrap tabular-nums font-medium",
+                        quotaColor(bar.remaining),
+                      )}
+                    >
+                      {percent(bar.remaining)}
+                    </span>
+                  </span>
+                ))}
+              </span>
+            ) : (
+              <span
+                className={`font-mono text-2xs whitespace-nowrap tabular-nums ${quotaColor(quota.remaining)}`}
+              >
+                {percent(quota.remaining)}
+              </span>
+            )}
+          </span>
+        ))}
         {notices.length > 0 || disconnected.length > 0 || authNotices.length > 0 ? (
           <span aria-hidden className="absolute top-1 right-0.5 size-1 rounded-full bg-warning" />
         ) : null}
@@ -157,7 +212,13 @@ export function CompactUsageControl({
           padding="compact"
           className={cn(
             "overflow-x-hidden max-w-[calc(100vw-2rem)]",
-            providers.length === 3 ? "w-128" : providers.length === 2 ? "w-92" : "w-64",
+            totalSections >= 4
+              ? "w-168"
+              : totalSections === 3
+                ? "w-128"
+                : totalSections === 2
+                  ? "w-92"
+                  : "w-64",
           )}
           initialFocus={false}
           finalFocus={false}
@@ -203,7 +264,7 @@ export function CompactUsageControl({
           <div
             className={cn(
               "mt-2 grid max-h-[min(28rem,calc(var(--available-height)-4rem))] grid-cols-1 gap-x-4 gap-y-3 overflow-x-hidden overflow-y-auto",
-              GRID_COLUMNS[providers.length],
+              GRID_COLUMNS[Math.min(totalSections, GRID_COLUMNS.length - 1)],
             )}
           >
             {providers.map((provider) => (
@@ -282,6 +343,74 @@ export function CompactUsageControl({
                           ),
                         ),
                       ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                    })}
+                  </p>
+                ) : null}
+              </section>
+            ))}
+            {customQuotas.map((quota) => (
+              <section key={quota.key} aria-label={quota.label} className="min-w-0">
+                <div className="flex items-center gap-1.5 text-xs font-medium">
+                  <GaugeIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="truncate">{quota.label}</span>
+                  <span className="ms-auto font-mono text-3xs font-normal tabular-nums">
+                    {percent(quota.remaining)}
+                  </span>
+                </div>
+                {quota.windows.length === 0 ? (
+                  <p className="mt-1 text-3xs text-muted-foreground">
+                    <T>Limits unavailable</T>
+                  </p>
+                ) : (
+                  groupUsageWindows(quota.windows).map((group) => (
+                    <div
+                      key={`${group.rows[0]?.window.kind}:${group.rows[0]?.window.id}`}
+                      className="mt-1.5"
+                    >
+                      {group.title ? (
+                        <p className="text-3xs text-muted-foreground">{group.title}</p>
+                      ) : null}
+                      {group.rows.map(({ label, window }) => {
+                        const resetAt =
+                          window.resetAt !== null && window.resetAt > now ? window.resetAt : null;
+                        const remaining = Math.max(0, Math.min(100, window.remainingPercent));
+                        return (
+                          <div key={`${window.kind}:${window.id}`} className="mt-0.5">
+                            <div className="grid grid-cols-[minmax(0,1fr)_2rem_3rem] items-baseline gap-1 text-3xs">
+                              <Tooltip>
+                                <TooltipTrigger render={<span className="truncate" />}>
+                                  {label}
+                                </TooltipTrigger>
+                                <TooltipPopup>{window.label}</TooltipPopup>
+                              </Tooltip>
+                              <span
+                                className={`text-right font-mono tabular-nums ${quotaColor(window.remainingPercent)}`}
+                              >
+                                {percent(window.remainingPercent)}
+                              </span>
+                              <span className="text-right whitespace-nowrap text-muted-foreground">
+                                {resetAt !== null ? `↻ ${formatDuration(resetAt - now, m)}` : "n/a"}
+                              </span>
+                            </div>
+                            <div className="mt-0.5 h-0.5 overflow-hidden rounded-full bg-muted">
+                              <div
+                                className="h-full rounded-full bg-muted-foreground"
+                                style={{ width: `${remaining}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))
+                )}
+                {Number.isFinite(Date.parse(quota.checkedAt)) ? (
+                  <p className="mt-1 text-3xs text-muted-foreground">
+                    {gt("Checked {time}", {
+                      time: new Date(Date.parse(quota.checkedAt)).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }),
                     })}
                   </p>
                 ) : null}

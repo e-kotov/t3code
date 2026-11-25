@@ -198,3 +198,38 @@ it("names every environment without an active connection and distinguishes unnam
   ).toEqual(["GWDG", "New host", "Phone", "Unnamed environment 1", "Unnamed environment 2"]);
   expect(disconnectedEnvironmentLabels([environment("mba15e", "connected")])).toEqual([]);
 });
+
+it("collects HTTP quota sources and preserves HTTP source failure notices", () => {
+  const report = compactUsageReport(
+    presentations(
+      [],
+      [
+        {
+          id: UsageLimitSourceId.make("saia"),
+          kind: "http",
+          label: "SAIA",
+          checkedAt,
+          accounts: [],
+          quotaAccounts: [
+            {
+              id: "saia",
+              label: "SAIA",
+              windows: [{ id: "day", kind: "other", label: "Day (800/1600)", usedPercent: 50 }],
+            },
+          ],
+        },
+        {
+          id: UsageLimitSourceId.make("broken"),
+          kind: "http",
+          label: "Broken HTTP",
+          checkedAt,
+          accounts: [],
+          error: "Could not read the HTTP quota source.",
+        },
+      ],
+    ),
+  );
+  expect(report.quotaSources).toHaveLength(1);
+  expect(report.quotaSources[0]?.quotaAccounts?.[0]?.label).toBe("SAIA");
+  expect(report.notices).toEqual(["Broken HTTP: Could not read the HTTP quota source."]);
+});
