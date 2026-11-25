@@ -75,6 +75,13 @@ const provider: ServerProvider = {
             type: "select",
             options: [{ id: "high", label: "High" }],
           },
+          {
+            id: "_t3/session-mode",
+            label: "Mode",
+            type: "select",
+            role: "mode",
+            options: [{ id: "unattended", label: "Unattended" }],
+          },
         ],
       },
     },
@@ -171,6 +178,26 @@ it.effect("saves a one-time run and its model without creating a thread", () =>
     assert.deepEqual(result.modelSelection, selection);
     assert.include(result, { boundThreadId: null, lastRunStatus: "never", nextRunAt: runAt });
     assert.equal(caller.modelSelection.model, "gpt-5");
+  }),
+);
+
+it.effect("applies the caller runtime mode to scheduled model options", () =>
+  Effect.gen(function* () {
+    const saved = yield* Ref.make<ReadonlyArray<ScheduledTaskUpsertInput>>([]);
+    const mcp = yield* OrchestratorMcpService.OrchestratorMcpService.pipe(
+      Effect.provide(service(saved)),
+    );
+    const result = yield* mcp
+      .scheduleTask(
+        scope,
+        decode({
+          ...request,
+          target: { providerInstanceId, model, options: { "_t3/session-mode": "unattended" } },
+        }),
+      )
+      .pipe(Effect.flip);
+    assert.equal(result.code, "runtime_mode_escalation_denied");
+    assert.lengthOf(yield* Ref.get(saved), 0);
   }),
 );
 
