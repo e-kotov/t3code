@@ -391,8 +391,7 @@ function* analyticsGenerator(enabled: Config.Config<Option.Option<boolean>>) {
 }
 
 /** @internal Used by the transport tests with a local test collector. */
-export const makeWithTelemetryConfig = (enabled: Config.Config<Option.Option<boolean>>) =>
-  Effect.gen(() => analyticsGenerator(enabled));
+export const makeWithTelemetryConfig = Effect.fn("AnalyticsService.make")(analyticsGenerator);
 
 /** @public */
 export const make = makeWithTelemetryConfig(
