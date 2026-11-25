@@ -1,4 +1,4 @@
-import { T, useMessages } from "gt-react";
+import { msg, T, useMessages } from "gt-react";
 import { remainingPercent } from "@t3tools/shared/usageLimits";
 import { formatResetsIn } from "@t3tools/shared/usageLimitsCopy";
 import { GaugeIcon } from "lucide-react";
@@ -15,7 +15,10 @@ export function upstreamQuotaRows<Source>(sources: readonly Source[]): readonly 
   return sources.slice(0, 0);
 }
 
-/** HTTP quota sources on the Usage page, one card per pool with bars like subscription limits. */
+/**
+ * HTTP quota sources on the Usage page: each account under its own heading, then one card per
+ * pool with bars like subscription limits. Exact counts and reset times wrap rather than clip.
+ */
 export function HttpQuotaCards({
   sources,
   now,
@@ -23,22 +26,30 @@ export function HttpQuotaCards({
   readonly sources: readonly CompactHttpQuotaSource[];
   readonly now: number;
 }) {
+  const m = useMessages();
   return sources.map((source) => (
     <section key={source.key} aria-label={source.label} className="flex flex-col gap-3">
-      <h2 className="flex items-center gap-2 text-sm font-medium text-foreground">
+      <h2 className="flex items-center gap-2 text-sm font-medium wrap-anywhere text-foreground">
         <GaugeIcon className="size-4 shrink-0 text-foreground/80" aria-hidden />
         {source.label}
       </h2>
-      {source.quotaAccounts?.flatMap((account) =>
-        groupUsageWindows(account.windows).map((group) => (
-          <QuotaPoolCard
-            key={`${account.id}:${group.rows[0]?.window.id}`}
-            title={group.title ?? account.label}
-            rows={group.rows}
-            now={now}
-          />
-        )),
-      )}
+      {source.quotaAccounts?.map((account) => (
+        <div key={account.id} className="flex flex-col gap-2">
+          <h3 className="text-sm font-medium wrap-anywhere text-foreground">{account.label}</h3>
+          {account.windows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{m(msg("No limits reported."))}</p>
+          ) : (
+            groupUsageWindows(account.windows).map((group) => (
+              <QuotaPoolCard
+                key={group.rows[0]?.window.id}
+                title={group.title}
+                rows={group.rows}
+                now={now}
+              />
+            ))
+          )}
+        </div>
+      ))}
     </section>
   ));
 }
@@ -48,7 +59,7 @@ function QuotaPoolCard({
   rows,
   now,
 }: {
-  readonly title: string;
+  readonly title: string | null;
   readonly rows: ReadonlyArray<{ readonly label: string; readonly window: QuotaWindow }>;
   readonly now: number;
 }) {
@@ -57,7 +68,9 @@ function QuotaPoolCard({
   return (
     <div className="grid items-center gap-x-6 gap-y-3 rounded-lg border border-border/60 p-4 md:grid-cols-[11rem_minmax(0,1fr)]">
       <div className="flex min-w-0 flex-col gap-1">
-        <span className="truncate text-sm font-medium text-foreground">{title}</span>
+        {title ? (
+          <span className="text-sm font-medium wrap-anywhere text-foreground">{title}</span>
+        ) : null}
         <span className="flex items-baseline gap-2">
           <span className="text-3xl font-semibold text-foreground tabular-nums">
             {tightestLeft}%
@@ -74,10 +87,10 @@ function QuotaPoolCard({
           return (
             <div
               key={window.id}
-              className="grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)] items-center gap-3"
+              className="grid gap-x-3 gap-y-1 sm:grid-cols-[minmax(0,9rem)_minmax(0,1fr)] sm:items-center"
             >
-              <span className="truncate text-xs text-muted-foreground">{label}</span>
-              <div className="relative h-8 min-w-0 overflow-hidden rounded-md bg-muted">
+              <span className="min-w-0 text-xs wrap-anywhere text-muted-foreground">{label}</span>
+              <div className="relative min-h-8 min-w-0 overflow-hidden rounded-md bg-muted">
                 <div
                   aria-hidden
                   className={cn(
@@ -86,12 +99,12 @@ function QuotaPoolCard({
                   )}
                   style={{ width: `${remaining}%` }}
                 />
-                <div className="relative flex h-full min-w-0 items-center gap-1.5 px-2 text-xs">
+                <div className="relative flex min-h-8 min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 px-2 py-1 text-xs">
                   <span className="shrink-0 font-semibold text-foreground tabular-nums">
                     {remaining}%
                   </span>
                   {refill ? (
-                    <span className="ms-auto min-w-0 truncate rounded-sm bg-background/85 px-1.5 py-0.5 text-2xs whitespace-nowrap text-foreground tabular-nums">
+                    <span className="ms-auto min-w-0 rounded-sm bg-background/85 px-1.5 py-0.5 text-2xs wrap-anywhere text-foreground tabular-nums">
                       {refill}
                     </span>
                   ) : null}
