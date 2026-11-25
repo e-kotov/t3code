@@ -1,7 +1,12 @@
 import { ProviderDriverKind, UsageLimitSourceId } from "@t3tools/contracts";
 import type { LimitAccount } from "@t3tools/shared/usageLimits";
 import { describe, expect, it } from "vite-plus/test";
-import { compactHttpQuotas, compactUsage, groupUsageWindows } from "./usageCompact";
+import {
+  compactCountLabel,
+  compactHttpQuotas,
+  compactUsage,
+  groupUsageWindows,
+} from "./usageCompact";
 
 const now = Date.parse("2026-10-26T12:00:00Z");
 
@@ -484,5 +489,25 @@ describe("compact usage", () => {
     expect(result[1]?.bars).toEqual([]);
     expect(result[1]?.remaining).toBe(40);
     expect(result[2]?.remaining).toBeNull();
+  });
+
+  it("shortens request count pairs in quota labels and leaves other numbers alone", () => {
+    expect(
+      [
+        "Day (1517/1600)",
+        "Month (5057/6000)",
+        "Hour (366/400)",
+        "Day (9960/10000)",
+        "Month (25000/1250000)",
+        "Week 2026",
+      ].map(compactCountLabel),
+    ).toEqual([
+      "Day (1.5k/1.6k)",
+      "Month (5.1k/6k)",
+      "Hour (366/400)",
+      "Day (10k/10k)",
+      "Month (25k/1.3M)",
+      "Week 2026",
+    ]);
   });
 });

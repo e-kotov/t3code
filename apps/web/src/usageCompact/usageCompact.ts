@@ -226,6 +226,27 @@ export function compactHttpQuotas(sources: readonly CompactHttpQuotaSource[]) {
   );
 }
 
+/** Bar fill for a remaining-quota percentage: green, amber at 25% or less, red at 10% or less. */
+export function quotaFillClass(remaining: number): string {
+  return remaining <= 10 ? "bg-destructive" : remaining <= 25 ? "bg-warning" : "bg-success";
+}
+
+function compactCount(value: number): string {
+  if (value < 1000) return String(value);
+  if (value < 10_000) return `${Math.round(value / 100) / 10}k`;
+  if (value < 1_000_000) return `${Math.round(value / 1000)}k`;
+  return `${Math.round(value / 100_000) / 10}M`;
+}
+
+/** Shortens request counts such as "Day (1517/1600)" to "Day (1.5k/1.6k)" for narrow rows. */
+export function compactCountLabel(label: string): string {
+  return label.replace(
+    /\b(\d+)\/(\d+)\b/g,
+    (_match, left: string, right: string) =>
+      `${compactCount(Number(left))}/${compactCount(Number(right))}`,
+  );
+}
+
 /** Group consecutive windows whose reported labels share a "Family · Window" prefix. */
 export function groupUsageWindows<T extends { readonly label: string }>(windows: readonly T[]) {
   const groups: Array<{

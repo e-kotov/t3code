@@ -53,7 +53,16 @@ jobs:
           git show "origin/main:$pooled" > "$pooled"
           # Preserve the historical UI body; adapt only helpers moved by upstream i18n.
           python3 scripts/fork-usage-baseline.py "$compact" "$pooled"
-          VITE_USAGE_AVAILABILITY_CAPTURE=before vp test run apps/web/src/usageCompact/UsageAvailability.app.browser.test.tsx
+          app_test=apps/web/src/usageCompact/UsageAvailability.app.browser.test.tsx
+          VITE_USAGE_AVAILABILITY_CAPTURE=before vp test run "$app_test" -t 'shows read-only resets'
+          # The previous control left a fixed header reserve, so a wide usage group overlaps the title.
+          if VITE_USAGE_AVAILABILITY_CAPTURE=before vp test run "$app_test" -t 'keeps the thread header clear' > "$RUNNER_TEMP/header-overlap-before.log" 2>&1; then
+            cat "$RUNNER_TEMP/header-overlap-before.log"
+            echo 'The header overlap check must fail on the previous usage control.'
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/header-overlap-before.log"
+          grep -q 'HEADER_USAGE_OVERLAP' "$RUNNER_TEMP/header-overlap-before.log"
       - name: Check changed code
         run: vp run check:changed origin/main
       - name: Verify usage in the complete client and capture results

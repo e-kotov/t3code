@@ -1,45 +1,17 @@
 import { useGT, useMessages, T, Var } from "gt-react";
 import { useNavigate } from "@tanstack/react-router";
-import { useAtomValue } from "@effect/atom-react";
 import { connectionStatusText } from "@t3tools/client-runtime/connection";
-import { threadSupportsProviderHandoff } from "@t3tools/client-runtime/state/thread-workflows";
-import type {
-  EnvironmentProject,
-  EnvironmentThreadShell,
-} from "@t3tools/client-runtime/state/shell";
-import {
-  resolveEnvironmentMachineKind,
-  type ModelSelection,
-  type ScopedThreadRef,
-} from "@t3tools/contracts";
+import { resolveEnvironmentMachineKind, type ScopedThreadRef } from "@t3tools/contracts";
 import { availableScratchWorkspaceRoot } from "@t3tools/client-runtime/operations/projects";
-import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 
 import { cn } from "../../lib/utils";
-import { draftModelSelectionApplies, threadHasStarted } from "../../lib/chatThreadActions";
-import { useComposerDraftModelState, type ComposerThreadTarget } from "../../composerDraftStore";
 import { useScratchProject } from "../../hooks/useScratchProject";
-import { useEnvironmentSettings } from "../../hooks/useSettings";
-import { useThreadRouteTarget } from "../../hooks/useThreadRouteTarget";
-import { shouldShowInstanceBadge } from "../../providerInstances";
-import { useQuietThreadProjection, useQuietThreadShell } from "../../state/entities";
 import { useEnvironmentPresentation } from "../../state/presentation";
-import { providersIgnoringCheckedAtAtom } from "../../state/server";
 import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
 import { MachineGroupConnectionStatus } from "../MachineGroupConnectionStatus";
 import { machineConnectionSettingsTargetId } from "../settings/machineConnectionSettingsTarget";
 import { MachineGroupSlurmTime } from "../MachineGroupSlurmTime";
-import { deriveLockedProvider } from "../ChatView.logic";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { ProviderInstanceIcon } from "./ProviderInstanceIcon";
-import { getTriggerDisplayModelName } from "./providerIconUtils";
-import { useComposerProviderModel } from "./useComposerProviderModel";
-import { getComposerPromptInjectionState } from "./composerProviderState";
-
-export interface HeaderModelContext {
-  readonly thread: EnvironmentThreadShell | null | undefined;
-  readonly draftTarget: ComposerThreadTarget;
-}
 
 export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedThreadRef }) {
   const gt = useGT();
@@ -124,105 +96,5 @@ export function HeaderMachineLabel({ threadRef }: { readonly threadRef: ScopedTh
         /
       </span>
     </div>
-  );
-}
-
-export function HeaderModelLabel({
-  threadRef,
-  project,
-  defaultModelSelection,
-  context,
-  isServerThread,
-}: {
-  readonly threadRef: ScopedThreadRef;
-  readonly project: EnvironmentProject | null;
-  readonly defaultModelSelection?: ModelSelection | null | undefined;
-  readonly context?: HeaderModelContext | undefined;
-  readonly isServerThread: boolean;
-}) {
-  const gt = useGT();
-  const shell = useQuietThreadShell(context === undefined ? threadRef : null);
-  const thread = context === undefined ? shell : context.thread;
-  const projection = useQuietThreadProjection(thread && isServerThread ? threadRef : null);
-  const routeTarget = useThreadRouteTarget();
-  const target =
-    context?.draftTarget ?? (routeTarget?.kind === "draft" ? routeTarget.draftId : threadRef);
-  const draft = useComposerDraftModelState(target);
-  const providers = useAtomValue(providersIgnoringCheckedAtAtom(threadRef.environmentId));
-  const settings = useEnvironmentSettings(threadRef.environmentId);
-  const projectModelSelection =
-    defaultModelSelection !== undefined
-      ? defaultModelSelection
-      : resolveProjectSettings(settings, project?.id ?? null, project ?? undefined).settings
-          .defaultModelSelection;
-  const threadStarted = threadHasStarted(thread);
-  const draftProvider = draftModelSelectionApplies(draft, threadStarted)
-    ? draft.activeProvider
-    : null;
-  const canHandoff = threadSupportsProviderHandoff(projection?.projection ?? null);
-  const lockedProvider = deriveLockedProvider({
-    thread,
-    selectedProvider: draftProvider,
-    threadProvider: thread?.modelSelection.instanceId ?? projectModelSelection?.instanceId ?? null,
-    providers,
-  });
-  const resolved = useComposerProviderModel({
-    providerStatuses: providers,
-    settings,
-    activeProjectId: project?.id ?? thread?.projectId ?? null,
-    threadRef: target,
-    threadStarted,
-    threadModelSelection: thread?.modelSelection,
-    projectModelSelection,
-    promptInjectionState: getComposerPromptInjectionState(""),
-    candidateInstanceIds: [
-      thread?.runtime?.providerInstanceId,
-      thread?.modelSelection.instanceId,
-      projectModelSelection?.instanceId,
-    ],
-    lockedProvider: canHandoff ? null : lockedProvider,
-    lockedInstanceId: canHandoff
-      ? null
-      : (thread?.runtime?.providerInstanceId ?? thread?.modelSelection.instanceId),
-  });
-  const entry = resolved.selectedProviderEntry;
-  const retainedSelection =
-    (draftProvider ? draft.modelSelectionByProvider[draftProvider] : null) ??
-    thread?.modelSelection;
-  const modelSlug = entry ? resolved.selectedModel : retainedSelection?.model;
-  const model = entry?.models.find((candidate) => candidate.slug === modelSlug);
-  if (!modelSlug) return null;
-  const modelLabel = model ? getTriggerDisplayModelName(model, entry?.driverKind) : modelSlug;
-  const details = `${model?.name ?? modelSlug} (${modelSlug})${entry ? ` · ${entry.displayName}` : ""}`;
-
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <button
-            type="button"
-            data-header-model
-            aria-label={gt("Model: {details}", { details: details })}
-            className="inline-flex max-w-24 min-w-0 shrink-0 cursor-help items-center gap-1.5 rounded-sm text-xs text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring @min-[28rem]/header-context:max-w-36"
-          />
-        }
-      >
-        {entry ? (
-          <ProviderInstanceIcon
-            driverKind={entry.driverKind}
-            displayName={entry.displayName}
-            accentColor={entry.accentColor}
-            acpRegistryAgentId={entry.acpRegistryAgentId}
-            acpRegistryIconUrl={entry.acpRegistryIconUrl}
-            showBadge={shouldShowInstanceBadge(entry, resolved.providerInstanceEntries)}
-            size="compact"
-          />
-        ) : null}
-        <span className={entry ? "hidden truncate @min-[16rem]/header-context:block" : "truncate"}>
-          {modelLabel}
-        </span>
-      </TooltipTrigger>
-      <TooltipPopup>{details}</TooltipPopup>
-    </Tooltip>
   );
 }

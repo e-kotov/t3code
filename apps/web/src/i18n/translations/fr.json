@@ -13133,7 +13133,6 @@
   "4fe719052d3f3808": "Percentages compare OpenAI-reported lifetime consumption for the current Codex task and its subagents with a current full allowance. Balance credits show debits or adjustments.",
   "2a352e40df5fc54c": "Estimates can arrive late. This is not usage during only the current week.",
   "6e8a4f61fdbb3b98": "Machine: {label}. {status}",
-  "e33094fd1a1a6eab": "Model: {details}",
   "1808d303bb77bdbb": [
     "New thread on ",
     {

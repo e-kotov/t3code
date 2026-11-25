@@ -355,7 +355,7 @@ it("supports custom hover delay prop", async () => {
   await expect.element(details()).toBeVisible();
 });
 
-it("renders HTTP quota sources in the top bar and shared quota popup", async () => {
+it("renders HTTP quota sources with compact counts in the widest quota popup", async () => {
   const report = compactUsageReport(
     new Map([
       [
@@ -383,9 +383,15 @@ it("renders HTTP quota sources in the top bar and shared quota popup", async () 
                         usedPercent: 25,
                       },
                       {
-                        id: "saia-gwdg-day",
+                        id: "month",
+                        kind: "monthly",
+                        label: "Month (5057/6000)",
+                        usedPercent: 16,
+                      },
+                      {
+                        id: "pool-a-day",
                         kind: "other",
-                        label: "GWDG · Day (600/800)",
+                        label: "Pool A · Day (600/800)",
                         usedPercent: 25,
                       },
                     ],
@@ -398,11 +404,22 @@ it("renders HTTP quota sources in the top bar and shared quota popup", async () 
       ],
     ]),
   );
-  await using _screen = await render(<CompactUsageControl {...report} onOpenFullView={() => {}} />);
+  await page.viewport(1280, 800);
+  await using _screen = await render(
+    <CompactUsageControl
+      {...report}
+      // Three subscriptions beside the source give the popup its narrowest, four-column layout.
+      accounts={["codex", "claudeAgent", "antigravity"].map((driver) =>
+        account(driver, [{ id: "weekly", kind: "weekly", label: "Weekly", usedPercent: 50 }]),
+      )}
+      drivers={undefined}
+      onOpenFullView={() => {}}
+    />,
+  );
   await expect
     .element(
       page.getByRole("button", {
-        name: "Usage remaining: SAIA 75%. Open full usage",
+        name: "Usage remaining: Codex 50%, Claude 50%, Antigravity 50%, SAIA 75%. Open full usage",
       }),
     )
     .toBeVisible();
@@ -410,7 +427,11 @@ it("renders HTTP quota sources in the top bar and shared quota popup", async () 
   const popup = page.getByRole("dialog");
   await expect.element(popup).toBeVisible();
   const saia = popup.getByRole("region", { name: "SAIA" });
-  await expect.element(saia.getByText("Day (1200/1600)", { exact: true })).toBeVisible();
-  await expect.element(saia.getByText("GWDG", { exact: true })).toBeVisible();
+  await expect.element(saia.getByText("Day (1.2k/1.6k)", { exact: true })).toBeVisible();
+  await expect.element(saia.getByText("Pool A", { exact: true })).toBeVisible();
   await expect.element(saia.getByText("Day (600/800)", { exact: true })).toBeVisible();
+  const month = saia.getByText("Month (5.1k/6k)", { exact: true });
+  await expect.element(month).toBeVisible();
+  const label = month.element() as HTMLElement;
+  expect(label.scrollWidth, "HTTP_QUOTA_LABEL_CLIPPED").toBeLessThanOrEqual(label.clientWidth);
 });

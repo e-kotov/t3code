@@ -51,7 +51,7 @@
     {
       "id": "usage-quotas",
       "group": "Usage and quotas",
-      "summary": "provider quota readouts in the chat header with 5-hour and weekly bars, model-aware switching and a compact popup",
+      "summary": "provider and HTTP quota readouts in the chat header with 5-hour and weekly bars, model-aware switching and a compact popup, plus quota-source bars on the Usage page",
       "tests": [
         "apps/web/src/usageCompact/UsageAvailability.app.browser.test.tsx",
         "scripts/fork-usage-baseline.test.py",
@@ -123,7 +123,7 @@
     {
       "id": "header-context",
       "group": "Machines and HPC",
-      "summary": "the active machine and model in the thread header",
+      "summary": "the active machine in the thread header",
       "tests": [
         "apps/web/src/components/chat/HeaderContextLabels.browser.test.tsx",
         "apps/web/src/components/chat/HeaderContextLabels.app.browser.test.tsx",

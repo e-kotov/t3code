@@ -1,7 +1,6 @@
 import {
   AuthOrchestrationOperateScope,
   type EnvironmentId,
-  type ModelSelection,
   type ScopedThreadRef,
   type ThreadId,
 } from "@t3tools/contracts";
@@ -46,11 +45,7 @@ import { cn } from "~/lib/utils";
 import { textDirection } from "~/textDirection";
 import { useClientSettings } from "../../hooks/useSettings";
 import { GuestShareIndicator } from "./GuestShareControls";
-import {
-  HeaderMachineLabel,
-  HeaderModelLabel,
-  type HeaderModelContext,
-} from "./HeaderContextLabels";
+import { HeaderMachineLabel } from "./HeaderContextLabels";
 
 interface ChatHeaderProps {
   activeThreadEnvironmentId: EnvironmentId;
@@ -59,8 +54,6 @@ interface ChatHeaderProps {
   activeThreadLinkOrigin?: string | null | undefined;
   isServerThread: boolean;
   activeProject: EnvironmentProject | null;
-  defaultModelSelection?: ModelSelection | null | undefined;
-  modelContext?: HeaderModelContext | undefined;
   parentThreadLink: { threadId: ThreadId; title: string } | null;
   onOpenThread: (threadId: ThreadId) => void;
   rightPanelOpen: boolean;
@@ -86,8 +79,6 @@ export const ChatHeader = memo(function ChatHeader({
   activeThreadLinkOrigin,
   isServerThread,
   activeProject,
-  defaultModelSelection,
-  modelContext,
   parentThreadLink,
   onOpenThread,
   rightPanelOpen,
@@ -425,13 +416,6 @@ export const ChatHeader = memo(function ChatHeader({
           ) : null}
         </WorkspaceBreadcrumbItem>
       </WorkspaceBreadcrumb>
-      <HeaderModelLabel
-        threadRef={activeThreadRef}
-        project={activeProject}
-        defaultModelSelection={defaultModelSelection}
-        context={modelContext}
-        isServerThread={isServerThread}
-      />
       {isServerThread ? <GuestShareIndicator threadRef={activeThreadRef} /> : null}
     </div>
   );

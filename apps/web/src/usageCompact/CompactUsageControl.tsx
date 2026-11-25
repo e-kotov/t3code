@@ -8,11 +8,14 @@ import { ProviderInstanceIcon } from "../components/chat/ProviderInstanceIcon";
 import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "../components/ui/popover";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
 import { useNowMinute } from "../hooks/useNowMinute";
+import { observeResize } from "../lib/observeResize";
 import { cn } from "../lib/utils";
 import {
+  compactCountLabel,
   compactHttpQuotas,
   compactUsage,
   groupUsageWindows,
+  quotaFillClass,
   type CompactHttpQuotaSource,
 } from "./usageCompact";
 import { ResetAvailability } from "./ResetAvailability";
@@ -24,6 +27,24 @@ const GRID_COLUMNS = [
   "sm:grid-cols-3",
   "sm:grid-cols-4",
 ] as const;
+
+/**
+ * The chat header reserves room for this control, which sits in fixed titlebar controls outside
+ * its flow. Its width varies with the providers and quota sources shown, so keep the reserve
+ * equal to it (plus the gap before the panel toggles) instead of a fixed guess.
+ */
+function reserveHeaderSpace(element: HTMLElement | null) {
+  const workspace = element?.closest<HTMLElement>("[data-chat-workspace]");
+  if (!element || !workspace) return;
+  const stop = observeResize(element, () => {
+    const width = Math.ceil(element.getBoundingClientRect().width);
+    workspace.style.setProperty("--header-usage-reserve", `${width + 8}px`);
+  });
+  return () => {
+    stop();
+    workspace.style.removeProperty("--header-usage-reserve");
+  };
+}
 
 export function CompactUsageControl({
   accounts,
@@ -88,123 +109,125 @@ export function CompactUsageControl({
         if (!details.isCanceled) setOpen(nextOpen);
       }}
     >
-      <PopoverTrigger
-        openOnHover={popupEnabled}
-        delay={hoverDelayMs}
-        closeDelay={150}
-        render={
-          <button
-            type="button"
-            aria-label={gt(
-              "Usage remaining: {summary}{partial, select, yes {. Partial report} other {}}{disconnected, select, yes {. {names} {count, plural, one {is} other {are}} not connected} other {}}{auth, select, yes {. Session sign-in unconfirmed} other {}}. Open full usage",
-              {
-                summary,
-                partial: notices.length > 0 ? "yes" : "no",
-                disconnected: disconnected.length > 0 ? "yes" : "no",
-                names: new Intl.ListFormat(locale, { type: "conjunction" }).format(disconnected),
-                count: disconnected.length,
-                auth: authNotices.length > 0 ? "yes" : "no",
-              },
-            )}
-            data-header-usage
-            className="relative flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 text-(--contrast-toolbar-foreground) outline-hidden [-webkit-app-region:no-drag] hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-popup-open:bg-accent"
-            onClick={() => {
-              setOpen(false);
-              onOpenFullView();
-            }}
-            onFocus={(event) => {
-              if (popupEnabled && event.currentTarget.matches(":focus-visible")) setOpen(true);
-            }}
-          />
-        }
-      >
-        {providers.map((provider) => (
-          <span key={provider.driver} aria-hidden className="flex items-center gap-1">
-            <ProviderInstanceIcon
-              driverKind={ProviderDriverKind.make(provider.driver)}
-              displayName={provider.label}
-              iconClassName="size-3"
-              showBadge={false}
+      <span ref={reserveHeaderSpace} className="flex shrink-0">
+        <PopoverTrigger
+          openOnHover={popupEnabled}
+          delay={hoverDelayMs}
+          closeDelay={150}
+          render={
+            <button
+              type="button"
+              aria-label={gt(
+                "Usage remaining: {summary}{partial, select, yes {. Partial report} other {}}{disconnected, select, yes {. {names} {count, plural, one {is} other {are}} not connected} other {}}{auth, select, yes {. Session sign-in unconfirmed} other {}}. Open full usage",
+                {
+                  summary,
+                  partial: notices.length > 0 ? "yes" : "no",
+                  disconnected: disconnected.length > 0 ? "yes" : "no",
+                  names: new Intl.ListFormat(locale, { type: "conjunction" }).format(disconnected),
+                  count: disconnected.length,
+                  auth: authNotices.length > 0 ? "yes" : "no",
+                },
+              )}
+              data-header-usage
+              className="relative flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 text-(--contrast-toolbar-foreground) outline-hidden [-webkit-app-region:no-drag] hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-popup-open:bg-accent"
+              onClick={() => {
+                setOpen(false);
+                onOpenFullView();
+              }}
+              onFocus={(event) => {
+                if (popupEnabled && event.currentTarget.matches(":focus-visible")) setOpen(true);
+              }}
             />
-            {provider.bars.length > 0 ? (
-              <span className="flex flex-col justify-center gap-0.5 py-0.5">
-                {provider.bars.map((bar) => (
-                  <span key={bar.label} className="flex items-center gap-0.5">
-                    <span className="w-2.5 text-right font-mono text-4xs font-semibold uppercase text-muted-foreground">
-                      {bar.label}
-                    </span>
-                    <span className="h-0.5 w-3 overflow-hidden rounded-full bg-muted">
+          }
+        >
+          {providers.map((provider) => (
+            <span key={provider.driver} aria-hidden className="flex items-center gap-1">
+              <ProviderInstanceIcon
+                driverKind={ProviderDriverKind.make(provider.driver)}
+                displayName={provider.label}
+                iconClassName="size-3"
+                showBadge={false}
+              />
+              {provider.bars.length > 0 ? (
+                <span className="flex flex-col justify-center gap-0.5 py-0.5">
+                  {provider.bars.map((bar) => (
+                    <span key={bar.label} className="flex items-center gap-0.5">
+                      <span className="w-2.5 text-right font-mono text-4xs font-semibold uppercase text-muted-foreground">
+                        {bar.label}
+                      </span>
+                      <span className="h-0.5 w-3 overflow-hidden rounded-full bg-muted">
+                        <span
+                          className={cn("block h-full rounded-full", quotaFillClass(bar.remaining))}
+                          style={{ width: `${bar.remaining}%` }}
+                        />
+                      </span>
                       <span
-                        className={cn("block h-full rounded-full", barFillColor(bar.remaining))}
-                        style={{ width: `${bar.remaining}%` }}
-                      />
+                        className={cn(
+                          "font-mono text-4xs whitespace-nowrap tabular-nums font-medium",
+                          quotaColor(bar.remaining),
+                        )}
+                      >
+                        {percent(bar.remaining)}
+                      </span>
                     </span>
-                    <span
-                      className={cn(
-                        "font-mono text-4xs whitespace-nowrap tabular-nums font-medium",
-                        quotaColor(bar.remaining),
-                      )}
-                    >
-                      {percent(bar.remaining)}
-                    </span>
-                  </span>
-                ))}
-              </span>
-            ) : null}
-            {provider.bars.length === 0 ||
-            (provider.remaining !== null &&
-              provider.bars.length > 0 &&
-              provider.remaining < Math.min(...provider.bars.map((b) => b.remaining))) ? (
-              <span
-                className={`font-mono text-2xs whitespace-nowrap tabular-nums ${quotaColor(provider.remaining)}`}
-              >
-                {percent(provider.remaining)}
-              </span>
-            ) : null}
-          </span>
-        ))}
-        {customQuotas.map((quota) => (
-          <span key={quota.key} aria-hidden className="flex items-center gap-1">
-            <span className="max-w-14 truncate font-mono text-3xs font-semibold text-muted-foreground">
-              {quota.label}
+                  ))}
+                </span>
+              ) : null}
+              {provider.bars.length === 0 ||
+              (provider.remaining !== null &&
+                provider.bars.length > 0 &&
+                provider.remaining < Math.min(...provider.bars.map((b) => b.remaining))) ? (
+                <span
+                  className={`font-mono text-2xs whitespace-nowrap tabular-nums ${quotaColor(provider.remaining)}`}
+                >
+                  {percent(provider.remaining)}
+                </span>
+              ) : null}
             </span>
-            {quota.bars.length > 0 ? (
-              <span className="flex flex-col justify-center gap-0.5 py-0.5">
-                {quota.bars.map((bar) => (
-                  <span key={bar.label} className="flex items-center gap-0.5">
-                    <span className="w-2.5 text-right font-mono text-4xs font-semibold uppercase text-muted-foreground">
-                      {bar.label}
-                    </span>
-                    <span className="h-0.5 w-3 overflow-hidden rounded-full bg-muted">
+          ))}
+          {customQuotas.map((quota) => (
+            <span key={quota.key} aria-hidden className="flex items-center gap-1">
+              <span className="max-w-14 truncate font-mono text-3xs font-semibold text-muted-foreground">
+                {quota.label}
+              </span>
+              {quota.bars.length > 0 ? (
+                <span className="flex flex-col justify-center gap-0.5 py-0.5">
+                  {quota.bars.map((bar) => (
+                    <span key={bar.label} className="flex items-center gap-0.5">
+                      <span className="w-2.5 text-right font-mono text-4xs font-semibold uppercase text-muted-foreground">
+                        {bar.label}
+                      </span>
+                      <span className="h-0.5 w-3 overflow-hidden rounded-full bg-muted">
+                        <span
+                          className={cn("block h-full rounded-full", quotaFillClass(bar.remaining))}
+                          style={{ width: `${bar.remaining}%` }}
+                        />
+                      </span>
                       <span
-                        className={cn("block h-full rounded-full", barFillColor(bar.remaining))}
-                        style={{ width: `${bar.remaining}%` }}
-                      />
+                        className={cn(
+                          "font-mono text-4xs whitespace-nowrap tabular-nums font-medium",
+                          quotaColor(bar.remaining),
+                        )}
+                      >
+                        {percent(bar.remaining)}
+                      </span>
                     </span>
-                    <span
-                      className={cn(
-                        "font-mono text-4xs whitespace-nowrap tabular-nums font-medium",
-                        quotaColor(bar.remaining),
-                      )}
-                    >
-                      {percent(bar.remaining)}
-                    </span>
-                  </span>
-                ))}
-              </span>
-            ) : (
-              <span
-                className={`font-mono text-2xs whitespace-nowrap tabular-nums ${quotaColor(quota.remaining)}`}
-              >
-                {percent(quota.remaining)}
-              </span>
-            )}
-          </span>
-        ))}
-        {notices.length > 0 || disconnected.length > 0 || authNotices.length > 0 ? (
-          <span aria-hidden className="absolute top-1 right-0.5 size-1 rounded-full bg-warning" />
-        ) : null}
-      </PopoverTrigger>
+                  ))}
+                </span>
+              ) : (
+                <span
+                  className={`font-mono text-2xs whitespace-nowrap tabular-nums ${quotaColor(quota.remaining)}`}
+                >
+                  {percent(quota.remaining)}
+                </span>
+              )}
+            </span>
+          ))}
+          {notices.length > 0 || disconnected.length > 0 || authNotices.length > 0 ? (
+            <span aria-hidden className="absolute top-1 right-0.5 size-1 rounded-full bg-warning" />
+          ) : null}
+        </PopoverTrigger>
+      </span>
       {popupEnabled ? (
         <PopoverPopup
           side="bottom"
@@ -213,7 +236,7 @@ export function CompactUsageControl({
           className={cn(
             "overflow-x-hidden max-w-[calc(100vw-2rem)]",
             totalSections >= 4
-              ? "w-168"
+              ? "w-192"
               : totalSections === 3
                 ? "w-128"
                 : totalSections === 2
@@ -379,7 +402,7 @@ export function CompactUsageControl({
                             <div className="grid grid-cols-[minmax(0,1fr)_2rem_3rem] items-baseline gap-1 text-3xs">
                               <Tooltip>
                                 <TooltipTrigger render={<span className="truncate" />}>
-                                  {label}
+                                  {compactCountLabel(label)}
                                 </TooltipTrigger>
                                 <TooltipPopup>{window.label}</TooltipPopup>
                               </Tooltip>
@@ -435,8 +458,4 @@ function quotaColor(remaining: number | null) {
       : remaining <= 25
         ? "text-warning-foreground"
         : "";
-}
-
-function barFillColor(remaining: number) {
-  return remaining <= 10 ? "bg-destructive" : remaining <= 25 ? "bg-warning" : "bg-success";
 }
