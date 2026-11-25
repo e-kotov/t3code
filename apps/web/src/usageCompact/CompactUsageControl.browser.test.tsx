@@ -435,3 +435,75 @@ it("renders HTTP quota sources with compact counts in the widest quota popup", a
   const label = month.element() as HTMLElement;
   expect(label.scrollWidth, "HTTP_QUOTA_LABEL_CLIPPED").toBeLessThanOrEqual(label.clientWidth);
 });
+
+it("keeps compact quota counts readable in a narrow window with several pools", async () => {
+  const quotaWindow = (id: string, label: string, usedPercent: number) => ({
+    id,
+    kind: "other" as const,
+    label,
+    usedPercent,
+  });
+  const report = compactUsageReport(
+    new Map([
+      [
+        EnvironmentId.make("hub"),
+        {
+          entry: { target: { label: "hub" } },
+          serverConfig: {
+            providers: [],
+            usageLimitSources: [
+              {
+                id: UsageLimitSourceId.make("saia"),
+                kind: "http",
+                label: "SAIA",
+                checkedAt: "2026-10-26T12:00:00Z",
+                accounts: [],
+                quotaAccounts: [
+                  {
+                    id: "saia",
+                    label: "SAIA",
+                    windows: [
+                      quotaWindow("day", "Day (1517/1600)", 5),
+                      quotaWindow("month", "Month (5057/6000)", 16),
+                      quotaWindow("pool-a-hour", "Pool A · Hour (366/400)", 9),
+                      quotaWindow("pool-b-day", "Pool B · Day (758/800)", 5),
+                      quotaWindow("pool-b-month", "Pool B · Month (2528/3000)", 16),
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    ]),
+  );
+  await page.viewport(680, 800);
+  await using _screen = await render(
+    <CompactUsageControl
+      {...report}
+      accounts={["codex", "claudeAgent", "antigravity"].map((driver) =>
+        account(driver, [{ id: "weekly", kind: "weekly", label: "Weekly", usedPercent: 50 }]),
+      )}
+      drivers={undefined}
+      onOpenFullView={() => {}}
+    />,
+  );
+  await userEvent.hover(trigger());
+  const saia = page.getByRole("dialog").getByRole("region", { name: "SAIA" });
+  await expect.element(saia.getByText("Pool B", { exact: true })).toBeVisible();
+  for (const text of [
+    "Day (1.5k/1.6k)",
+    "Month (5.1k/6k)",
+    "Hour (366/400)",
+    "Day (758/800)",
+    "Month (2.5k/3k)",
+  ]) {
+    const label = saia.getByText(text, { exact: true });
+    await expect.element(label).toBeVisible();
+    const element = label.element() as HTMLElement;
+    expect(element.scrollWidth, `HTTP_QUOTA_NARROW_CLIPPED ${text}`).toBeLessThanOrEqual(
+      element.clientWidth,
+    );
+  }
+});

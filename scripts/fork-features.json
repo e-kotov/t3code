@@ -57,6 +57,7 @@
         "scripts/fork-usage-baseline.test.py",
         "apps/web/src/usageCompact/resetAvailability.logic.test.ts",
         "apps/web/src/usageCompact/CompactUsageControl.browser.test.tsx",
+        "apps/web/src/usageCompact/HttpQuotaCards.browser.test.tsx",
         "apps/web/src/usageCompact/HeaderUsageControl.browser.test.tsx",
         "apps/web/src/usageCompact/usageCompact.test.ts",
         "apps/web/src/usageCompact/usageCompactReport.test.ts",
