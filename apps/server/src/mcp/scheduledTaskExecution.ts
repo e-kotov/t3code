@@ -18,6 +18,7 @@ export interface ModelTargetParent {
   readonly thread: {
     readonly projectId: Project["id"];
     readonly modelSelection: ModelSelection;
+    readonly runtimeMode: RuntimeMode;
   };
 }
 
@@ -73,7 +74,7 @@ export const scheduledTaskExecutionResolver = (
       model: target.model,
     };
     const resolved = yield* resolveTarget({
-      parent: { thread: { projectId, modelSelection } },
+      parent: { thread: { projectId, modelSelection, runtimeMode: config.runtimeMode } },
       target,
       providers: yield* loadProviders,
       cwd,
