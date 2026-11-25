@@ -5,6 +5,8 @@ import { CompactUsageControl } from "./CompactUsageControl";
 import { EnvironmentId, ProviderDriverKind, UsageLimitSourceId } from "@t3tools/contracts";
 import type { LimitAccount } from "@t3tools/shared/usageLimits";
 import { compactUsageReport } from "./usageCompactReport";
+// Layout assertions below need the app styles; without them nothing truncates.
+import "../index.css";
 
 const trigger = () => page.getByRole("button", { name: /^Usage remaining/ });
 const details = () => page.getByText("Quota remaining", { exact: true });

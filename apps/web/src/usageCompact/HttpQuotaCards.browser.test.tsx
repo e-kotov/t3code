@@ -4,6 +4,8 @@ import { page } from "vite-plus/test/browser";
 import { render } from "../../test/render";
 import { HttpQuotaCards } from "./HttpQuotaCards";
 import type { CompactHttpQuotaSource } from "./usageCompact";
+// Layout assertions below need the app styles; without them nothing truncates.
+import "../index.css";
 
 const NOW = Date.parse("2026-11-13T16:00:00Z");
 
