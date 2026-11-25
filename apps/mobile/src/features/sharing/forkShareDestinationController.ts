@@ -78,7 +78,13 @@ export function makeForkShareDestinationController(options: {
     },
   });
 
-  function present(next: readonly IncomingShareDraft[]) {
+  let canOfferShare: (share: IncomingShareDraft) => boolean = () => true;
+
+  function present(
+    next: readonly IncomingShareDraft[],
+    canOffer?: (share: IncomingShareDraft) => boolean,
+  ) {
+    if (canOffer) canOfferShare = canOffer;
     drafts = next;
     const live = new Set(next.map((share) => share.id));
     for (const id of handedOff) if (!live.has(id)) handedOff.delete(id);
@@ -90,7 +96,9 @@ export function makeForkShareDestinationController(options: {
       }
       return;
     }
-    const share = next.find((candidate) => !handedOff.has(candidate.id));
+    const share = next.find(
+      (candidate) => !handedOff.has(candidate.id) && canOfferShare(candidate),
+    );
     if (!share) return;
     // Project-only reservations belong to the existing new-conversation flow.
     if (share.destination && !share.destination.threadId) {

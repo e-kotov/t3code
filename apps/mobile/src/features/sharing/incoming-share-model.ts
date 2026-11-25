@@ -97,7 +97,7 @@ export function isShareFileUriUnderOwnedRoots(
 }
 
 /**
- * On Android only the native resolver's `shared-<uuid>` copies are this app's to delete; other
+ * On Android only the native resolver's `expo-sharing/<uuid>` copies are this app's to delete; other
  * shared URIs are not copies.
  */
 export function isOwnedShareFileUri(
@@ -120,7 +120,7 @@ export function isOwnedShareFileUri(
     path !== undefined &&
     cachePath !== undefined &&
     path.startsWith(cachePath) &&
-    /^shared-[\da-f-]{36}\/[^/]+$/i.test(path.slice(cachePath.length))
+    /^expo-sharing\/[\da-f-]{36}\/[^/]+$/i.test(path.slice(cachePath.length))
   );
 }
 
