@@ -1,7 +1,7 @@
-import { ProviderDriverKind } from "@t3tools/contracts";
+import { ProviderDriverKind, UsageLimitSourceId } from "@t3tools/contracts";
 import type { LimitAccount } from "@t3tools/shared/usageLimits";
 import { describe, expect, it } from "vite-plus/test";
-import { compactUsage, groupUsageWindows } from "./usageCompact";
+import { compactHttpQuotas, compactUsage, groupUsageWindows } from "./usageCompact";
 
 const now = Date.parse("2026-10-26T12:00:00Z");
 
@@ -417,5 +417,72 @@ describe("compact usage", () => {
     expect(groupUsageWindows(pool[0]!.windows)).toEqual([
       { title: null, rows: [{ label: "5h", window: pool[0]!.windows[0] }] },
     ]);
+  });
+
+  it("summarizes HTTP quota sources into compact bars and grouped popover windows", () => {
+    const result = compactHttpQuotas([
+      {
+        id: UsageLimitSourceId.make("saia"),
+        key: "hub:saia",
+        kind: "http",
+        label: "SAIA Gateway",
+        checkedAt: "2026-10-26T12:00:00Z",
+        accounts: [],
+        quotaAccounts: [
+          {
+            id: "saia",
+            label: "SAIA",
+            windows: [
+              {
+                id: "day",
+                kind: "other",
+                label: "Day (1167/1600)",
+                usedPercent: 27,
+                resetsAt: "2026-10-27T00:00:00Z",
+              },
+              {
+                id: "month",
+                kind: "monthly",
+                label: "Month (5100/6000)",
+                usedPercent: 15,
+              },
+              {
+                id: "saia-gwdg-day",
+                kind: "other",
+                label: "GWDG · Day (584/800)",
+                usedPercent: 27,
+              },
+            ],
+          },
+          {
+            id: "custom",
+            label: "Custom",
+            windows: [{ id: "credits", kind: "other", label: "Credits", usedPercent: 60 }],
+          },
+          {
+            id: "empty",
+            label: "Empty",
+            windows: [],
+          },
+        ],
+      },
+    ]);
+    expect(result[0]?.bars).toEqual([
+      { label: "d", remaining: 73 },
+      { label: "mo", remaining: 85 },
+    ]);
+    expect(result[0]?.remaining).toBe(73);
+    expect(
+      groupUsageWindows(result[0]!.windows).map((group) => [
+        group.title,
+        group.rows.map((row) => row.label),
+      ]),
+    ).toEqual([
+      [null, ["Day (1167/1600)", "Month (5100/6000)"]],
+      ["GWDG", ["Day (584/800)"]],
+    ]);
+    expect(result[1]?.bars).toEqual([]);
+    expect(result[1]?.remaining).toBe(40);
+    expect(result[2]?.remaining).toBeNull();
   });
 });

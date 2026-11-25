@@ -2,7 +2,11 @@ import { mFallback } from "gt-react";
 import type { MessageResolver } from "~/i18n/messages";
 import { collectLimitNotices } from "@t3tools/shared/usageLimitsCopy";
 import { isProviderAvailable, type ServerProvider } from "@t3tools/contracts";
-import { collectLimitAccounts, type LimitPresentations } from "@t3tools/shared/usageLimits";
+import {
+  collectHttpQuotaSources,
+  collectLimitAccounts,
+  type LimitPresentations,
+} from "@t3tools/shared/usageLimits";
 import { COMPACT_USAGE_DRIVERS } from "./usageCompact";
 
 const shownDriver = (driver: ServerProvider["driver"]) =>
@@ -82,6 +86,7 @@ export function compactUsageReport(
   }
   return {
     accounts: collectLimitAccounts(authenticated),
+    quotaSources: collectHttpQuotaSources(authenticated),
     notices,
     drivers,
     authNotices: [...authNotices],

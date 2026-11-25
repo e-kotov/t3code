@@ -354,3 +354,63 @@ it("supports custom hover delay prop", async () => {
   await userEvent.hover(trigger());
   await expect.element(details()).toBeVisible();
 });
+
+it("renders HTTP quota sources in the top bar and shared quota popup", async () => {
+  const report = compactUsageReport(
+    new Map([
+      [
+        EnvironmentId.make("hub"),
+        {
+          entry: { target: { label: "hub" } },
+          serverConfig: {
+            providers: [],
+            usageLimitSources: [
+              {
+                id: UsageLimitSourceId.make("saia"),
+                kind: "http",
+                label: "SAIA",
+                checkedAt: "2026-10-26T12:00:00Z",
+                accounts: [],
+                quotaAccounts: [
+                  {
+                    id: "saia",
+                    label: "SAIA",
+                    windows: [
+                      {
+                        id: "day",
+                        kind: "other",
+                        label: "Day (1200/1600)",
+                        usedPercent: 25,
+                      },
+                      {
+                        id: "saia-gwdg-day",
+                        kind: "other",
+                        label: "GWDG · Day (600/800)",
+                        usedPercent: 25,
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    ]),
+  );
+  await using _screen = await render(<CompactUsageControl {...report} onOpenFullView={() => {}} />);
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Usage remaining: SAIA 75%. Open full usage",
+      }),
+    )
+    .toBeVisible();
+  await userEvent.hover(trigger());
+  const popup = page.getByRole("dialog");
+  await expect.element(popup).toBeVisible();
+  const saia = popup.getByRole("region", { name: "SAIA" });
+  await expect.element(saia.getByText("Day (1200/1600)", { exact: true })).toBeVisible();
+  await expect.element(saia.getByText("GWDG", { exact: true })).toBeVisible();
+  await expect.element(saia.getByText("Day (600/800)", { exact: true })).toBeVisible();
+});

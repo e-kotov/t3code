@@ -1,9 +1,13 @@
 import {
+  collectHttpQuotaSources,
   collectLimitPools,
   displayLimitWindows,
+  remainingPercent,
   type LimitAccount,
   type LimitPoolWindow,
 } from "@t3tools/shared/usageLimits";
+
+export type CompactHttpQuotaSource = ReturnType<typeof collectHttpQuotaSources>[number];
 
 const PROVIDERS = [
   { driver: "codex", label: "Codex", shortLabel: "Codex" },
@@ -156,11 +160,77 @@ export function compactUsage(
   });
 }
 
+const HTTP_BAR_ORDER = ["1h", "5h", "d", "w", "mo"] as const;
+
+function httpBarTag(window: {
+  readonly id: string;
+  readonly kind: "session" | "weekly" | "monthly" | "other";
+}): (typeof HTTP_BAR_ORDER)[number] | null {
+  const id = window.id.toLowerCase();
+  if (id === "hour" || id === "hourly") return "1h";
+  if (id === "day" || id === "daily") return "d";
+  if (window.kind === "session") return "5h";
+  if (window.kind === "weekly") return "w";
+  if (window.kind === "monthly") return "mo";
+  return null;
+}
+
+export function compactHttpQuotas(sources: readonly CompactHttpQuotaSource[]) {
+  return sources.flatMap((source) =>
+    (source.quotaAccounts ?? []).map((account) => {
+      const windows = account.windows.map((window) => {
+        const parsed = window.resetsAt === undefined ? Number.NaN : Date.parse(window.resetsAt);
+        return {
+          id: window.id,
+          kind: window.kind,
+          label: window.label,
+          remainingPercent: remainingPercent(window),
+          resetAt: Number.isFinite(parsed) ? parsed : null,
+        };
+      });
+
+      const tightestByTag = new Map<(typeof HTTP_BAR_ORDER)[number], number>();
+      for (const window of windows) {
+        const tag = httpBarTag(window);
+        if (tag === null) continue;
+        const previous = tightestByTag.get(tag);
+        tightestByTag.set(
+          tag,
+          previous === undefined
+            ? window.remainingPercent
+            : Math.min(previous, window.remainingPercent),
+        );
+      }
+      const bars: CompactUsageBar[] = HTTP_BAR_ORDER.flatMap((tag) => {
+        const value = tightestByTag.get(tag);
+        return value === undefined ? [] : [{ label: tag, remaining: value }];
+      }).slice(0, 2);
+
+      const remaining =
+        bars.length > 0
+          ? Math.min(...bars.map((bar) => bar.remaining))
+          : windows.length > 0
+            ? Math.min(...windows.map((window) => window.remainingPercent))
+            : null;
+
+      return {
+        key: `${source.key}:${account.id}`,
+        label: account.label,
+        sourceLabel: source.label,
+        checkedAt: source.checkedAt,
+        windows,
+        bars,
+        remaining,
+      };
+    }),
+  );
+}
+
 /** Group consecutive windows whose reported labels share a "Family · Window" prefix. */
-export function groupUsageWindows(windows: readonly LimitPoolWindow[]) {
+export function groupUsageWindows<T extends { readonly label: string }>(windows: readonly T[]) {
   const groups: Array<{
     title: string | null;
-    rows: Array<{ label: string; window: LimitPoolWindow }>;
+    rows: Array<{ label: string; window: T }>;
   }> = [];
   for (const window of windows) {
     const split = window.label.indexOf(" · ");
