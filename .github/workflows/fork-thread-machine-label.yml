@@ -45,8 +45,6 @@ jobs:
             vp run --last-details || true
             exit "$status"
           fi
-      - name: Check fork Antigravity quota compatibility
-        run: vp test run apps/server/src/provider/forkAntigravityQuota.test.ts
   checks:
     if: github.repository == 'e-kotov/t3code'
     runs-on: ubuntu-24.04

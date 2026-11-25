@@ -194,10 +194,9 @@
     {
       "id": "antigravity",
       "group": "Providers and automations",
-      "summary": "Antigravity over ACP with a custom client name, token and cache context, quotas and a browser preflight",
+      "summary": "Antigravity over ACP with a custom client name, token and cache context, and a browser preflight",
       "tests": [
         "apps/server/src/provider/forkAntigravityRuntime.test.ts",
-        "apps/server/src/provider/forkAntigravityQuota.test.ts",
         "apps/server/src/provider/forkAntigravityBrowserPreflight.test.ts",
         "apps/server/src/orchestration-v2/Adapters/AntigravityTurnUsage.test.ts"
       ]

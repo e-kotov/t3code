@@ -31,7 +31,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("EK telemetry pol
           ConfigProvider.layer(
             ConfigProvider.fromUnknown({
               ...(enabled === undefined ? {} : { T3CODE_TELEMETRY_ENABLED: enabled }),
-              T3CODE_POSTHOG_HOST: "https://telemetry.example",
+              T3CODE_TELEMETRY_HOST: "https://telemetry.example",
             }),
           ),
         ),
