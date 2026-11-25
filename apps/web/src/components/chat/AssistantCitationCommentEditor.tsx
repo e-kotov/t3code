@@ -4,9 +4,11 @@ import {
   use,
   useEffect,
   useEffectEvent,
+  useImperativeHandle,
   useLayoutEffect,
   useRef,
   useState,
+  type Ref,
   type RefObject,
 } from "react";
 
@@ -16,6 +18,12 @@ import { textDirection } from "~/textDirection";
 
 import { ComposerContextActionsContext } from "../composerContextActions";
 import { Button } from "../ui/button";
+
+/** Lets the popover finish a running dictation, instead of discarding it, when it is dismissed. */
+export type AssistantCitationCommentDictation = {
+  /** False when nothing is being dictated; otherwise `settle` gets the comment once it is transcribed. */
+  finish: (settle: (comment: string) => void) => boolean;
+};
 
 export function AssistantCitationCommentEditor({
   citation,
@@ -27,6 +35,7 @@ export function AssistantCitationCommentEditor({
   onCancel,
   onDraftChange,
   onVoiceSetupOpenChange,
+  dictationRef,
 }: {
   citation: AssistantCitation;
   initialComment?: string;
@@ -37,6 +46,7 @@ export function AssistantCitationCommentEditor({
   onCancel: () => void;
   onDraftChange?: (comment: string) => void;
   onVoiceSetupOpenChange?: (open: boolean) => void;
+  dictationRef?: Ref<AssistantCitationCommentDictation>;
 }) {
   const gt = useGT();
   const [comment, setComment] = useState(
@@ -78,6 +88,13 @@ export function AssistantCitationCommentEditor({
     onVoiceSetupOpenChange?.(setupOpen);
     return () => onVoiceSetupOpenChange?.(false);
   }, [onVoiceSetupOpenChange, setupOpen]);
+  useImperativeHandle(dictationRef, () => ({
+    finish: (settle) => {
+      if (!speech.blocksSubmission || speech.preparing) return false;
+      speech.submitAfterDictation(settle);
+      return true;
+    },
+  }));
   const commentTooLong = comment.length > ASSISTANT_CITATION_MAX_COMMENT_LENGTH;
   const submit = () => {
     speech.submitAfterDictation((text) => {
