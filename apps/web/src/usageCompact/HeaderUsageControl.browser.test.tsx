@@ -33,6 +33,7 @@ vi.mock(import("./useHeaderUsage"), () => ({
       },
     })),
     drivers: new Set(["codex", "claudeAgent", "antigravity"]),
+    quotaSources: [],
     notices: [],
     authNotices: [],
     disconnected: [],

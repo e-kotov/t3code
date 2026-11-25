@@ -25,13 +25,6 @@ const GRID_COLUMNS = [
   "sm:grid-cols-4",
 ] as const;
 
-function popupWidthClass(sectionCount: number) {
-  if (sectionCount >= 4) return "w-168";
-  if (sectionCount === 3) return "w-128";
-  if (sectionCount === 2) return "w-92";
-  return "w-64";
-}
-
 export function CompactUsageControl({
   accounts,
   quotaSources = [],
@@ -219,7 +212,13 @@ export function CompactUsageControl({
           padding="compact"
           className={cn(
             "overflow-x-hidden max-w-[calc(100vw-2rem)]",
-            popupWidthClass(totalSections),
+            totalSections >= 4
+              ? "w-168"
+              : totalSections === 3
+                ? "w-128"
+                : totalSections === 2
+                  ? "w-92"
+                  : "w-64",
           )}
           initialFocus={false}
           finalFocus={false}
