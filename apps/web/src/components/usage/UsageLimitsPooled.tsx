@@ -40,6 +40,7 @@ import { Alert, AlertTitle } from "../ui/alert";
 import { Popover, PopoverCreateHandle, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { PaceIcon, ResetCreditDialog, barColor, usePaceMark, useResetCredit } from "./UsageLimits";
 import { UsagePaceLabel } from "../../usageCompact/UsagePaceLabel";
+import { HttpQuotaCards, upstreamQuotaRows } from "../../usageCompact/HttpQuotaCards";
 import {
   collectExternalUsageLinks,
   collectLimitNotices,
@@ -726,7 +727,8 @@ export function UsageLimitsPooled({
           ) : null
         }
       </Popover>
-      {quotaSources.map((source) => (
+      <HttpQuotaCards sources={quotaSources} now={now} />
+      {upstreamQuotaRows(quotaSources).map((source) => (
         <section key={source.key} className="space-y-3 rounded-xl border p-4">
           <h2 className="text-sm font-medium">{source.label}</h2>
           {source.quotaAccounts?.map((account) => (

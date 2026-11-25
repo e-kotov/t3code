@@ -1,13 +1,10 @@
 import { createMemoryHistory } from "@tanstack/react-router";
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { ProviderInstanceId } from "@t3tools/contracts";
 import { DEFAULT_CLIENT_SETTINGS } from "@t3tools/contracts/settings";
 import type * as Context from "effect/Context";
 import { expect, it, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser";
 import { AppRoot } from "~/AppRoot";
 import "~/components/ChatView";
-import { useComposerDraftStore } from "~/composerDraftStore";
 import { __setClientSettingsForTests } from "~/hooks/useSettings";
 import { getRouter } from "~/router";
 import {
@@ -16,7 +13,7 @@ import {
   threadWithHistory,
   type FakeDriver,
 } from "../../../test/fakeEnvironment";
-import { act, render } from "../../../test/render";
+import { render } from "../../../test/render";
 import "../../index.css";
 
 vi.mock(
@@ -35,7 +32,7 @@ vi.mock(import("~/rpc/requestLatencyState"), async (original) => ({
   trackRpcRequestSent: () => {},
 }));
 
-it("shows the active environment and the composer's resolved model in the complete client", async () => {
+it("shows the active environment without a model chip in the complete client", async () => {
   const thread = threadWithHistory("header-context-app", 1);
   using _environment = installFakeEnvironment([thread]);
   __setClientSettingsForTests({
@@ -60,16 +57,8 @@ it("shows the active environment and the composer's resolved model in the comple
   }
   const header = app.container.querySelector("[data-chat-header]");
   expect(header?.querySelector("[data-header-machine]")).not.toBeNull();
-  expect(header?.querySelector("[data-header-model]")?.textContent).toContain("GPT-5.4");
+  expect(header?.querySelector("[data-header-model]")).toBeNull();
   if (import.meta.env.VITE_HEADER_CONTEXT_CAPTURE) {
     await app.locator.screenshot({ path: "../../../../../.t3/header-evidence/after-client.png" });
   }
-  const store = useComposerDraftStore.getState();
-  await act(() =>
-    store.setModelSelection(scopeThreadRef(ENVIRONMENT_ID, thread.id), {
-      instanceId: ProviderInstanceId.make("codex"),
-      model: "custom-model-choice",
-    }),
-  );
-  expect(header?.querySelector("[data-header-model]")?.textContent).toContain("GPT-5.4");
 });

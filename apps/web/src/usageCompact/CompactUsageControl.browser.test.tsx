@@ -5,6 +5,8 @@ import { CompactUsageControl } from "./CompactUsageControl";
 import { EnvironmentId, ProviderDriverKind, UsageLimitSourceId } from "@t3tools/contracts";
 import type { LimitAccount } from "@t3tools/shared/usageLimits";
 import { compactUsageReport } from "./usageCompactReport";
+// Layout assertions below need the app styles; without them nothing truncates.
+import "../index.css";
 
 const trigger = () => page.getByRole("button", { name: /^Usage remaining/ });
 const details = () => page.getByText("Quota remaining", { exact: true });
@@ -355,7 +357,7 @@ it("supports custom hover delay prop", async () => {
   await expect.element(details()).toBeVisible();
 });
 
-it("renders HTTP quota sources in the top bar and shared quota popup", async () => {
+it("renders HTTP quota sources with compact counts in the widest quota popup", async () => {
   const report = compactUsageReport(
     new Map([
       [
@@ -383,9 +385,15 @@ it("renders HTTP quota sources in the top bar and shared quota popup", async () 
                         usedPercent: 25,
                       },
                       {
-                        id: "saia-gwdg-day",
+                        id: "month",
+                        kind: "monthly",
+                        label: "Month (5057/6000)",
+                        usedPercent: 16,
+                      },
+                      {
+                        id: "pool-a-day",
                         kind: "other",
-                        label: "GWDG · Day (600/800)",
+                        label: "Pool A · Day (600/800)",
                         usedPercent: 25,
                       },
                     ],
@@ -398,11 +406,22 @@ it("renders HTTP quota sources in the top bar and shared quota popup", async () 
       ],
     ]),
   );
-  await using _screen = await render(<CompactUsageControl {...report} onOpenFullView={() => {}} />);
+  await page.viewport(1280, 800);
+  await using _screen = await render(
+    <CompactUsageControl
+      {...report}
+      // Three subscriptions beside the source give the popup its narrowest, four-column layout.
+      accounts={["codex", "claudeAgent", "antigravity"].map((driver) =>
+        account(driver, [{ id: "weekly", kind: "weekly", label: "Weekly", usedPercent: 50 }]),
+      )}
+      drivers={undefined}
+      onOpenFullView={() => {}}
+    />,
+  );
   await expect
     .element(
       page.getByRole("button", {
-        name: "Usage remaining: SAIA 75%. Open full usage",
+        name: "Usage remaining: Codex 50%, Claude 50%, Antigravity 50%, SAIA 75%. Open full usage",
       }),
     )
     .toBeVisible();
@@ -410,7 +429,90 @@ it("renders HTTP quota sources in the top bar and shared quota popup", async () 
   const popup = page.getByRole("dialog");
   await expect.element(popup).toBeVisible();
   const saia = popup.getByRole("region", { name: "SAIA" });
-  await expect.element(saia.getByText("Day (1200/1600)", { exact: true })).toBeVisible();
-  await expect.element(saia.getByText("GWDG", { exact: true })).toBeVisible();
+  await expect.element(saia.getByText("Day (1.2k/1.6k)", { exact: true })).toBeVisible();
+  await expect.element(saia.getByText("Pool A", { exact: true })).toBeVisible();
   await expect.element(saia.getByText("Day (600/800)", { exact: true })).toBeVisible();
+  const month = saia.getByText("Month (5.1k/6k)", { exact: true });
+  await expect.element(month).toBeVisible();
+  const label = month.element() as HTMLElement;
+  expect(label.scrollWidth, "HTTP_QUOTA_LABEL_CLIPPED").toBeLessThanOrEqual(label.clientWidth);
+});
+
+it.each([
+  {
+    layout: "four sections in a narrow window",
+    width: 680,
+    drivers: ["codex", "claudeAgent", "antigravity"],
+  },
+  { layout: "three sections", width: 1280, drivers: ["codex", "claudeAgent"] },
+])("keeps quota pool counts readable with $layout", async ({ width, drivers }) => {
+  const quotaWindow = (id: string, label: string, usedPercent: number) => ({
+    id,
+    kind: "other" as const,
+    label,
+    usedPercent,
+  });
+  const report = compactUsageReport(
+    new Map([
+      [
+        EnvironmentId.make("hub"),
+        {
+          entry: { target: { label: "hub" } },
+          serverConfig: {
+            providers: [],
+            usageLimitSources: [
+              {
+                id: UsageLimitSourceId.make("saia"),
+                kind: "http",
+                label: "SAIA",
+                checkedAt: "2026-10-26T12:00:00Z",
+                accounts: [],
+                quotaAccounts: [
+                  {
+                    id: "saia",
+                    label: "SAIA",
+                    windows: [
+                      quotaWindow("day", "Day (1517/1600)", 5),
+                      quotaWindow("month", "Month (5057/6000)", 16),
+                      quotaWindow("pool-a-hour", "Pool A · Hour (366/400)", 9),
+                      quotaWindow("pool-b-day", "Pool B · Day (758/800)", 5),
+                      quotaWindow("pool-b-month", "Pool B · Month (2528/3000)", 16),
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    ]),
+  );
+  await page.viewport(width, 800);
+  await using _screen = await render(
+    <CompactUsageControl
+      {...report}
+      accounts={drivers.map((driver) =>
+        account(driver, [{ id: "weekly", kind: "weekly", label: "Weekly", usedPercent: 50 }]),
+      )}
+      drivers={undefined}
+      onOpenFullView={() => {}}
+    />,
+  );
+  await userEvent.hover(trigger());
+  const saia = page.getByRole("dialog").getByRole("region", { name: "SAIA" });
+  await expect.element(saia.getByText("Pool B", { exact: true })).toBeVisible();
+  for (const text of [
+    "Day (1.5k/1.6k)",
+    "Month (5.1k/6k)",
+    "Hour (366/400)",
+    "Day (758/800)",
+    "Month (2.5k/3k)",
+  ]) {
+    const label = saia.getByText(text, { exact: true });
+    await expect.element(label).toBeVisible();
+    const element = label.element() as HTMLElement;
+    expect(element.scrollWidth, `HTTP_QUOTA_NARROW_CLIPPED ${text}`).toBeLessThanOrEqual(
+      element.clientWidth,
+    );
+  }
 });
