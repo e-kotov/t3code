@@ -106,15 +106,17 @@ it("folds pinned, unpinned and Working machine sections through their own button
   expect(arrows[arrows.length - 1]).toBe(pinButton);
   // Wait out Sidebar.shiftGuard's 500 ms pointer suppression window after the header stops moving
   // during startup. Screenshot capture is optional and must not determine click readiness.
+  // oxlint-disable-next-line t3code/no-wall-clock-in-tests -- synchronizes a real pointer with the press guard; does not assert timing of app behavior
+  const now = () => performance.now();
   let lastTop = pinRow.offsetTop;
-  let stableSince = performance.now();
+  let stableSince = now();
   await vi.waitFor(() => {
-    const now = performance.now();
+    const observedAt = now();
     if (pinRow.offsetTop !== lastTop) {
       lastTop = pinRow.offsetTop;
-      stableSince = now;
+      stableSince = observedAt;
     }
-    expect(now - stableSince).toBeGreaterThanOrEqual(500);
+    expect(observedAt - stableSince).toBeGreaterThanOrEqual(500);
   });
   await userEvent.click(pinButton);
   await expect.element(pinButton).toHaveAttribute("aria-expanded", "false");
