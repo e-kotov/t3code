@@ -36,7 +36,6 @@ import {
 } from "../../textGeneration/AntigravityTextGeneration.ts";
 import { makeAntigravityAuth, type AntigravityAuth } from "../AntigravityAuth.ts";
 import * as AntigravityInstallation from "../AntigravityInstallation.ts";
-import { brokenRuntimeError } from "../providerCompatibility.ts";
 import * as AntigravityUsage from "./AntigravityUsage.ts";
 import {
   antigravityAuthConfigIssue,
@@ -50,11 +49,9 @@ import {
 } from "../antigravityAuthSupport.ts";
 import {
   antigravityModelOptions,
-  antigravityServesT3Code,
   antigravitySessionMode,
   antigravityThinkingConfig,
   makeAntigravityAcpRuntime,
-  OPEN_MODEL_ACCESS_RELEASE,
   type AntigravityAcpRuntimeInput,
 } from "../acp/AntigravityAcpSupport.ts";
 import type * as AcpSessionRuntime from "@t3tools/provider-acp/server/AcpSessionRuntime";
@@ -72,7 +69,7 @@ import {
 import { makeAcpNativeLoggerFactory } from "@t3tools/provider-acp/server/nativeLogging";
 import { ProviderDriverError } from "../Errors.ts";
 import { makeAntigravityProvider } from "../AntigravityProvider.ts";
-import { checkAntigravityRuntime } from "../forkAntigravityRuntime.ts";
+import { makeAntigravityRuntimeCheck } from "../forkAntigravityRuntime.ts";
 import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
 import * as ModelCatalog from "@t3tools/provider-core/server/ModelCatalog";
 import {
@@ -223,6 +220,7 @@ export const AntigravityDriver: ProviderDriver<
         Effect.map((catalog) => stampIdentity(ModelCatalog.applyModelCatalog(draft, catalog))),
       );
 
+    const checkRuntime = makeAntigravityRuntimeCheck(instanceId, installation.compatibility);
     const prepareSpawn = Effect.fn("AntigravityDriver.prepareSpawn")(function* (
       cwd: string,
       baseEnv: NodeJS.ProcessEnv,
@@ -242,7 +240,6 @@ export const AntigravityDriver: ProviderDriver<
         });
       }
       const executable = yield* installation.acquire(settings.binaryPath, processEnvironment).pipe(
-        Effect.tap((resolved) => checkAntigravityRuntime(resolved.version, instanceId)),
         Effect.mapError(
           (cause) =>
             new ProviderSetupError({
@@ -252,6 +249,7 @@ export const AntigravityDriver: ProviderDriver<
               cause,
             }),
         ),
+        Effect.tap((resolved) => checkRuntime(resolved)),
       );
       const profile = yield* prepareAntigravityProfile({
         profileDirectory,
@@ -336,24 +334,11 @@ export const AntigravityDriver: ProviderDriver<
       // A custom or PATH executable has no version until it answers initialize.
       const startCompatible = Effect.fn("AntigravityDriver.startCompatible")(function* () {
         const version = (yield* runtime.initialize()).agentInfo?.version;
-        const advisory = version ? yield* installation.compatibility(version) : undefined;
-        const action =
-          executable.source === "managed"
-            ? "Update it in Antigravity setup"
-            : `Update the Antigravity executable at ${executable.executablePath}`;
-        const refused = !version
-          ? undefined
-          : (brokenRuntimeError({ instanceId, name: "Antigravity", version, advisory, action }) ??
-            (antigravityServesT3Code(version)
-              ? undefined
-              : new ProviderSetupError({
-                  instanceId,
-                  operation: "runtime",
-                  detail: `Antigravity ${version} only serves allowlisted editors, not T3 Code. ${action} to ${OPEN_MODEL_ACCESS_RELEASE.join(".")} or newer, then retry.`,
-                })));
-        if (refused) {
-          return yield* new AcpErrors.AcpTransportError({ detail: refused.detail, cause: refused });
-        }
+        yield* checkRuntime(executable, version ?? executable.version).pipe(
+          Effect.mapError(
+            (cause) => new AcpErrors.AcpTransportError({ detail: cause.detail, cause }),
+          ),
+        );
         return yield* runtime.start();
       });
       return {
@@ -547,7 +532,6 @@ export const AntigravityDriver: ProviderDriver<
         });
       }
       const executable = yield* installation.resolve(settings.binaryPath, processEnvironment).pipe(
-        Effect.tap((resolved) => checkAntigravityRuntime(resolved.version, instanceId)),
         Effect.mapError(
           (cause) =>
             new ProviderSetupError({
@@ -557,6 +541,7 @@ export const AntigravityDriver: ProviderDriver<
               cause,
             }),
         ),
+        Effect.tap((resolved) => checkRuntime(resolved)),
       );
       return {
         protocolVersion: 1,

@@ -536,6 +536,31 @@ it.layer(layerTest)("AntigravityDriver", (it) => {
       }),
   );
 
+  it.effect.skipIf(windowsHost)(
+    "marks an authenticated managed 1.5.0 installation unhealthy before spawning it",
+    () =>
+      Effect.gen(function* () {
+        const h = yield* makeHarness();
+        yield* h.refresh();
+        expect((yield* h.instance.snapshot.getSnapshot).status).toBe("ready");
+        const launchCount = h.launches.length;
+        h.controls.selected = {
+          ...(yield* h.makeExecutable("runtime managed old", { agentVersion: "1.5.0" })),
+          version: "1.5.0",
+        };
+
+        const snapshot = yield* h.instance.snapshot.refresh;
+        const message =
+          "Antigravity 1.5.0 only serves allowlisted editors, not T3 Code. " +
+          "Update it in Antigravity setup to 1.5.1 or newer, then retry.";
+        expect(snapshot).toMatchObject({ installed: true, status: "error", message });
+        expect(h.launches).toHaveLength(launchCount);
+        expect((yield* h.refresh().pipe(Effect.flip)).detail).toBe(message);
+        expect(h.launches).toHaveLength(launchCount);
+        yield* h.assertClosed;
+      }),
+  );
+
   for (const [agentVersion, expected] of [
     ["1.4.5", "does not work with this T3 Code release"],
     // 1.5.0 offers Claude and GPT only to allowlisted editors such as Zed.
