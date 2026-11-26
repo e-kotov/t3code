@@ -98,11 +98,26 @@ it("folds pinned, unpinned and Working machine sections through their own button
   if (import.meta.env.VITE_MACHINE_FOLD_CAPTURE === "before") return;
   const buttons = page.getByRole("button", { name: /^Collapse .* machine group$/ });
   const pinFold = buttons.nth(0);
-  const pinHeader = pinFold.element().parentElement!.parentElement!;
+  const pinButton = pinFold.element();
+  const pinHeader = pinButton.parentElement!.parentElement!;
+  const pinRow = pinHeader.closest("li")!;
   expect(pinHeader.querySelector('[aria-label="Pinned"]')).not.toBeNull();
   const arrows = pinHeader.querySelectorAll("button");
-  expect(arrows[arrows.length - 1]).toBe(pinFold.element());
-  await userEvent.click(pinFold);
+  expect(arrows[arrows.length - 1]).toBe(pinButton);
+  // Wait out Sidebar.shiftGuard's 500 ms pointer suppression window after the header stops moving
+  // during startup. Screenshot capture is optional and must not determine click readiness.
+  let lastTop = pinRow.offsetTop;
+  let stableSince = performance.now();
+  await vi.waitFor(() => {
+    const now = performance.now();
+    if (pinRow.offsetTop !== lastTop) {
+      lastTop = pinRow.offsetTop;
+      stableSince = now;
+    }
+    expect(now - stableSince).toBeGreaterThanOrEqual(500);
+  });
+  await userEvent.click(pinButton);
+  await expect.element(pinButton).toHaveAttribute("aria-expanded", "false");
   await expect.element(row(pin.title)).not.toBeInTheDocument();
   await expect.element(row(main.title)).toBeVisible();
   await expect.element(row(working.title)).toBeVisible();
@@ -113,7 +128,8 @@ it("folds pinned, unpinned and Working machine sections through their own button
   await expect.element(row(working.title)).toBeVisible();
   await userEvent.click(buttons.nth(0));
   await expect.element(row(working.title)).not.toBeInTheDocument();
-  await userEvent.click(page.getByRole("button", { name: /^Expand .* machine group$/ }).nth(0));
+  await userEvent.click(pinButton);
+  await expect.element(pinButton).toHaveAttribute("aria-expanded", "true");
   await expect.element(row(pin.title)).toBeVisible();
   await expect.element(row(main.title)).not.toBeInTheDocument();
   await expect.element(row(working.title)).not.toBeInTheDocument();
