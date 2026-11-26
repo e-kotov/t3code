@@ -240,6 +240,7 @@ export const AntigravityDriver: ProviderDriver<
         });
       }
       const executable = yield* installation.acquire(settings.binaryPath, processEnvironment).pipe(
+        Effect.tap((resolved) => checkRuntime(resolved)),
         Effect.mapError(
           (cause) =>
             new ProviderSetupError({
@@ -249,7 +250,6 @@ export const AntigravityDriver: ProviderDriver<
               cause,
             }),
         ),
-        Effect.tap((resolved) => checkRuntime(resolved)),
       );
       const profile = yield* prepareAntigravityProfile({
         profileDirectory,
