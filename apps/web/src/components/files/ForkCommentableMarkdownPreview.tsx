@@ -120,7 +120,7 @@ function useRenderedMarkdownComments(
   return renderedMarkdownCommentsFor(comments, relativePath);
 }
 
-export function ForkCommentableMarkdownPreview({
+function ForkCommentableMarkdownPreview({
   commentTarget,
   ...previewProps
 }: ComponentProps<typeof FileMarkdownPreview> & {
@@ -568,22 +568,69 @@ export function ForkCommentableMarkdownPreview({
   );
 }
 
+const savedCommentableMarkdownScroll = new Map<string, number>();
+const MAX_SAVED_COMMENTABLE_SCROLL = 100;
+
+type WorkspaceMarkdownProps = ComponentProps<typeof ForkCommentableMarkdownPreview> & {
+  readonly onKeyDown: KeyboardEventHandler<HTMLDivElement>;
+};
+
+function ScrollableCommentableMarkdown({ onKeyDown, ...previewProps }: WorkspaceMarkdownProps) {
+  const { threadRef, cwd, relativePath } = previewProps;
+  const positionKey = JSON.stringify([
+    threadRef.environmentId,
+    threadRef.threadId,
+    cwd,
+    relativePath,
+  ]);
+  const root = useRef<HTMLDivElement>(null);
+
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- restores a DOM scrollbar on file or thread change
+  useLayoutEffect(() => {
+    const viewport = root.current?.querySelector<HTMLElement>("[data-slot='scroll-area-viewport']");
+    if (!viewport) return;
+    viewport.scrollTop = savedCommentableMarkdownScroll.get(positionKey) ?? 0;
+    const save = () => {
+      savedCommentableMarkdownScroll.delete(positionKey);
+      savedCommentableMarkdownScroll.set(positionKey, viewport.scrollTop);
+      if (savedCommentableMarkdownScroll.size > MAX_SAVED_COMMENTABLE_SCROLL) {
+        const oldest = savedCommentableMarkdownScroll.keys().next();
+        if (!oldest.done) savedCommentableMarkdownScroll.delete(oldest.value);
+      }
+    };
+    viewport.addEventListener("scroll", save);
+    return () => viewport.removeEventListener("scroll", save);
+  }, [positionKey]);
+
+  return (
+    <ScrollArea
+      ref={root}
+      data-fork-markdown-scroll
+      className="min-h-0 flex-1"
+      onKeyDown={onKeyDown}
+    >
+      <ForkCommentableMarkdownPreview {...previewProps} />
+    </ScrollArea>
+  );
+}
+
 export function ForkWorkspaceMarkdownPreview({
   commentTarget,
   onKeyDown,
   text,
   ...previewProps
-}: ComponentProps<typeof ForkCommentableMarkdownPreview> & {
-  readonly onKeyDown: KeyboardEventHandler<HTMLDivElement>;
-}) {
+}: WorkspaceMarkdownProps) {
   // Exact rendered quotes need one complete DOM. Keep that mode bounded; larger Markdown
   // uses upstream virtualization and can still be commented on in the source view.
   if (text.length > 32 * 1024) {
     return <ChunkedMarkdown {...splitMarkdown(text)} {...previewProps} onKeyDown={onKeyDown} />;
   }
   return (
-    <ScrollArea className="min-h-0 flex-1" onKeyDown={onKeyDown}>
-      <ForkCommentableMarkdownPreview text={text} commentTarget={commentTarget} {...previewProps} />
-    </ScrollArea>
+    <ScrollableCommentableMarkdown
+      text={text}
+      commentTarget={commentTarget}
+      onKeyDown={onKeyDown}
+      {...previewProps}
+    />
   );
 }

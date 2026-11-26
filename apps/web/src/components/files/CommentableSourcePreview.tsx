@@ -1,13 +1,12 @@
 import type { File as FileInstance, PostRenderPhase, SelectedLineRange } from "@pierre/diffs";
-import { File, Virtualizer } from "@pierre/diffs/react";
 import type { EnvironmentId, ProjectId, ScopedThreadRef } from "@t3tools/contracts";
 import { useEffect, useState, type ComponentProps } from "react";
 
 import { type DraftId, useComposerDraftStore } from "~/composerDraftStore";
-import { DiffWorkerPoolProvider } from "~/components/DiffWorkerPoolProvider";
+import { StyledDiffCodeView } from "~/components/diffs/StyledDiffCodeView";
 import { useClientSettings } from "~/hooks/useSettings";
 import { useRenderedAppearance } from "~/hooks/useTheme";
-import { resolveDiffThemeName } from "~/lib/diffRendering";
+import { fnv1a32, resolveDiffThemeName } from "~/lib/diffRendering";
 import { PREFERRED_HIGHLIGHTER } from "~/lib/syntaxHighlighting";
 import { buildFileReviewComment } from "~/reviewCommentContext";
 
@@ -139,115 +138,115 @@ function CommentableSource({ commentTarget, ...props }: Props & { commentTarget:
     });
   };
   return (
-    <DiffWorkerPoolProvider>
-      <div ref={setSurfaceEl} className="contents">
-        <Virtualizer
-          className="file-preview-virtualizer min-h-0 flex-1 overflow-auto"
-          config={{ overscrollSize: 600, intersectionObserverMargin: 1200 }}
-        >
-          <File<FileCommentAnnotationGroup>
-            file={{
+    <div ref={setSurfaceEl} className="contents">
+      <StyledDiffCodeView<FileCommentAnnotationGroup>
+        className="file-preview-virtualizer min-h-0 flex-1 overflow-auto"
+        items={[
+          {
+            id: "source",
+            type: "file",
+            file: {
               name: props.name,
               contents: props.text,
               ...(props.cacheKey ? { cacheKey: props.cacheKey } : {}),
-            }}
-            options={{
-              disableFileHeader: true,
-              enableGutterUtility: draft === null,
-              enableLineSelection: draft === null,
-              onGutterUtilityClick: setSelectedLines,
-              onLineSelectionChange: setSelectedLines,
-              onLineSelectionEnd: beginComment,
-              overflow: (props.wordWrap ?? defaultWordWrap) ? "wrap" : "scroll",
-              theme: resolveDiffThemeName(resolvedTheme),
-              preferredHighlighter: PREFERRED_HIGHLIGHTER,
-              themeType: resolvedTheme,
-              unsafeCSS: `${FILE_LINK_REVEAL_UNSAFE_CSS}\n${FORK_SOURCE_SUBLINE_UNSAFE_CSS}`,
-              onPostRender: (fileContainer, instance, phase) => {
-                if (phase !== "unmount") {
-                  syncShadowSourceSublineHighlights({
-                    surfaceKey,
-                    shadowRoot: fileContainer.shadowRoot,
-                    contents: props.text,
-                    comments: fileComments,
-                    draft: draftSelection,
-                  });
-                }
-                props.onPostRender?.(fileContainer, instance, phase);
-              },
-            }}
-            selectedLines={selectedLines}
-            lineAnnotations={annotations}
-            renderAnnotation={(annotation) => (
-              <div className="py-1">
-                {annotation.metadata.entries.map((entry) => {
-                  const entryQuote =
-                    entry.kind === "draft"
-                      ? draft?.selection?.quote
-                      : fileComments.find((comment) => comment.id === entry.id)?.quote;
-                  return (
-                    <div key={entry.id}>
-                      {entryQuote ? <ForkSublineQuoteBadge text={entryQuote.text} /> : null}
-                      <DiffCommentAnnotation
-                        environmentId={environmentId}
-                        projectId={projectId}
-                        ownerKey={JSON.stringify([commentTarget, props.name, entry.id])}
-                        kind={entry.kind}
-                        rangeLabel={
-                          entryQuote
-                            ? formatQuotedRangeLabel({
-                                startLine: entry.startLine,
-                                endLine: entry.endLine,
-                                quoteText: entryQuote.text,
-                              })
-                            : formatFileCommentRange(entry.startLine, entry.endLine)
-                        }
-                        text={entry.kind === "draft" ? draftText : entry.text}
-                        onTextChange={setDraftText}
-                        onCancel={dismiss}
-                        onComment={(text) => {
-                          addReviewComment(
-                            composerDraftTarget,
-                            entryQuote
-                              ? buildSublineFileReviewComment({
-                                  id: entry.id,
-                                  filePath: props.name,
-                                  sectionKind: "file",
-                                  text,
-                                  quote: entryQuote,
-                                  contents: props.text,
-                                  startLine: entry.startLine,
-                                  endLine: entry.endLine,
-                                  selection: draft?.selection,
-                                })
-                              : buildFileReviewComment({
-                                  id: entry.id,
-                                  filePath: props.name,
-                                  startLine: entry.startLine,
-                                  endLine: entry.endLine,
-                                  text,
-                                  contents: props.text,
-                                }),
-                          );
-                          dismiss();
-                        }}
-                        onDelete={() => removeReviewComment(composerDraftTarget, entry.id)}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            className="min-h-full"
-          />
-        </Virtualizer>
-        <ForkSourceSelectionToolbar
-          surfaceEl={surfaceEl}
-          contents={props.text}
-          disabled={draft !== null}
-          onComment={beginQuoteComment}
-        />
-      </div>
-    </DiffWorkerPoolProvider>
+            },
+            annotations,
+            version: fnv1a32(JSON.stringify(annotations)),
+          },
+        ]}
+        unsafeCSSExtra={`${FILE_LINK_REVEAL_UNSAFE_CSS}\n${FORK_SOURCE_SUBLINE_UNSAFE_CSS}\n[data-file] { transition: none; }`}
+        options={{
+          disableFileHeader: true,
+          enableGutterUtility: draft === null,
+          enableLineSelection: draft === null,
+          onGutterUtilityClick: setSelectedLines,
+          onLineSelectionEnd: beginComment,
+          overflow: (props.wordWrap ?? defaultWordWrap) ? "wrap" : "scroll",
+          theme: resolveDiffThemeName(resolvedTheme),
+          preferredHighlighter: PREFERRED_HIGHLIGHTER,
+          themeType: resolvedTheme,
+          onPostRender: (fileContainer, instance, phase) => {
+            if (phase !== "unmount") {
+              syncShadowSourceSublineHighlights({
+                surfaceKey,
+                shadowRoot: fileContainer.shadowRoot,
+                contents: props.text,
+                comments: fileComments,
+                draft: draftSelection,
+              });
+            }
+            if ("file" in instance) props.onPostRender?.(fileContainer, instance, phase);
+          },
+        }}
+        selectedLines={selectedLines ? { id: "source", range: selectedLines } : null}
+        onSelectedLinesChange={(selection) => setSelectedLines(selection?.range ?? null)}
+        renderAnnotation={(...[annotation]) => (
+          <div className="py-1">
+            {annotation.metadata.entries.map((entry) => {
+              const entryQuote =
+                entry.kind === "draft"
+                  ? draft?.selection?.quote
+                  : fileComments.find((comment) => comment.id === entry.id)?.quote;
+              return (
+                <div key={entry.id}>
+                  {entryQuote ? <ForkSublineQuoteBadge text={entryQuote.text} /> : null}
+                  <DiffCommentAnnotation
+                    environmentId={environmentId}
+                    projectId={projectId}
+                    ownerKey={JSON.stringify([commentTarget, props.name, entry.id])}
+                    kind={entry.kind}
+                    rangeLabel={
+                      entryQuote
+                        ? formatQuotedRangeLabel({
+                            startLine: entry.startLine,
+                            endLine: entry.endLine,
+                            quoteText: entryQuote.text,
+                          })
+                        : formatFileCommentRange(entry.startLine, entry.endLine)
+                    }
+                    text={entry.kind === "draft" ? draftText : entry.text}
+                    onTextChange={setDraftText}
+                    onCancel={dismiss}
+                    onComment={(text) => {
+                      addReviewComment(
+                        composerDraftTarget,
+                        entryQuote
+                          ? buildSublineFileReviewComment({
+                              id: entry.id,
+                              filePath: props.name,
+                              sectionKind: "file",
+                              text,
+                              quote: entryQuote,
+                              contents: props.text,
+                              startLine: entry.startLine,
+                              endLine: entry.endLine,
+                              selection: draft?.selection,
+                            })
+                          : buildFileReviewComment({
+                              id: entry.id,
+                              filePath: props.name,
+                              startLine: entry.startLine,
+                              endLine: entry.endLine,
+                              text,
+                              contents: props.text,
+                            }),
+                      );
+                      dismiss();
+                    }}
+                    onDelete={() => removeReviewComment(composerDraftTarget, entry.id)}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      />
+      <ForkSourceSelectionToolbar
+        surfaceEl={surfaceEl}
+        contents={props.text}
+        disabled={draft !== null}
+        onComment={beginQuoteComment}
+      />
+    </div>
   );
 }
