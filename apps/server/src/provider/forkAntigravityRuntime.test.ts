@@ -12,6 +12,7 @@ it.effect("requires replacing affected ACP installations before they can start",
       expect(error.detail).toContain(`Antigravity ACP ${version}`);
       expect(error.detail).toContain("Update Antigravity");
       expect(error.detail).toContain("Binary path");
+      expect(error.detail).toContain("agy 1.5.12 or newer");
     }
     for (const version of [null, "1.3.0", "1.4.1", "1.4.10", "2.0.0"]) {
       yield* checkAntigravityRuntime(version, instanceId);

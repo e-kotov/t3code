@@ -761,7 +761,6 @@ export const makeAntigravityInstallation = Effect.fn("AntigravityInstallation.ma
           tempDirectory: profileDirectory,
         }).pipe(Effect.mapError((cause) => installationError("verify", cause.message, cause)));
         const runtime = yield* makeAntigravityAcpRuntime({
-          runtimeVersion: expectedVersion,
           spawn: buildAntigravityAcpSpawnInput({
             installation: executable,
             profile,

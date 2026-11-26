@@ -109,18 +109,18 @@ this display. OpenAI may delay or withhold a reading even for a supported thread
 
 ## Existing Antigravity ACP installations
 
-This fork uses upstream's ACP 1.4.5 runtime and model selection. Updating T3 Code
-does not replace an already installed ACP runtime. ACP 1.4.2 through 1.4.4,
+This fork uses upstream's Antigravity CLI (`agy acp`) and model selection.
+It requires agy 1.5.1 or newer; use the recommended 1.5.12 or later 1.x release.
+Updating T3 Code does not replace an already installed ACP runtime. ACP 1.4.2 through 1.4.4,
 including the fork's previous 1.4.3 installation, write
 `skills/system/run-workflow/SKILL.md` into session workspaces. The provider refuses
 to start these known affected versions and shows an update instruction.
 
 On each environment with one of these versions, open **Settings > Providers** on
 web or desktop and choose **Update Antigravity**. Wait for installation to finish
-and verify the provider reports 1.4.5 before refreshing models or starting a thread.
-If **Binary path** is set, replace that executable and its matching
-`localharness_external` helper with 1.4.5 yourself, or clear the override to use the
-managed installation. See [manual installation](providers-antigravity.md#use-a-manual-installation).
+and verify the provider reports a supported version before refreshing models or
+starting a thread. If **Binary path** is set, replace that executable with a supported
+`agy` binary, or clear the override to use the managed installation. See [manual installation](providers-antigravity.md#use-a-manual-installation).
 
 The update keeps Google credentials and thread history. It does not remove files
 that an earlier runtime already wrote into a workspace. Executables without recorded
