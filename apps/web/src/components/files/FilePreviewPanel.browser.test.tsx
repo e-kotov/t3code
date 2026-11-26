@@ -815,7 +815,9 @@ describe("rendered Markdown scroll position", () => {
     (_, index) => `## Section ${index}\n\nParagraph ${index}.\n`,
   ).join("\n");
   const scroller = () =>
-    document.querySelector<HTMLElement>(".scrollbar-gutter-both") ?? expect.unreachable();
+    document.querySelector<HTMLElement>(
+      ".scrollbar-gutter-both, [data-fork-markdown-scroll] [data-slot='scroll-area-viewport']",
+    ) ?? expect.unreachable();
   /** The first heading in view and its offset from the top of the viewport. */
   const readingPosition = () => {
     const top = scroller().getBoundingClientRect().top;
