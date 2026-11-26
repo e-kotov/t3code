@@ -1,15 +1,13 @@
 # Mobile notifications
 
+Get push alerts, Live Activities, and home-screen widgets on iOS and Android when agents finish, fail, or need your approval or input.
+
 ## Direct Android notifications in T3 Code EK
 
 Pair your Android app with a server, then enable **Direct notifications** in
 **Settings → Notifications**. Completion, failure, approval and input alerts
 arrive through your paired connection, without a T3 Connect account or Google
 push service. Tap an alert to open its conversation.
-
-For activity without ordinary alerts on Android 8 or newer, leave **Ongoing agent activity** enabled and turn off **Agent alerts** in Android's notification settings for T3 Code. Activity updates continue, and the same card shows the finished result without a separate alert. On Android 16 and newer, the finished result remains a Live Update until dismissed or expired. Keep app-wide notification permission and **Live updates** enabled so Android can display it.
-
-On iOS you can also add the **Agent Activity** widget to your Home Screen or Lock Screen. It shows the same agents as the Live Activity, using your T3 Connect sign-in. The widget refreshes when you open T3 and shows unfinished work as out of date after 10 minutes.
 
 Subagent completion alerts are off by default. To receive them, enable
 **Subagent completion alerts** in the same settings. Subagent approval, input
@@ -28,26 +26,21 @@ Alerts stay quiet for the conversation you are currently viewing.
 
 ## T3 Connect notifications
 
-In builds configured for T3 Connect, sign in, link your environments, and enable
-**Device Notifications** in **Settings → Notifications** to receive alerts when
-an agent finishes, fails, needs approval, or asks for input. Your environment
-must have agent activity publishing enabled. Tap a notification to open its
-thread.
+The sections below apply to builds configured for T3 Connect.
 
-Enable **Live Activity Updates** on iOS, **Agent Live Updates** on Android 16 and
-newer, or **Ongoing Agent Activity** on older Android versions to follow work
-without opening the app. Finished results remain visible for up to 15 minutes.
-You can dismiss an Android activity card without disabling alerts; turn off the
-same switch to stop future cards.
+### Prerequisites
 
-Android cloud notifications require Android 7.0 or newer and Google Play
-services. Android 16 and newer can promote ongoing activity to a Live Update,
-subject to system settings and device support. Other devices show a regular
-ongoing notification. If Live Updates don't appear on Android 16 or newer,
-check **Live Update Settings** in T3 Code's **Settings → Notifications**.
-Android 7's battery-saving modes can delay removal of expired cards.
+- Sign in to **T3 Connect** on both your phone and host machine (direct/Tailscale connections alone do not deliver background push notifications).
+- Enable **Publish agent activity** in **Settings → Sharing & access** on the host.
+- Enable **Device Notifications** in **Settings → Notifications** on mobile (Android requires Android 7.0+ and Google Play services).
 
-Notification permission and Android notification channels are controlled in
-system Settings. T3 Connect delivery does not require the mobile app to maintain
-a connection to your environment. Force-stopping the Android app in system
-Settings prevents delivery until you open it again.
+### Live updates and widgets
+
+- **Live progress**: Enable **Live Activity Updates** (iOS), **Agent Live Updates** (Android 16+, check **Live Update Settings** if missing), or **Ongoing Agent Activity** (older Android). Finished results stay visible for up to 15 minutes.
+- **Silent live updates (Android 8+)**: Keep **Ongoing agent activity** on and disable **Agent alerts** in Android system notification settings.
+- **iOS widget**: Add the **Agent Activity** widget to your Home Screen or Lock Screen (refreshes when you open T3; marks unfinished work stale after 10 minutes).
+
+### Notes
+
+- Ordinary alerts are muted while the mobile app is in the foreground, though viewing a thread on another device does not silence your phone.
+- Force-stopping T3 Code in Android system Settings pauses push delivery until you reopen the app.

@@ -11,6 +11,7 @@ import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 
 import * as ServerConfig from "../config.ts";
+import { routineSpan } from "@t3tools/shared/observability";
 import { publishWithoutReplace } from "../publishWithoutReplace.ts";
 
 const secretStoreErrorContext = {
@@ -208,7 +209,7 @@ export const make = Effect.gen(function* () {
           ),
         ),
       ),
-      Effect.withSpan("ServerSecretStore.get"),
+      Effect.withSpan("ServerSecretStore.get", { attributes: routineSpan }),
     );
 
   const set: ServerSecretStore["Service"]["set"] = (name, value) =>
