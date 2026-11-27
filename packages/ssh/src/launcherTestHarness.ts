@@ -202,7 +202,16 @@ if [ "$1" = --version ]; then printf 1.2.3; exit; fi
 [ "$1" = __ssh-helper ]
 case "$2" in
   update-remaining) printf 'marker %s\\n' "$(cat "$HOME/clock")" >> "$HOME/events"; exec "$TEST_REAL_NODE" --require "$HOME/clock.cjs" "$HOME/helper.ts" "$2" "$3" ;;
-  home-owned) exec "$TEST_REAL_NODE" "$HOME/helper.ts" "$2" "$3" ;;
+  home-owned)
+    # The harness holds this fixture's service lock for the entire launcher run.
+    # Verify it with the real helper once, then avoid a fresh Effect CLI per poll.
+    if [ "$TEST_FIXED_SERVICE_LOCK" = 1 ] && [ "$3" = "$HOME/.t3" ]; then
+      [ ! -f "$HOME/verified-service-lock" ] || exit 0
+      "$TEST_REAL_NODE" "$HOME/helper.ts" "$2" "$3"
+      : > "$HOME/verified-service-lock"
+    else
+      exec "$TEST_REAL_NODE" "$HOME/helper.ts" "$2" "$3"
+    fi ;;
   runtime-port | pick-port | wait-ready) exec "$HOME/bin/test-node" - "$3" ;;
   *) exit 1 ;;
 esac
@@ -228,6 +237,7 @@ ${script}`,
         HOME: home,
         PATH: `${bin}:/usr/bin:/bin`,
         TEST_REAL_NODE: process.execPath,
+        TEST_FIXED_SERVICE_LOCK: options.serviceServing ? "1" : "0",
         TEST_CLEAR_MARKER: options.clearMarkerOnReady ? "1" : "0",
         TEST_CLOCK_JUMP: options.clockJump === undefined ? "" : String(options.clockJump),
         TEST_SERVER_PID: String(process.pid),
