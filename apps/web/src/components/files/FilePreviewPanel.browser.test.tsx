@@ -792,9 +792,9 @@ describe("rendered Markdown select all", () => {
     await expectFileOnlySelection();
   });
 
-  it("copies the whole chunked file with its own line endings", async () => {
+  it.each([2_000, 8_000])("copies Markdown with its line endings (%i)", async (count) => {
     using _settings = setup();
-    const contents = `first\r\r# ${"x\r\r# ".repeat(2_000)}end`;
+    const contents = `first\r\r# ${"x\r\r# ".repeat(count)}end`;
     await using _screen = await render(
       <div style={{ height: 600, display: "flex", flexDirection: "column" }}>
         {markdownPreview(false, contents, "cr.md")}
@@ -805,6 +805,7 @@ describe("rendered Markdown select all", () => {
       expect(first).not.toBeNull();
       return first!;
     });
+    expect(Boolean(firstChunk.closest("[data-fork-markdown-scroll]"))).toBe(count === 2_000);
     await userEvent.click(firstChunk);
     await userEvent.keyboard(
       isMacPlatform(navigator.platform) ? "{Meta>}a{/Meta}" : "{Control>}a{/Control}",
