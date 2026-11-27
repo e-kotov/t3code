@@ -5937,5 +5937,8 @@
   "3f3ea0441308a707": "Contexto mínimo (miles de tokens)",
   "fddfcd8a7c82f9c3": "{provider} · {setting}",
   "e637173c759c26af": "Compacta los hilos inactivos grandes una vez si el proveedor lo permite.",
-  "53980144b6d12cd6": "No realiza ninguna acción durante la inactividad."
+  "53980144b6d12cd6": "No realiza ninguna acción durante la inactividad.",
+  "f6cf1627f4acc5ef": "Visibilidad del comentario",
+  "eb1fd384ad5919dd": "Nota interna",
+  "b45f0b467e9406d0": "Responder al cliente"
 }
