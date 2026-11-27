@@ -3,6 +3,22 @@ name: Nightly fork release
 on:
   schedule:
     - cron: "47 4 * * *"
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/nightly-fork.yml"
+      - "scripts/fork-upstream-sync.sh"
+      - "packages/ssh/src/launcherTestHarness.ts"
+      - "packages/ssh/src/tunnel.test.ts"
+      - "packages/ssh/src/tunnel.ts"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/nightly-fork.yml"
+      - "scripts/fork-upstream-sync.sh"
+      - "packages/ssh/src/launcherTestHarness.ts"
+      - "packages/ssh/src/tunnel.test.ts"
+      - "packages/ssh/src/tunnel.ts"
   workflow_dispatch:
     inputs:
       publish:
@@ -15,7 +31,8 @@ permissions:
   actions: read
 
 concurrency:
-  group: nightly-fork-release
+  # PR and push checks are validation-only. Do not block a real release on them.
+  group: ${{ github.event_name == 'pull_request' && format('nightly-fork-pr-{0}', github.event.pull_request.number) || github.event_name == 'push' && format('nightly-fork-validate-{0}', github.sha) || 'nightly-fork-release' }}
   cancel-in-progress: false
 
 env:
@@ -33,7 +50,7 @@ jobs:
     steps:
       - name: Checkout nightly candidate without vendored gitlinks
         env:
-          CHECKOUT_REF: ${{ github.sha }}
+          CHECKOUT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           git init .
@@ -65,7 +82,7 @@ jobs:
 
   publish:
     needs: check
-    if: needs.check.outputs.changed == 'true' && (github.event_name == 'schedule' || inputs.publish)
+    if: needs.check.outputs.changed == 'true' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.publish == true))
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
