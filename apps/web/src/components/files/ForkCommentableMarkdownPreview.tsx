@@ -576,7 +576,7 @@ type WorkspaceMarkdownProps = ComponentProps<typeof ForkCommentableMarkdownPrevi
 };
 
 function ScrollableCommentableMarkdown({ onKeyDown, ...previewProps }: WorkspaceMarkdownProps) {
-  const { threadRef, cwd, relativePath } = previewProps;
+  const { text, threadRef, cwd, relativePath } = previewProps;
   const positionKey = JSON.stringify([
     threadRef.environmentId,
     threadRef.threadId,
@@ -608,6 +608,25 @@ function ScrollableCommentableMarkdown({ onKeyDown, ...previewProps }: Workspace
       data-fork-markdown-scroll
       className="min-h-0 flex-1"
       onKeyDown={onKeyDown}
+      onCopy={(event) => {
+        const surface = event.currentTarget;
+        if (!(event.target instanceof Node) || !surface.contains(event.target)) return;
+        const selection = window.getSelection();
+        if (!selection?.rangeCount || selection.isCollapsed) return;
+        const range = selection.getRangeAt(0);
+        // Match the preview's scoped Select All, not a partial or external selection.
+        if (
+          range.startContainer !== surface ||
+          range.startOffset !== 0 ||
+          range.endContainer !== surface ||
+          range.endOffset !== surface.childNodes.length
+        ) {
+          return;
+        }
+        event.preventDefault();
+        event.clipboardData.clearData();
+        event.clipboardData.setData("text/plain", text);
+      }}
     >
       <ForkCommentableMarkdownPreview {...previewProps} />
     </ScrollArea>

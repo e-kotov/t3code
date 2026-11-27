@@ -5,7 +5,7 @@ import {
 } from "./forkCitationInputRouting";
 import { isInSideChatPane } from "~/lib/sideChatPane";
 
-import { readPastedComposerContext } from "../composerInlineTokenPaste";
+import { readPastedComposerClipboard } from "../composerInlineTokenPaste";
 
 import { surfaceShortcutKey } from "~/lib/surfaceShortcutKey";
 
@@ -114,9 +114,9 @@ export function shouldTypeToFocusComposer(event: KeyboardEvent): boolean {
 
 export function pasteTextToFocusComposer(event: ClipboardEvent): string | null {
   if (!event.clipboardData || event.clipboardData.files.length > 0) return null;
-  const hasContext = (readPastedComposerContext(event.clipboardData)?.records.length ?? 0) > 0;
-  const text = event.clipboardData.getData("text/plain");
   if (!shouldRedirectInputToComposer(event)) return null;
-  if (!hasContext && text.length > 0 && citeSelectionInput(event, text)) return null;
+  const text = event.clipboardData.getData("text/plain");
+  const { context } = readPastedComposerClipboard(event.clipboardData);
+  if (!context?.records.length && text.length > 0 && citeSelectionInput(event, text)) return null;
   return text.length > 0 ? text : null;
 }
