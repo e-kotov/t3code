@@ -46,11 +46,13 @@ jobs:
           mkdir -p .t3/usage-availability-evidence
           compact=apps/web/src/usageCompact/CompactUsageControl.tsx
           pooled=apps/web/src/components/usage/UsageLimitsPooled.tsx
+          # Last revision before the header overlap fix in PR #124.
+          usage_baseline=71513acb68b6511217b4efab047b038b73a1da2f
           cp "$compact" "$RUNNER_TEMP/CompactUsageControl.tsx"
           cp "$pooled" "$RUNNER_TEMP/UsageLimitsPooled.tsx"
           trap 'cp "$RUNNER_TEMP/CompactUsageControl.tsx" "$compact"; cp "$RUNNER_TEMP/UsageLimitsPooled.tsx" "$pooled"' EXIT
-          git show "origin/main:$compact" > "$compact"
-          git show "origin/main:$pooled" > "$pooled"
+          git show "$usage_baseline:$compact" > "$compact"
+          git show "$usage_baseline:$pooled" > "$pooled"
           # Preserve the historical UI body; adapt only helpers moved by upstream i18n.
           python3 scripts/fork-usage-baseline.py "$compact" "$pooled"
           app_test=apps/web/src/usageCompact/UsageAvailability.app.browser.test.tsx
