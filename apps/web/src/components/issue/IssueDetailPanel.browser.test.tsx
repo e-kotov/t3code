@@ -1,4 +1,5 @@
 import type { IssueDetail } from "@t3tools/contracts";
+import * as Cause from "effect/Cause";
 import * as AsyncResult from "effect/reactivity/AsyncResult";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
@@ -53,7 +54,25 @@ const detail = vi.hoisted(() => ({
   linkedPullRequests: [],
 })) as unknown as IssueDetail;
 
-const state = vi.hoisted(() => ({ openLink: vi.fn(async () => {}) }));
+const state = vi.hoisted(() => ({
+  openLink: vi.fn(async () => {}),
+  postComment: vi.fn<(input: unknown) => Promise<unknown>>(async () => ({
+    _tag: "Success",
+    value: undefined,
+  })),
+}));
+
+vi.mock(import("~/state/use-atom-command"), async (original) => {
+  const actual = await original();
+  const { issueEnvironment } = await import("~/state/issues");
+  return {
+    ...actual,
+    useAtomCommand: ((command, options) =>
+      (command as unknown) === issueEnvironment.comment
+        ? state.postComment
+        : actual.useAtomCommand(command, options)) as typeof actual.useAtomCommand,
+  };
+});
 
 vi.mock(import("~/browser/useOpenLink"), () => ({ useOpenLink: () => state.openLink }));
 vi.mock(import("./IssueThreadLinks"), () => ({ IssueThreadLinks: (() => null) as never }));
@@ -87,6 +106,7 @@ vi.mock(import("~/state/issues"), async (original) => {
 });
 
 import { RightPanelSheet } from "../RightPanelSheet";
+import { IssueCommentComposer } from "./IssueCommentComposer";
 import { IssueDetailPanel } from "./IssueDetailPanel";
 
 const reference = {
@@ -102,6 +122,49 @@ function setComments(comments: IssueDetail["comments"]) {
 }
 
 describe("IssueDetailPanel", () => {
+  it("requires an explicit customer audience again for the next comment", async () => {
+    state.postComment.mockClear();
+    state.postComment.mockResolvedValueOnce({
+      _tag: "Failure",
+      cause: Cause.fail("Temporary error"),
+    });
+    await using screen = await render(
+      <IssueCommentComposer
+        environmentId={"env-1" as never}
+        reference={reference}
+        blocked={null}
+        audiences
+      />,
+    );
+    const editor = screen.getByRole("textbox", { name: "Add a comment" });
+    await userEvent.click(screen.getByRole("button", { name: "Internal note", exact: true }));
+    await userEvent.click(page.getByRole("menuitemradio", { name: "Reply to customer" }));
+    await userEvent.fill(editor, "Customer reply");
+    await userEvent.click(screen.getByRole("button", { name: "Comment", exact: true }));
+    await expect.element(editor).toHaveValue("Customer reply");
+    await expect
+      .element(screen.getByRole("button", { name: "Reply to customer", exact: true }))
+      .toBeEnabled();
+    await userEvent.click(screen.getByRole("button", { name: "Comment", exact: true }));
+    await expect.element(editor).toHaveValue("");
+    await expect
+      .element(screen.getByRole("button", { name: "Internal note", exact: true }))
+      .toBeVisible();
+    await userEvent.fill(editor, "Private follow-up");
+    await userEvent.click(screen.getByRole("button", { name: "Comment", exact: true }));
+    expect(state.postComment.mock.calls.map(([call]) => call)).toEqual([
+      expect.objectContaining({
+        input: expect.objectContaining({ body: "Customer reply", audience: "public" }),
+      }),
+      expect.objectContaining({
+        input: expect.objectContaining({ body: "Customer reply", audience: "public" }),
+      }),
+      expect.objectContaining({
+        input: expect.objectContaining({ body: "Private follow-up", audience: "internal" }),
+      }),
+    ]);
+  });
+
   it("opens the issue number through the link-target setting, not a popup", async () => {
     setComments([]);
     const threadRef = { environmentId: "env-1", threadId: "thread-1" } as never;

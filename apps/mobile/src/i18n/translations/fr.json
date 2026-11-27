@@ -5937,5 +5937,8 @@
   "3f3ea0441308a707": "Contexte minimal (milliers de jetons)",
   "fddfcd8a7c82f9c3": "{provider} · {setting}",
   "e637173c759c26af": "Compacte une fois les longs fils inactifs si le fournisseur le permet.",
-  "53980144b6d12cd6": "N’effectue aucune action en cas d’inactivité."
+  "53980144b6d12cd6": "N’effectue aucune action en cas d’inactivité.",
+  "f6cf1627f4acc5ef": "Visibilité du commentaire",
+  "eb1fd384ad5919dd": "Note interne",
+  "b45f0b467e9406d0": "Répondre au client"
 }

@@ -5945,5 +5945,8 @@
   "3f3ea0441308a707": "Minimum context (k tokens)",
   "fddfcd8a7c82f9c3": "{provider} · {setting}",
   "e637173c759c26af": "Compact large idle threads once when the provider supports it.",
-  "53980144b6d12cd6": "Take no idle action."
+  "53980144b6d12cd6": "Take no idle action.",
+  "f6cf1627f4acc5ef": "Comment audience",
+  "eb1fd384ad5919dd": "Internal note",
+  "b45f0b467e9406d0": "Reply to customer"
 }
