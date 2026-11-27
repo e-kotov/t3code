@@ -3508,6 +3508,38 @@ effectIt.effect("checks the run's status without loading the thread's history", 
   }),
 );
 
+effectIt.effect(
+  "does not recover a missing native session for cache warming after turn start",
+  () =>
+    Effect.gen(function* () {
+      const harness = makeLocalCommandHarness({
+        text: "Cache warm check only",
+        previousTurn: { runStatus: "completed", turnStatus: "completed" },
+      });
+      harness.tryHandlePromptCommand.mockReturnValue(Effect.succeed(false));
+      const original = harness.projection();
+      const run = original.runs.at(-1)!;
+      const messageId = MessageId.make("message:cache-warm:machine:loaded-test");
+      harness.setProjection({
+        ...original,
+        runs: original.runs.map((row) =>
+          row.id === run.id ? { ...row, userMessageId: messageId } : row,
+        ),
+        messages: original.messages.map((message) =>
+          message.id === run.userMessageId
+            ? { ...message, id: messageId, createdBy: "system", creationSource: "server" }
+            : message,
+        ),
+      });
+
+      yield* harness.start;
+      expect(harness.startRootRun).toHaveBeenCalledOnce();
+      expect(harness.startRootRun.mock.calls[0]?.[0].recoverLostNativeSession).toBeUndefined();
+      expect(harness.fallbackEnsureThread).not.toHaveBeenCalled();
+      expect(harness.projection().contextHandoffs).toEqual([]);
+    }),
+);
+
 effectIt.effect.each([
   {
     id: "message:cache-warm:machine:test",
