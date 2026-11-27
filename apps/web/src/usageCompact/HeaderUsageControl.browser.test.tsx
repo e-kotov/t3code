@@ -190,6 +190,7 @@ it("keeps overflowing panel tabs scrollable beside all three usage meters when m
         onActivate={noop}
         onCloseSurface={noop}
         onCloseOtherSurfaces={noop}
+        onCloseSelectedSurfaces={noop}
         onCloseSurfacesToRight={noop}
         onCloseAllSurfaces={noop}
         onCopyFilePath={noop}
