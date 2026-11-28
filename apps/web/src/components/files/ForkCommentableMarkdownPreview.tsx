@@ -4,7 +4,7 @@ import { useGT } from "gt-react";
 import { MessageCircle, QuoteIcon, X } from "lucide-react";
 import {
   type ComponentProps,
-  type KeyboardEventHandler,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   useEffect,
   useLayoutEffect,
@@ -17,6 +17,7 @@ import { DiffCommentAnnotation } from "~/components/diffs/DiffCommentAnnotation"
 import { Button } from "~/components/ui/button";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { type DraftId, useComposerDraftStore } from "~/composerDraftStore";
+import { isMacPlatform } from "~/lib/utils";
 import { observeResize } from "~/lib/observeResize";
 import {
   isSelectionRectVisible,
@@ -571,11 +572,28 @@ function ForkCommentableMarkdownPreview({
 const savedCommentableMarkdownScroll = new Map<string, number>();
 const MAX_SAVED_COMMENTABLE_SCROLL = 100;
 
-type WorkspaceMarkdownProps = ComponentProps<typeof ForkCommentableMarkdownPreview> & {
-  readonly onKeyDown: KeyboardEventHandler<HTMLDivElement>;
-};
+type WorkspaceMarkdownProps = ComponentProps<typeof ForkCommentableMarkdownPreview>;
 
-function ScrollableCommentableMarkdown({ onKeyDown, ...previewProps }: WorkspaceMarkdownProps) {
+function selectRenderedContentOnSelectAll(event: ReactKeyboardEvent<HTMLElement>) {
+  const mac = isMacPlatform(navigator.platform);
+  const selectAll =
+    event.key.toLowerCase() === "a" &&
+    (mac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey) &&
+    !event.shiftKey &&
+    !event.altKey;
+  // React bubbles keys from portaled children (the image dialog) through this surface.
+  if (
+    !selectAll ||
+    !(event.target instanceof Node) ||
+    !event.currentTarget.contains(event.target)
+  ) {
+    return;
+  }
+  event.preventDefault();
+  window.getSelection()?.selectAllChildren(event.currentTarget);
+}
+
+function ScrollableCommentableMarkdown(previewProps: WorkspaceMarkdownProps) {
   const { text, threadRef, cwd, relativePath } = previewProps;
   const positionKey = JSON.stringify([
     threadRef.environmentId,
@@ -607,7 +625,7 @@ function ScrollableCommentableMarkdown({ onKeyDown, ...previewProps }: Workspace
       ref={root}
       data-fork-markdown-scroll
       className="min-h-0 flex-1"
-      onKeyDown={onKeyDown}
+      onKeyDown={selectRenderedContentOnSelectAll}
       onCopy={(event) => {
         const surface = event.currentTarget;
         if (!(event.target instanceof Node) || !surface.contains(event.target)) return;
@@ -635,21 +653,15 @@ function ScrollableCommentableMarkdown({ onKeyDown, ...previewProps }: Workspace
 
 export function ForkWorkspaceMarkdownPreview({
   commentTarget,
-  onKeyDown,
   text,
   ...previewProps
 }: WorkspaceMarkdownProps) {
   // Exact rendered quotes need one complete DOM. Keep that mode bounded; larger Markdown
   // uses upstream virtualization and can still be commented on in the source view.
   if (text.length > 32 * 1024) {
-    return <ChunkedMarkdown {...splitMarkdown(text)} {...previewProps} onKeyDown={onKeyDown} />;
+    return <ChunkedMarkdown {...splitMarkdown(text)} {...previewProps} />;
   }
   return (
-    <ScrollableCommentableMarkdown
-      text={text}
-      commentTarget={commentTarget}
-      onKeyDown={onKeyDown}
-      {...previewProps}
-    />
+    <ScrollableCommentableMarkdown text={text} commentTarget={commentTarget} {...previewProps} />
   );
 }
