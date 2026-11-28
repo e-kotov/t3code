@@ -1530,7 +1530,7 @@ export default function ChatView(props: ChatViewProps) {
         ].join(":");
   const {
     banner: usageLimitsBanner,
-    offered: usageLimitsOffered,
+    offered: providerOffersUsageLimits,
     open: openUsageLimits,
     clearFor: clearUsageLimitsFor,
   } = useUsageLimitsPanel({
@@ -1543,6 +1543,8 @@ export default function ChatView(props: ChatViewProps) {
     providers: providerStatuses,
     sources: serverConfig?.usageLimitSources ?? EMPTY_USAGE_LIMIT_SOURCES,
   });
+  // Updating a queued message saves `/usage-limits` as its text.
+  const usageLimitsOffered = providerOffersUsageLimits && !queuedRunEdit.isEditing;
   const {
     beginLocalDispatch,
     resetLocalDispatch,
