@@ -15,6 +15,7 @@ import {
 
 const state = vi.hoisted(() => ({
   file: null as ProjectReadFileResult | null,
+  fileRefresh: vi.fn(),
   optimistic: null as ProjectReadFileResult | null,
   writeFile: vi.fn(),
   assetUrl: { _tag: "Loading" } as import("~/assets/assetUrls").AssetUrlState,
@@ -167,7 +168,7 @@ vi.mock(import("./projectFilesQueryState"), async (original) => ({
     readError: null,
     isNotFile: false,
     isFile: true,
-    refresh: vi.fn(),
+    refresh: state.fileRefresh,
   }),
   getOptimisticProjectFileQueryData: () => state.optimistic,
   getUnsavedProjectFileQueryData: () => null,
@@ -198,6 +199,7 @@ function setup() {
   localStorage.setItem(keys[0]!, "false");
   localStorage.setItem(keys[1]!, "true");
   state.file = null;
+  state.fileRefresh.mockReset();
   state.optimistic = null;
   state.assetUrl = { _tag: "Loading" };
   state.assetUrlForRevision = null;
@@ -861,48 +863,129 @@ describe("open file in preview browser", () => {
   });
 });
 
-describe("workspace HTML preview refresh", () => {
+describe("workspace browser preview refresh", () => {
   it.each([
     {
       label: "reloads a rendered HTML preview on refresh when fileRevision advances",
+      relativePath: "page.html",
       workspaceMutationId: null as string | null,
       withFileRevision: true,
     },
     {
       label: "reloads a rendered HTML preview on refresh without a server fileRevision",
+      relativePath: "page.html",
       workspaceMutationId: "mutation-1" as string | null,
       withFileRevision: false,
     },
-  ])("$label", async ({ workspaceMutationId, withFileRevision }) => {
+    {
+      label: "reloads a PDF preview on refresh when fileRevision advances",
+      relativePath: "report.pdf",
+      workspaceMutationId: null as string | null,
+      withFileRevision: true,
+    },
+  ])("$label", async ({ relativePath, workspaceMutationId, withFileRevision }) => {
     using _settings = setup();
+    using _native = vi.spyOn(navigator, "pdfViewerEnabled", "get").mockReturnValue(true);
     localStorage.setItem("t3code.fileExplorerOpen", "true");
-    state.file = {
-      relativePath: "page.html",
-      contents: "<h1>v1</h1>",
-      byteLength: 11,
-      truncated: false,
-    };
+    const isPdf = relativePath.endsWith(".pdf");
+    const mediaType = isPdf ? "application/pdf" : "text/html";
+    const v1Url = `data:${mediaType},v1`;
+    const v2Url = `data:${mediaType},v2`;
+    if (!isPdf) {
+      state.file = {
+        relativePath,
+        contents: "<h1>v1</h1>",
+        byteLength: 11,
+        truncated: false,
+      };
+    }
     const seenRevisions: Array<string | null | undefined> = [];
     state.assetUrlForRevision = (revision) => {
       seenRevisions.push(revision);
       const refreshed = revision !== workspaceMutationId;
       return {
         _tag: "Success",
-        url: refreshed ? "data:text/html,v2" : "data:text/html,v1",
+        url: refreshed ? v2Url : v1Url,
         expiresAt: Number.MAX_SAFE_INTEGER,
         ...(withFileRevision ? { fileRevision: refreshed ? "rev-2" : "rev-1" } : {}),
       };
     };
 
-    await using screen = await render(filePreview("page.html", workspaceMutationId));
+    await using screen = await render(filePreview(relativePath, workspaceMutationId));
     const shownIframeSrc = () =>
       screen.container.querySelector('iframe:not([aria-hidden="true"])')?.getAttribute("src");
-    await vi.waitFor(() => expect(shownIframeSrc()).toMatch(/^data:text\/html,v1/));
+    await vi.waitFor(() => expect(shownIframeSrc()?.startsWith(v1Url)).toBe(true));
 
     await userEvent.click(screen.getByRole("button", { name: "Refresh workspace files" }));
 
-    await vi.waitFor(() => expect(shownIframeSrc()).toMatch(/^data:text\/html,v2/));
+    await vi.waitFor(() => expect(shownIframeSrc()?.startsWith(v2Url)).toBe(true));
     expect(seenRevisions.at(-1)).not.toBe(workspaceMutationId);
+    if (isPdf) expect(state.fileRefresh).not.toHaveBeenCalled();
+    else expect(state.fileRefresh).toHaveBeenCalledOnce();
+  });
+});
+
+describe("workspace large file preview refresh", () => {
+  it.each([
+    {
+      label: "reloads a large file preview on refresh when fileRevision advances",
+      workspaceMutationId: null as string | null,
+      withFileRevision: true,
+      assetPath: "/assets/large-refresh-rev.md",
+    },
+    {
+      label: "reloads a large file preview on refresh without a server fileRevision",
+      workspaceMutationId: "mutation-1" as string | null,
+      withFileRevision: false,
+      assetPath: "/assets/large-refresh-legacy.md",
+    },
+  ])("$label", async ({ workspaceMutationId, withFileRevision, assetPath }) => {
+    using _settings = setup();
+    localStorage.setItem("t3code.fileExplorerOpen", "true");
+    state.file = {
+      relativePath: "large.md",
+      contents: "Initial preview.\n",
+      byteLength: 1_200_000,
+      truncated: true,
+    };
+    let waitingForRefresh = false;
+    state.assetUrlForRevision = (revision) => {
+      const refreshed = (revision ?? null) !== workspaceMutationId;
+      if (refreshed && waitingForRefresh) {
+        return {
+          _tag: "Success",
+          url: `${assetPath}?v=1`,
+          expiresAt: Number.MAX_SAFE_INTEGER,
+          waiting: true,
+          ...(withFileRevision ? { fileRevision: "rev-1" } : {}),
+        };
+      }
+      return {
+        _tag: "Success",
+        url: refreshed ? `${assetPath}?v=2` : `${assetPath}?v=1`,
+        expiresAt: Number.MAX_SAFE_INTEGER,
+        ...(withFileRevision ? { fileRevision: refreshed ? "rev-2" : "rev-1" } : {}),
+      };
+    };
+    const realFetch = globalThis.fetch;
+    using _fetch = vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = new URL(String(input), location.href);
+      if (url.pathname !== assetPath) return realFetch(input, init);
+      const version = url.searchParams.get("v");
+      if (version === "1") return Promise.resolve(new Response("Initial large body.\n"));
+      if (version === "2") return Promise.resolve(new Response("Updated large body.\n"));
+      return Promise.resolve(new Response("", { status: 404 }));
+    });
+
+    await using screen = await render(filePreview("large.md", workspaceMutationId));
+    await expect.element(screen.getByText("Initial large body.")).toBeVisible();
+
+    waitingForRefresh = true;
+    await userEvent.click(screen.getByRole("button", { name: "Refresh workspace files" }));
+    waitingForRefresh = false;
+    await screen.rerender(filePreview("large.md", workspaceMutationId));
+
+    await expect.element(screen.getByText("Updated large body.")).toBeVisible();
   });
 });
 
@@ -1041,6 +1124,33 @@ describe("rendered Markdown select all", () => {
   });
 });
 
+describe("table preview select all", () => {
+  it("selects only the table, headers included, in a CSV preview", async () => {
+    using _settings = setup();
+    using _style = withAppCss();
+    state.file = {
+      relativePath: "cities.csv",
+      contents: "name,city\nAda,London\nBob,Paris\n",
+      byteLength: 31,
+      truncated: false,
+    };
+    await using screen = await render(
+      <>
+        <p>Transcript text from the chat thread.</p>
+        {sized(filePreview("cities.csv"))}
+      </>,
+    );
+    await userEvent.click(screen.getByText("London"));
+    await userEvent.keyboard(
+      isMacPlatform(navigator.platform) ? "{Meta>}a{/Meta}" : "{Control>}a{/Control}",
+    );
+    const selection = window.getSelection()?.toString() ?? "";
+    expect(selection).toContain("city");
+    expect(selection).toContain("London");
+    expect(selection).not.toContain("Transcript text from the chat thread.");
+  });
+});
+
 describe("rendered Markdown relative images", () => {
   it.each([
     ["2026-11-23T14:05/README.md", "/workspace/2026-11-23T14:05/diagram.png"],
@@ -1054,6 +1164,75 @@ describe("rendered Markdown relative images", () => {
     expect(state.assetResources).toContainEqual(
       expect.objectContaining({ _tag: "media-file", path: expectedPath }),
     );
+  });
+});
+
+describe("rendered Markdown image refresh", () => {
+  it("re-mints embedded workspace images when workspace files refresh", async () => {
+    using _settings = setup();
+    localStorage.setItem("t3code.fileExplorerOpen", "true");
+    const seenRevisions: Array<string | null | undefined> = [];
+    state.assetUrlForRevision = (revision) => {
+      seenRevisions.push(revision);
+      return {
+        _tag: "Success",
+        url: `data:image/png;base64,${typeof revision === "string" ? "djI=" : "djE="}`,
+        expiresAt: Number.MAX_SAFE_INTEGER,
+      };
+    };
+    await using screen = await render(markdownPreview(false, "![diagram](diagram.png)\n"));
+    await vi.waitFor(() => expect(seenRevisions).not.toHaveLength(0));
+    const loaded = seenRevisions.at(-1);
+
+    await userEvent.click(screen.getByRole("button", { name: "Refresh workspace files" }));
+
+    await vi.waitFor(() => {
+      expect(seenRevisions.at(-1)).toEqual(expect.any(String));
+      expect(seenRevisions.at(-1)).not.toBe(loaded);
+    });
+  });
+});
+
+describe("large rendered Markdown image refresh", () => {
+  it("re-mints embedded workspace images when workspace files refresh", async () => {
+    using _settings = setup();
+    localStorage.setItem("t3code.fileExplorerOpen", "true");
+    const imageRevisions: Array<string | null | undefined> = [];
+    state.assetUrlForRevision = (revision) => {
+      if (!JSON.stringify(state.assetResources.at(-1)).includes("diagram.png")) {
+        return {
+          _tag: "Success",
+          url: "/assets/large-image.md",
+          expiresAt: Number.MAX_SAFE_INTEGER,
+        };
+      }
+      imageRevisions.push(revision);
+      return {
+        _tag: "Success",
+        url: `data:image/png;base64,${typeof revision === "string" ? "djI=" : "djE="}`,
+        expiresAt: Number.MAX_SAFE_INTEGER,
+      };
+    };
+    const realFetch = globalThis.fetch;
+    using _fetch = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input, init) =>
+        new URL(String(input), location.href).pathname === "/assets/large-image.md"
+          ? Promise.resolve(new Response("![diagram](diagram.png)\n\nPast the first megabyte\n"))
+          : realFetch(input, init),
+      );
+    await using screen = await render(markdownPreview(true, "![diagram](diagram.png)\n", "big.md"));
+    await expect.element(screen.getByText("Past the first megabyte")).toBeVisible();
+    await vi.waitFor(() => expect(imageRevisions).not.toHaveLength(0));
+    const loaded = imageRevisions.at(-1);
+
+    await userEvent.click(screen.getByRole("button", { name: "Refresh workspace files" }));
+    await expect.element(screen.getByText("Past the first megabyte")).toBeVisible();
+
+    await vi.waitFor(() => {
+      expect(imageRevisions.at(-1)).toEqual(expect.any(String));
+      expect(imageRevisions.at(-1)).not.toBe(loaded);
+    });
   });
 });
 
