@@ -46,8 +46,10 @@ it("says what each agent's access reads and saves only the agents left on", asyn
       <UsageAccessQuestion prompts={[prompt("claudeAgent"), prompt("codex")]} />
     </RegistryContext.Provider>,
   );
-  await expect.element(screen.getByText("Session history and sign-in")).toBeVisible();
-  await expect.element(screen.getByText("Session history", { exact: true })).toBeVisible();
+  for (const name of [/Claude/, /Codex/]) {
+    const toggle = screen.getByRole("switch", { name }).element();
+    expect(toggle.parentElement?.textContent).toContain("Session history and sign-in");
+  }
 
   await screen.getByRole("switch", { name: /Codex/ }).click();
   await screen.getByRole("button", { name: "Allow", exact: true }).click();

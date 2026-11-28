@@ -22,17 +22,20 @@ import { markTextOnlyPasteEvent } from "./forkPasteAsText";
 
 function TestComposer({
   importContextFragment,
+  initialValue = "",
   onPaste = (event) => markTextOnlyPasteEvent(event.nativeEvent),
 }: {
+  initialValue?: string;
   onPaste?: ComposerPromptEditorProps["onPaste"];
   importContextFragment: NonNullable<ComposerPromptEditorProps["importContextFragment"]>;
 }) {
-  const [prompt, setPrompt] = useState({ value: "", cursor: 0 });
+  const [prompt, setPrompt] = useState({ value: initialValue, cursor: 0 });
   return (
     <ComposerPromptEditorTiptap
       editorRef={createRef<ComposerPromptEditorHandle>()}
       value={prompt.value}
       cursor={prompt.cursor}
+      richTextEnabled={initialValue.length > 0}
       contextRecords={new Map()}
       importContextFragment={importContextFragment}
       skills={[]}
@@ -127,15 +130,19 @@ it.each([false, true])(
       },
     );
     await using screen = await render(
-      <TestComposer importContextFragment={importContextFragment} onPaste={onPaste} />,
+      <TestComposer
+        importContextFragment={importContextFragment}
+        initialValue={inlineCode ? "`code` after" : ""}
+        onPaste={onPaste}
+      />,
       { router: false },
     );
     const editor = editorIn(screen.container);
     if (inlineCode) {
       await act(async () => {
-        editor.commands.setContent("<p><code>code</code></p>");
         editor.commands.setTextSelection(3);
       });
+      expect(serializeEditorDoc(editor.state.doc).value).toBe("`code` after");
     }
     const clipboardData = new DataTransfer();
     const context = "[Terminal 1](t3-context://v1/terminal/ctx_copied)";

@@ -219,6 +219,7 @@
     "apps/web/src/components/sidebar/SidebarThreadHeader.tsx": 7,
     "apps/web/src/components/sidebar/SidebarThreadRow.tsx": 22,
     "apps/web/src/components/threadActionMenu.logic.ts": 2,
+    "apps/web/src/components/usage/UsageAccessDialog.browser.test.tsx": 6,
     "apps/web/src/components/usage/UsageLimitsPooled.tsx": 6,
     "apps/web/src/connection/runtime.ts": 1,
     "apps/web/src/connection/storage.ts": 13,
