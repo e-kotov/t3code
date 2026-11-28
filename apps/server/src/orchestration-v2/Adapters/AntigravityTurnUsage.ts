@@ -1,7 +1,9 @@
+import { resolveProviderInstanceEnabled } from "@t3tools/contracts";
 import type {
   ModelSelection,
   OrchestrationV2ProviderTurnTokenUsage,
   ProviderInstanceId,
+  ServerSettings,
   ThreadTokenUsageSnapshot,
 } from "@t3tools/contracts";
 import type * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
@@ -33,7 +35,7 @@ type TokenUsage = OrchestrationV2ProviderTurnTokenUsage;
 interface ThreadUsage {
   sessionId: string | undefined;
   // Rows at or below it belong to earlier turns, so a turn without a generation inherits none.
-  baselineRowId: number;
+  baseline?: { readonly epoch: symbol; rowId: number };
   readonly modelSelection: ModelSelection;
   contextUsage: ThreadTokenUsageSnapshot | null;
   running: TurnEvent | undefined;
@@ -191,6 +193,30 @@ export const withAntigravityTurnUsage = Effect.fn("withAntigravityTurnUsage")(fu
       Effect.orElseSucceed(() => fallback),
     );
 
+  // Materialized snapshots are replaced on settings changes. Use their identity as a
+  // conservative epoch so even an unobserved revoke/regrant invalidates the old baseline.
+  const usageEpochs = new WeakMap<ServerSettings, symbol>();
+  const withHistoryAccess = <A>(
+    read: (epoch: symbol) => Effect.Effect<A>,
+  ): Effect.Effect<A | undefined> =>
+    services.host.settings
+      ?.withSnapshot?.((settings) => {
+        const instance = settings.providerInstances[services.instanceId];
+        if (
+          instance?.driver !== "antigravity" ||
+          !resolveProviderInstanceEnabled(instance) ||
+          instance.usageAccess !== "allowed"
+        )
+          return Effect.undefined;
+        let epoch = usageEpochs.get(settings);
+        if (epoch === undefined) {
+          epoch = Symbol();
+          usageEpochs.set(settings, epoch);
+        }
+        return read(epoch);
+      })
+      .pipe(Effect.orElseSucceed(() => undefined)) ?? Effect.undefined;
+
   const wrapRuntime = (runtime: SessionRuntime): SessionRuntime => {
     const threads = new Map<string, ThreadUsage>();
     const settle = Effect.fn("AntigravityTurnUsage.settle")(function* (
@@ -198,27 +224,30 @@ export const withAntigravityTurnUsage = Effect.fn("withAntigravityTurnUsage")(fu
       event: TurnEvent,
     ) {
       const turnId = event.providerTurn.id;
-      if (thread.settled?.turnId === turnId) return thread.settled.usage;
-      const generation =
-        thread.sessionId === undefined
-          ? undefined
-          : yield* quietly(
-              readLatestAntigravityGeneration(database(thread.sessionId), thread.sessionId),
-              undefined,
-            );
       const updatedAt = DateTime.formatIso(event.providerTurn.completedAt ?? (yield* DateTime.now));
-      let usage: TokenUsage | undefined;
-      if (generation !== undefined && generation.rowId > thread.baselineRowId) {
-        thread.baselineRowId = generation.rowId;
-        usage = antigravityTurnTokenUsage({
-          totals: generation.totals,
-          contextUsage: thread.contextUsage,
-          modelSelection: thread.modelSelection,
-          updatedAt,
-        });
-      } else {
-        usage = contextOnlyTokenUsage(thread, updatedAt);
-      }
+      const usage =
+        (yield* withHistoryAccess((epoch) =>
+          Effect.gen(function* () {
+            const baseline = thread.baseline;
+            if (baseline?.epoch !== epoch) return undefined;
+            if (thread.settled?.turnId === turnId) return thread.settled.usage;
+            const generation =
+              thread.sessionId === undefined
+                ? undefined
+                : yield* quietly(
+                    readLatestAntigravityGeneration(database(thread.sessionId), thread.sessionId),
+                    undefined,
+                  );
+            if (generation === undefined || generation.rowId <= baseline.rowId) return undefined;
+            baseline.rowId = generation.rowId;
+            return antigravityTurnTokenUsage({
+              totals: generation.totals,
+              contextUsage: thread.contextUsage,
+              modelSelection: thread.modelSelection,
+              updatedAt,
+            });
+          }),
+        )) ?? contextOnlyTokenUsage(thread, updatedAt);
       thread.settled = { turnId, usage };
       return usage;
     });
@@ -265,13 +294,15 @@ export const withAntigravityTurnUsage = Effect.fn("withAntigravityTurnUsage")(fu
         turnInput: ProviderAdapter.ProviderAdapterV2TurnInput,
       ) {
         const sessionId = turnInput.providerThread.nativeThreadRef?.nativeId ?? undefined;
-        const baselineRowId =
-          sessionId === undefined
-            ? -1
-            : yield* quietly(latestAntigravityGenerationRowId(database(sessionId)), -1);
+        const baseline = yield* withHistoryAccess((epoch) =>
+          (sessionId === undefined
+            ? Effect.succeed(-1)
+            : quietly(latestAntigravityGenerationRowId(database(sessionId)), -1)
+          ).pipe(Effect.map((rowId) => ({ epoch, rowId }))),
+        );
         threads.set(turnInput.providerThread.id, {
           sessionId,
-          baselineRowId,
+          ...(baseline === undefined ? {} : { baseline }),
           modelSelection: turnInput.modelSelection,
           contextUsage: turnInput.providerThread.contextUsage ?? null,
           running: undefined,

@@ -111,6 +111,7 @@ import { computeMobileNonSettledCounts } from "./mobileNonSettledCounts";
 import { renderMachineGroupHeader } from "../threads/MachineGroupHeader";
 import { useConversationMachineOrder } from "../threads/useConversationMachineOrder";
 import type { ConversationListControls } from "./conversationListOptions";
+import { HostPressureBanner } from "./HostPressureBanner";
 import { deriveHomeEmptyState } from "./home-empty-state";
 
 interface HomeScreenProps extends ConversationListControls {
@@ -671,6 +672,8 @@ export function HomeScreen(props: HomeScreenProps) {
             }}
           >
             <View className="w-full max-w-[430px]">
+              {/* A strained machine with no threads still needs its warning. */}
+              <HostPressureBanner />
               <EmptyState
                 title={emptyState.title}
                 detail={emptyState.detail}
@@ -706,6 +709,7 @@ export function HomeScreen(props: HomeScreenProps) {
   const v2ListHeader = (
     <ConversationListHeader view={props}>
       {listHeader}
+      <HostPressureBanner />
       {Platform.OS === "ios" && workspace ? (
         <ThreadListFilters
           conversationList={props}
@@ -784,6 +788,9 @@ export function HomeScreen(props: HomeScreenProps) {
           className="flex-1 items-center justify-center px-4"
           style={{ paddingBottom: insets.bottom }}
         >
+          <View className="w-full">
+            <HostPressureBanner />
+          </View>
           {v2ListEmpty}
         </View>
       </ScreenContent>

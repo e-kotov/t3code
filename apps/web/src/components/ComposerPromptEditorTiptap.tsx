@@ -77,7 +77,7 @@ import {
   collapseShownMarkdownSource,
   ComposerMarkdownSourceExtension,
 } from "~/composer-markdown-source";
-import { MARKDOWN_SOURCE_MARK } from "~/composer-rich-text";
+import { inlineMarkdownUnitMarks, MARKDOWN_SOURCE_MARK } from "~/composer-rich-text";
 import {
   collectComposerPromptInlineTokens,
   selectionTouchesMentionBoundary,
@@ -785,6 +785,34 @@ const headingInputRule = new InputRule({
 
 function isInCodeBlock(view: EditorView): boolean {
   return view.state.selection.$from.parent.type.spec.code === true;
+}
+
+/** Pasted links stay literal in code, including inline code shown as its Markdown source. */
+function isInCode(view: EditorView): boolean {
+  if (isInCodeBlock(view)) return true;
+  const {
+    selection: { $from },
+    schema,
+  } = view.state;
+  if (schema.marks.code?.isInSet($from.marks())) return true;
+  const sourceType = schema.marks[MARKDOWN_SOURCE_MARK];
+  if (!sourceType) return false;
+  const regions: { from: number; to: number }[] = [];
+  $from.parent.forEach((child, offset) => {
+    if (!sourceType.isInSet(child.marks)) return;
+    const last = regions.at(-1);
+    if (last?.to === offset) last.to += child.nodeSize;
+    else regions.push({ from: offset, to: offset + child.nodeSize });
+  });
+  const caret = $from.parentOffset;
+  const region = regions.find(({ from, to }) => from <= caret && caret <= to);
+  if (!region) return false;
+  // Shown source keeps its delimiters as text, so parse it to see whether the caret sits in a code span.
+  const units = inlineMarkdownUnitMarks(
+    $from.parent.textBetween(region.from, region.to, undefined, "￼"),
+  );
+  const at = caret - region.from;
+  return Boolean(units[at - 1]?.includes("code") || units[at]?.includes("code"));
 }
 
 const ChipSelectionPluginKey = new PluginKey<DecorationSet>("composer-chip-range-selection");
@@ -1633,7 +1661,7 @@ function ComposerPromptEditorTiptapInner(
           if (!clipboardData) return false;
           const captured = capturedPastes.current.get(event);
           capturedPastes.current.delete(event);
-          const literalPaste = literalText || isInCodeBlock(view);
+          const literalPaste = literalText || isInCode(view);
           const paste =
             captured ??
             readPastedComposerClipboard(
@@ -1681,7 +1709,7 @@ function ComposerPromptEditorTiptapInner(
           view.focus();
           return insertClipboardText(
             view,
-            readPastedComposerClipboard(data, literalText || isInCodeBlock(view)),
+            readPastedComposerClipboard(data, literalText || isInCode(view)),
           );
         },
       },
@@ -1709,7 +1737,7 @@ function ComposerPromptEditorTiptapInner(
 
   const onClipboardPasteCapture = (event: React.ClipboardEvent<HTMLElement>) => {
     onPaste(event, (plainTextOnly) => {
-      const literalPaste = literalText || (editor !== null && isInCodeBlock(editor.view));
+      const literalPaste = literalText || (editor !== null && isInCode(editor.view));
       const paste = readPastedComposerClipboard(
         event.clipboardData,
         plainTextOnly || literalPaste,

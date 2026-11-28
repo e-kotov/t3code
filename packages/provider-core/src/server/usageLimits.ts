@@ -3,6 +3,8 @@ import type {
   ServerProviderUsageLimits,
   ServerProviderUsageWindow,
 } from "@t3tools/contracts";
+import * as DateTime from "effect/DateTime";
+import * as Effect from "effect/Effect";
 
 const WINDOW_KIND_ORDER: Record<ServerProviderUsageWindow["kind"], number> = {
   session: 0,
@@ -53,7 +55,11 @@ export function applyUsageLimitsUpdate(input: {
   readonly checkedAt: string;
 }): ServerProviderUsageLimits | undefined {
   const { previous, update } = input;
-  if (update.windows.length === 0 || previous?.unavailable?.reason === "unsupported") {
+  if (
+    update.windows.length === 0 ||
+    previous?.needsUsageAccess ||
+    previous?.unavailable?.reason === "unsupported"
+  ) {
     return previous;
   }
   const merged = new Map(previous?.windows.map((window) => [window.id, window] as const));
@@ -115,6 +121,8 @@ export function resolveUsageLimitsAfterProbe(input: {
   readonly probed: ServerProviderUsageLimits | undefined;
 }): ServerProviderUsageLimits | undefined {
   const { published, probed } = input;
+  if (probed?.needsUsageAccess)
+    return { checkedAt: probed.checkedAt, windows: [], needsUsageAccess: true };
   if (probed?.unavailable?.reason === "probeFailed" && published && !published.unavailable) {
     return published;
   }
@@ -129,3 +137,16 @@ export function resolveUsageLimitsAfterProbe(input: {
   }
   return probed;
 }
+
+/** What a provider reports when its limits need the user's usage access first. */
+export const needsUsageAccessLimits: Effect.Effect<ServerProviderUsageLimits> = Effect.map(
+  DateTime.now,
+  (now) => ({ checkedAt: DateTime.formatIso(now), windows: [], needsUsageAccess: true }),
+);
+
+/** Runs a limits read that opens the provider's own sign-in files only once the user allows usage access. */
+export const withUsageAccess = <E, R>(
+  usageAccess: Effect.Effect<boolean>,
+  read: Effect.Effect<ServerProviderUsageLimits, E, R>,
+): Effect.Effect<ServerProviderUsageLimits, E, R> =>
+  Effect.flatMap(usageAccess, (allowed) => (allowed ? read : needsUsageAccessLimits));

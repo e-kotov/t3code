@@ -19,6 +19,7 @@ import type { ConnectionTarget } from "@t3tools/client-runtime/connection";
 
 import { tunnelsEnvironmentLoopback } from "../browser/browserTargetResolver";
 import { m } from "../i18n/messages";
+import { appAtomRegistry } from "../rpc/atomRegistry";
 import { environmentAtomList } from "./environmentAtomList";
 import { environmentSession } from "./session";
 
@@ -124,6 +125,10 @@ const NO_LOCALITY = Atom.make<ForwardLocality>("unknown").pipe(
 /** Pass `null` for an environment the desktop doesn't tunnel to; that one never probes. */
 export function useForwardLocality(environmentId: EnvironmentId | null): ForwardLocality {
   return useAtomValue(environmentId === null ? NO_LOCALITY : localityAtom(environmentId));
+}
+
+export function readForwardLocality(environmentId: EnvironmentId): ForwardLocality {
+  return appAtomRegistry.get(localityAtom(environmentId));
 }
 
 export const forwardLocalitiesAtom = environmentAtomList(

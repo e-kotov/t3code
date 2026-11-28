@@ -107,6 +107,22 @@ describe("applyUsageLimitsUpdate", () => {
 });
 
 describe("resolveUsageLimitsAfterProbe", () => {
+  it("does not merge previously granted windows back into a consent requirement", () => {
+    const denied = {
+      checkedAt: "2026-09-03T11:59:59.000Z",
+      windows: [],
+      needsUsageAccess: true as const,
+    };
+    expect(resolveUsageLimitsAfterProbe({ published, probed: denied })).toEqual(denied);
+    expect(
+      applyUsageLimitsUpdate({
+        previous: denied,
+        update: { windows: [session] },
+        checkedAt,
+      }),
+    ).toEqual(denied);
+  });
+
   it("uses read order for windows while taking metadata from the successful probe", () => {
     const live = {
       checkedAt: "2026-09-03T12:00:05.000Z",

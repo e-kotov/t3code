@@ -1,3 +1,4 @@
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import { assert, it } from "@effect/vitest";
 import {
   CommandId,
@@ -34,7 +35,7 @@ const adapter = {
 const layerDatabase = SqlitePersistence.layerMemory;
 const layerTest = Layer.mergeAll(
   layerDatabase,
-  ProjectionStore.layer.pipe(Layer.provide(layerDatabase)),
+  ProjectionStore.layer.pipe(Layer.provide(layerDatabase), Layer.provide(NodeCrypto.layerDigest)),
   ProviderReplayHarness.layerWithRegistry(
     { name: "cache-warming-dispatch" },
     ProviderAdapterRegistry.layerFromAdapters([adapter]),

@@ -1,3 +1,4 @@
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import { assert, it } from "@effect/vitest";
 import {
   EventId,
@@ -57,7 +58,10 @@ const cacheWrite = (
   updatedAt: reportedAt(ordinal),
 });
 
-const layerSql = ProjectionStore.layer.pipe(Layer.provideMerge(SqlitePersistence.layerMemory));
+const layerSql = ProjectionStore.layer.pipe(
+  Layer.provideMerge(SqlitePersistence.layerMemory),
+  Layer.provide(NodeCrypto.layerDigest),
+);
 
 it.effect("SQL shells derive the cache HUD from the active provider thread's recent reports", () =>
   Effect.gen(function* () {

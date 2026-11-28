@@ -6,6 +6,7 @@ import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/model
 import type { ServerProviderUsageWindow } from "@t3tools/contracts";
 import {
   cacheHudSupportsWarming,
+  cacheHudUsageWindows,
   describeCacheHud,
   describeUsageWindows,
 } from "@t3tools/shared/cacheHud";
@@ -41,8 +42,9 @@ export function ThreadCacheHoverDetails(props: {
   const providers = useAtomValue(serverEnvironment.providersValueAtom(environmentId));
   const usageWindows =
     props.usageWindows ??
-    providers?.find((provider) => provider.instanceId === props.providerInstanceId)?.usageLimits
-      ?.windows;
+    cacheHudUsageWindows(
+      providers?.find((provider) => provider.instanceId === props.providerInstanceId)?.usageLimits,
+    );
   const limits = describeUsageWindows(usageWindows, openedAt);
   if (!hud && limits.length === 0) return null;
   const details = hud ? describeCacheHud(hud, openedAt) : null;

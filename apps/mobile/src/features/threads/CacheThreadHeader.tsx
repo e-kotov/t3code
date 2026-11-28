@@ -1,4 +1,4 @@
-import { focusedCacheHud } from "@t3tools/shared/cacheHud";
+import { cacheHudUsageWindows, focusedCacheHud } from "@t3tools/shared/cacheHud";
 import {
   deriveReportedModelSelection,
   formatModelSelectionEffort,
@@ -48,11 +48,11 @@ export function CacheThreadHeader({
           )?.models,
           detail ? deriveReportedModelSelection(detail.projection) : null,
         )}
-        usageWindows={
+        usageWindows={cacheHudUsageWindows(
           cacheServerConfig?.providers.find(
             (provider) => provider.instanceId === cacheThread.modelSelection.instanceId,
-          )?.usageLimits?.windows
-        }
+          )?.usageLimits,
+        )}
       />
     </ThreadHeader>
   );

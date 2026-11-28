@@ -13,6 +13,7 @@ export const serverEnvironment = createServerEnvironmentAtoms(connectionAtomRunt
   slurmJobStatus: true,
   initialConfigValueAtom: environmentSession.initialConfigValueAtom,
   usageLimitSources: true,
+  hostPressure: true,
   usageLimitsCommand: true,
   providerCatalogsOnDemand: true,
   providerCatalogDigests: true,
