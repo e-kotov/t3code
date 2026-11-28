@@ -9,6 +9,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
 
 import {
+  cacheHudUsageWindows,
   cacheWarmingState,
   deriveCacheHud,
   focusedCacheHud,
@@ -462,4 +463,14 @@ describe("focusedCacheHud", () => {
     });
     expect(result?.usage).toEqual({ usedTokens: 50_000, updatedAt });
   });
+});
+
+it("does not expose stale quota windows before usage access is granted", () => {
+  const limits = {
+    checkedAt: updatedAt,
+    windows: [{ id: "weekly", kind: "weekly", label: "Weekly", usedPercent: 50 }],
+  } as const;
+  expect(cacheHudUsageWindows({ ...limits, needsUsageAccess: true })).toBeUndefined();
+  expect(cacheHudUsageWindows(limits)).toBe(limits.windows);
+  expect(cacheHudUsageWindows(undefined)).toBeUndefined();
 });

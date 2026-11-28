@@ -60,6 +60,7 @@ it.effect.each(["explicit", "missing config", "missing instance"] as const)(
       let responseId = "root";
       let rotateAccount = false;
       let activeNativeTask = "root";
+      let switchNativeAfterProjectionRead = false;
       let delayed: { entered: Deferred.Deferred<void>; release: Deferred.Deferred<void> } | null =
         null;
       const client = HttpClient.make((request) =>
@@ -98,16 +99,20 @@ it.effect.each(["explicit", "missing config", "missing instance"] as const)(
       );
       const projection = {
         getThreadRecords: () =>
-          Effect.succeed({
-            thread: { activeProviderThreadId: nativeId },
-            providerThreads: [
-              {
-                id: nativeId,
-                driver,
-                providerInstanceId: instanceId,
-                nativeThreadRef: { nativeId: activeNativeTask },
-              },
-            ],
+          Effect.sync(() => {
+            const selected = activeNativeTask;
+            if (switchNativeAfterProjectionRead) activeNativeTask = "other";
+            return {
+              thread: { activeProviderThreadId: nativeId },
+              providerThreads: [
+                {
+                  id: nativeId,
+                  driver,
+                  providerInstanceId: instanceId,
+                  nativeThreadRef: { nativeId: selected },
+                },
+              ],
+            };
           }),
       } as unknown as ProjectionStore.ProjectionStoreV2["Service"];
       const provider = {
@@ -118,20 +123,23 @@ it.effect.each(["explicit", "missing config", "missing instance"] as const)(
       const registry = {
         getInstance: () => Effect.succeed(provider),
       } as unknown as Registry.ProviderInstanceRegistry["Service"];
+      const allowed = {
+        driver: "codex" as const,
+        usageAccess: "allowed" as const,
+        ...(settingsMode === "explicit" ? { config: { homePath: "", setupMode: "existing" } } : {}),
+        environment: [{ name: "CODEX_HOME", value: home }],
+      };
+      let configured:
+        | { driver?: string; enabled?: boolean; usageAccess?: "allowed" | "denied" }
+        | undefined = settingsMode === "missing instance" ? undefined : allowed;
+      const getSettings = Effect.sync(() => ({
+        providerInstances: configured === undefined ? {} : { codex: configured },
+      }));
       const settings = {
-        getSettings: Effect.succeed({
-          providerInstances:
-            settingsMode === "missing instance"
-              ? {}
-              : {
-                  codex: {
-                    ...(settingsMode === "explicit"
-                      ? { config: { homePath: "", setupMode: "existing" } }
-                      : {}),
-                    environment: [{ name: "CODEX_HOME", value: home }],
-                  },
-                },
-        }),
+        getSettings,
+        withSettingsSnapshot: (
+          use: (snapshot: Effect.Success<typeof getSettings>) => Effect.Effect<unknown>,
+        ) => Effect.flatMap(getSettings, use),
       } as unknown as Settings.ServerSettingsService["Service"];
       const layer = Quota.layer.pipe(
         Layer.provide(Layer.succeed(ProjectionStore.ProjectionStoreV2, projection)),
@@ -141,12 +149,37 @@ it.effect.each(["explicit", "missing config", "missing instance"] as const)(
       );
       yield* Effect.gen(function* () {
         const quota = yield* Quota.ForkThreadQuota;
+        if (configured === undefined) {
+          // No consent must return unsupported even when reading auth.json would fail.
+          yield* fs.remove(authPath);
+          for (const decision of [
+            undefined,
+            { driver: "codex" },
+            { driver: "codex", usageAccess: "denied" as const },
+            { ...allowed, enabled: false },
+            { ...allowed, driver: "cursor" },
+          ]) {
+            configured = decision;
+            const reading = yield* quota.read(threadId);
+            assert.equal(reading.status, "unsupported");
+            assert.isNull(reading.weeklyPercent);
+            assert.equal(calls, 0);
+          }
+          return;
+        }
         const concurrent = yield* Effect.all([quota.read(threadId), quota.read(threadId)], {
           concurrency: "unbounded",
         });
         assert.equal(concurrent[0].weeklyPercent, 150.25);
         assert.equal(concurrent[1].weeklyPercent, 150.25);
         assert.equal(calls, 1);
+        switchNativeAfterProjectionRead = true;
+        const staleCached = yield* quota.read(threadId);
+        assert.equal(staleCached.status, "error");
+        assert.isNull(staleCached.weeklyPercent);
+        assert.equal(calls, 1);
+        switchNativeAfterProjectionRead = false;
+        activeNativeTask = "root";
         db.exec("UPDATE threads SET updated_at=2 WHERE id='child'");
         weekly = 155;
         assert.equal((yield* quota.read(threadId)).weeklyPercent, 155);
@@ -179,6 +212,21 @@ it.effect.each(["explicit", "missing config", "missing instance"] as const)(
         delayed = null;
         responseId = "replacement";
         weekly = 3.75;
+        assert.equal((yield* quota.read(threadId)).weeklyPercent, 3.75);
+        configured = { ...allowed, usageAccess: "denied" };
+        assert.equal((yield* quota.read(threadId)).status, "unsupported");
+        configured = { ...allowed };
+        delayed = { entered: yield* Deferred.make<void>(), release: yield* Deferred.make<void>() };
+        const revokedRead = yield* quota.read(threadId).pipe(Effect.forkChild);
+        yield* Deferred.await(delayed.entered);
+        configured = { ...allowed, usageAccess: "denied" };
+        // A fast re-grant is a fresh settings generation, not an authorization for old results.
+        configured = { ...allowed };
+        yield* Deferred.succeed(delayed.release, undefined);
+        const revoked = yield* Fiber.join(revokedRead);
+        assert.equal(revoked.status, "unsupported");
+        assert.isNull(revoked.weeklyPercent);
+        delayed = null;
         assert.equal((yield* quota.read(threadId)).weeklyPercent, 3.75);
         rotateAccount = true;
         yield* TestClock.adjust("61 seconds");

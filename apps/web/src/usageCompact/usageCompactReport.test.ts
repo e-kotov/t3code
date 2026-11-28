@@ -233,3 +233,18 @@ it("collects HTTP quota sources and preserves HTTP source failure notices", () =
   expect(report.quotaSources[0]?.quotaAccounts?.[0]?.label).toBe("SAIA");
   expect(report.notices).toEqual(["Broken HTTP: Could not read the HTTP quota source."]);
 });
+
+it("does not show stale native quota or claim verified access before consent", () => {
+  const report = compactUsageReport(
+    presentations([
+      {
+        ...provider("pending", false, "antigravity", "unknown"),
+        usageLimits: { ...verifiedLimits, needsUsageAccess: true },
+      },
+      { ...provider("signed-in"), usageLimits: { ...verifiedLimits, needsUsageAccess: true } },
+    ]),
+  );
+  expect(report.accounts).toEqual([]);
+  expect(report.authNotices).toEqual([]);
+  expect(report.notices).toEqual(["codex: Allow usage access to show this agent's limits."]);
+});

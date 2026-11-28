@@ -146,7 +146,11 @@ import {
   PairingClientsList,
 } from "./AuthorizedClientsSettings";
 import { ITEM_ROW_CLASSNAME } from "./itemRows";
-import { CloudLinkRow, CloudRemoteEnvironmentRows } from "./SavedEnvironmentRows";
+import {
+  CloudLinkRow,
+  CloudRemoteEnvironmentRows,
+  LocalEnvironmentMcpUrlRow,
+} from "./SavedEnvironmentRows";
 import { TargetedLocalMachineConnection } from "./TargetedLocalMachineConnection";
 import { TargetedMachineConnectionRow as SavedBackendListRow } from "./TargetedMachineConnectionRow";
 import { AddEnvironmentDialog } from "./AddEnvironmentDialog";
@@ -1409,6 +1413,9 @@ function ConnectionsSettingsContent({
                       }
                 }
               />
+            ) : null}
+            {isPrimaryAccess && accessEnvironment ? (
+              <LocalEnvironmentMcpUrlRow entry={accessEnvironment.entry} />
             ) : null}
             {accessServerConfig?.environment.capabilities.previewTunnelSetting ? (
               <SettingsRow

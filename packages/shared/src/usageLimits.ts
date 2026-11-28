@@ -755,6 +755,7 @@ function poolWindows(accounts: readonly LimitAccount[], now: number): readonly L
 }
 
 function limitsNotice(limits: ServerProviderUsageLimits): string | null {
+  if (limits.needsUsageAccess) return "Allow usage access to show this agent's limits.";
   if (limits.unavailable?.reason === "unsupported") {
     return limits.unavailable.message ?? "This account has no subscription limits.";
   }

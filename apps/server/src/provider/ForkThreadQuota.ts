@@ -1,4 +1,9 @@
-import { CodexSettings, type ForkThreadQuota as Reading, type ThreadId } from "@t3tools/contracts";
+import {
+  CodexSettings,
+  resolveProviderInstanceEnabled,
+  type ForkThreadQuota as Reading,
+  type ThreadId,
+} from "@t3tools/contracts";
 import * as Clock from "effect/Clock";
 import * as DateTime from "effect/DateTime";
 import * as Context from "effect/Context";
@@ -80,8 +85,14 @@ const make = Effect.gen(function* () {
   const path = yield* Path.Path;
   const http = yield* HttpClient.HttpClient;
   const settings = yield* ServerSettings.ServerSettingsService;
-  const cache = new Map<string, Reading>();
-  const pending = new Map<string, Effect.Effect<Reading>>();
+  // A settings replacement (including revoke and re-grant) cannot reuse earlier work.
+  const bySettings = new WeakMap<
+    object,
+    {
+      cache: Map<string, Reading>;
+      pending: Map<string, Effect.Effect<Reading>>;
+    }
+  >();
   const read = Effect.fn("ForkThreadQuota.read")(function* (threadId: ThreadId) {
     const now = yield* Clock.currentTimeMillis;
     const empty = (status: Reading["status"]): Reading => ({
@@ -101,9 +112,21 @@ const make = Effect.gen(function* () {
       if (native?.driver !== "codex" || !nativeTaskId) return empty("unsupported");
       const instance = yield* providers.getInstance(native.providerInstanceId);
       if (!instance?.enabled || instance.driverKind !== "codex") return empty("unsupported");
+      const readConfiguration = settings.getSettings.pipe(
+        Effect.map((settings) => settings.providerInstances[native.providerInstanceId]),
+      );
+      const configured = yield* readConfiguration;
+      if (
+        configured?.driver !== "codex" ||
+        configured.usageAccess !== "allowed" ||
+        !resolveProviderInstanceEnabled(configured)
+      )
+        return empty("unsupported");
+      const stillAllowed = readConfiguration.pipe(
+        Effect.map((current) => current === configured && current.usageAccess === "allowed"),
+      );
       const snapshot = yield* instance.snapshot.getSnapshot;
       if (snapshot.auth.type !== "chatgpt") return empty("unsupported");
-      const configured = (yield* settings.getSettings).providerInstances[native.providerInstanceId];
       const config = yield* decodeConfig(configured?.config ?? {});
       if (config.setupMode === "managed") return empty("unsupported");
       const layout = yield* resolveCodexHomeLayout(config).pipe(
@@ -128,19 +151,43 @@ const make = Effect.gen(function* () {
           : layout.sharedHomePath);
       const authPath = path.join(home, "auth.json");
       const readCredentials = fs.readFileString(authPath).pipe(Effect.flatMap(decodeCredentials));
-      const credentials = yield* readCredentials;
-      if (snapshot.auth.workspaceId && snapshot.auth.workspaceId !== credentials.tokens.account_id)
-        return empty("unsupported");
-      const task = yield* Effect.try({
-        try: () =>
-          readCodexTaskInventory(
-            path.join(home, "state_5.sqlite"),
-            nativeTaskId,
-            credentials.tokens.account_id,
-          ),
-        catch: (cause) => new ForkThreadQuotaInventoryError({ cause }),
+      const local = yield* settings.withSettingsSnapshot((current) =>
+        Effect.gen(function* () {
+          if (current.providerInstances[native.providerInstanceId] !== configured) return null;
+          const credentials = yield* readCredentials;
+          if (
+            snapshot.auth.workspaceId &&
+            snapshot.auth.workspaceId !== credentials.tokens.account_id
+          )
+            return null;
+          const task = yield* Effect.try({
+            try: () =>
+              readCodexTaskInventory(
+                path.join(home, "state_5.sqlite"),
+                nativeTaskId,
+                credentials.tokens.account_id,
+              ),
+            catch: (cause) => new ForkThreadQuotaInventoryError({ cause }),
+          });
+          return task ? { credentials, task } : null;
+        }),
+      );
+      if (local === null) return empty("unsupported");
+      const { credentials, task } = local;
+      const validate = Effect.gen(function* () {
+        const current = yield* projection.getThreadRecords(threadId, ["providerThreads"]);
+        const currentNative = current.providerThreads.find((row) => row.id === native.id);
+        if (
+          current.thread.activeProviderThreadId !== native.id ||
+          currentNative?.nativeThreadRef?.nativeId !== task.thread_id ||
+          currentNative.providerInstanceId !== native.providerInstanceId ||
+          (yield* providers.getInstance(native.providerInstanceId)) !== instance
+        )
+          return "error" as const;
+        return (yield* stillAllowed) ? null : ("unsupported" as const);
       });
-      if (!task) return empty("unsupported");
+      const validated = (value: Reading) =>
+        Effect.map(validate, (status) => (status === null ? value : empty(status)));
       const key = encodeCacheKey([
         native.providerInstanceId,
         home,
@@ -149,11 +196,22 @@ const make = Effect.gen(function* () {
         task.descendant_thread_ids,
         task.updatedAt,
       ]);
+      let bucket = bySettings.get(configured);
+      if (!bucket) {
+        bucket = { cache: new Map(), pending: new Map() };
+        bySettings.set(configured, bucket);
+      }
+      const { cache, pending } = bucket;
       const cached = cache.get(key);
-      if (cached && now - Date.parse(cached.checkedAt) < 60_000) return cached;
+      if (cached && now - Date.parse(cached.checkedAt) < 60_000) return yield* validated(cached);
       const existing = pending.get(key);
-      if (existing) return yield* existing;
+      if (existing) {
+        const value = yield* existing;
+        return yield* validated(value);
+      }
       const request = Effect.gen(function* () {
+        const beforeRequest = yield* validate;
+        if (beforeRequest !== null) return empty(beforeRequest);
         const response = yield* http.execute(
           HttpClientRequest.post(
             "https://chatgpt.com/backend-api/wham/usage/thread_usage/query_v2",
@@ -175,16 +233,15 @@ const make = Effect.gen(function* () {
         );
         if (response.status !== 200) return empty("error");
         const payload = yield* response.json.pipe(Effect.flatMap(decodeResponse));
-        const after = yield* readCredentials;
+        const after = yield* settings.withSettingsSnapshot((current) =>
+          current.providerInstances[native.providerInstanceId] === configured
+            ? readCredentials
+            : Effect.succeed(null),
+        );
+        if (after === null) return empty("unsupported");
         if (after.tokens.account_id !== credentials.tokens.account_id) return empty("error");
-        const current = yield* projection.getThreadRecords(threadId, ["providerThreads"]);
-        const currentNative = current.providerThreads.find((row) => row.id === native.id);
-        if (
-          current.thread.activeProviderThreadId !== native.id ||
-          currentNative?.nativeThreadRef?.nativeId !== task.thread_id ||
-          (yield* providers.getInstance(native.providerInstanceId)) !== instance
-        )
-          return empty("error");
+        const afterRequest = yield* validate;
+        if (afterRequest !== null) return empty(afterRequest);
         if (payload.threads.length !== 1 || payload.threads[0]?.thread_id !== task.thread_id)
           return empty("error");
         const row = payload.threads[0];
@@ -210,7 +267,8 @@ const make = Effect.gen(function* () {
       );
       const shared = yield* Effect.cached(request);
       pending.set(key, shared);
-      return yield* shared;
+      const value = yield* shared;
+      return yield* validated(value);
     }).pipe(Effect.orElseSucceed(() => empty("error")));
   });
   return ForkThreadQuota.of({ read });

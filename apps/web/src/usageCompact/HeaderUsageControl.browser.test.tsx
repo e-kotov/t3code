@@ -106,6 +106,7 @@ function MaximizablePanel() {
     <div data-chat-workspace className="relative flex h-100 w-screen" style={workspaceVars}>
       <WorkspaceTitlebarControls
         showMaximizeControl
+        maximizeShortcutLabel={null}
         rightPanelOpen
         animationsActive={false}
         maximized={maximized}
@@ -160,6 +161,7 @@ it("keeps overflowing panel tabs scrollable beside all three usage meters when m
     >
       <WorkspaceTitlebarControls
         showMaximizeControl
+        maximizeShortcutLabel={null}
         rightPanelOpen
         animationsActive={false}
         maximized

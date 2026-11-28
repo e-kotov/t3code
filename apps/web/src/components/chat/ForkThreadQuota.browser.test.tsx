@@ -11,10 +11,13 @@ import { act, render } from "../../../test/render";
 
 const state = vi.hoisted(() => ({
   nativeId: "native-one",
+  nativeInstance: "account-one",
   weekly: 1.25,
   listeners: new Set<() => void>(),
   projectionReads: 0,
   quotaRequests: 0,
+  access: "allowed" as "allowed" | "denied" | undefined,
+  accessListeners: new Set<() => void>(),
 }));
 vi.mock("../../state/entities", async () => {
   const { useSyncExternalStore } = await import("react");
@@ -22,21 +25,53 @@ vi.mock("../../state/entities", async () => {
     useQuietThreadShell: () => ({ activeProviderThreadId: "same-provider-row" }),
     useQuietThreadProjection: () => {
       state.projectionReads++;
-      const nativeId = useSyncExternalStore(
+      const nativeIdentity = useSyncExternalStore(
         (notify) => {
           state.listeners.add(notify);
           return () => {
             state.listeners.delete(notify);
           };
         },
-        () => state.nativeId,
+        () => JSON.stringify([state.nativeId, state.nativeInstance]),
       );
+      const [nativeId, providerInstanceId] = JSON.parse(nativeIdentity);
       return {
         projection: {
           thread: { activeProviderThreadId: "same-provider-row" },
-          providerThreads: [{ id: "same-provider-row", nativeThreadRef: { nativeId } }],
+          providerThreads: [
+            {
+              id: "same-provider-row",
+              driver: "codex",
+              providerInstanceId,
+              nativeThreadRef: { nativeId },
+            },
+          ],
         },
       };
+    },
+  };
+});
+vi.mock("../../hooks/useSettings", async () => {
+  const { useSyncExternalStore } = await import("react");
+  return {
+    useEnvironmentSettings: (_environmentId: unknown, select: (settings: unknown) => unknown) => {
+      const access = useSyncExternalStore(
+        (notify) => {
+          state.accessListeners.add(notify);
+          return () => {
+            state.accessListeners.delete(notify);
+          };
+        },
+        () => state.access,
+      );
+      const provider = { driver: "codex", usageAccess: access };
+      return select({
+        providerInstances: {
+          codex: provider,
+          "account-one": { ...provider, usageAccess: "allowed" },
+          "account-two": provider,
+        },
+      });
     },
   };
 });
@@ -90,7 +125,11 @@ it("replaces the prior reading when a thread changes native task or Codex accoun
   });
   await expect.element(page.getByText("Weekly 2.5%", { exact: true })).toBeVisible();
   await expect.element(page.getByText("Weekly 1.25%", { exact: true })).not.toBeInTheDocument();
-  state.weekly = 3.75;
+  await act(() => {
+    state.weekly = 3.75;
+    state.nativeInstance = "account-two";
+    for (const notify of state.listeners) notify();
+  });
   await screen.rerender(
     <ForkThreadQuota
       {...serverThread}
@@ -107,6 +146,7 @@ it("does not subscribe to an unsent draft and starts normally when the same id i
   state.projectionReads = 0;
   state.quotaRequests = 0;
   state.weekly = 4.5;
+  state.nativeInstance = "codex";
   const props = {
     environmentId: EnvironmentId.make("environment"),
     threadId: ThreadId.make("reserved-draft-thread"),
@@ -124,4 +164,43 @@ it("does not subscribe to an unsent draft and starts normally when the same id i
   await expect.element(page.getByText("Weekly 4.5%", { exact: true })).toBeVisible();
   expect(state.projectionReads).toBeGreaterThan(0);
   expect(state.quotaRequests).toBe(1);
+});
+
+it("does not read quota until allowed and remounts without the revoked grant's cached reading", async () => {
+  state.projectionReads = 0;
+  state.quotaRequests = 0;
+  state.nativeInstance = "account-two";
+  state.access = undefined;
+  state.weekly = 5.5;
+  const props = {
+    ...serverThread,
+    environmentId: EnvironmentId.make("environment"),
+    threadId: ThreadId.make("consent-thread"),
+    usage: {
+      providerInstanceId: ProviderInstanceId.make("account-one"),
+      providers: [
+        { instanceId: "account-one", driver: ProviderDriverKind.make("codex"), auth: {} },
+      ],
+    } as unknown as ThreadDetailsUsageInput,
+  };
+  const setAccess = (access: "allowed" | "denied" | undefined) =>
+    act(() => {
+      state.access = access;
+      for (const notify of state.accessListeners) notify();
+    });
+  await using _screen = await render(<ForkThreadQuota {...props} />);
+  expect(state.quotaRequests).toBe(0);
+  await setAccess("denied");
+  expect(state.quotaRequests).toBe(0);
+  await setAccess("allowed");
+  await expect.element(page.getByText("Weekly 5.5%", { exact: true })).toBeVisible();
+  expect(state.quotaRequests).toBe(1);
+  await setAccess("denied");
+  await expect.element(page.getByText("Codex quota used", { exact: true })).not.toBeInTheDocument();
+  expect(state.quotaRequests).toBe(1);
+  state.weekly = 6.5;
+  await setAccess("allowed");
+  await expect.element(page.getByText("Weekly 6.5%", { exact: true })).toBeVisible();
+  await expect.element(page.getByText("Weekly 5.5%", { exact: true })).not.toBeInTheDocument();
+  expect(state.quotaRequests).toBe(2);
 });

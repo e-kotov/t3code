@@ -1,7 +1,9 @@
 import { T, useGT, useMessages } from "gt-react";
 import { useAtomValue } from "@effect/atom-react";
+import { useId } from "react";
 import { createForkThreadQuotaAtoms } from "@t3tools/client-runtime/state/fork-thread-quota";
 import type { EnvironmentId, ThreadId, ForkThreadQuota as Reading } from "@t3tools/contracts";
+import { resolveProviderInstanceEnabled } from "@t3tools/contracts";
 import { AsyncResult } from "effect/reactivity";
 import { connectionAtomRuntime } from "../../connection/runtime";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -9,6 +11,7 @@ import { ThreadDetailsSection } from "./ThreadDetailsSection";
 import { quotaAmountText } from "./forkThreadQuotaText";
 import type { ThreadDetailsUsageInput } from "./ThreadDetailsUsage";
 import { useQuietThreadProjection } from "../../state/entities";
+import { useEnvironmentSettings } from "../../hooks/useSettings";
 
 const readings = createForkThreadQuotaAtoms(connectionAtomRuntime);
 
@@ -23,22 +26,48 @@ export function ForkThreadQuota({
   usage: ThreadDetailsUsageInput;
   isServerThread: boolean;
 }) {
-  if (
-    !isServerThread ||
-    usage.providers.find((provider) => provider.instanceId === usage.providerInstanceId)?.driver !==
-      "codex"
-  )
-    return null;
-  const provider = usage.providers.find((entry) => entry.instanceId === usage.providerInstanceId);
+  if (!isServerThread) return null;
+  return <GrantedCodexTaskQuota environmentId={environmentId} threadId={threadId} usage={usage} />;
+}
+
+function GrantedCodexTaskQuota({
+  environmentId,
+  threadId,
+  usage,
+}: {
+  environmentId: EnvironmentId;
+  threadId: ThreadId;
+  usage: ThreadDetailsUsageInput;
+}) {
+  const projection = useQuietThreadProjection({ environmentId, threadId })?.projection;
+  const native = projection?.providerThreads.find(
+    (row) => row.id === projection.thread.activeProviderThreadId,
+  );
+  const instanceId = native?.providerInstanceId;
+  const nativeTaskId = native?.nativeThreadRef?.nativeId;
+  const allowed = useEnvironmentSettings(environmentId, (settings) => {
+    const instance = instanceId === undefined ? undefined : settings.providerInstances[instanceId];
+    return (
+      instance?.driver === "codex" &&
+      resolveProviderInstanceEnabled(instance) &&
+      instance.usageAccess === "allowed"
+    );
+  });
+  if (native?.driver !== "codex" || !nativeTaskId || !allowed) return null;
+  const provider = usage.providers.find((entry) => entry.instanceId === instanceId);
+  const nativeAccountKey = JSON.stringify([
+    native.id,
+    nativeTaskId,
+    instanceId,
+    provider?.auth.workspaceId,
+    provider?.auth.email,
+  ]);
   return (
     <CodexTaskQuota
+      key={nativeAccountKey}
       environmentId={environmentId}
       threadId={threadId}
-      accountKey={JSON.stringify([
-        provider?.instanceId,
-        provider?.auth.workspaceId,
-        provider?.auth.email,
-      ])}
+      nativeAccountKey={nativeAccountKey}
     />
   );
 }
@@ -46,28 +75,18 @@ export function ForkThreadQuota({
 function CodexTaskQuota({
   environmentId,
   threadId,
-  accountKey,
+  nativeAccountKey,
 }: {
   environmentId: EnvironmentId;
   threadId: ThreadId;
-  accountKey: string;
+  nativeAccountKey: string;
 }) {
   const gt = useGT();
   const messages = useMessages();
-  const projection = useQuietThreadProjection({ environmentId, threadId })?.projection;
-  const native = projection?.providerThreads.find(
-    (row) => row.id === projection.thread.activeProviderThreadId,
-  );
+  // A grant remount must not reuse the previous grant's stale-while-revalidate reading.
+  const grantMountId = useId();
   const result = useAtomValue(
-    readings(
-      JSON.stringify([
-        environmentId,
-        threadId,
-        native?.id,
-        native?.nativeThreadRef?.nativeId,
-        accountKey,
-      ]),
-    ),
+    readings(JSON.stringify([environmentId, threadId, nativeAccountKey, grantMountId])),
   );
   const reading = AsyncResult.getOrElse(result, (): Reading | null => null);
   if (reading?.status === "unsupported") return null;

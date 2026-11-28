@@ -4,6 +4,7 @@ import type {
   OrchestrationV2ProviderTurnTokenUsage,
   OrchestrationV2ThreadProjection,
   ProviderDriverKind,
+  ServerProviderUsageLimits,
   ServerProviderUsageWindow,
   ThreadId,
   ThreadTokenUsageSnapshot,
@@ -312,6 +313,11 @@ export function describeCacheHud(hud: OrchestrationV2CacheHud, nowMs: number) {
     ? `Context ${formatHudTokens(usage.usedTokens)} of ${formatHudTokens(usage.maxTokens)} · ${view.contextPercentage}%`
     : `Context ${formatHudTokens(usage.usedTokens)}`;
   return { state: view.state, cache, lastRequest, context };
+}
+
+/** Subscription bars are private until provider usage access is granted. */
+export function cacheHudUsageWindows(limits: ServerProviderUsageLimits | undefined) {
+  return limits?.needsUsageAccess ? undefined : limits?.windows;
 }
 
 /** Spelled-out subscription limits for hover cards, e.g.

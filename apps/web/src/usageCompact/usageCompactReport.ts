@@ -18,6 +18,7 @@ function hasVerifiedQuotaAccess(provider: ServerProvider): boolean {
     provider.driver !== "antigravity" ||
     provider.auth.status !== "unknown" ||
     !limits?.credentialFingerprint ||
+    limits.needsUsageAccess ||
     limits.unavailable ||
     limits.windows.length === 0
   ) {

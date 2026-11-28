@@ -8,6 +8,7 @@ import {
   ProviderTurnId,
   type OrchestrationV2ProviderThread,
   type OrchestrationV2ProviderTurn,
+  type ServerSettings,
 } from "@t3tools/contracts";
 import type * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
 import type * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
@@ -19,6 +20,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as Queue from "effect/Queue";
+import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 import * as SqlClient from "effect/sql/SqlClient";
 
@@ -136,8 +138,21 @@ const finalRequestUsage = (updatedAt: string) => ({
   updatedAt,
 });
 
-const setup = Effect.gen(function* () {
+const setup = Effect.fn("test.antigravityTurnUsage")(function* (
+  initialAccess: "allowed" | "denied" | undefined,
+) {
   const fileSystem = yield* FileSystem.FileSystem;
+  const databaseChecks = yield* Ref.make(0);
+  const snapshot = (usageAccess: "allowed" | "denied" | undefined) =>
+    ({
+      providerInstances: {
+        [instanceId]: { driver, enabled: true, usageAccess },
+        unrelated: { driver, enabled: true, usageAccess: "allowed" },
+      },
+    }) as unknown as ServerSettings;
+  const settings = yield* Ref.make(snapshot(initialAccess));
+  const setAccess = (usageAccess: "allowed" | "denied" | undefined) =>
+    Ref.set(settings, snapshot(usageAccess));
   const path = yield* Path.Path;
   const digest = yield* Digest.Digest;
   const stateDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "antigravity-usage-" });
@@ -157,9 +172,21 @@ const setup = Effect.gen(function* () {
     {
       instanceId,
       digest,
-      fileSystem,
+      fileSystem: {
+        ...fileSystem,
+        exists: (path) =>
+          Ref.update(databaseChecks, (count) => count + 1).pipe(
+            Effect.andThen(fileSystem.exists(path)),
+          ),
+      },
       path,
-      host: { paths: { stateDir } } as unknown as ProviderHost.ProviderHost["Service"],
+      host: {
+        paths: { stateDir },
+        settings: {
+          withSnapshot: (use: (settings: ServerSettings) => Effect.Effect<unknown>) =>
+            Ref.get(settings).pipe(Effect.flatMap(use)),
+        },
+      } as unknown as ProviderHost.ProviderHost["Service"],
     },
   );
   const session = yield* adapter.openSession(
@@ -183,6 +210,8 @@ const setup = Effect.gen(function* () {
     database: path.join(conversations, `${sessionId}.db`),
     startTurn,
     compactThread,
+    databaseChecks,
+    setAccess,
     emit,
   };
 });
@@ -193,7 +222,7 @@ it.effect.each(["startTurn", "compactThread"] as const)(
   "reports the first generation (idx=0) on a fresh session after %s",
   (operation) =>
     Effect.gen(function* () {
-      const { database, emit, ...turns } = yield* setup;
+      const { database, emit, ...turns } = yield* setup("allowed");
       yield* turns[operation]();
       yield* insertGeneration(database, finalRequest);
       const [, settled] = yield* emit([
@@ -206,7 +235,7 @@ it.effect.each(["startTurn", "compactThread"] as const)(
 
 it.effect("reports the turn's newest generation as its last request", () =>
   Effect.gen(function* () {
-    const { database, startTurn, emit } = yield* setup;
+    const { database, startTurn, emit } = yield* setup("allowed");
     yield* insertGeneration(
       database,
       generation({ uncached: 1, output: 1, creation: 0, cached: 0 }),
@@ -227,7 +256,7 @@ it.effect("reports the turn's newest generation as its last request", () =>
 
 it.effect("follows the live context size while a turn runs", () =>
   Effect.gen(function* () {
-    const { startTurn, emit } = yield* setup;
+    const { startTurn, emit } = yield* setup("allowed");
     yield* startTurn();
     const [running, threadUpdate, refreshed] = yield* emit(
       [
@@ -255,7 +284,7 @@ it.effect("follows the live context size while a turn runs", () =>
 
 it.effect("repeats a settled turn's report and gives a later turn only its own generation", () =>
   Effect.gen(function* () {
-    const { database, startTurn, emit } = yield* setup;
+    const { database, startTurn, emit } = yield* setup("allowed");
     yield* startTurn();
     yield* insertGeneration(database, finalRequest);
     const completedAt = DateTime.makeUnsafe("2026-10-27T15:00:00.000Z");
@@ -279,7 +308,7 @@ it.effect("repeats a settled turn's report and gives a later turn only its own g
 
 it.effect("leaves a turn without a generation or known context without usage", () =>
   Effect.gen(function* () {
-    const { database, startTurn, emit } = yield* setup;
+    const { database, startTurn, emit } = yield* setup("allowed");
     yield* insertGeneration(database, finalRequest);
     yield* startTurn();
     const [settled] = yield* emit([
@@ -287,5 +316,64 @@ it.effect("leaves a turn without a generation or known context without usage", (
     ]);
     assert.strictEqual(settled?.type, "provider_turn.updated");
     assert.isUndefined(tokenUsageOf(settled));
+  }).pipe(Effect.scoped, Effect.provide(layer)),
+);
+
+it.effect.each([undefined, "denied"] as const)(
+  "does not probe the database without exact-instance consent (%s), but keeps ACP usage",
+  (access) =>
+    Effect.gen(function* () {
+      const { database, databaseChecks, emit, startTurn } = yield* setup(access);
+      yield* insertGeneration(database, finalRequest);
+      yield* startTurn();
+      const [, settled] = yield* emit([
+        threadEvent(contextUsage, "2026-10-27T14:59:00.000Z"),
+        turnEvent("provider-turn:1", "completed", DateTime.makeUnsafe("2026-10-27T15:00:00.000Z")),
+      ]);
+      assert.strictEqual(yield* Ref.get(databaseChecks), 0);
+      assert.strictEqual(tokenUsageOf(settled)?.usedTokens, contextUsage.usedTokens);
+      assert.strictEqual(tokenUsageOf(settled)?.cachedInputTokens, undefined);
+    }).pipe(Effect.scoped, Effect.provide(layer)),
+);
+
+it.effect.each([false, true])("checks consent again at settlement (replayed: %s)", (replayed) =>
+  Effect.gen(function* () {
+    const { setAccess, database, databaseChecks, emit, startTurn } = yield* setup("allowed");
+    yield* startTurn();
+    yield* insertGeneration(database, finalRequest);
+    const done = turnEvent(
+      "provider-turn:1",
+      "completed",
+      DateTime.makeUnsafe("2026-10-27T15:00:00.000Z"),
+    );
+    yield* emit([threadEvent(contextUsage, "2026-10-27T14:59:00.000Z")]);
+    if (replayed) {
+      const [settled] = yield* emit([done]);
+      assert.strictEqual(tokenUsageOf(settled)?.cachedInputTokens, 117_500);
+    }
+    const checked = yield* Ref.get(databaseChecks);
+    yield* setAccess("denied");
+    const [revoked] = yield* emit([done]);
+    assert.strictEqual(yield* Ref.get(databaseChecks), checked);
+    assert.strictEqual(tokenUsageOf(revoked)?.usedTokens, contextUsage.usedTokens);
+    assert.strictEqual(tokenUsageOf(revoked)?.cachedInputTokens, undefined);
+  }).pipe(Effect.scoped, Effect.provide(layer)),
+);
+
+it.effect("does not read generations from a consent gap after access is granted again", () =>
+  Effect.gen(function* () {
+    const { setAccess, database, databaseChecks, emit, startTurn } = yield* setup("allowed");
+    yield* startTurn();
+    const checked = yield* Ref.get(databaseChecks);
+    yield* setAccess("denied");
+    yield* insertGeneration(database, finalRequest);
+    yield* setAccess("allowed");
+    const [, settled] = yield* emit([
+      threadEvent(contextUsage, "2026-10-27T14:59:00.000Z"),
+      turnEvent("provider-turn:1", "completed", DateTime.makeUnsafe("2026-10-27T15:00:00.000Z")),
+    ]);
+    assert.strictEqual(yield* Ref.get(databaseChecks), checked);
+    assert.strictEqual(tokenUsageOf(settled)?.usedTokens, contextUsage.usedTokens);
+    assert.strictEqual(tokenUsageOf(settled)?.cachedInputTokens, undefined);
   }).pipe(Effect.scoped, Effect.provide(layer)),
 );

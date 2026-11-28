@@ -38,6 +38,7 @@ const layerProvidedClientConnection = layerSnapshotLoader.pipe(
       slurmJobStatus: true,
       environmentThemes: true,
       usageLimitSources: true,
+      hostPressure: true,
       usageLimitsCommand: true,
     }),
   ),
