@@ -43,6 +43,7 @@ function setup(prompt: string, composerRichTextEnabled: boolean) {
         pasteAtCodeBlockEnd: () => false,
         readSelectionRange: () => ({ start: prompt.length, end: prompt.length }),
         captureAttachmentInsertion: () => undefined,
+        canInsertCitation: () => false,
         requestCitationComment: vi.fn(),
         readSnapshot: () => ({
           value: prompt,
